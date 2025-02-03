@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ukázky CNC kódů</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+        }
+        h1 {
+            font-size: 1.5em;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ccc;
+            overflow-x: auto;
+        }
+        @media (max-width: 600px) {
+            pre {
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Ukázky CNC kódů</h1>
+    <h2><a href="#" onclick="document.getElementById('codeBlock').style.display='block'">Podložky</a></h2>
+    <pre id='codeBlock' style='display:none; font-size: 1.5em;'>
+G54 T2 D2 G95 M41
+G97 S60 M4
+G91 G1 X-300 F1
+M30
+</pre>
+    <pre>
+G54 T2 D2 G95 M41  ; Nastavení pracovního posunu a nástroje
+G97 S60 M4      ; Nastavení rychlosti vřetena
+G91 G1 X-300 F1 ; Přírůstkové řízení pohybu na osu X
+M30             ; Konec programu
+
+
+G54  ; Nastavení pracovního posunu
+T2   ; Výběr nástroje 2
+D2   ; Vnější průměr
+G95  ; Posuv v mm/ot
+M41  ; Převodový stupeň jedna
+G97  ; Nastavení konstantní řezné rychlosti
+S60  ; Nastavení otáček vřetena na 60
+M4   ; Záporné otáčení vřetena
+G91  ; Přírůstkové řízení
+G1   ; Lineární pohyb
+X-300; Pohyb na osu X o -300 mm
+F1   ; Posuv 1 mm/min
+M30  ; Konec programu
+</pre>
+    <style>
+        pre {
+            font-size: 1.2em;
+            background-color: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hlavní Stránka</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            padding: 20px;
+        }
+        button {
+            background-color: #4CAF50; /* Zelená barva pozadí */
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 12px; /* Zaoblené rohy */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Stín */
+            transition: background-color 0.3s, transform 0.3s; /* Efekt při najetí */
+        }
+        button:hover {
+            background-color: #45a049; /* Tmavší zelená při najetí */
+            transform: scale(1.05); /* Zvětšení tlačítka při najetí */
+        }
+        /* Styl pro tmavý režim */
+        body.dark-mode {
+            background-color: #121212;
+            color: white;
+        }
+        .dark-mode-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .error-terminal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+        .sidebar {
+            position: fixed;
+            left: -250px;
+            width: 250px;
+            height: 100%;
+            background-color: #f4f4f4;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+            transition: left 0.3s;
+            z-index: 1000;
+        }
+        .sidebar.open {
+            left: 0;
+        }
+        .menu-toggle {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .terminal {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 300px;
+            height: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: white;
+            z-index: 999;
+        }
+        .terminal-content {
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">Veselé kolorubaní a mlácení čísel ocasem</h1>
+    <div style="text-align: center;">
+        <button onclick="openCalculator()" style="margin-right: 20px;">
+            <i class="fas fa-calculator fa-lg"></i>
+        </button>
+        <h1 style="display: inline;">Progres kolorubač</h1>
+        <a href="calendar.html"><i class="fas fa-calendar-alt fa-lg" style="margin-left: 20px;"></i></a>
+    </div>
+    <div class="dark-mode-toggle" onclick="toggleDarkMode()">
+        🌙
+    </div>
+    <div class="menu-toggle" onclick="toggleSidebar()">
+        📋 Menu
+    </div>
+    <div class="sidebar" id="sidebar">
+        <button class="menu-close-btn" onclick="toggleSidebar()" style="font-size: 0.8em;">
+            <i class="fas fa-times fa-xs"></i>
+        </button>
+        <h2>CNC-kody</h2>
+        <ul>
+            <li><a href="#" onclick="openGcodeModal()">G a M Kódy + Příkazy</a></li>
+            <li><a href="#" onclick="openModal('ukazky_kodu.html')">Ukázky CNC kódů</a></li>
+            <li><a href="#" onclick="openGcodeMeaningModal()">G kódy - význam</a></li>
+            <hr style="margin: 10px 0; border-top: 1px solid #ccc;">
+            <li><a href="opotrebeni_ukazka.html">🔍 Ukázka Opotřebení</a></li>
+        </ul>
+        <div style="position: absolute; bottom: 20px; left: 20px; cursor: pointer;" onclick="toggleErrorTerminal()">
+            💻 Terminál
+        </div>
+    </div>
+    <div id="cncModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 80%; height: 80%;">
+        <button onclick="closeCNCModal()" style="float: right; font-size: 0.5em;">❌</button>
+        <iframe src="CNC_GaM_kod.html" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+    <div id="gcodeModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 90%; height: 90%; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
+        <button onclick="closeGcodeModal()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; font-size: 20px; cursor: pointer;">❌</button>
+        <iframe src="Gkod.html" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+    <!-- Přidání nového modálního okna pro G kódy - význam -->
+    <div id="gcodeMeaningModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 90%; height: 90%; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
+        <button onclick="closeGcodeMeaningModal()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; font-size: 20px; cursor: pointer;">❌</button>
+        <iframe src="Gkod.html" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+    <nav>
+        <ul style="list-style-type: none; text-align: center; padding: 0;">
+            <li style="display: inline; margin-right: 20px;"><a href="tolerance.html">📏 Volné míry</a></li>
+            <li style="display: inline; margin-right: 20px;"><a href="kalkulace_geometrie_opotrebeni.html">📐 Geometrie - opotřebení (převod)</a></li>
+            <li style="display: inline; margin-right: 20px;"><a href="kalkulace_korekce_nastroje.html">🔧 Korekce Nástrojů</a></li>
+            <li style="display: inline; margin-right: 20px;"><a href="trojuhelnik.html">📐 Pythagoras</a></li>
+        </ul>
+    </nav>
+    <div id="calculatorModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 80%; height: 80%;">
+        <button onclick="closeCalculator()" style="float: right; font-size: 0.5em;">❌</button>
+        <iframe src="kalkulacka.html" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+    <div class="error-terminal" id="error-terminal" style="display: none;">
+        <h2>Chyby</h2>
+        <p>Žádné chyby k zobrazení.</p>
+    </div>
+    <div class="terminal">
+        <div class="terminal-content">
+            <!-- Obsah terminálu zde -->
+        </div>
+    </div>
+    <script>
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+        }
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+        function toggleErrorTerminal() {
+            document.getElementById('error-terminal').style.display = document.getElementById('error-terminal').style.display === 'block' ? 'none' : 'block';
+        }
+        function toggleTerminal() {
+            document.querySelector('.terminal').style.display = document.querySelector('.terminal').style.display === 'block' ? 'none' : 'block';
+        }
+        function openCalculator() {
+            document.getElementById('calculatorModal').style.display = 'block';
+        }
+        function closeCalculator() {
+            document.getElementById('calculatorModal').style.display = 'none';
+        }
+        function openCNCModal() {
+            document.getElementById('cncModal').style.display = 'block';
+        }
+        function closeCNCModal() {
+            document.getElementById('cncModal').style.display = 'none';
+        }
+        function openModal(url) {
+            var modal = document.createElement('div');
+            modal.style.display = 'block';
+            modal.style.position = 'fixed';
+            modal.style.top = '50%';
+            modal.style.left = '50%';
+            modal.style.transform = 'translate(-50%, -50%)';
+            modal.style.background = 'white';
+            modal.style.border = '1px solid #ccc';
+            modal.style.padding = '20px';
+            modal.style.zIndex = '1000';
+            modal.style.width = '80%';
+            modal.style.height = '80%';
+            var iframe = document.createElement('iframe');
+            iframe.src = url;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            modal.appendChild(iframe);
+            var closeButton = document.createElement('button');
+            closeButton.onclick = function() {
+                modal.style.display = 'none';
+            };
+            closeButton.style.position = 'absolute';
+            closeButton.style.top = '10px';
+            closeButton.style.right = '10px';
+            closeButton.style.fontSize = '0.5em';
+            closeButton.innerHTML = '❌';
+            modal.appendChild(closeButton);
+            document.body.appendChild(modal);
+        }
+        function openGcodeModal() {
+            document.getElementById('gcodeModal').style.display = 'block';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+
+        function closeGcodeModal() {
+            document.getElementById('gcodeModal').style.display = 'none';
+        }
+
+        function openGcodeMeaningModal() {
+            document.getElementById('gcodeMeaningModal').style.display = 'block';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+
+        function closeGcodeMeaningModal() {
+            document.getElementById('gcodeMeaningModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
