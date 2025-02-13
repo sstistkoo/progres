@@ -56,6 +56,58 @@ X-300; Pohyb na osu X o -300 mm
 F1   ; Posuv 1 mm/min
 M30  ; Konec programu
 </pre>
+
+    <h2><a href="#" onclick="document.getElementById('gotoBlock').style.display='block'">GOTO Příkazy</a></h2>
+    <pre>
+; Vysvětlení příkazů pro skoky v programu:
+GOTO   - Nepodmíněný skok na určené návěští nebo číslo řádku
+        N10 GOTO N100     ; Skočí na řádek N100
+
+GOTOF  - Podmíněný skok vpřed (hledá návěští vpřed)
+        N10 GOTOF N55     ; Skočí vpřed v programu na řádek N55
+
+GOTOB  - Podmíněný skok vzad (hledá návěští vzad)
+        N50 GOTOB N10     ; Skočí vzad v programu na řádek N10
+
+; Příklad použití GOTO příkazů - Smyčka opakování 3x
+N100 G0 X0 Y0      ; Počáteční pozice
+N110 R1=3          ; Počet opakování (nastavení parametru R1 na hodnotu 3)
+N120 G01 X50 F100  ; Pohyb v ose X
+N130 G01 Y20       ; Pohyb v ose Y
+N140 R1=R1-1       ; R1=3-1 (nastavení parametru R1 na hodnotu 2)
+N150 IF R1>0 GOTOB N120  ; Jestliže R1 je větší než 0, skok nazpět na N120
+N160 M30           ; Konec programu
+</pre>
+
+    <h2><a href="#" onclick="document.getElementById('transBlock').style.display='block'">TRANS Příkazy</a></h2>
+    <pre>
+; TRANS - Programovatelné posunutí nulového bodu pro karusel
+; Základní příkazy:
+TRANS X100            ; Posunutí o 100mm v ose X
+TRANS Z50             ; Posunutí o 50mm v ose Z (délka)
+TRANS X75 Z25         ; Kombinované posunutí v X a Z
+
+; Příklad 1 - Soustružení více stejných průměrů:
+N100 G0 X100 Z5      ; Výchozí pozice
+N110 TRANS X0 Z0     ; Výchozí nulový bod
+N120 G1 X50 F0.2     ; Soustružení průměru
+N130 G0 X100         ; Odjezd
+N140 TRANS Z=IC(30)  ; Posunutí v Z o 30mm
+N150 G1 X50 F0.2     ; Soustružení druhého průměru
+N160 G0 X100         ; Odjezd
+
+; Příklad 2 - Opakované soustružení s posunutím:
+N200 R1=0            ; Počítadlo
+N210 TRANS Z0        ; Výchozí pozice v Z
+N220 G1 X40 F0.15    ; Soustružení průměru
+N230 G0 X80          ; Bezpečná vzdálenost
+N240 TRANS Z=IC(25)  ; Inkrementální posunutí v Z
+N250 R1=R1+1         ; Zvýšení počítadla
+N260 IF R1<3 GOTOB N220  ; Opakování 3x
+
+N270 M30             ; Konec programu
+</pre>
+
     <style>
         pre {
             font-size: 1.2em;
