@@ -279,8 +279,8 @@
         /* Styly pro tlačítko přepínání režimu */
         .theme-toggle {
             position: fixed;
-            top: 20px;
-            left: 20px;
+            top: 10px;
+            left: 10px;
             padding: 10px;
             background: none;
             border: none;
@@ -291,17 +291,19 @@
 
         /* Styly pro menu */
         .menu {
-            position: absolute;
-            top: 20px;
-            right: 20px;
+            display: flex;
+            justify-content: center;
+            margin: 10px 0;
         }
 
         .menu-link {
             color: #1976d2;
             text-decoration: none;
-            padding: 8px 16px;
+            padding: 12px 24px;
             border-radius: 4px;
             background-color: #e3f2fd;
+            font-size: 16px;
+            transition: background-color 0.3s;
         }
 
         .menu-link:hover {
@@ -316,16 +318,63 @@
         body.dark-mode .menu-link:hover {
             background-color: #283593;
         }
+
+        /* Přidat styl pro navigační ikonu */
+        .home-link {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #1976d2; /* Změněno na modrou barvu */
+            text-decoration: none;
+            font-size: 24px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #e3f2fd;
+            padding: 8px 16px;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s ease; /* Plynulá animace */
+        }
+
+        .home-link i {
+            font-size: 20px;
+        }
+
+        .home-link span {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .home-link:hover {
+            color: #1565c0; /* Tmavší modrá při najetí */
+            background: #bbdefb;
+            transform: translateX(-50%) scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); /* Výraznější stín */
+        }
+
+        body.dark-mode .home-link {
+            background: #1a237e; /* Tmavší pozadí v dark mode */
+            color: #90caf9; /* Světlejší modrá v dark mode */
+        }
+
+        body.dark-mode .home-link:hover {
+            background: #283593;
+        }
     </style>
 </head>
 <body>
+    <!-- Přidat navigační ikonu hned po začátku body -->
+    <a href="index.html" class="home-link">
+        <i class="fas fa-home"></i>
+        <span>Hlavní menu</span>
+    </a>
+
     <button class="theme-toggle" onclick="toggleDarkMode()" title="Přepnout tmavý režim">
         🌓
     </button>
-
-    <div class="menu">
-        <a href="CNC_GaM_kod.html" class="menu-link">G a M Kódy + Příkazy</a>
-    </div>
 
     <div class="container">
         <h1>PROGRES CNC Programů</h1>
@@ -549,75 +598,76 @@
                 let currentY = 0;
                 let currentZ = 0;
                 let isG91Mode = false;
+                let lastAbsoluteZ = 0; // Přidáme sledování poslední absolutní Z pozice
 
                 const convertedLines = lines.map(line => {
                     const originalLine = line.trim();
 
-                    // Detekce přepnutí režimu
-                    if (originalLine.includes('G90')) isG91Mode = false;
+                    // Aktualizace absolutních pozic při G90
+                    if (originalLine.includes('G90')) {
+                        isG91Mode = false;
+                        // Aktualizovat absolutní pozice ze současného G90 řádku
+                        const xMatch = originalLine.match(/X([-\d.]+)/);
+                        const zMatch = originalLine.match(/Z([-\d.]+)/);
+                        if (xMatch) currentX = parseFloat(xMatch[1]);
+                        if (zMatch) {
+                            currentZ = parseFloat(zMatch[1]);
+                            lastAbsoluteZ = currentZ; // Uložit poslední absolutní Z pozici
+                        }
+                        return originalLine;
+                    }
+
+                    // Zpracování G91 řádku
                     if (originalLine.includes('G91')) {
                         isG91Mode = true;
-                        return 'G90 ; (converted from G91)';
+                        const xMatch = originalLine.match(/X([-\d.]+)/);
+                        const zMatch = originalLine.match(/Z([-\d.]+)/);
+
+                        if (xMatch || zMatch) {
+                            // Aktualizovat relativní pozice
+                            if (xMatch) currentX += parseFloat(xMatch[1]);
+                            if (zMatch) {
+                                const zIncrement = parseFloat(zMatch[1]);
+                                currentZ = lastAbsoluteZ + zIncrement; // Použít poslední absolutní Z pozici
+                                lastAbsoluteZ = currentZ; // Aktualizovat poslední absolutní Z pozici
+                            }
+
+                            // Sestavit nový G90 řádek
+                            let newLine = 'G90';
+                            if (xMatch) newLine += ` X${currentX.toFixed(3)}`;
+                            if (zMatch) newLine += ` Z${currentZ.toFixed(3)}`;
+
+                            // Zachovat zbytek řádku (posuv, M kódy atd.)
+                            const restOfLine = originalLine.replace(/G91|X[-\d.]+|Z[-\d.]+/g, '').trim();
+                            if (restOfLine) newLine += ' ' + restOfLine;
+
+                            return `${newLine} ; (puvodni: ${originalLine}) (začátek převodu)`;
+                        }
+                        return 'G90 ; (puvodni: G91) (začátek převodu)';
                     }
 
-                    if (!isG91Mode || !originalLine) return originalLine;
+                    // Zpracování následujících G91 řádků
+                    if (isG91Mode && /[XZ]/.test(originalLine)) {
+                        const xMatch = originalLine.match(/X([-\d.]+)/);
+                        const zMatch = originalLine.match(/Z([-\d.]+)/);
 
-                    // Zpracování pouze řádků s pohybovými příkazy nebo kruhovými interpolacemi
-                    if (!/[XYZIJK]/.test(originalLine)) return originalLine;
+                        if (xMatch || zMatch) {
+                            if (xMatch) currentX += parseFloat(xMatch[1]);
+                            if (zMatch) {
+                                const zIncrement = parseFloat(zMatch[1]);
+                                currentZ = lastAbsoluteZ + zIncrement;
+                                lastAbsoluteZ = currentZ;
+                            }
 
-                    const coords = {};
-                    const isCircular = originalLine.includes('G2') || originalLine.includes('G3');
+                            let newLine = originalLine;
+                            if (xMatch) newLine = newLine.replace(/X[-\d.]+/, `X${currentX.toFixed(3)}`);
+                            if (zMatch) newLine = newLine.replace(/Z[-\d.]+/, `Z${currentZ.toFixed(3)}`);
 
-                    // Extrahování hodnot X, Y, Z, I, J, K
-                    const xMatch = originalLine.match(/X([-\d.]+)/);
-                    const yMatch = originalLine.match(/Y([-\d.]+)/);
-                    const zMatch = originalLine.match(/Z([-\d.]+)/);
-                    const iMatch = originalLine.match(/I([-\d.]+)/);
-                    const jMatch = originalLine.match(/J([-\d.]+)/);
-                    const kMatch = originalLine.match(/K([-\d.]+)/);
-
-                    // Pro G2/G3 jsou X,Z absolutní, proto jen přidáme k aktuální pozici přírůstek
-                    if (isCircular) {
-                        if (xMatch) {
-                            const xIncrement = parseFloat(xMatch[1]);
-                            currentX += xIncrement;
-                            coords.X = currentX.toFixed(3);
-                        }
-                        if (zMatch) {
-                            const zIncrement = parseFloat(zMatch[1]);
-                            currentZ += zIncrement;
-                            coords.Z = currentZ.toFixed(3);
-                        }
-                        // I, K zůstávají přírůstkové
-                        if (iMatch) coords.I = iMatch[1];
-                        if (kMatch) coords.K = kMatch[1];
-                    } else {
-                        // Pro lineární pohyby převádíme vše na absolutní
-                        if (xMatch) {
-                            const xIncrement = parseFloat(xMatch[1]);
-                            currentX += xIncrement;
-                            coords.X = currentX.toFixed(3);
-                        }
-                        if (yMatch) {
-                            const yIncrement = parseFloat(yMatch[1]);
-                            currentY += yIncrement;
-                            coords.Y = currentY.toFixed(3);
-                        }
-                        if (zMatch) {
-                            const zIncrement = parseFloat(zMatch[1]);
-                            currentZ += zIncrement;
-                            coords.Z = currentZ.toFixed(3);
+                            return `${newLine} ; (puvodni: ${originalLine})`;
                         }
                     }
 
-                    // Sestavení nového řádku
-                    let newLine = originalLine;
-                    if (xMatch) newLine = newLine.replace(/X[-\d.]+/, `X${coords.X}`);
-                    if (yMatch) newLine = newLine.replace(/Y[-\d.]+/, `Y${coords.Y}`);
-                    if (zMatch) newLine = newLine.replace(/Z[-\d.]+/, `Z${coords.Z}`);
-                    // I, K parametry zachováváme beze změny pro G2/G3
-
-                    return `${newLine} ; (converted from: ${originalLine})`;
+                    return originalLine;
                 });
 
                 return convertedLines.join('\n');

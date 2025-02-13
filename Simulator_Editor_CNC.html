@@ -6,6 +6,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>CNC Editor - Sinumerik 840D</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
         body {
             margin: 0;
@@ -815,9 +816,31 @@
                 min-width: 150px; /* Větší minimální šířka na mobilu */
             }
         }
+
+        .home-link {
+            position: absolute;
+            top: 70px; /* Posunout dolů pod position-info */
+            right: 10px;
+            color: #333;
+            text-decoration: none;
+            font-size: 24px;
+            z-index: 2000;
+            background: white; /* Přidat bílé pozadí */
+            padding: 8px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .home-link:hover {
+            color: #666;
+            background: #f5f5f5;
+        }
     </style>
 </head>
 <body>
+    <a href="index.html" class="home-link">
+        <i class="fas fa-home"></i>
+    </a>
     <div class="container">
         <div class="simulator">
             <div class="canvas-container">
@@ -3113,6 +3136,83 @@
                 modal.style.display = 'none';
             }
         }
+
+        // Přidat funkce pro práci s localStorage
+        function saveSimulatorState() {
+            const state = {
+                editorContent: editor.value,
+                activeProgram: document.querySelector('.program-list-item.active')?.textContent || '',
+                viewState: {
+                    centerX: window.simulator.centerX,
+                    centerY: window.simulator.centerY,
+                    zoomFactor: window.simulator.zoomFactor,
+                    scale: window.simulator.scale
+                },
+                timestamp: Date.now()
+            };
+            localStorage.setItem('simulatorState', JSON.stringify(state));
+        }
+
+        function loadSimulatorState() {
+            const savedState = localStorage.getItem('simulatorState');
+            if (savedState) {
+                const state = JSON.parse(savedState);
+
+                // Kontrola zda není stav starší než 1 hodina
+                if (Date.now() - state.timestamp < 3600000) {
+                    // Obnovit obsah editoru
+                    editor.value = state.editorContent;
+
+                    // Obnovit pozici zobrazení
+                    if (window.simulator && state.viewState) {
+                        window.simulator.centerX = state.viewState.centerX;
+                        window.simulator.centerY = state.viewState.centerY;
+                        window.simulator.zoomFactor = state.viewState.zoomFactor;
+                        window.simulator.scale = state.viewState.scale;
+                    }
+
+                    // Spustit simulaci
+                    simulateProgram();
+                }
+            }
+        }
+
+        // Upravit event listener pro DOMContentLoaded
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                // ...existing initialization code...
+
+                // Přidat načtení uloženého stavu
+                loadSimulatorState();
+
+                // Event listener pro ukládání stavu při změnách
+                editor.addEventListener('input', debounce(() => {
+                    saveSimulatorState();
+                    if (window.simulator) {
+                        window.simulator.simulate();
+                    }
+                }, 1000));
+
+                // Přidat ukládání při změně zobrazení
+                window.simulator.canvas.addEventListener('wheel', debounce(() => {
+                    saveSimulatorState();
+                }, 1000));
+
+                window.simulator.canvas.addEventListener('mouseup', () => {
+                    if (window.simulator.isDragging) {
+                        saveSimulatorState();
+                    }
+                });
+
+            } catch (error) {
+                console.error('Chyba při inicializaci:', error);
+            }
+        }, { once: true });
+
+        // Přidat ukládání při odchodu ze stránky
+        window.addEventListener('beforeunload', () => {
+            saveSimulatorState();
+        });
     </script>
 </body>
 </html>

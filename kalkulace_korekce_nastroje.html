@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kalkulátor korekcí</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
         :root {
             --primary-color: #2563eb;
@@ -29,6 +30,8 @@
             border-radius: 12px;
             padding: 1rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            position: relative;
+            padding-top: 60px;
         }
 
         .grid {
@@ -309,14 +312,28 @@
         #displayX, #displayZ {
             transition: opacity 0.3s;
         }
+
+        /* Přidat styl pro ikonu domů vpravo nahoře */
+        .home-link {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: var(--text-color);
+            text-decoration: none;
+            font-size: 24px;
+            z-index: 100;
+        }
+
+        .home-link:hover {
+            color: var(--primary-color);
+        }
     </style>
 </head>
 <body>
     <div class="card">
-        <div style="display: inline-block; margin-left: 20px;">
-            <a href="index.html"><i class="fas fa-home fa-lg"></i></a>
-        </div>
-        <!-- Odstraníme přepínač z horní části -->
+        <a href="index.html" class="home-link">
+            <i class="fas fa-home"></i>
+        </a>
         <div class="controls">
             <select id="axis">
                 <option value="X" selected>Osa X</option>

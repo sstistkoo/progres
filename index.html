@@ -95,6 +95,49 @@
         .terminal-content {
             padding: 10px;
         }
+        /* Přidat nové styly pro velké ikony */
+        .big-icons-grid {
+            display: grid;
+            grid-template-rows: repeat(2, auto);
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            padding: 20px;
+            margin-top: 20px;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .big-icon-button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background-color: var(--card-background);
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s;
+            min-height: 150px;
+            text-align: center;
+        }
+
+        .big-icon-button:hover {
+            transform: translateY(-5px);
+        }
+
+        .big-icon-button i {
+            font-size: 40px;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+
+        .big-icon-button span {
+            font-size: 18px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -104,7 +147,7 @@
             <i class="fas fa-calculator fa-lg"></i>
         </button>
         <h1 style="display: inline;">Progres kolorubač</h1>
-        <a href="calendar.html"><i class="fas fa-calendar-alt fa-lg" style="margin-left: 20px;"></i></a>
+        <a href="sichty.html"><i class="fas fa-calendar-alt fa-lg" style="margin-left: 20px;"></i></a>
     </div>
     <div class="dark-mode-toggle" onclick="toggleDarkMode()">
         🌙
@@ -116,13 +159,8 @@
         <button class="menu-close-btn" onclick="toggleSidebar()" style="font-size: 0.8em;">
             <i class="fas fa-times fa-xs"></i>
         </button>
-        <h2>CNC-kody</h2>
+        <h2>Menu</h2>
         <ul>
-            <li><a href="#" onclick="openGcodeModal()">G a M Kódy + Příkazy</a></li>
-            <li><a href="#" onclick="openModal('ukazky_kodu.html')">Ukázky CNC kódů</a></li>
-            <li><a href="#" onclick="openModal('cnc_program.html')">G90 - analýza programu</a></li>
-            <li><a href="#" onclick="openGcodeMeaningModal()">G kódy - význam</a></li>
-            <hr style="margin: 10px 0; border-top: 1px solid #ccc;">
             <li><a href="opotrebeni_ukazka.html">🔍 Ukázka Opotřebení</a></li>
         </ul>
         <div style="position: absolute; bottom: 20px; left: 20px; cursor: pointer;" onclick="toggleErrorTerminal()">
@@ -138,18 +176,49 @@
         <iframe src="Gkod.html" style="width: 100%; height: 100%; border: none;"></iframe>
     </div>
     <!-- Přidání nového modálního okna pro G kódy - význam -->
-    <div id="gcodeMeaningModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 90%; height: 90%; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
+    <div id="gcodeMeaningModal" class="modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 90%; height: 90%; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
         <button onclick="closeGcodeMeaningModal()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; font-size: 20px; cursor: pointer;">❌</button>
-        <iframe src="Gkod.html" style="width: 100%; height: 100%; border: none;"></iframe>
+        <iframe src="Gkod.html" style="width: 100%; height: calc(100% - 40px); border: none;"></iframe>
     </div>
-    <nav>
-        <ul style="list-style-type: none; text-align: center; padding: 0;">
-            <li style="display: inline; margin-right: 20px;"><a href="tolerance.html">📏 Volné míry</a></li>
-            <li style="display: inline; margin-right: 20px;"><a href="kalkulace_geometrie_opotrebeni.html">📐 Geometrie - opotřebení (převod)</a></li>
-            <li style="display: inline; margin-right: 20px;"><a href="kalkulace_korekce_nastroje.html">🔧 Korekce Nástrojů</a></li>
-            <li style="display: inline; margin-right: 20px;"><a href="trojuhelnik.html">📐 Pythagoras</a></li>
-        </ul>
-    </nav>
+    <!-- Upravit mřížku ikon, přidat nové položky -->
+    <div class="big-icons-grid">
+        <a href="kalkulace_korekce_nastroje.html" class="big-icon-button">
+            <i class="fas fa-wrench fa-3x"></i>
+            <span>Korekce Nástrojů</span>
+        </a>
+        <a href="kalkulace_geometrie_opotrebeni.html" class="big-icon-button">
+            <i class="fas fa-drafting-compass fa-3x"></i>
+            <span>Geometrie - opotřebení</span>
+        </a>
+        <a href="cnc_program.html" class="big-icon-button">
+            <i class="fas fa-code fa-3x"></i>
+            <span>G90 - analýza programu</span>
+        </a>
+        <a href="tolerance.html" class="big-icon-button">
+            <i class="fas fa-ruler fa-3x"></i>
+            <span>Volné míry</span>
+        </a>
+        <a href="trojuhelnik.html" class="big-icon-button">
+            <i class="fas fa-square-root-alt fa-3x"></i>
+            <span>Kužel - trojúhelník</span>
+        </a>
+        <a href="CNC_GaM_kod.html" class="big-icon-button">
+            <i class="fas fa-terminal fa-3x"></i>
+            <span>G a M Kódy</span>
+        </a>
+        <a href="#" onclick="openGcodeMeaningModal()" class="big-icon-button">
+            <i class="fas fa-book fa-3x"></i>
+            <span>G kódy - význam</span>
+        </a>
+        <a href="#" onclick="openModal('ukazky_kodu.html')" class="big-icon-button">
+            <i class="fas fa-file-code fa-3x"></i>
+            <span>Ukázky CNC kódů</span>
+        </a>
+        <a href="#" onclick="openSimulatorEditor()" class="big-icon-button">
+            <i class="fas fa-desktop fa-3x"></i>
+            <span>Simulátor a Editor</span>
+        </a>
+    </div>
     <div id="calculatorModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 80%; height: 80%;">
         <button onclick="closeCalculator()" style="float: right; font-size: 0.5em;">❌</button>
         <iframe src="kalkulacka.html" style="width: 100%; height: 100%; border: none;"></iframe>
@@ -235,6 +304,10 @@
 
         function closeGcodeMeaningModal() {
             document.getElementById('gcodeMeaningModal').style.display = 'none';
+        }
+
+        function openSimulatorEditor() {
+            window.location.href = 'Simulator_Editor_CNC.html';
         }
     </script>
 </body>
