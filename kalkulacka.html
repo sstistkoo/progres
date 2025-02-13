@@ -18,18 +18,24 @@
             background-color: white;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center;
             min-height: 100vh;
             padding: 20px;
+            overflow: hidden; /* Skrytí posuvníků */
         }
 
         /* Kontejner kalkulačky */
         .calculator {
             width: 100%;
             max-width: 350px;
+            height: auto;
             background-color: white;
             border-radius: 10px;
             padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.3s;
         }
 
         /* Vstupní pole */
@@ -192,6 +198,8 @@
             <div class="history-header">
                 <span class="history-title">Historie výpočtů</span>
                 <button class="clear-history-btn" onclick="clearHistory()">×</button>
+                <button class="maximize-btn" onclick="maximizeCalculator()">🔍</button>
+                <button class="minimize-btn" onclick="minimizeCalculator()">⬅️</button>
             </div>
             <div id="history"></div>
         </div>
@@ -286,7 +294,7 @@
                 
                 const calculationText = document.createElement('span');
                 calculationText.className = 'calculation-text';
-                calculationText.innerHTML = wrapNumbersWithSpans(calculation + ' = ' + answer);
+                calculationText.innerHTML = wrapNumbersWithSpans(calculation + ' = ' + answer.toFixed(3)); // Zaokrouhlení na 3 desetinná místa
                 
                 const buttons = document.createElement('div');
                 buttons.className = 'history-buttons';
@@ -314,6 +322,29 @@
             } catch (error) {
                 result.value = 'Chyba';
             }
+        }
+
+        function maximizeCalculator() {
+            const calculator = document.querySelector('.calculator');
+            calculator.style.width = '100%';
+            calculator.style.height = '100%';
+            calculator.style.position = 'fixed';
+            calculator.style.top = '0';
+            calculator.style.left = '0';
+            calculator.style.zIndex = '1000';
+            document.body.style.overflow = 'hidden'; // Skrytí posuvníků
+        }
+
+        function minimizeCalculator() {
+            const calculator = document.querySelector('.calculator');
+            calculator.style.width = '100%';
+            calculator.style.maxWidth = '350px';
+            calculator.style.height = 'auto';
+            calculator.style.position = 'static';
+            calculator.style.top = 'auto';
+            calculator.style.left = 'auto';
+            calculator.style.zIndex = 'auto';
+            document.body.style.overflow = 'auto'; // Zobrazení posuvníků
         }
 
         document.addEventListener('keydown', function(event) {

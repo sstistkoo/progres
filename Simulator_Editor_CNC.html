@@ -1,0 +1,3118 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>CNC Editor - Sinumerik 840D</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .simulator {
+            height: 50vh;
+            width: 100%;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            position: relative;
+            overflow: hidden;
+            min-height: 0; /* Důležité pro správné scrollování */
+        }
+
+        .canvas-container {
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+        }
+
+        .axis-label {
+            position: absolute;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .axis-label.x {
+            bottom: 10px;
+            right: 10px;
+        }
+
+        .axis-label.z {
+            top: 10px;
+            left: 10px;
+        }
+
+        .position-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 24px; /* Zvětšeno z 14px */
+            font-family: monospace;
+            z-index: 1000;
+            pointer-events: none;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+            min-width: 220px; /* Přidáno pro lepší čitelnost */
+        }
+
+        /* Mobilní optimalizace */
+        @media (max-width: 768px) {
+            .simulator {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 45vh;
+                z-index: 100;
+                background: #fff;
+            }
+
+            .editor-container {
+                margin-top: 45vh;
+                height: 55vh;
+                position: relative;
+            }
+
+            .toolbar {
+                padding: 5px;
+                gap: 5px;
+            }
+
+            .toolbar button {
+                height: 40px;
+                min-width: 100px;
+                font-size: 16px;
+                margin: 2px;
+                border-radius: 4px;
+                border: 1px solid #ccc;
+                background: white;
+                touch-action: manipulation;
+            }
+
+            .toolbar button:active {
+                background: #e6e6e6;
+            }
+
+            .position-info {
+                font-size: 20px; /* Zvětšeno pro mobily */
+                padding: 12px 16px;
+                right: 5px;
+                top: 5px;
+                background: rgba(0, 0, 0, 0.9);
+            }
+
+            #editor {
+                font-size: 18px; /* Větší písmo pro mobilní zařízení */
+                line-height: 2em; /* Větší řádkování pro lepší čitelnost a klikání */
+                padding: 20px;
+                height: calc(100% - 40px); /* Výška mínus padding */
+                position: relative;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+                inputmode: numeric;
+                pattern: "[0-9]*";
+                -webkit-appearance: none;
+            }
+
+            /* Přidat styl pro fixní pozici označeného řádku */
+            .editor-line-highlight {
+                position: sticky;
+                top: 40px; /* Druhá pozice od vrchu */
+                background-color: #e6f3ff;
+                z-index: 1;
+                padding: 8px 0;
+                margin: 4px 0;
+            }
+
+            /* Zvětšit mezeru mezi řádky pro lepší dotykové ovládání */
+            .editor-line {
+                min-height: 2em;
+                padding: 8px 0;
+            }
+
+            /* Vylepšení scrollování pro touch zařízení */
+            .editor-container::-webkit-scrollbar {
+                width: 8px;
+            }
+
+            .editor-container::-webkit-scrollbar-thumb {
+                background: rgba(0,0,0,0.2);
+                border-radius: 4px;
+            }
+        }
+
+        /* Vylepšení pro dotykové ovládání */
+        @media (hover: none) {
+            .toolbar button {
+                padding: 12px; /* Větší tlačítka pro dotyk */
+                margin: 2px;
+            }
+
+            #editor {
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .tooltip {
+                padding: 10px 20px;
+                font-size: 18px;
+            }
+
+            .crosshair {
+                width: 30px;
+                height: 30px;
+            }
+
+            .crosshair::before {
+                left: 14px;
+                width: 2px;
+                height: 30px;
+            }
+
+            .crosshair::after {
+                top: 14px;
+                height: 2px;
+                width: 30px;
+            }
+
+            /* Zvětšení dotykové plochy pro body */
+            .canvas-container canvas {
+                touch-action: none; /* Zabránit výchozím gestům */
+            }
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 16px; /* Zvětšit vnitřní odsazení */
+            border-radius: 6px;
+            font-size: 16px; /* Zvětšit písmo */
+            pointer-events: none;
+            z-index: 1000;
+            min-width: 120px; /* Přidat minimální šířku */
+            text-align: center; /* Vycentrovat text */
+        }
+
+        .crosshair {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
+            display: none;
+            z-index: 1001;
+        }
+
+        .crosshair::before,
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            background: #000;
+        }
+
+        .crosshair::before {
+            left: 9px;
+            width: 2px;
+            height: 20px;
+        }
+
+        .crosshair::after {
+            top: 9px;
+            height: 2px;
+            width: 20px;
+        }
+
+        #editor {
+            width: 100%;
+            height: 100%; /* Změněno - editor vyplní celý prostor */
+            resize: none; /* Zakázání manuálního resizu */
+            padding: 10px;
+            box-sizing: border-box;
+            font-family: monospace;
+            border: none;
+            outline: none;
+            background: #fff;
+            line-height: 1.5;
+            cursor: pointer;
+            background: linear-gradient(
+                transparent calc(1.5em * var(--selected-line)),
+                #e6f3ff calc(1.5em * var(--selected-line)),
+                #e6f3ff calc(1.5em * (var(--selected-line) + 1)),
+                transparent calc(1.5em * (var(--selected-line) + 1))
+            );
+            background-size: 100% 100%;
+            line-height: 1.5em;
+            -webkit-overflow-scrolling: touch; /* Přidáno pro iOS smooth scroll */
+            overflow-y: auto; /* Přidáno - povolit vertikální scroll */
+            position: absolute; /* Přidáno */
+            top: 0; /* Přidáno */
+            left: 0; /* Přidáno */
+            right: 0; /* Přidáno */
+            bottom: 0; /* Přidáno */
+            -webkit-overflow-scrolling: touch;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            touch-action: pan-y;
+            user-select: text;
+            -webkit-user-select: text;
+            padding: 16px; /* Větší padding pro lepší dotykové ovládání */
+            font-size: 16px; /* Větší písmo pro mobily */
+        }
+
+        /* Přidáno - styl pro zvýrazněný řádek */
+        #editor.has-selection {
+            background: linear-gradient(
+                transparent 0%,
+                transparent calc(1.5em * var(--selected-line)),
+                #e6f3ff calc(1.5em * var(--selected-line)),
+                #e6f3ff calc(1.5em * (var(--selected-line) + 1)),
+                transparent calc(1.5em * (var(--selected-line) + 1))
+            );
+        }
+
+        .editor-line-highlight {
+            background-color: #e6f3ff;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(2); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .point-pulse {
+            animation: pulse 1s infinite;
+        }
+
+        /* Přidána nová animace pro pulzující bod */
+        @keyframes pointPulse {
+            0% {
+                stroke-opacity: 1;
+                r: 5;
+            }
+            50% {
+                stroke-opacity: 0.8;
+                r: 10;
+            }
+            100% {
+                stroke-opacity: 1;
+                r: 5;
+            }
+        }
+
+        /* Přidat styly pro ovládací prvky přehrávače */
+        .player-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px;
+            border-radius: 4px;
+            display: flex;
+            gap: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .player-controls button {
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .player-controls button:hover {
+            background: #f0f0f0;
+        }
+
+        .player-controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .playback-progress {
+            position: absolute;
+            bottom: 50px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* Upravit styly přehrávače */
+        .player-controls {
+            /* ...existing styles... */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .player-controls button {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            /* ...rest of existing button styles... */
+        }
+
+        #speedSlider {
+            width: 100px;
+        }
+
+        /* Přidat nové styly pro přehrávač nad editorem */
+        .controls-container {
+            padding: 10px;
+            background: #f5f5f5;
+            border-top: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .player-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .player-controls {
+            position: static;
+            transform: none;
+            background: none;
+            box-shadow: none;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin: 0;
+        }
+
+        .player-controls button {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 20px;
+            border: 1px solid #ccc;
+            background: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        #speedSlider {
+            width: 100px;
+            margin: 0;
+        }
+
+        /* Mobilní optimalizace */
+        @media (max-width: 768px) {
+            .controls-container {
+                flex-direction: column;
+                padding: 5px;
+            }
+
+            .player-container {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .player-controls button {
+                width: 50px;
+                height: 50px;
+                font-size: 24px;
+            }
+
+            #speedSlider {
+                width: 80px;
+            }
+
+            .toolbar {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+
+        .file-input-container {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            display: flex;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .file-input-container input[type="file"] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-input-button {
+            padding: 8px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            text-align: center;
+            margin: 4px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .file-name {
+            margin-left: 10px;
+            color: #666;
+            margin-left: 10px;
+            color: #666;
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+            width: 100%;
+        }
+
+        .editor-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 0; /* Důležité pro správné scrollování */
+        }
+
+        .program-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 5px;
+        }
+
+        .program-list-item {
+            flex: 0 0 auto;
+            padding: 5px 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+            border: 1px solid #ddd;
+        }
+
+        .program-list-item:hover {
+            background: #e0e0e0;
+        }
+
+        .program-list-item.active {
+            background: #007bff;
+            color: white;
+            border-color: #0056b3;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .parameters-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .parameters-table th,
+        .parameters-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .parameters-table th {
+            background-color: #f5f5f5;
+        }
+
+        .close {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #f00;
+        }
+
+        .action-button {
+            padding: 8px 16px;
+            margin: 4px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .action-button:hover {
+            background: #0056b3;
+        }
+
+        /* Upravené styly pro toolbar */
+        .toolbar {
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            padding: 8px;
+            align-items: center;
+        }
+
+        .file-input-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+            font-size: 24px;
+            flex: 1;
+            background: #007bff;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .action-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+            font-size: 24px;
+            flex: 1;
+            background: #007bff;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .action-button:hover, .file-input-button:hover {
+            background: #0056b3;
+        }
+
+        /* Přidat styly pro touch zařízení */
+        @media (hover: none) {
+            .toolbar button, .file-input-button {
+                min-height: 80px;
+                font-size: 24px;
+                touch-action: manipulation;
+            }
+
+            .toolbar {
+                touch-action: none;
+                user-select: none;
+            }
+        }
+
+        /* Přidat styly pro ikony */
+        .button-icon {
+            font-size: 32px;
+            margin-bottom: 4px;
+        }
+
+        /* Upravené styly pro player controls */
+        .controls-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            gap: 8px;
+            background: none;
+            border: none;
+        }
+
+        .player-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 2; /* Zvětšit na dvojnásobek oproti ostatním tlačítkům */
+        }
+
+        .player-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .player-controls button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 120px; /* Zvětšit šířku tlačítek */
+            min-height: 80px;
+            font-size: 32px;
+            flex: 1;
+            background: #007bff;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 0;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px; /* Zvětšit písmo */
+            min-width: 150px; /* Minimální šířka pro počítadlo */
+        }
+
+        #speedSlider {
+            width: 200px; /* Zvětšit šířku slideru */
+            height: 40px;
+        }
+
+        .program-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 5px;
+            width: 100%;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+            min-height: 50px;
+        }
+
+        .player-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 3; /* Zvětšit na trojnásobek */
+            flex-wrap: wrap; /* Povolit zalamování */
+            padding: 8px;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            min-width: 200px; /* Větší minimální šířka */
+            margin-top: 8px; /* Odsazení shora */
+            flex-direction: column; /* Informace pod sebe */
+            align-items: flex-start;
+        }
+
+        #speedSlider {
+            width: 250px; /* Větší šířka slideru */
+            height: 40px;
+        }
+
+        .program-list {
+            padding: 10px;
+            min-height: 60px; /* Větší minimální výška */
+        }
+
+        .program-list-item {
+            padding: 12px 16px; /* Větší padding */
+            font-size: 18px; /* Větší písmo */
+            margin: 4px;
+            min-width: 120px; /* Minimální šířka položky */
+        }
+
+        @media (max-width: 768px) {
+            .player-container {
+                padding: 12px;
+            }
+
+            .player-controls button {
+                width: 80px; /* Větší šířka tlačítek na mobilu */
+                min-height: 80px;
+            }
+
+            .player-info {
+                width: 100%; /* Na celou šířku na mobilu */
+                text-align: center;
+                padding: 8px;
+            }
+
+            #speedSlider {
+                width: 100%; /* Slider na celou šířku */
+                margin: 8px 0;
+            }
+
+            .program-list-item {
+                flex: 1 1 auto; /* Lepší přizpůsobení na mobilu */
+                text-align: center;
+                min-width: 150px; /* Větší minimální šířka na mobilu */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="simulator">
+            <div class="canvas-container">
+                <canvas id="simulatorCanvas"></canvas>
+                <div class="position-info">
+                    Aktuální: X: <span id="posX">0.000</span> Z: <span id="posZ">0.000</span><br>
+                    Vybraný: X: <span id="selectedPosX">-</span> Z: <span id="selectedPosZ">-</span>
+                </div>
+            </div>
+        </div>
+        <div class="toolbar">
+            <label class="file-input-button">
+                <span class="button-icon">📂</span>
+                <input type="file" id="actualFileInput" accept=".mpf,.spf" multiple style="display: none;">
+            </label>
+            <button onclick="window.simulator.resetView()" class="action-button">
+                <span class="button-icon">🔄</span>
+            </button>
+            <button onclick="showParameters()" class="action-button">
+                <span class="button-icon">R</span>
+            </button>
+            <div class="player-container">
+                <button id="prevBtn" class="action-button" title="Krok zpět">
+                    <span class="button-icon">⏪</span>
+                </button>
+                <button id="playBtn" class="action-button" title="Přehrát/Pozastavit">
+                    <span class="button-icon">▶️</span>
+                </button>
+                <button id="nextBtn" class="action-button" title="Krok vpřed">
+                    <span class="button-icon">⏩</span>
+                </button>
+                <div class="player-info">
+                    <input type="range" id="speedSlider" min="1" max="100" value="50" title="Rychlost přehrávání">
+                    <span>Řádek: <span id="currentLine">0</span>/<span id="totalLines">0</span></span>
+                </div>
+            </div>
+        </div>
+        <div class="program-list" id="programList"></div>
+        <div class="editor-container">
+            <div class="editor-wrapper">
+                <textarea id="editor" spellcheck="false" placeholder="Vložte váš CNC program zde..."></textarea>
+            </div>
+        </div>
+    </div>
+    <div id="parametersModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeParametersModal()">&times;</span>
+            <h2>Aktuální hodnoty parametrů</h2>
+            <table class="parameters-table">
+                <thead>
+                    <tr>
+                        <th>Parametr</th>
+                        <th>Hodnota</th>
+                    </tr>
+                </thead>
+                <tbody id="parametersTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        // Pomocné funkce pro optimalizaci
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function throttle(func, limit) {
+            let inThrottle;
+            return function(...args) {
+                if (!inThrottle) {
+                    func.apply(this, args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            }
+        }
+
+        // Optimalizovaná debug funkce
+        let debugCounter = 0;
+        function debug(message) {
+            console.log(`[${new Date().toLocaleTimeString()}] ${message}`);
+        }
+
+        // Inicializace základních proměnných
+        const editor = document.getElementById('editor');
+        const fileInput = document.getElementById('actualFileInput');
+        const fileNameDisplay = document.getElementById('fileName');
+        const posXElement = document.getElementById('posX');
+        const posZElement = document.getElementById('posZ');
+        const selectedPosXElement = document.getElementById('selectedPosX');
+        const selectedPosZElement = document.getElementById('selectedPosZ');
+
+        class CNCParser {
+            constructor() {
+                // Nejprve inicializovat mapy před voláním reset()
+                this.parameters = new Map();
+                this.loadedSubprograms = new Map();
+                this.baseDirectory = '';
+                this.subprogramFiles = new Map(); // Přidat cache pro soubory podprogramů
+                this.loadedPrograms = new Map(); // Pro ukládání všech načtených programů
+
+                // Přednastavené parametry
+                for (let i = 0; i <= 99; i++) {
+                    this.parameters.set(`R${i}`, 0);
+                }
+
+                // Až potom volat reset
+                this.reset();
+            }
+
+            reset() {
+                this.currentX = 0;
+                this.currentZ = 0;
+                this.absoluteMode = true;
+                this.rapidMode = true;
+                this.isFirstMove = true;
+                this.lastArcCommand = null;
+
+                // Reset parametrů - teď už víme, že Map existuje
+                if (this.parameters) {
+                    this.parameters.clear();
+                    for (let i = 0; i <= 99; i++) {
+                        this.parameters.set(`R${i}`, 0);
+                    }
+                }
+
+                debug('Parser resetován');
+            }
+
+            // Přidat metodu pro zpracování R-parametrů
+            evaluateParameters(expression) {
+                try {
+                    console.group('Parsování parametrů z řádku:', expression);
+
+                    // Odstranit komentáře za středníkem a lomítkem
+                    const fullLine = expression.split(/[;/]/)[0].trim();
+
+                    // Odstranit číslo řádku a případné mezery na začátku
+                    const cleanLine = fullLine.replace(/^N\d+\s*/, '');
+
+                    console.log('Vyčištěný řádek:', cleanLine);
+
+                    // Upravený regex pro zachycení všech R-přiřazení včetně matematických operací
+                    const rAssignment = cleanLine.match(/R(\d+)\s*=\s*(.+)/);
+
+                    if (rAssignment) {
+                        const [, paramNum, expression] = rAssignment;
+
+                        try {
+                            // Expandovat všechny R-parametry ve výrazu
+                            const expandedExpr = expression.replace(/R(\d+)/g, (match, num) => {
+                                const value = this.parameters.get(`R${num}`);
+                                return value !== undefined ? value : '0';
+                            });
+
+                            // Vyčistit výraz a odstranit případné závorky
+                            let cleanExpr = expandedExpr.replace(/^\(|\)$/g, '');
+
+                            // Bezpečně vyhodnotit výraz
+                            const result = Function(`return ${cleanExpr}`)();
+                            const numResult = Number(result);
+
+                            if (!isNaN(numResult)) {
+                                this.parameters.set(`R${paramNum}`, numResult);
+                                console.log(`✓ R${paramNum} = ${numResult} (výraz: ${expression})`);
+                                return numResult;
+                            } else {
+                                console.warn(`✗ Neplatný výsledek pro R${paramNum}: ${result}`);
+                            }
+                        } catch (e) {
+                            console.warn(`✗ Chyba při vyhodnocení R${paramNum} = ${expression}:`, e);
+                        }
+                    }
+
+                    console.groupEnd();
+                    return 0;
+                } catch (e) {
+                    console.warn('Chyba při zpracování parametrů:', expression, e);
+                    console.groupEnd();
+                    return 0;
+                }
+            }
+
+            parseCoordinate(value, current) {
+                try {
+                    // Ošetření parametrických výrazů
+                    if (value.includes('=')) {
+                        const expression = value.split('=')[1].trim();
+
+                        // Nahradit R-parametry jejich hodnotami
+                        const evaluatedExp = expression.replace(/R(\d+)/g, (match, number) => {
+                            const paramValue = this.parameters.get(`R${number}`);
+                            return paramValue !== undefined ? paramValue : '0';
+                        });
+
+                        // Bezpečně vyhodnotit výraz
+                        const result = Function(`return ${evaluatedExp}`)();
+                        return Number(result.toFixed(3));
+                    }
+
+                    // Standardní zpracování pro přímé hodnoty
+                    const parsed = parseFloat(value);
+                    if (isNaN(parsed)) return current;
+
+                    const rounded = Number(parsed.toFixed(3));
+                    return this.absoluteMode ? rounded : Number((current + rounded).toFixed(3));
+                } catch (e) {
+                    console.warn('Chyba při parsování souřadnice:', value, e);
+                    return current;
+                }
+            }
+
+            calculateArcPoints(start, end, center, isClockwise, resolution = 50) {
+                const startAngle = Math.atan2(start.x - center.x, start.z - center.z);
+                const endAngle = Math.atan2(end.x - center.x, end.z - center.z);
+
+                let radius = Math.hypot(start.x - center.x, start.z - center.z);
+                let angleStep;
+                let points = [];
+
+                // Výpočet úhlu v závislosti na směru
+                let totalAngle = endAngle - startAngle;
+                if (isClockwise) {
+                    if (totalAngle >= 0) totalAngle -= 2 * Math.PI;
+                } else {
+                    if (totalAngle <= 0) totalAngle += 2 * Math.PI;
+                }
+
+                angleStep = totalAngle / resolution;
+
+                // Generování bodů na oblouku
+                for (let i = 0; i <= resolution; i++) {
+                    const angle = startAngle + angleStep * i;
+                    const x = center.x + radius * Math.sin(angle);
+                    const z = center.z + radius * Math.cos(angle);
+                    points.push({ x: Number(x.toFixed(3)), z: Number(z.toFixed(3)) });
+                }
+
+                return points;
+            }
+
+            parseArcMovement(words, movement) {
+                let hasCR = false;
+                let hasAR = false;
+                let arcRadius = 0;
+
+                // Parametry pro Sinumerik 840D
+                const params = {
+                    CR: null,
+                    AR: null,
+                    I: null,
+                    K: null,
+                    I1: null,
+                    K1: null,
+                    CT: null,
+                    TURN: 0
+                };
+
+                // Načtení všech parametrů
+                for (let word of words) {
+                    if (word.includes('=')) {
+                        const [param, value] = word.split('=');
+                        const numValue = parseFloat(value);
+                        switch (param.toUpperCase()) {
+                            case 'CR':
+                                // CR je vždy absolutní hodnota
+                                params.CR = Math.abs(numValue);
+                                hasCR = true;
+                                break;
+                            case 'AR': params.AR = numValue; break;
+                            case 'TURN': params.TURN = parseInt(value); break;
+                        }
+                        continue;
+                    }
+
+                    const command = word[0];
+                    const value = parseFloat(word.slice(1));
+                    if (isNaN(value)) continue;
+
+                    // Důležitá změna: I,K jsou vždy inkrementální (relativní k počátečnímu bodu)
+                    switch (command) {
+                        case 'I':
+                            // I je vždy relativní k počátečnímu bodu
+                            params.I = movement.fromX + value;
+                            break;
+                        case 'K':
+                            // K je vždy relativní k počátečnímu bodu
+                            params.K = movement.fromZ + value;
+                            break;
+                        case 'I1':
+                            // I1 je také relativní
+                            params.I1 = movement.fromX + value;
+                            break;
+                        case 'K1':
+                            // K1 je také relativní
+                            params.K1 = movement.fromZ + value;
+                            break;
+                    }
+                }
+
+                const startPoint = { x: movement.fromX, z: movement.fromZ };
+                const endPoint = { x: movement.toX, z: movement.toZ };
+                let centerPoint = { x: 0, z: 0 };
+
+                // Určení středu oblouku podle priority parametrů
+                if (params.I !== null && params.K !== null) {
+                    // Střed je nyní vždy relativní k počátečnímu bodu
+                    centerPoint = { x: params.I, z: params.K };
+                } else if (params.I1 !== null && params.K1 !== null) {
+                    centerPoint = { x: params.I1, z: params.K1 };
+                } else if (hasCR) {
+                    // Výpočet středu pomocí poloměru CR
+                    const chord = Math.hypot(endPoint.x - startPoint.x, endPoint.z - startPoint.z);
+                    if (params.CR < chord / 2) {
+                        console.warn('CR je příliš malý, použije se minimální možný poloměr');
+                        params.CR = chord / 2;
+                    }
+
+                    // Výpočet středů - existují dva možné středy
+                    const h = Math.sqrt(params.CR * params.CR - (chord * chord / 4));
+                    const midX = (startPoint.x + endPoint.x) / 2;
+                    const midZ = (startPoint.z + endPoint.z) / 2;
+
+                    // Směrový vektor kolmý na tětivu
+                    const dirX = (startPoint.z - endPoint.z) / chord;
+                    const dirZ = (endPoint.x - startPoint.x) / chord;
+
+                    // Vypočítat oba možné středy
+                    const center1 = {
+                        x: midX + h * dirX,
+                        z: midZ + h * dirZ
+                    };
+
+                    const center2 = {
+                        x: midX - h * dirX,
+                        z: midZ - h * dirZ
+                    };
+
+                    // Vypočítat úhly pro oba středy
+                    const angle1 = this.calculateTotalAngle(startPoint, endPoint, center1, movement.type === 'G2');
+                    const angle2 = this.calculateTotalAngle(startPoint, endPoint, center2, movement.type === 'G2');
+
+                    // Vybrat střed, který dává menší úhel (menší oblouk)
+                    centerPoint = Math.abs(angle1) <= Math.abs(angle2) ? center1 : center2;
+
+                    console.log('Výpočet oblouku:', {
+                        type: movement.type,
+                        radius: params.CR,
+                        chord: chord,
+                        height: h,
+                        angles: {
+                            center1: angle1 * 180 / Math.PI,
+                            center2: angle2 * 180 / Math.PI
+                        },
+                        selectedCenter: Math.abs(angle1) <= Math.abs(angle2) ? 'center1' : 'center2'
+                    });
+                }
+
+                // Výpočet bodů na oblouku
+                const radius = Math.hypot(startPoint.x - centerPoint.x, startPoint.z - centerPoint.z);
+                const startAngle = Math.atan2(startPoint.x - centerPoint.x, startPoint.z - centerPoint.z);
+                let endAngle = Math.atan2(endPoint.x - centerPoint.x, endPoint.z - centerPoint.z);
+
+                // Upravit úhel podle směru a počtu otáček
+                if (movement.type === 'G2') { // CW
+                    if (endAngle >= startAngle) endAngle -= 2 * Math.PI;
+                    endAngle -= 2 * Math.PI * (params.TURN || 0);
+                } else { // CCW (G3)
+                    if (endAngle <= startAngle) endAngle += 2 * Math.PI;
+                    endAngle += 2 * Math.PI * (params.TURN || 0);
+                }
+
+                // Vygenerovat body oblouku
+                const points = [];
+                const steps = Math.max(50, Math.abs(endAngle - startAngle) * 20);
+                const angleStep = (endAngle - startAngle) / steps;
+
+                for (let i = 0; i <= steps; i++) {
+                    const angle = startAngle + angleStep * i;
+                    const x = centerPoint.x + radius * Math.sin(angle);
+                    const z = centerPoint.z + radius * Math.cos(angle);
+                    points.push({
+                        x: Number(x.toFixed(3)),
+                        z: Number(z.toFixed(3))
+                    });
+                }
+
+                return {
+                    points: points,
+                    center: centerPoint // Vrátit i střed oblouku
+                };
+            }
+
+            calculateTotalAngle(start, end, center, isClockwise) {
+                const startAngle = Math.atan2(start.x - center.x, start.z - center.z);
+                let endAngle = Math.atan2(end.x - center.x, end.z - center.z);
+                let totalAngle = endAngle - startAngle;
+
+                // Upravit úhel podle směru
+                if (isClockwise) {
+                    if (totalAngle > 0) totalAngle -= 2 * Math.PI;
+                } else {
+                    if (totalAngle < 0) totalAngle += 2 * Math.PI;
+                }
+
+                return totalAngle;
+            }
+
+            async parseLine(line) {
+                // Kontrola volání podprogramu
+                const lMatch = line.trim().match(/L(\d+)/i);
+                if (lMatch) {
+                    const subprogramNumber = parseInt(lMatch[1]);
+                    await this.processSubprogramParameters(subprogramNumber);
+                    return null; // Přeskočit tento řádek v hlavním zpracování
+                }
+
+                // Nejprve vyčistit řádek a přidat mezery mezi G-kódy a souřadnice
+                const cleanedLine = line.trim()
+                    .toUpperCase()
+                    .replace(/G0(?=[XZ])/g, 'G0 ')  // Přidat mezeru po G0 před X nebo Z
+                    .replace(/G1(?=[XZ])/g, 'G1 ')  // Přidat mezeru po G1 před X nebo Z
+                    .replace(/G91(?=[XZ])/g, 'G91 ') // Přidat mezeru po G91 před X nebo Z
+                    .replace(/G90(?=[XZ])/g, 'G90 '); // Přidat mezeru po G90 před X nebo Z
+
+                // Přidat zpracování přiřazení R-parametrů
+                if (cleanedLine.includes('=')) {
+                    const match = cleanedLine.match(/R(\d+)\s*=\s*(.+)/);
+                    if (match) {
+                        const [, paramNum, expression] = match;
+                        const value = this.evaluateParameters(expression);
+                        this.parameters.set(`R${paramNum}`, value);
+                        return null; // Řádek obsahoval pouze přiřazení parametru
+                    }
+                }
+
+                const words = cleanedLine.split(/\s+/);
+                if (words.length === 0) return null;
+
+                console.group(`Parsování řádku: ${line}`);
+
+                const movement = {
+                    fromX: this.currentX,
+                    fromZ: this.currentZ,
+                    toX: this.currentX,
+                    toZ: this.currentZ,
+                    rapid: this.rapidMode,
+                    // Přidání vlastností pro středy a body oblouku
+                    center: null,
+                    arcPoints: null,
+                    isArc: false,
+                    type: this.lastArcCommand // Použít poslední G2/G3 pokud existuje
+                };
+
+                let hasMove = false;
+                let hasGCommand = false; // Sledovat, zda byl na řáku G příkaz
+
+                for (let word of words) {
+                    if (!word) continue;
+                    const command = word[0];
+                    let value = word.slice(1);
+
+                    // Upravit zpracování pro souřadnice obsahující =
+                    if (command === 'X' || command === 'Z') {
+                        if (value.includes('=')) {
+                            value = '=' + value.split('=')[1];  // Zachovat = pro matematický výraz
+                        }
+                    }
+
+                    switch (command) {
+                        case 'G':
+                            hasGCommand = true;
+                            switch (value) {
+                                case '0':
+                                    this.rapidMode = true;
+                                    movement.rapid = true;
+                                    console.log('✓ Nastaven rychloposuv (G0)');
+                                    break;
+                                case '1':
+                                    this.rapidMode = false;
+                                    movement.rapid = false;
+                                    console.log('✓ Nastaven pracovní posuv (G1)');
+                                    break;
+                                case '90':
+                                    this.absoluteMode = true;
+                                    console.log('✓ Nastaveno absolutní programování (G90)');
+                                    break;
+                                case '91':
+                                    this.absoluteMode = false;
+                                    console.log('✓ Nastaveno přírůstkové programování (G91)');
+                                    break;
+                                case '2':
+                                    this.rapidMode = false;
+                                    this.lastArcCommand = 'G2';
+                                    movement.type = 'G2'; // CW
+                                    movement.isArc = true;
+                                    console.log('✓ Nastaven oblouk ve směru hodin (G2)');
+                                    break;
+                                case '3':
+                                    this.rapidMode = false;
+                                    this.lastArcCommand = 'G3';
+                                    movement.type = 'G3'; // CCW
+                                    movement.isArc = true;
+                                    console.log('✓ Nastaven oblouk proti směru hodin (G3)');
+                                    break;
+                            }
+                            break;
+                        case 'X':
+                            movement.toX = this.parseCoordinate(value, this.currentX);
+                            hasMove = true;
+                            this.currentX = movement.toX;
+                            console.log(`➜ X pozice: ${movement.toX}`);
+                            break;
+                        case 'Z':
+                            movement.toZ = this.parseCoordinate(value, this.currentZ);
+                            hasMove = true;
+                            this.currentZ = movement.toZ;
+                            console.log(`➜ Z pozice: ${movement.toZ}`);
+                            break;
+                    }
+                }
+
+                // Pokud je CR parametr a není G příkaz, použít poslední G2/G3
+                if (!hasGCommand && words.some(w => w.startsWith('CR='))) {
+                    movement.isArc = true;
+                    console.log(`✓ Použit předchozí příkaz (${this.lastArcCommand})`);
+                }
+
+                // Po zpracování všech souřadnic zpracovat oblouk
+                if (hasMove && (movement.type === 'G2' || movement.type === 'G3')) {
+                    const arcResult = this.parseArcMovement(words, movement);
+                    movement.arcPoints = arcResult.points;
+                    movement.center = arcResult.center; // Uložit střed do pohybu
+                }
+
+                // Přidat koncové body do paměti
+                if (hasMove) {
+                    // Pro oblouk přidat všechny body včetně koncového
+                    if (movement.arcPoints && movement.arcPoints.length > 0) {
+                        movement.points = [...movement.arcPoints];
+                    } else {
+                        // Pro přímý pohyb přidat koncový bod
+                        movement.points = [{
+                            x: movement.toX,
+                            z: movement.toZ
+                        }];
+                    }
+                }
+
+                if (hasMove) {
+                    console.log(`⮕ Pohyb: X${movement.toX} Z${movement.toZ} ${movement.rapid ? '(rapid)' : '(work)'}`);
+                }
+
+                console.groupEnd();
+                return hasMove ? movement : null;
+            }
+
+            async parseProgram(program) {
+                this.reset();
+                const lines = program.split('\n');
+                const movements = [];
+
+                // Nejprve projít program a načíst všechny podprogramy
+                for (const line of lines) {
+                    const lMatch = line.trim().match(/L(\d+)/i);
+                    if (lMatch) {
+                        const subprogramNumber = parseInt(lMatch[1]);
+                        await this.processSubprogramParameters(subprogramNumber);
+                    }
+                }
+
+                // Pak zpracovat pohyby
+                for (const line of lines) {
+                    if (line.trim() === '') continue;
+                    const movement = await this.parseLine(line);
+                    if (movement) {
+                        movements.push(movement);
+                    }
+                }
+
+                debug(`Celkem pohybů: ${movements.length}`);
+                return movements;
+            }
+
+            // Přidat metodu pro nastavení základního adresáře
+            setBaseDirectory(path) {
+                // Odstranit případné uvozovky a upravit cestu
+                this.baseDirectory = path.replace(/["']/g, '').trim();
+                console.log(`Nastavena cesta k podprogramům: ${this.baseDirectory}`);
+            }
+
+            // Přidat metodu pro načtení podprogramu
+            async loadSubprogram(number) {
+                const baseName = `L${number}`;
+                const filename = `${baseName}.SPF`;
+
+                // 1. Nejprve zkusit najít v již načtených programech
+                const foundProgram = Array.from(this.loadedPrograms.values())
+                    .find(prog => prog.file.name.toUpperCase().startsWith(baseName));
+                if (foundProgram) {
+                    return foundProgram.content;
+                }
+
+                // 2. Pokud není v načtených programech, zkusit cache
+                if (this.loadedSubprograms.has(baseName)) {
+                    return this.loadedSubprograms.get(baseName);
+                }
+
+                // 3. Pokud není ani v cache, zkusit najít v seznamu souborů
+                const file = this.subprogramFiles.get(baseName);
+                if (!file) {
+                    console.warn(`Podprogram ${baseName} nenalezen v načtených souborech`);
+                    return null;
+                }
+
+                try {
+                    const content = await this.readFile(file);
+                    this.loadedSubprograms.set(baseName, content);
+                    return content;
+                } catch (error) {
+                    console.warn(`Nelze načíst podprogram ${filename}:`, error);
+                    return null;
+                }
+            }
+
+            // Pomocná metoda pro čtení souboru
+            readFile(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsText(file);
+                });
+            }
+
+            // Přidat metodu pro načtení podprogramů ze složky
+            async loadSubprogramDirectory(fileList) {
+                this.subprogramFiles.clear();
+                for (let file of fileList) {
+                    if (file.name.toUpperCase().endsWith('.SPF')) {
+                        // Ukládat bez přípony .SPF
+                        const baseName = file.name.toUpperCase().replace(/\.SPF$/, '');
+                        this.subprogramFiles.set(baseName, file);
+                    }
+                }
+                console.log('Načtené podprogramy:', Array.from(this.subprogramFiles.keys()));
+            }
+
+            // Upravená metoda pro zpracování parametrů z podprogramu
+            async processSubprogramParameters(subprogramNumber) {
+                const content = await this.loadSubprogram(subprogramNumber);
+                if (!content) return;
+
+                // Zpracovat řádky podprogramu a najít definice parametrů
+                const lines = content.split('\n');
+                for (const line of lines) {
+                    const trimmedLine = line.trim().toUpperCase();
+
+                    // Kontrola zda řádek obsahuje R-parametry
+                    if (trimmedLine.includes('R') && trimmedLine.includes('=')) {
+                        // Nejprve odstranit komentáře
+                        const lineWithoutComments = trimmedLine.split(/[;/]/)[0].trim();
+
+                        // Odstranit číslo bloku na začátku (např. N85)
+                        const cleanLine = lineWithoutComments.replace(/^N\d+\s*/, '');
+
+                        // Najít všechna přiřazení R-parametrů na řádku
+                        const rAssignments = cleanLine.matchAll(/R(\d+)\s*=\s*(\([^)]+\)|[-]?\d+\.?\d*)/g);
+
+                        // Zpracovat všechna nalezená přiřazení
+                        for (const match of rAssignments) {
+                            const [, paramNum, expression] = match;
+                            try {
+                                // Vyčistit výraz a vyhodnotit
+                                let cleanExpr = expression.replace(/^\(|\)$/g, '');
+
+                                // Expandovat případné R-parametry ve výrazu
+                                const expandedExpr = cleanExpr.replace(/R(\d+)/g, (match, num) => {
+                                    const value = this.parameters.get(`R${num}`);
+                                    return value !== undefined ? value : '0';
+                                });
+
+                                // Vyhodnotit výraz
+                                const result = Function(`return ${expandedExpr}`)();
+                                const numResult = Number(result);
+
+                                if (!isNaN(numResult)) {
+                                    this.parameters.set(`R${paramNum}`, numResult);
+                                    console.log(`✓ Podprogram L${subprogramNumber}: R${paramNum} = ${numResult} (${cleanLine})`);
+                                }
+                            } catch (e) {
+                                console.warn(`✗ Chyba při zpracování parametru v podprogramu L${subprogramNumber}:`, e);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Přidat metodu pro načtení programu
+            async loadProgram(file) {
+                try {
+                    const content = await this.readFile(file);
+                    // Uložit do obou map pro snadné hledání
+                    const upperName = file.name.toUpperCase();
+                    this.loadedPrograms.set(file.name, {
+                        content: content,
+                        file: file
+                    });
+                    // Pokud jde o .SPF soubor, uložit i do mapy podprogramů
+                    if (upperName.endsWith('.SPF')) {
+                        this.subprogramFiles.set(upperName, file);
+                    }
+                    return content;
+                } catch (error) {
+                    console.warn(`Nelze načíst program ${file.name}:`, error);
+                    return null;
+                }
+            }
+
+            // Přidat metodu pro získání načteného programu
+            getProgram(name) {
+                return this.loadedPrograms.get(name)?.content || null;
+            }
+
+            // Přidat metodu pro získání seznamu programů
+            getProgramList() {
+                return Array.from(this.loadedPrograms.keys());
+            }
+
+            // Upravit metodu findLineByPoint pro lepší detekci
+            findLineByPoint(targetX, targetZ) {
+                const lines = editor.value.split('\n');
+                let isAbsolute = true;
+                let currentX = 0;
+                let currentZ = 0;
+                const tolerance = 0.001;
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+
+                    // Kontrola G90/G91
+                    if (line.match(/G90/i)) isAbsolute = true;
+                    if (line.match(/G91/i)) isAbsolute = false;
+
+                    // Kontrola parametrických souřadnic
+                    const paramMatch = line.match(/[XZ]=R\d+[+-]?\d*\.?\d*/ig);
+                    if (paramMatch) {
+                        // Vyhodnotit parametrické výrazy
+                        for (const coord of paramMatch) {
+                            const [axis, expr] = coord.split('=');
+                            const value = this.evaluateParameters(expr);
+                            if (axis === 'X') currentX = value;
+                            if (axis === 'Z') currentZ = value;
+                        }
+                    } else {
+                        // Standardní souřadnice
+                        const xMatch = line.match(/X(-?\d+\.?\d*)/i);
+                        const zMatch = line.match(/Z(-?\d+\.?\d*)/i);
+
+                        if (xMatch) {
+                            const x = Number(parseFloat(xMatch[1]).toFixed(3));
+                            currentX = isAbsolute ? x : Number((currentX + x).toFixed(3));
+                        }
+                        if (zMatch) {
+                            const z = Number(parseFloat(zMatch[1]).toFixed(3));
+                            currentZ = isAbsolute ? z : Number((currentZ + z).toFixed(3));
+                        }
+                    }
+
+                    // Kontrola shody s cílovým bodem
+                    if (Math.abs(currentX - targetX) < tolerance &&
+                        Math.abs(currentZ - targetZ) < tolerance) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+
+            parseCoordinates(line) {
+                const result = {
+                    hasCoordinates: false,
+                    x: 0,
+                    z: 0,
+                    isAbsolute: this.absoluteMode
+                };
+
+                if (!line || line.trim().startsWith(';')) {
+                    return result;
+                }
+
+                try {
+                    const cleanLine = line.trim().toUpperCase();
+
+                    // Aktualizovat G90/G91 mód
+                    if (cleanLine.includes('G90')) {
+                        this.absoluteMode = true;
+                        result.isAbsolute = true;
+                    }
+                    if (cleanLine.includes('G91')) {
+                        this.absoluteMode = false;
+                        result.isAbsolute = false;
+                    }
+
+                    // Zpracovat souřadnice
+                    const xMatch = cleanLine.match(/X(-?\d*\.?\d+)/);
+                    const zMatch = cleanLine.match(/Z(-?\d*\.?\d+)/);
+
+                    if (xMatch || zMatch) {
+                        result.hasCoordinates = true;
+
+                        if (xMatch) {
+                            const x = parseFloat(xMatch[1]);
+                            result.x = this.absoluteMode ? x : (this.currentX + x);
+                        } else {
+                            result.x = this.currentX;
+                        }
+
+                        if (zMatch) {
+                            const z = parseFloat(zMatch[1]);
+                            result.z = this.absoluteMode ? z : (this.currentZ + z);
+                        } else {
+                            result.z = this.currentZ;
+                        }
+
+                        // Aktualizovat aktuální pozici
+                        this.currentX = result.x;
+                        this.currentZ = result.z;
+                    }
+                } catch (e) {
+                    console.warn('Chyba při parsování souřadnic:', e);
+                }
+
+                return result;
+            }
+        }
+
+        class Simulator {
+            constructor() {
+                // Nejdřív zkontrolovat existenci canvas elementu
+                this.canvas = document.getElementById('simulatorCanvas');
+                if (!this.canvas) {
+                    throw new Error('Canvas element nenalezen');
+                }
+
+                this.ctx = this.canvas.getContext('2d');
+                this.parser = new CNCParser();
+
+                // Inicializace základních vlastností
+                this.setupBasicProperties();
+
+                // Vytvořit event handler metody
+                this.setupEventHandlers();
+
+                // Vytvořit bound metody
+                this.createBoundMethods();
+
+                // Nastavit event listenery
+                this.setupEventListeners();
+                this.setupTooltip();
+
+                // Inicializovat zobrazení
+                this.setupCanvas();
+                window.addEventListener('resize', () => this.setupCanvas());
+
+                debug('Simulátor inicializován');
+            }
+
+            setupEventHandlers() {
+                // Definovat všechny event handler metody
+                this.handleMouseMove = (event) => {
+                    if (!this.isDragging) {
+                        this.checkPointUnderCrosshair(event.clientX, event.clientY);
+                    }
+                };
+
+                this.handleZoom = (event) => {
+                    event.preventDefault();
+                    const rect = this.canvas.getBoundingClientRect();
+                    const mouseX = event.clientX - rect.left;
+                    const mouseY = event.clientY - rect.top;
+                    const worldX = (mouseX - this.centerX) / (this.baseScale * this.zoomFactor);
+                    const worldY = (this.centerY - mouseY) / (this.baseScale * this.zoomFactor);
+
+                    if (event.deltaY < 0) {
+                        this.zoomFactor = Math.min(this.zoomFactor * 1.1, 10);
+                    } else {
+                        this.zoomFactor = Math.max(this.zoomFactor * 0.9, 0.1);
+                    }
+
+                    this.scale = this.baseScale * this.zoomFactor;
+                    this.centerX = mouseX - worldX * this.scale;
+                    this.centerY = mouseY + worldY * this.scale;
+                    this.gridCache = this.createGridCache();
+                    this.simulate(false);
+                };
+
+                // Ostatní event handlery
+                this.startDrag = this.startDrag.bind(this);
+                this.drag = this.drag.bind(this);
+                this.stopDrag = this.stopDrag.bind(this);
+                this.handleTouchStart = this.handleTouchStart.bind(this);
+                this.handleTouchMove = this.handleTouchMove.bind(this);
+                this.handleTouchEnd = this.handleTouchEnd.bind(this);
+                this.handleCanvasClick = this.handleCanvasClick.bind(this);
+            }
+
+            createBoundMethods() {
+                // Vytvořit vázané metody z event handlerů
+                this.boundHandleZoom = this.handleZoom.bind(this);
+                this.boundHandleMouseMove = this.handleMouseMove.bind(this);
+                this.boundStartDrag = this.startDrag;
+                this.boundDrag = this.drag;
+                this.boundStopDrag = this.stopDrag;
+                this.boundHandleTouchStart = this.handleTouchStart;
+                this.boundHandleTouchMove = this.handleTouchMove;
+                this.boundHandleTouchEnd = this.handleTouchEnd;
+                this.boundHandleCanvasClick = this.handleCanvasClick;
+            }
+
+            setupBasicProperties() {
+                this.gridCache = null;
+                this.lastUpdate = 0;
+                this.updateThreshold = 50;
+                this.minScale = 0.1;
+                this.padding = 50;
+                this.maxScale = 10;
+                this.lastMouseX = 0;
+                this.lastMouseY = 0;
+                this.isDragging = false;
+                this.baseScale = 1;
+                this.zoomFactor = 1;
+                this.viewPosition = { x: 0, y: 0 };
+                this.programBounds = null;
+                this.originX = 0;
+                this.originY = 0;
+                this.points = [];
+                this.lastSelectedPoint = null;
+                this.highlightedPoint = null;
+                this.pulseAnimation = null;
+            }
+
+            setupEventListeners() {
+                // Použít předem vytvořené bound metody
+                this.canvas.addEventListener('wheel', this.boundHandleZoom);
+                this.canvas.addEventListener('mousedown', this.boundStartDrag);
+                this.canvas.addEventListener('mousemove', this.boundDrag);
+                this.canvas.addEventListener('mouseup', this.boundStopDrag);
+                this.canvas.addEventListener('mouseleave', this.boundStopDrag);
+                this.canvas.addEventListener('click', this.boundHandleCanvasClick);
+
+                // Touch events
+                this.canvas.addEventListener('touchstart', this.boundHandleTouchStart, { passive: false });
+                this.canvas.addEventListener('touchmove', this.boundHandleTouchMove, { passive: false });
+                this.canvas.addEventListener('touchend', this.boundHandleTouchEnd);
+            }
+
+            setupTooltip() {
+                this.tooltip = document.createElement('div');
+                this.tooltip.className = 'tooltip';
+                const container = document.querySelector('.canvas-container');
+                if (container) {
+                    container.appendChild(this.tooltip);
+                    this.tooltip.style.display = 'none';
+
+                    // Použít předem vytvořenou bound metodu
+                    this.canvas.addEventListener('mousemove', this.boundHandleMouseMove);
+                    this.canvas.addEventListener('mouseout', () => this.tooltip.style.display = 'none');
+
+                    // Přidat crosshair
+                    this.crosshair = document.createElement('div');
+                    this.crosshair.className = 'crosshair';
+                    container.appendChild(this.crosshair);
+                }
+            }
+
+            startDrag(event) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+
+                // Kontrola, zda neklikáme na bod
+                const hitPoint = this.points.find(point => {
+                    const dx = mouseX - point.screenX;
+                    const dy = mouseY - point.screenY;
+                    return Math.sqrt(dx * dx + dy * dy) < 5;
+                });
+
+                if (!hitPoint) {
+                    this.isDragging = true;
+                    this.lastMouseX = event.clientX;
+                    this.lastMouseY = event.clientY;
+                    this.canvas.style.cursor = 'grabbing';
+                }
+            }
+
+            drag(event) {
+                if (!this.isDragging) return;
+                const deltaX = event.clientX - this.lastMouseX;
+                const deltaY = event.clientY - this.lastMouseY;
+
+                this.centerX += deltaX;
+                this.centerY += deltaY;
+
+                this.lastMouseX = event.clientX;
+                this.lastMouseY = event.clientY;
+
+                // Překreslit mřížku při každém posunu
+                this.gridCache = this.createGridCache();
+                this.simulate();
+            }
+
+            stopDrag() {
+                // Přidat malé zpoždění pro kontrolu, zda šlo o klik nebo tah
+                setTimeout(() => {
+                    this.isDragging = false;
+                    this.canvas.style.cursor = 'default';
+                    // Zajistit překreslení drah
+                    if (this.lastMovements) {
+                        this.drawPath(this.lastMovements);
+                    }
+                }, 50);
+            }
+
+            handleTouchStart(event) {
+                event.preventDefault();
+
+                if (event.touches.length === 2) {
+                    // Zoom pomocí dvou prstů
+                    const touch1 = event.touches[0];
+                    const touch2 = event.touches[1];
+                    this.lastTouchDistance = Math.hypot(
+                        touch2.clientX - touch1.clientX,
+                        touch2.clientY - touch1.clientY
+                    );
+                    this.touchZoomStartScale = this.zoomFactor;
+                } else if (event.touches.length === 1) {
+                    // Posouvání jedním prstem
+                    const touch = event.touches[0];
+                    this.touchStartX = touch.clientX;
+                    this.touchStartY = touch.clientY;
+                    this.isDragging = true;
+                }
+            }
+
+            handleTouchMove(event) {
+                event.preventDefault();
+
+                if (event.touches.length === 2) {
+                    // Zoom
+                    const touch1 = event.touches[0];
+                    const touch2 = event.touches[1];
+                    const distance = Math.hypot(
+                        touch2.clientX - touch1.clientX,
+                        touch2.clientY - touch1.clientY
+                    );
+
+                    const scale = distance / this.lastTouchDistance;
+                    this.zoomFactor = Math.min(Math.max(this.touchZoomStartScale * scale, 0.1), 10);
+                    this.scale = this.baseScale * this.zoomFactor;
+
+                    // Aktualizovat zobrazení
+                    this.gridCache = this.createGridCache();
+                    this.simulate(false);
+                } else if (event.touches.length === 1 && this.isDragging) { // Opraveno 'and' na '&&'
+                    // Posouvání
+                    const touch = event.touches[0];
+                    const deltaX = touch.clientX - this.touchStartX;
+                    const deltaY = touch.clientY - this.touchStartY;
+
+                    this.centerX += deltaX;
+                    this.centerY += deltaY;
+
+                    this.touchStartX = touch.clientX;
+                    this.touchStartY = touch.clientY;
+
+                    // Aktualizovat zobrazení
+                    this.gridCache = this.createGridCache();
+                    this.simulate();
+                }
+
+                // Přidat průběžné překreslování během pohybu
+                if (this.lastMovements) {
+                    requestAnimationFrame(() => {
+                        this.drawPath(this.lastMovements);
+                    });
+                }
+            }
+
+            handleTouchEnd(event) {
+                this.isDragging = false;
+                this.lastTouchDistance = 0;
+
+                // Přidat vynucené překreslení po puštění
+                setTimeout(() => {
+                    if (this.lastMovements) {
+                        this.drawPath(this.lastMovements);
+                    }
+                }, 50);
+            }
+
+            setupCanvas() {
+                this.canvas.width = this.canvas.parentElement.clientWidth;
+                this.canvas.height = this.canvas.parentElement.clientHeight;
+                this.centerX = this.canvas.width / 2;
+                this.centerY = this.canvas.height / 2;
+                this.scale = Math.min(this.canvas.width, this.canvas.height) / 200;
+                this.gridCache = this.createGridCache();
+                this.simulate();
+            }
+
+            getGridStep() {
+                const scale = this.scale * this.zoomFactor;
+                const minPixelsBetweenLines = 50; // Minimální počet pixelů mezi čarami mřížky
+                const steps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+                const idealStep = minPixelsBetweenLines / scale;
+
+                for (let step of steps) {
+                    if (step * scale >= minPixelsBetweenLines * 0.8) {
+                        return step;
+                    }
+                }
+                return steps[steps.length - 1];
+            }
+
+            createGridCache() {
+                const cacheCanvas = document.createElement('canvas');
+                cacheCanvas.width = this.canvas.width;
+                cacheCanvas.height = this.canvas.height;
+                const ctx = cacheCanvas.getContext('2d');
+
+                // Vykreslení mřížky
+                ctx.strokeStyle = '#ddd';
+                ctx.lineWidth = 0.5;
+                ctx.fillStyle = '#666';
+                ctx.font = '22px Arial'; /* Zvětšeno z 11px */
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+
+                const gridStep = this.getGridStep();
+                const origin = this.worldToScreen(0, 0);
+
+                // Výpočet rozsahu mřížky s rezervou
+                const viewportLeft = -this.centerX / this.scale - gridStep;
+                const viewportRight = (this.canvas.width - this.centerX) / this.scale + gridStep;
+                const viewportTop = (this.centerY) / this.scale + gridStep;
+                const viewportBottom = -(this.canvas.height - this.centerY) / this.scale - gridStep;
+
+                // Zaokrouhlení na nejbližší násobek gridStep
+                const startX = Math.floor(viewportLeft / gridStep) * gridStep;
+                const endX = Math.ceil(viewportRight / gridStep) * gridStep;
+                const startY = Math.floor(viewportBottom / gridStep) * gridStep;
+                const endY = Math.ceil(viewportTop / gridStep) * gridStep;
+
+                // Vytvoření seznamu hlavních a vedlejších čar
+                const mainLines = [];
+                const subLines = [];
+
+                // Vykreslení vertikálních čar (nyní osa X)
+                for (let x = startX; x <= endX; x += gridStep) {
+                    const screenX = this.worldToScreen(x, 0).x;
+                    const isMainLine = Math.abs(x % (gridStep * 5)) < 0.001;
+                    if (isMainLine) {
+                        mainLines.push(() => {
+                            ctx.strokeStyle = '#aaa';
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(screenX, 0);
+                            ctx.lineTo(screenX, this.canvas.height);
+                            ctx.stroke();
+                            // Změnit popisek z Z na X
+                            if (Math.abs(x) > 0.001) {
+                                ctx.fillText(`X${x}`, screenX + 8, this.canvas.height - 20);
+                            }
+                        });
+                    } else {
+                        subLines.push(() => {
+                            ctx.strokeStyle = '#ddd';
+                            ctx.lineWidth = 0.5;
+                            ctx.beginPath();
+                            ctx.moveTo(screenX, 0);
+                            ctx.lineTo(screenX, this.canvas.height);
+                            ctx.stroke();
+                        });
+                    }
+                }
+
+                // Vykreslení horizontálních čar (nyní osa Z)
+                for (let y = startY; y <= endY; y += gridStep) {
+                    const screenY = this.worldToScreen(0, y).y;
+                    const isMainLine = Math.abs(y % (gridStep * 5)) < 0.001;
+                    if (isMainLine) {
+                        mainLines.push(() => {
+                            ctx.strokeStyle = '#aaa';
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(0, screenY);
+                            ctx.lineTo(this.canvas.width, screenY);
+                            ctx.stroke();
+                            // Změnit popisek z X na Z
+                            if (Math.abs(y) > 0.001) {
+                                ctx.fillText(`Z${y}`, 8, screenY + 8);
+                            }
+                        });
+                    } else {
+                        subLines.push(() => {
+                            ctx.strokeStyle = '#ddd';
+                            ctx.lineWidth = 0.5;
+                            ctx.beginPath();
+                            ctx.moveTo(0, screenY);
+                            ctx.lineTo(this.canvas.width, screenY);
+                            ctx.stroke();
+                        });
+                    }
+                }
+
+                // Nejprve vykreslit vedlejší čáry
+                subLines.forEach(drawFn => drawFn());
+                // Pak vykreslit hlavní čáry a popisky
+                mainLines.forEach(drawFn => drawFn());
+
+                return cacheCanvas;
+            }
+
+            drawAxes() {
+                if (this.gridCache) {
+                    this.ctx.drawImage(this.gridCache, 0, 0);
+                }
+
+                const origin = this.worldToScreen(0, 0);
+
+                // Vykreslení os
+                this.ctx.strokeStyle = '#000';
+                this.ctx.lineWidth = 2;
+
+                // X osa (horizontální)
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, origin.y);
+                this.ctx.lineTo(this.canvas.width, origin.y);
+                this.ctx.stroke();
+
+                // Z osa (vertikální)
+                this.ctx.beginPath();
+                this.ctx.moveTo(origin.x, 0);
+                this.ctx.lineTo(origin.x, this.canvas.height);
+                this.ctx.stroke();
+
+                // Popisky os
+                this.ctx.fillStyle = '#000';
+                this.ctx.font = 'bold 22px Arial';
+
+                // X na konci horizontální osy vpravo
+                this.ctx.textAlign = 'right';
+                this.ctx.textBaseline = 'top';
+                this.ctx.fillText('X', this.canvas.width - 10, origin.y + 5);
+
+                // Z na vertikální ose nahoře
+                this.ctx.textAlign = 'left';
+                this.ctx.textBaseline = 'top';
+                this.ctx.fillText('Z', origin.x + 5, 5);
+            }
+
+            drawPath(movements) {
+                if (!movements || !Array.isArray(movements) || movements.length === 0) {
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.drawAxes();
+                    return;
+                }
+
+                // Vyčistit canvas před kreslením
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.drawAxes();
+
+                // Připravit batche pro vykreslení
+                let batchRapid = [];
+                let batchNormal = [];
+                this.points = [];
+
+                // Nejprve sesbírat všechny body a dráhy
+                for (let move of movements) {
+                    const from = this.worldToScreen(move.fromX, move.fromZ);
+                    const to = this.worldToScreen(move.toX, move.toZ);
+
+                    if (!move.rapid) {
+                        this.points.push({
+                            screenX: from.x,
+                            screenY: from.y,
+                            x: move.fromX,
+                            z: move.fromZ,
+                            isStart: true
+                        });
+                    }
+
+                    if (move.isArc && move.arcPoints) {
+                        // Vykreslit oblouk jedním tahem
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(from.x, from.y);
+
+                        for (let point of move.arcPoints) {
+                            const screenPoint = this.worldToScreen(point.x, point.z);
+                            this.ctx.lineTo(screenPoint.x, screenPoint.y);
+                        }
+
+                        this.ctx.strokeStyle = '#007bff';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.stroke();
+
+                        if (move.center) {
+                            const center = this.worldToScreen(move.center.x, move.center.z);
+                            this.points.push({
+                                screenX: center.x,
+                                screenY: center.y,
+                                x: move.center.x,
+                                z: move.center.z,
+                                isCenter: true
+                            });
+                        }
+                    } else {
+                        if (move.rapid) {
+                            batchRapid.push({from, to});
+                        } else {
+                            batchNormal.push({from, to});
+                        }
+                    }
+
+                    // Přidat koncový bod
+                    this.points.push({
+                        screenX: to.x,
+                        screenY: to.y,
+                        x: move.toX,
+                        z: move.toZ
+                    });
+                }
+
+                // Vykreslit všechny rychloposuvy najednou
+                if (batchRapid.length > 0) {
+                    this.ctx.strokeStyle = '#ff0000';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.beginPath();
+                    for (let move of batchRapid) {
+                        this.ctx.moveTo(move.from.x, move.from.y);
+                        this.ctx.lineTo(move.to.x, move.to.y);
+                    }
+                    this.ctx.stroke();
+                }
+
+                // Vykreslit všechny pracovní posuvy najednou
+                if (batchNormal.length > 0) {
+                    this.ctx.strokeStyle = '#007bff';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    for (let move of batchNormal) {
+                        this.ctx.moveTo(move.from.x, move.from.y);
+                        this.ctx.lineTo(move.to.x, move.to.y);
+                    }
+                    this.ctx.stroke();
+                }
+
+                // Vykreslit body
+                for (let point of this.points) {
+                    this.ctx.fillStyle = point.isCenter ? '#00ff00' : (point.isStart ? '#007bff' : '#007bff');
+                    this.ctx.beginPath();
+                    this.ctx.arc(point.screenX, point.screenY, 3, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                this.lastMovements = movements;
+
+                // Vykreslení zvýrazněného bodu na konci
+                if (this.highlightedPoint) {
+                    this.drawHighlightedPoint();
+                }
+            }
+
+            drawHighlightedPoint() {
+                if (!this.highlightedPoint) return;
+
+                const point = this.worldToScreen(this.highlightedPoint.x, this.highlightedPoint.z);
+
+                this.ctx.save();
+                this.ctx.beginPath();
+                this.ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+                this.ctx.fillStyle = '#ff0000';
+                this.ctx.fill();
+
+                const now = Date.now();
+                const phase = (now % 1000) / 1000;
+                const radius = 8 + Math.sin(phase * Math.PI * 2) * 4;
+
+                this.ctx.beginPath();
+                this.ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+                this.ctx.strokeStyle = '#ff0000';
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+                this.ctx.restore();
+
+                requestAnimationFrame(() => this.drawHighlightedPoint());
+            }
+
+            calculateBounds(movements) {
+                if (!movements || movements.length === 0) return null;
+                let minX = Infinity;
+                let maxX = -Infinity;
+                let minZ = Infinity;
+                let maxZ = -Infinity;
+
+                movements.forEach(move => {
+                    minX = Math.min(minX, move.fromX, move.toX);
+                    maxX = Math.max(maxX, move.fromX, move.toX);
+                    minZ = Math.min(minZ, move.fromZ, move.toZ);
+                    maxZ = Math.max(maxZ, move.fromZ, move.toZ);
+                });
+
+                // Přidat malý okraj pro prázdné programy nebo jednotlivé body
+                if (minX === maxX) {
+                    minX -= 5;
+                    maxX += 5;
+                }
+                if (minZ === maxZ) {
+                    minZ -= 5;
+                    maxZ += 5;
+                }
+
+                return { minX, maxX, minZ, maxZ };
+            }
+
+            adjustScale(bounds) {
+                if (!bounds) return;
+                this.programBounds = bounds; // Uložit hranice programu
+
+                const width = bounds.maxX - bounds.minX;
+                const height = bounds.maxZ - bounds.minZ;
+
+                // Vypočet základního měřítka pouze pokud nemáme uložené hranice
+                if (!this.baseScale || this.baseScale === 1) {
+                    const scaleX = (this.canvas.width - this.padding * 2) / (width || 1);
+                    const scaleY = (this.canvas.height - this.padding * 2) / (height || 1);
+                    this.baseScale = Math.min(scaleX, scaleY);
+                }
+                this.scale = this.baseScale * this.zoomFactor;
+
+                // Centrovat dráhy vzhledem k osám při resetu
+                if (!this.isDragging && !this.programBounds) {
+                    const origin = this.worldToScreen(0, 0);
+                    const centerX = this.canvas.width / 2;
+                    const centerY = this.canvas.height / 2;
+                    this.centerX += centerX - origin.x;
+                    this.centerY += centerY - origin.y;
+                }
+            }
+
+            resetView() {
+                const program = editor.value;
+                if (!program.trim()) return;
+
+                this.parser.parseProgram(program).then(movements => {
+                    if (movements && Array.isArray(movements)) {
+                        // Filtrovat pouze pracovní pohyby (G1)
+                        const workMoves = movements.filter(move => !move.rapid);
+
+                        if (workMoves.length > 0) {
+                            // Vypočítat hranice pouze pro pracovní pohyby
+                            const bounds = {
+                                minX: Math.min(...workMoves.map(m => Math.min(m.fromX, m.toX))),
+                                maxX: Math.max(...workMoves.map(m => Math.max(m.fromX, m.toX))),
+                                minZ: Math.min(...workMoves.map(m => Math.min(m.fromZ, m.toZ))),
+                                maxZ: Math.max(...workMoves.map(m => Math.max(m.fromZ, m.toZ)))
+                            };
+
+                            // Přidat okraj 10% pro lepší zobrazení
+                            const margin = {
+                                x: (bounds.maxX - bounds.minX) * 0.1,
+                                z: (bounds.maxZ - bounds.minZ) * 0.1
+                            };
+
+                            bounds.minX -= margin.x;
+                            bounds.maxX += margin.x;
+                            bounds.minZ -= margin.z;
+                            bounds.maxZ += margin.z;
+
+                            // Vypočítat měřítko pro přizpůsobení pohledu
+                            const width = bounds.maxZ - bounds.minZ;
+                            const height = bounds.maxX - bounds.minX;
+
+                            const scaleX = this.canvas.width / width;
+                            const scaleY = this.canvas.height / height;
+
+                            // Použít menší měřítko pro zachování poměru stran
+                            this.baseScale = Math.min(scaleX, scaleY);
+                            this.zoomFactor = 1;
+                            this.scale = this.baseScale;
+
+                            // Vypočítat střed pro centrování
+                            const centerX = (bounds.minX + bounds.maxX) / 2;
+                            const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+
+                            // Nastavit pozici pohledu
+                            this.centerX = this.canvas.width / 2 - centerX * this.scale;
+                            this.centerY = this.canvas.height / 2 + centerZ * this.scale;
+
+                            // Překreslit
+                            this.gridCache = this.createGridCache();
+                            this.simulate(true);
+                        } else {
+                            // Pokud nejsou pracovní pohyby, zobrazit celý program
+                            const bounds = this.calculateBounds(movements);
+                            if (bounds) {
+                                // ... původní kód pro všechny pohyby ...
+                            }
+                        }
+                    }
+                }).catch(error => {
+                    console.error('Chyba při parsování programu:', error);
+                });
+            }
+
+            worldToScreen(x, z) {
+                return {
+                    x: this.centerX + x * this.scale,     // X na horizontální osu
+                    y: this.centerY - z * this.scale      // Z na vertikální osu - opraveno znaménko
+                };
+            }
+
+            async simulate(resetView = false) {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                const program = editor.value;
+
+                if (program.trim()) {
+                    debug('Spuštění simulace programu');
+                    const movements = await this.parser.parseProgram(program);
+                    const bounds = this.calculateBounds(movements);
+                    // Přizpůsobit měřítko podle rozměrů programu
+
+                    if (resetView) {
+                        this.lastSelectedPoint = null;
+                        selectedPosXElement.textContent = '-';
+                        selectedPosZElement.textContent = '-';
+                    }
+
+                    this.adjustScale(bounds);
+                    this.drawAxes();
+                    this.drawPath(movements);
+                    debug('Simulace dokončena');
+                } else {
+                    this.drawAxes();
+                }
+            }
+
+            formatNumber(num) {
+                // Zaokrouhlit na 3 desetinná místa a převést na string
+                const rounded = Number(num).toFixed(3);
+                // Odstranit koncové nuly za desetinnou čárkou a případně i desetinnou čárku
+                return rounded.replace(/\.?0+$/, '');
+            }
+
+            checkPointUnderCrosshair(x, y) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = x - rect.left;
+                const mouseY = y - rect.top;
+
+                const hitPoint = this.points.find(point => {
+                    const dx = mouseX - point.screenX;
+                    const dy = mouseY - point.screenY;
+                    return Math.sqrt(dx * dx + dy * dy) < 15; // Větší tolerance pro dotyk
+                });
+
+                if (hitPoint) {
+                    this.tooltip.style.display = 'block';
+                    this.tooltip.style.left = (x + 20) + 'px';
+                    this.tooltip.style.top = (y - 30) + 'px';
+                    this.tooltip.textContent = `X${this.formatNumber(hitPoint.x)} Z${this.formatNumber(hitPoint.z)}`;
+
+                    // Aktualizujeme poslední vybraný bod a jeho souřadnice
+                    this.lastSelectedPoint = hitPoint;
+                    this.updateSelectedPosition(hitPoint.x, hitPoint.z);
+                } else {
+                    this.tooltip.style.display = 'none';
+                }
+            }
+
+            updateSelectedPosition(x, z) {
+                if (x !== null && z !== null) {
+                    // Převést relativní souřadnice na absolutní, pokud je potřeba
+                    const absoluteX = this.parser.absoluteMode ? x : (this.parser.currentX + x);
+                    const absoluteZ = this.parser.absoluteMode ? z : (this.parser.currentZ + z);
+
+                    selectedPosXElement.textContent = this.formatNumber(absoluteX);
+                    selectedPosZElement.textContent = this.formatNumber(absoluteZ);
+                }
+            }
+
+            highlightPoint(x, z) {
+                // Nejprve vyčistit předchozí zvýraznění
+                this.clearHighlight();
+
+                this.highlightedPoint = { x, z };
+
+                const animate = () => {
+                    if (!this.highlightedPoint) return;
+
+                    const point = this.worldToScreen(this.highlightedPoint.x, this.highlightedPoint.z);
+
+                    this.ctx.save();
+
+                    // Vykreslení pevného bodu
+                    this.ctx.beginPath();
+                    this.ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+                    this.ctx.fillStyle = '#ff0000';
+                    this.ctx.fill();
+
+                    // Pulzující kružnice
+                    const now = Date.now();
+                    const phase = (now % 1000) / 1000;
+                    const radius = 8 + Math.sin(phase * Math.PI * 2) * 4;
+
+                    this.ctx.beginPath();
+                    this.ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+                    this.ctx.strokeStyle = '#ff0000';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke();
+
+                    this.ctx.restore();
+
+                    // Uložit referenci na animaci
+                    this.animationFrame = requestAnimationFrame(animate);
+                };
+
+                // Spustit animaci
+                animate();
+            }
+
+            clearHighlight() {
+                // Zastavit všechny běžící animace
+                if (this.animationFrame) {
+                    cancelAnimationFrame(this.animationFrame);
+                    this.animationFrame = null;
+                }
+
+                this.highlightedPoint = null;
+
+                // Kompletní překreslení
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.drawAxes();
+                if (this.lastMovements) {
+                    this.drawPath(this.lastMovements);
+                }
+            }
+
+            handleCanvasClick(event) {
+                if (this.isDragging) return;
+
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+
+                // Vymazat předchozí zvýraznění
+                this.clearHighlight();
+
+                const hitPoint = this.points.find(point => {
+                    const dx = mouseX - point.screenX;
+                    const dy = mouseY - point.screenY;
+                    return Math.sqrt(dx * dx + dy * dy) < 8;
+                });
+
+                if (hitPoint) {
+                    const lineIndex = this.findLineByCoordinates(hitPoint.x, hitPoint.z);
+                    if (lineIndex >= 0) {
+                        this.highlightLineAndPoint(lineIndex, hitPoint);
+                    }
+                }
+            }
+
+            highlightLineAndPoint(lineIndex, point) {
+                // Nejprve vyčistit předchozí zvýraznění
+
+                // Odstranit předchozí šipky a třídy
+                const lines = editor.value.split('\n');
+                const cleanLines = lines.map(line => line.replace(/^→\s*/, ''));
+
+                // Přidat šipku k vybranému řádku
+                cleanLines[lineIndex] = '→ ' + cleanLines[lineIndex];
+                editor.value = cleanLines.join('\n');
+
+                // Aktualizovat zobrazené souřadnice
+                selectedPosXElement.textContent = this.formatNumber(point.x);
+                selectedPosZElement.textContent = this.formatNumber(point.z);
+
+                // Zvýraznit bod
+                this.highlightPoint(point.x, point.z);
+
+                // Scrollovat k vybranému řádku a udržet ho na druhé pozici
+                const lineHeight = parseFloat(getComputedStyle(editor).lineHeight);
+                const viewportHeight = editor.clientHeight;
+                const targetPosition = lineHeight * (lineIndex - 1);
+
+                // Zajistit, aby označený řádek byl vždy viditelný a na druhé pozici
+                if (targetPosition < editor.scrollTop ||
+                    targetPosition > editor.scrollTop + viewportHeight - lineHeight * 3) {
+                    editor.scrollTop = Math.max(0, targetPosition);
+                }
+
+                // Přidat třídu pro zvýraznění řádku
+                const textLines = editor.value.split('\n');
+                const textareaContent = textLines.map((line, i) =>
+                    i === lineIndex ?
+                        `<div class="editor-line editor-line-highlight">${line}</div>` :
+                        `<div class="editor-line">${line}</div>`
+                ).join('');
+
+                // Překreslit
+                this.drawPath(this.lastMovements);
+            }
+
+            clearAllHighlights() {
+                this.highlightedPoint = null;
+                this.highlightedPoints = []; // Přidat nové pole pro více zvýrazněných bodů
+                if (this.lastMovements) {
+                    this.drawPath(this.lastMovements);
+                } else {
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.drawAxes();
+                }
+            }
+
+            async findLineByCoordinates(targetX, targetZ) {
+                let currentX = 0;
+                let currentZ = 0;
+                let isAbsolute = true; // Výchozí G90 mód
+                const program = editor.value;
+                const lines = program.split('\n');
+
+                // Projít všechny předchozí řádky a spočítat aktuální pozici
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line || line.startsWith(';')) continue;
+
+                    // Kontrola G90/G91
+                    if (line.includes('G90')) {
+                        isAbsolute = true;
+                        continue;
+                    }
+                    if (line.includes('G91')) {
+                        isAbsolute = false;
+                        continue;
+                    }
+
+                    // Zpracování souřadnic
+                    const coords = await this.parser.parseCoordinates(line);
+                    if (coords.hasCoordinates) {
+                        if (isAbsolute) {
+                            currentX = coords.x;
+                            currentZ = coords.z;
+                        } else {
+                            currentX += coords.x;
+                            currentZ += coords.z;
+                        }
+
+                        // Kontrola shody s hledanou pozicí (s tolerancí)
+                        if (Math.abs(currentX - targetX) < 0.001 &&
+                            Math.abs(currentZ - targetZ) < 0.001) {
+                            return i;
+                        }
+                    }
+                }
+                return -1;
+            }
+
+            async simulateToLine(lineIndex) {
+                const program = editor.value;
+                const lines = program.split('\n').slice(0, lineIndex + 1).join('\n');
+                const movements = await this.parser.parseProgram(lines);
+                this.drawPath(movements);
+            }
+        }
+
+        class CNCPlayer {
+            constructor(simulator) {
+                // ...existing constructor code...
+
+                // Přidat inicializaci DOM elementů na začátek konstruktoru
+                const elements = {
+                    posX: document.getElementById('posX'),
+                    posZ: document.getElementById('posZ'),
+                    playBtn: document.getElementById('playBtn'),
+                    prevBtn: document.getElementById('prevBtn'),
+                    nextBtn: document.getElementById('nextBtn'),
+                    speedSlider: document.getElementById('speedSlider'),
+                    currentLine: document.getElementById('currentLine'),
+                    totalLines: document.getElementById('totalLines')
+                };
+
+                // Kontrola existence elementů
+                if (Object.values(elements).some(el => !el)) {
+                    console.error('Některé požadované DOM elementy nebyly nalezeny');
+                    return;
+                }
+
+                // Uložit reference
+                this.elements = elements;
+
+                // ...rest of existing constructor code...
+
+                this.simulator = simulator;
+                this.movements = [];
+                this.currentIndex = 0;
+                this.isPlaying = false;
+                this.playTimer = null;
+                this.speed = 50; // Výchozí rychlost (1-100)
+
+                // Ovládací prvky
+                this.playBtn = document.getElementById('playBtn');
+                this.prevBtn = document.getElementById('prevBtn');
+                this.nextBtn = document.getElementById('nextBtn');
+                this.speedSlider = document.getElementById('speedSlider');
+                this.currentLineSpan = document.getElementById('currentLine');
+                this.totalLinesSpan = document.getElementById('totalLines');
+
+                // Event listeners
+                this.playBtn.addEventListener('click', () => this.togglePlay());
+                this.prevBtn.addEventListener('click', () => this.prev());
+                this.nextBtn.addEventListener('click', () => this.next());
+                this.speedSlider.addEventListener('input', (e) => this.setSpeed(e.target.value));
+
+                this.updateControls();
+            }
+
+            togglePlay() {
+                if (this.isPlaying) {
+                    this.pause();
+                } else {
+                    this.play();
+                }
+            }
+
+            play() {
+                if (this.currentIndex >= this.movements.length) {
+                    this.currentIndex = 0;
+                }
+                this.isPlaying = true;
+                this.playBtn.textContent = '⏸️';
+                this.playBtn.title = 'Pozastavit';
+                this.updateControls();
+                this.playNext();
+            }
+
+            pause() {
+                this.isPlaying = false;
+                this.playBtn.textContent = '▶️';
+                this.playBtn.title = 'Přehrát';
+                clearTimeout(this.playTimer);
+                this.updateControls();
+            }
+
+            prev() {
+                if (this.currentIndex > 0) {
+                    this.currentIndex--;
+                    this.drawMovements(this.currentIndex);
+                    this.updateCurrentLine();
+                    this.updateControls();
+                }
+            }
+
+            next() {
+                if (this.currentIndex < this.movements.length) {
+                    this.currentIndex++;
+                    this.drawMovements(this.currentIndex);
+                    this.updateCurrentLine();
+                    this.updateControls();
+                }
+            }
+
+            updateControls() {
+                // Aktualizace stavu tlačítek
+                this.prevBtn.disabled = this.currentIndex <= 0 || this.isPlaying;
+                this.nextBtn.disabled = this.currentIndex >= this.movements.length || this.isPlaying;
+                this.speedSlider.disabled = !this.isPlaying;
+            }
+
+            async setProgram(program) {
+                this.movements = await this.simulator.parser.parseProgram(program);
+                this.currentIndex = 0;
+                this.totalLinesSpan.textContent = this.movements.length;
+                this.updateCurrentLine();
+                this.stop();
+            }
+
+            async drawMovements(upToIndex) {
+                if (!this.elements.posX || !this.elements.posZ) return;
+
+                const currentMovements = this.movements.slice(0, upToIndex + 1);
+
+                if (currentMovements.length > 0) {
+                    // Vykreslit pohyby
+                    this.simulator.drawPath(currentMovements);
+
+                    const currentMove = currentMovements[currentMovements.length - 1];
+
+                    // Aktualizovat pozice
+                    this.elements.posX.textContent = this.simulator.formatNumber(currentMove.toX);
+                    this.elements.posZ.textContent = this.simulator.formatNumber(currentMove.toZ);
+
+                    // Najít aktuální řádek v programu
+                    const program = editor.value;
+                    const lines = program.split('\n');
+
+                    // Reset všech označení
+                    const cleanLines = lines.map(line => line.replace(/^→\s*/, ''));
+
+                    // Najít index řádku pro aktuální pohyb
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line || line.startsWith(';')) continue;
+
+                        const coords = await this.simulator.parser.parseCoordinates(line);
+                        if (coords.hasCoordinates &&
+                            Math.abs(coords.x - currentMove.toX) < 0.001 &&
+                            Math.abs(coords.z - currentMove.toZ) < 0.001) {
+
+                            // Označit aktuální řádek
+                            cleanLines[i] = '→ ' + cleanLines[i];
+
+                            // Aktualizovat editor
+                            editor.value = cleanLines.join('\n');
+
+                            // Scrollovat k označenému řádku
+                            const lineHeight = parseFloat(getComputedStyle(editor).lineHeight);
+                            const targetScroll = Math.max(0, (i - 2) * lineHeight);
+                            editor.scrollTop = targetScroll;
+
+                            // Zvýraznit aktuální bod v simulaci
+                            this.simulator.highlightPoint(currentMove.toX, currentMove.toZ);
+
+                            break;
+                        }
+                    }
+                }
+            }
+
+            async findLineForMovement(movement, lines) {
+                let currentX = 0;
+                let currentZ = 0;
+                let isAbsolute = true;
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line || line.startsWith(';')) continue;
+
+                    // Kontrola G90/G91
+                    if (line.includes('G90')) {
+                        isAbsolute = true;
+                        continue;
+                    }
+                    if (line.includes('G91')) {
+                        isAbsolute = false;
+                        continue;
+                    }
+
+                    const coords = await this.simulator.parser.parseCoordinates(line);
+                    if (coords.hasCoordinates) {
+                        const x = coords.x;
+                        const z = coords.z;
+
+                        if (Math.abs(x - movement.toX) < 0.001 &&
+                            Math.abs(z - movement.toZ) < 0.001) {
+                            return i;
+                        }
+
+                        if (isAbsolute) {
+                            currentX = x;
+                            currentZ = z;
+                        } else {
+                            currentX += x;
+                            currentZ += z;
+                        }
+                    }
+                }
+                return -1;
+            }
+
+            playNext() {
+                if (!this.isPlaying || this.currentIndex >= this.movements.length) {
+                    this.stop();
+                    return;
+                }
+
+                // Použít requestAnimationFrame pro plynulejší animaci
+                requestAnimationFrame(async () => {
+                    await this.drawMovements(this.currentIndex);
+                    this.updateCurrentLine();
+                    this.currentIndex++;
+
+                    // Naplánovat další frame
+                    const delay = this.calculateDelay();
+                    this.playTimer = setTimeout(() => this.playNext(), delay);
+                });
+            }
+
+            calculateDelay() {
+                // Převod rychlosti (1-100) na čas (1000ms - 50ms)
+                return 1000 - (this.speed * 9.5);
+            }
+
+            stop() {
+                clearTimeout(this.playTimer);
+                this.isPlaying = false;
+                this.currentIndex = 0;
+                this.playBtn.textContent = '▶️';
+                this.playBtn.title = 'Přehrát';
+                this.updateCurrentLine();
+                this.updateControls();
+                this.simulator.simulate(); // Překreslit celou simulaci
+            }
+
+            step() {
+                if (this.currentIndex < this.movements.length) {
+                    this.drawMovements(this.currentIndex);
+                    this.currentIndex++;
+                    this.updateCurrentLine();
+                }
+            }
+
+            setSpeed(value) {
+                this.speed = parseInt(value);
+                if (this.isPlaying) {
+                    // Restartovat přehrávání s novou rychlostí
+                    clearTimeout(this.playTimer);
+                    this.playNext();
+                }
+            }
+
+            updateCurrentLine() {
+                this.currentLineSpan.textContent = this.currentIndex;
+            }
+        }
+
+        // Event handlers
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                // Vytvořit globální simulátor až po načtení DOM
+                window.simulator = new Simulator();
+
+                // Inicializovat CNC přehrávač
+                window.simulator.player = new CNCPlayer(window.simulator);
+
+                // Nastavit cestu k adresáři
+                const currentPath = window.location.pathname;
+                const baseDirectory = currentPath.substring(0, currentPath.lastIndexOf('/'));
+                window.simulator.parser.setBaseDirectory(baseDirectory);
+
+                // Event listener pro výběr souborů
+                const fileInput = document.getElementById('actualFileInput');
+                const programList = document.getElementById('programList');
+
+                if (fileInput && programList) {
+                    fileInput.addEventListener('change', async function(event) {
+                        if (!window.simulator || !window.simulator.parser) return;
+
+                        const files = Array.from(this.files);
+                        programList.innerHTML = '';
+
+                        // Načíst všechny soubory
+                        for (const file of files) {
+                            await window.simulator.parser.loadProgram(file);
+
+                            const item = document.createElement('div');
+                            item.className = 'program-list-item';
+                            const displayName = file.name.replace(/\.(SPF|MPF)$/i, '');
+                            item.textContent = displayName;
+                            item.onclick = async () => {
+                                programList.querySelectorAll('.program-list-item')
+                                    .forEach(i => i.classList.remove('active'));
+                                item.classList.add('active');
+
+                                const content = window.simulator.parser.getProgram(file.name);
+                                if (content) {
+                                    editor.value = content;
+                                    await simulateProgram();
+                                    window.simulator.resetView(); // Přidat automatický reset pohledu
+                                }
+                            };
+                            programList.appendChild(item);
+                        }
+
+                        // Automaticky načíst první program
+                        if (files.length > 0) {
+                            const firstFile = files[0];
+                            const content = await window.simulator.parser.loadProgram(firstFile);
+                            if (content) {
+                                editor.value = content;
+                                programList.firstChild?.classList.add('active');
+                                await simulateProgram();
+                                window.simulator.resetView(); // Přidat automatický reset pohledu
+                            }
+                        }
+
+                        debug(`Načteno ${files.length} programů`);
+                    });
+                }
+
+                // Event listener pro editor
+                const editor = document.getElementById('editor');
+                if (editor) {
+                    const debouncedSimulate = debounce(() => {
+                        if (window.simulator) {
+                            window.simulator.simulate();
+                        }
+                    }, 100);
+                    editor.addEventListener('input', debouncedSimulate);
+                }
+
+                debug('Inicializace dokončena');
+            } catch (error) {
+                console.error('Chyba při inicializaci:', error);
+            }
+        }, { once: true });
+
+        window.saveFile = function() {
+            const content = editor.value;
+            if (!content.trim()) {
+                alert('Nelze uložit prázdný program');
+                return;
+            }
+
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+
+            a.href = url;
+            a.download = 'program.mpf';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            window.URL.revokeObjectURL(url);
+            debug('Program uložen');
+        }
+
+        window.resetView = function() {
+            if (window.simulator) {
+                window.simulator.resetView();
+            }
+        }
+
+        // Upravit event listener pro kliknutí na řádek v editoru
+        editor.addEventListener('click', async function(e) {
+            const cursorPosition = editor.selectionStart;
+            const lines = editor.value.split('\n');
+            if (!lines.length) return;
+
+            const clickedLineIndex = editor.value.substr(0, cursorPosition).split('\n').length - 1;
+            if (clickedLineIndex < 0) return;
+
+            // Nejprve vyčistit všechna předchozí zvýraznění
+            window.simulator.clearAllHighlights();
+
+            try {
+                // Použít stejnou logiku jako v přehrávači - parsovat program po tento řádek
+                const programUpToLine = lines.slice(0, clickedLineIndex + 1).join('\n');
+                const movements = await window.simulator.parser.parseProgram(programUpToLine);
+
+                if (movements.length > 0) {
+                    // Získat poslední pohyb - obsahuje aktuální pozici
+                    const lastMove = movements[movements.length - 1];
+
+                    // Aktualizovat zobrazení a zvýraznění
+                    window.simulator.highlightLineAndPoint(clickedLineIndex, {
+                        x: lastMove.toX,
+                        z: lastMove.toZ
+                    });
+
+                    // Přehrát pohyby až po tento bod
+                    if (window.simulator.player) {
+                        // Najít index v celém programu
+                        const allMovements = await window.simulator.parser.parseProgram(editor.value);
+                        const moveIndex = movements.length - 1;
+
+                        if (moveIndex >= 0) {
+                            // Synchronizovat přehrávač
+                            window.simulator.player.currentIndex = moveIndex + 1;
+                            await window.simulator.player.drawMovements(moveIndex);
+                            window.simulator.player.updateCurrentLine();
+                        }
+                    }
+
+                    // Aktualizovat simulaci
+                    await window.simulator.simulateToLine(clickedLineIndex);
+
+                    // Aktualizovat pozici v zobrazení
+                    posXElement.textContent = window.simulator.formatNumber(lastMove.toX);
+                    posZElement.textContent = window.simulator.formatNumber(lastMove.toZ);
+                    selectedPosXElement.textContent = window.simulator.formatNumber(lastMove.toX);
+                    selectedPosZElement.textContent = window.simulator.formatNumber(lastMove.toZ);
+                }
+            } catch (error) {
+                console.error('Chyba při zpracování řádku:', error);
+            }
+        });
+
+        // Přidat event listener pro opakované překreslení při změně velikosti okna
+        window.addEventListener('resize', debounce(() => {
+            if (window.simulator) {
+                window.simulator.setupCanvas();
+                window.simulator.simulate();
+            }
+        }, 250));
+
+        // Přidat možnost výběru složky s podprogramy
+        window.selectProgramDirectory = function() {
+            if (!window.simulator || !window.simulator.parser) {
+                console.error('Simulátor není inicializován');
+                return;
+            }
+
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.webkitdirectory = true;
+            input.multiple = true;
+
+            input.addEventListener('change', async function(e) {
+                if (this.files.length > 0) {
+                    await window.simulator.parser.loadSubprogramDirectory(this.files);
+                    debug(`Načteno ${this.files.length} podprogramů`);
+                }
+            });
+
+            input.click();
+        }
+
+        // Přidat globální funkci simulateProgram
+        window.simulateProgram = async function() {
+            if (window.simulator) {
+                await window.simulator.simulate();
+                if (window.simulator.player) {
+                    await window.simulator.player.setProgram(editor.value);
+                }
+            }
+        }
+
+        // Přidat funkce pro práci s modálním oknem
+        function showParameters() {
+            const modal = document.getElementById('parametersModal');
+            const tableBody = document.getElementById('parametersTableBody');
+            tableBody.innerHTML = '';
+
+            // Získat seřazené parametry, pouze nenulové nebo explicitně definované
+            const parameters = Array.from(window.simulator.parser.parameters.entries())
+                .filter(([_, value]) => value !== 0) // Filtrovat pouze nenulové hodnoty
+                .sort((a, b) => {
+                    const numA = parseInt(a[0].replace('R', ''));
+                    const numB = parseInt(b[0].replace('R', '')); // Opraveno - odstraněn přebytečný uzávorkující operátor
+                    return numA - numB;
+                });
+
+            if (parameters.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="2" style="text-align: center; padding: 20px;">
+                        Žádné definované parametry
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            } else {
+                // Naplnit tabulku parametry
+                for (const [param, value] of parameters) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${param}</td>
+                        <td>${typeof value === 'number' ? value.toFixed(3) : value}</td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+            }
+
+            modal.style.display = 'block';
+        }
+
+        function closeParametersModal() {
+            const modal = document.getElementById('parametersModal');
+            modal.style.display = 'none';
+        }
+
+        // Přidat event listener pro zavření modálu kliknutím mimo něj
+        window.onclick = function(event) {
+            const modal = document.getElementById('parametersModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
