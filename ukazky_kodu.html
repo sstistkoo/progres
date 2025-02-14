@@ -4,120 +4,275 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ukázky CNC kódů</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
-            padding: 0;
-        }
-        h1 {
-            font-size: 1.5em;
-        }
-        pre {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
             background-color: #f4f4f4;
-            padding: 10px;
-            border: 1px solid #ccc;
-            overflow-x: auto;
         }
-        @media (max-width: 600px) {
-            pre {
-                font-size: 1.2em;
+
+        .header {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto 20px auto;
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .back-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-right: 20px;
+        }
+
+        .back-button:hover {
+            background-color: #45a049;
+        }
+
+        .code-container {
+            background: white;
+            width: 100%;
+            max-width: 800px;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin: 0 auto 20px auto;
+        }
+
+        .code-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        pre {
+            background-color: #f8f8f8;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid #ddd;
+            white-space: pre;  /* Zachovat formátování */
+            min-width: 300px;  /* Minimální šířka pro kód */
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            display: inline-block;  /* Zajistit správné zobrazení */
+            min-width: 100%;       /* Minimální šířka kódu */
+        }
+
+        /* Přidat/upravit responzivní styly */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
             }
+
+            .header {
+                flex-direction: column;
+                text-align: center;
+                padding: 10px 5px;
+            }
+
+            .header h1 {
+                font-size: 1.5em;
+                margin: 10px 0;
+            }
+
+            .back-button {
+                width: 100%;
+                justify-content: center;
+                margin: 0 0 10px 0;
+            }
+
+            .code-container {
+                padding: 10px;
+                margin: 0 auto 15px auto;
+            }
+
+            .code-title {
+                font-size: 1.1em;
+            }
+
+            pre {
+                padding: 10px;
+                font-size: 0.9em;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+
+            code {
+                font-size: 14px;
+            }
+        }
+
+        /* Přidat podporu pro horizontální scroll na mobilech */
+        .code-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+            min-width: 300px;  /* Minimální šířka */
+            max-width: 800px;  /* Maximální šířka */
+            width: 100%;       /* Plná šířka v rámci containeru */
+        }
+
+        /* Indikátor scrollování */
+        .code-scroll::after {
+            content: '→';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            animation: bounce 1s infinite;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .code-scroll::after {
+                display: block;
+            }
+        }
+
+        @keyframes bounce {
+            0%, 100% { right: 10px; }
+            50% { right: 5px; }
         }
     </style>
 </head>
 <body>
-    <h1>Ukázky CNC kódů</h1>
-    <h2><a href="#" onclick="document.getElementById('codeBlock').style.display='block'">Podložky</a></h2>
-    <pre id='codeBlock' style='display:none; font-size: 1.5em;'>
-G54 T2 D2 G95 M41
-G97 S60 M4
-G91 G1 X-300 F1
-M30
-</pre>
-    <pre>
-G54 T2 D2 G95 M41  ; Nastavení pracovního posunu a nástroje
-G97 S60 M4      ; Nastavení rychlosti vřetena
-G91 G1 X-300 F1 ; Přírůstkové řízení pohybu na osu X
-M30             ; Konec programu
+    <div class="header">
+        <button onclick="window.location.href='index.html'" class="back-button">
+            <i class="fas fa-home"></i>
+            Zpět na hlavní stránku
+        </button>
+        <h1>Ukázky CNC kódů</h1>
+    </div>
 
+    <div class="code-container">
+        <div class="code-title">Podložky</div>
+        <div class="code-scroll">
+            <pre><code>G54 T1 D1 G95 M41    ; Nastavení nulového bodu, nástroj, korekce, posuv, stupeň
+G97 S60 M4          ; Konstantní otáčky 60/min, vřeteno CCW
+G91 G1 X-300 F1     ; Přírůstkově, lineární interpolace, posuv 1mm/ot
+M30                  ; Konec programu</code></pre>
+        </div>
+    </div>
 
-G54  ; Nastavení pracovního posunu
-T2   ; Výběr nástroje 2
-D2   ; Vnější průměr
-G95  ; Posuv v mm/ot
-M41  ; Převodový stupeň jedna
-G97  ; Nastavení konstantní řezné rychlosti
-S60  ; Nastavení otáček vřetena na 60
-M4   ; Záporné otáčení vřetena
-G91  ; Přírůstkové řízení
-G1   ; Lineární pohyb
-X-300; Pohyb na osu X o -300 mm
-F1   ; Posuv 1 mm/min
-M30  ; Konec programu
-</pre>
+    <div class="code-container">
+        <div class="code-title">Základní vnější soustružení</div>
+        <div class="code-scroll">
+            <pre><code>G54
+G90 G95
+G96 S200 LIMS=2000
+T1 D1
+G0 X100 Z2
+G1 Z0 F0.2
+X-0.4
+G0 X100 Z2</code></pre>
+        </div>
+    </div>
 
-    <h2><a href="#" onclick="document.getElementById('gotoBlock').style.display='block'">GOTO Příkazy</a></h2>
-    <pre>
-; Vysvětlení příkazů pro skoky v programu:
-GOTO   - Nepodmíněný skok na určené návěští nebo číslo řádku
-        N10 GOTO N100     ; Skočí na řádek N100
+    <div class="code-container">
+        <div class="code-title">GOTO - Nepodmíněný skok</div>
+        <div class="code-scroll">
+            <pre><code>N10 G0 X100 Z2       ; Rychloposuv na pozici
+STARTPOINT:          ; Návěští pro skok
+N20 G1 X80 F0.2     ; Pracovní posuv
+N30 G0 X100         ; Odjezd
+N40 Z-10            ; Posun v Z
+N50 GOTO STARTPOINT ; Skok zpět na návěští
+N60 M30             ; Konec programu (nikdy se neprovede)</code></pre>
+        </div>
+    </div>
 
-GOTOF  - Podmíněný skok vpřed (hledá návěští vpřed)
-        N10 GOTOF N55     ; Skočí vpřed v programu na řádek N55
+    <div class="code-container">
+        <div class="code-title">GOTOB - Skok zpět s počítadlem (opakování cyklu)</div>
+        <div class="code-scroll">
+            <pre><code>N10 R1=0             ; Počítadlo cyklů
+LOOP_START:          ; Návěští pro skok
+N20 G1 X80 F0.2     ; Pracovní posuv
+N30 G0 X100         ; Odjezd
+N40 Z-10            ; Posun v Z
+N50 R1=R1+1         ; Zvýšení počítadla
+N60 IF R1<5 GOTOB LOOP_START  ; Skok zpět, pokud R1 < 5
+N70 M30             ; Konec programu</code></pre>
+        </div>
+    </div>
 
-GOTOB  - Podmíněný skok vzad (hledá návěští vzad)
-        N50 GOTOB N10     ; Skočí vzad v programu na řádek N10
+    <div class="code-container">
+        <div class="code-title">FOR cyklus s transformací</div>
+        <div class="code-scroll">
+            <pre><code>TRANS X100 Z50      ; Absolutní posunutí nulového bodu
+FOR R1=1 TO 10     ; Začátek cyklu, 10 opakování
+  G1 X80 F0.2      ; Pracovní posuv
+  ATRANS X-5       ; Přírůstkové posunutí v X o -5mm
+  G1 Z-10          ; Posun v Z
+ENDFOR            ; Konec FOR cyklu
+TRANS             ; Zrušení všech transformací
+M30               ; Konec programu</code></pre>
+        </div>
+    </div>
 
-; Příklad použití GOTO příkazů - Smyčka opakování 3x
-N100 G0 X0 Y0      ; Počáteční pozice
-N110 R1=3          ; Počet opakování (nastavení parametru R1 na hodnotu 3)
-N120 G01 X50 F100  ; Pohyb v ose X
-N130 G01 Y20       ; Pohyb v ose Y
-N140 R1=R1-1       ; R1=3-1 (nastavení parametru R1 na hodnotu 2)
-N150 IF R1>0 GOTOB N120  ; Jestliže R1 je větší než 0, skok nazpět na N120
-N160 M30           ; Konec programu
-</pre>
+    <div class="code-container">
+        <div class="code-title">GOTOF - Skok vpřed</div>
+        <div class="code-scroll">
+            <pre><code>N10 R1=0             ; Nastavení proměnné
+N20 G1 X100 F0.2    ; První řez
+N30 IF R1>5 GOTOF ENDPOS  ; Skok na konec při splnění podmínky
+N40 G1 X90          ; Další řez
+N50 R1=R1+1         ; Zvýšení počítadla
+N60 GOTO N30        ; Skok zpět na test
+ENDPOS:             ; Návěští pro konec
+N70 G0 X100 Z50     ; Koncová pozice
+N80 M30             ; Konec programu</code></pre>
+        </div>
+    </div>
 
-    <h2><a href="#" onclick="document.getElementById('transBlock').style.display='block'">TRANS Příkazy</a></h2>
-    <pre>
-; TRANS - Programovatelné posunutí nulového bodu pro karusel
-; Základní příkazy:
-TRANS X100            ; Posunutí nulového bodu na pozici X=100
-TRANS Z50             ; Posunutí nulového bodu na pozici Z=50
-TRANS X75 Z25         ; Kombinované posunutí na X=75 a Z=25
-TRANS X0 Z0           ; Vynulování posunutí (návrat na výchozí nulový bod)
-ATRANS X10            ; Přídavné posunutí o +10mm v ose X
-ATRANS Z20            ; Přídavné posunutí o +20mm v ose Z
+    <div class="code-container">
+        <div class="code-title">WHILE cyklus s výpisem parametrů</div>
+        <div class="code-scroll">
+            <pre><code>G0 X0 Z0            ; Nájezd do počáteční pozice
+R1=$AA_IW[X]       ; Uložení aktuální pozice X do R1
+MSG("hodnoty osy X "&lt;&lt;R1&lt;&lt;" mm")  ; Výpis aktuální hodnoty osy X
 
-; Příklad 1 - Soustružení více stejných průměrů:
-N100 G0 X100 Z5      ; Výchozí pozice
-N110 TRANS X0 Z0     ; Výchozí nulový bod
-N120 G1 X50 F0.2     ; Soustružení průměru
-N130 G0 X100         ; Odjezd
-N140 TRANS Z30       ; Nastavení nového nulového bodu na Z=30
-N150 G1 X50 F0.2     ; Soustružení druhého průměru
-N160 G0 X100         ; Odjezd
+WHILE $AA_IW[X] < 100  ; Dokud je skutečná pozice X menší než 100
+    MSG("pocitadlo "&lt;&lt;R1&lt;&lt;" drazek")  ; Výpis počítadla drážek
+    G1 X=R1 F0.2    ; Lineární pohyb v X
+    G4 F0.5         ; Krátká prodleva
+    R1=R1+10        ; Zvýšení počítadla o 10
+ENDWHILE           ; Konec cyklu
 
-; Příklad 2 - Opakované soustružení s přídavným posunutím:
-N200 R1=0            ; Počítadlo
-N210 TRANS Z0        ; Výchozí pozice v Z
-N220 G1 X40 F0.15    ; Soustružení průměru
-N230 G0 X80          ; Bezpečná vzdálenost
-N240 ATRANS Z25      ; Přídavné posunutí o +25mm v Z
-N250 R1=R1+1         ; Zvýšení počítadla
-N260 IF R1<3 GOTOB N220  ; Opakování 3x
-N270 TRANS X0 Z0     ; Reset na výchozí nulový bod
-N280 M30             ; Konec programu
-</pre>
+MSG()              ; Vypnutí výpisu
+G0 X200 Z50       ; Odjezd do bezpečné pozice
+M30               ; Konec programu</code></pre>
+        </div>
+    </div>
 
-    <style>
-        pre {
-            font-size: 1.2em;
-            background-color: #f4f4f4;
-            padding: 10px;
-            border: 1px solid #ccc;
-        }
-    </style>
+    <div class="code-container">
+        <div class="code-title">Příklady výpisu MSG</div>
+        <div class="code-scroll">
+            <pre><code>MSG("Aktualni hodnota: "&lt;&lt;R1)         ; Základní výpis proměnné
+MSG("Pocet kusu: "&lt;&lt;R2&lt;&lt;" ks")        ; Výpis s jednotkami
+MSG("Prumer: "&lt;&lt;$AA_IW[X]&lt;&lt;" mm")     ; Výpis systémové proměnné
+MSG("Poloha Z: "&lt;&lt;R3&lt;&lt;" od nuly")     ; Výpis s dodatečným textem
+MSG()                                        ; Vypnutí/vymazání zprávy</code></pre>
+        </div>
+    </div>
+
 </body>
 </html>
