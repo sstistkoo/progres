@@ -295,29 +295,157 @@
             color: white;
             font-weight: 500;
         }
+
+        /* Upravené styly pro mobilní zobrazení */
+        @media screen and (max-width: 768px) {
+            .big-icons-grid {
+                grid-template-columns: 1fr;  /* Změna na jeden sloupec */
+                gap: 15px;
+                padding: 10px;
+                margin-top: 80px;  /* Prostor pro horní menu */
+            }
+
+            .big-icon-button {
+                min-height: 100px;  /* Menší výška pro mobily */
+                padding: 15px;
+            }
+
+            .big-icon-button i {
+                font-size: 30px;  /* Menší ikony */
+            }
+
+            .big-icon-button span {
+                font-size: 16px;
+            }
+
+            /* Upravené horní menu pro mobily */
+            .search-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                padding: 10px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                z-index: 1000;
+                display: flex;
+                justify-content: space-between;
+            }
+
+            .side-menu-btn {
+                padding: 8px;
+                font-size: 12px;
+            }
+
+            .side-menu-btn i {
+                font-size: 16px;
+            }
+
+            h1 {
+                font-size: 1.2em;
+                margin: 5px 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            /* Upravené postranní menu */
+            .side-menu {
+                width: 80%;  /* Širší menu na mobilu */
+            }
+
+            .menu-item {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            /* Upravené modální okna */
+            .modal {
+                width: 95%;
+                height: 90%;
+                margin: 0;
+            }
+
+            /* Přizpůsobení pro orientaci na výšku */
+            @media screen and (orientation: portrait) {
+                .big-icons-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            /* Přizpůsobení pro orientaci na šířku */
+            @media screen and (orientation: landscape) {
+                .big-icons-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+            }
+        }
     </style>
 </head>
 <body>
-    <h1 style="text-align: center;">Veselé kolorubaní a mlácení čísel ocasem</h1>
-    <div style="text-align: center;">
-        <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
-            <button class="side-menu-btn" onclick="toggleLeftMenu()">
-                <i class="fas fa-bars"></i> Menu
-            </button>
-            <button onclick="openCalculator()" class="side-menu-btn">
-                <i class="fas fa-calculator"></i> Kalkulačka
-            </button>
+    <!-- Upravit strukturu horního menu -->
+    <div class="search-container">
+        <button class="side-menu-btn" onclick="toggleLeftMenu()">
+            <i class="fas fa-bars"></i>
+        </button>
 
-            <h1 style="display: inline; margin: 0 20px;">Progres kolorubač</h1>
+        <h1>Progres kolorubač</h1>
 
-            <button onclick="window.location.href='sichty.html'" class="side-menu-btn">
-                <i class="fas fa-calendar-alt"></i> Kalendář
-            </button>
-            <button class="side-menu-btn" onclick="toggleRightMenu()">
-                <i class="fas fa-cog"></i> Nastavení
-            </button>
+        <button class="side-menu-btn" onclick="toggleRightMenu()">
+            <i class="fas fa-cog"></i>
+        </button>
+    </div>
+
+    <!-- Přesunout další tlačítka do postranního menu -->
+    <div class="side-menu left-menu" id="leftMenu">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px;">
+            <button class="menu-close" onclick="toggleLeftMenu()">&times;</button>
+            <div id="datetime" style="color: #666; font-size: 14px;"></div>
+        </div>
+        <hr style="width: 90%; border: 1px solid #ccc; margin: 0 auto 15px auto;">
+        <div class="menu-items">
+            <a href="#" onclick="openPrikazyModal()" class="menu-item">
+                <i class="fas fa-code"></i>
+                <span>Příkazy Syntax</span>
+            </a>
+            <a href="#" onclick="openGkodModal()" class="menu-item">
+                <i class="fas fa-cog"></i>
+                <span>G kód Syntax</span>
+            </a>
+            <a href="#" onclick="openMkodModal()" class="menu-item">
+                <i class="fas fa-cogs"></i>
+                <span>M kód Syntax</span>
+            </a>
+            <hr style="width: 90%; border: 1px solid #ccc; margin: 15px auto;">
+            <a href="#" onclick="openZkratkyModal()" class="menu-item">
+                <i class="fas fa-keyboard"></i>
+                <span>Zkratky na displeji</span>
+            </a>
+            <a href="#" onclick="openSystemPromModal()" class="menu-item">
+                <i class="fas fa-microchip"></i>
+                <span>Sys. proměnné</span>
+            </a>
+            <a href="#" onclick="openCalculator()" class="menu-item">
+                <i class="fas fa-calculator"></i>
+                <span>Kalkulačka</span>
+            </a>
+            <a href="sichty.html" class="menu-item">
+                <i class="fas fa-calendar-alt"></i>
+                <span>Kalendář</span>
+            </a>
         </div>
     </div>
+
+    <div class="side-menu right-menu" id="rightMenu">
+        <button class="menu-close" onclick="toggleRightMenu()">&times;</button>
+        <div class="menu-items">
+            <a href="#" onclick="toggleTerminal()" class="menu-item">
+                <i class="fas fa-terminal"></i>
+                <span>Terminál</span>
+            </a>
+        </div>
+    </div>
+
     <div class="dark-mode-toggle" onclick="toggleDarkMode()">
         🌙
     </div>
@@ -418,56 +546,6 @@
     <div class="terminal" style="display: none;">
         <div class="terminal-content">
             <!-- Obsah terminálu zde -->
-        </div>
-    </div>
-    <div class="side-menu left-menu" id="leftMenu">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px;">
-            <button class="menu-close" onclick="toggleLeftMenu()">&times;</button>
-            <div id="datetime" style="color: #666; font-size: 14px;"></div>
-        </div>
-        <hr style="width: 90%; border: 1px solid #ccc; margin: 0 auto 15px auto;">
-        <div class="menu-items">
-            <a href="#" onclick="openPrikazyModal()" class="menu-item">
-                <i class="fas fa-code"></i>
-                <span>Příkazy Syntax</span>
-            </a>
-            <a href="#" onclick="openGkodModal()" class="menu-item">
-                <i class="fas fa-cog"></i>
-                <span>G kód Syntax</span>
-            </a>
-            <a href="#" onclick="openMkodModal()" class="menu-item">
-                <i class="fas fa-cogs"></i>
-                <span>M kód Syntax</span>
-            </a>
-            <hr style="width: 90%; border: 1px solid #ccc; margin: 15px auto;">
-            <a href="#" onclick="openZkratkyModal()" class="menu-item">
-                <i class="fas fa-keyboard"></i>
-                <span>Zkratky na displeji</span>
-            </a>
-            <a href="#" onclick="openSystemPromModal()" class="menu-item">
-                <i class="fas fa-microchip"></i>
-                <span>Sys. proměnné</span>
-            </a>
-        </div>
-    </div>
-
-    <!-- Přidat nová modální okna -->
-    <div id="zkratkyModal" class="modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 90%; height: 90%; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
-        <button onclick="closeZkratkyModal()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; font-size: 20px; cursor: pointer;">❌</button>
-        <iframe src="Menu_zkratky.html" style="width: 100%; height: calc(100% - 40px); border: none;"></iframe>
-    </div>
-
-    <div id="systemPromModal" class="modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 90%; height: 90%; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
-        <button onclick="closeSystemPromModal()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; font-size: 20px; cursor: pointer;">❌</button>
-        <iframe src="Menu_system_prom.html" style="width: 100%; height: calc(100% - 40px); border: none;"></iframe>
-    </div>
-    <div class="side-menu right-menu" id="rightMenu">
-        <button class="menu-close" onclick="toggleRightMenu()">&times;</button>
-        <div class="menu-items">
-            <a href="#" onclick="toggleTerminal()" class="menu-item">
-                <i class="fas fa-terminal"></i>
-                <span>Terminál</span>
-            </a>
         </div>
     </div>
     <script>

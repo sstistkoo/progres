@@ -100,7 +100,23 @@
     <div class="category">Systémové Informace</div>
     <div class="variable-container">
         <div class="variable-name">$P_F</div>
-        <div class="variable-description">Nastavitelný posuv</div>
+        <div class="variable-description">
+            <h3>Popis:</h3>
+            <p>Aktuálně aktivní posuv</p>
+
+            <h3>Použití:</h3>
+            <pre><code>R10=$P_F           ; Uložení aktivního posuvu do R10
+IF $P_F < 0.1       ; Kontrola minimálního posuvu
+    MSG("Příliš malý posuv!")
+ENDIF</code></pre>
+
+            <h3>Poznámky:</h3>
+            <ul>
+                <li>Hodnota závisí na G94/G95 režimu</li>
+                <li>V G94: mm/min nebo inch/min</li>
+                <li>V G95: mm/ot nebo inch/ot</li>
+            </ul>
+        </div>
     </div>
     <div class="variable-container">
         <div class="variable-name">$P_DRYRUN</div>
@@ -153,6 +169,27 @@
     <div class="variable-container">
         <div class="variable-name">$A_INA[]</div>
         <div class="variable-description">Reálná hodnota PLC-čtení (1-4)</div>
+    </div>
+
+    <div class="variable-container">
+        <div class="variable-name">$AA_IW[X]</div>
+        <div class="variable-description">
+            <h3>Popis:</h3>
+            <p>Skutečná pozice osy v souřadném systému obrobku (Internal Window)</p>
+
+            <h3>Použití:</h3>
+            <pre><code>R1=$AA_IW[X]       ; Uložení aktuální X pozice do R1
+IF $AA_IW[X] > 100  ; Kontrola pozice X
+    MSG("X je větší než 100mm")
+ENDIF</code></pre>
+
+            <h3>Poznámky:</h3>
+            <ul>
+                <li>Aktualizuje se v reálném čase</li>
+                <li>Hodnota je v mm nebo palcích podle aktivního nastavení</li>
+                <li>Lze použít pro všechny osy (X, Y, Z, atd.)</li>
+            </ul>
+        </div>
     </div>
 
     <script>
