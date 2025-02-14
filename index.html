@@ -504,6 +504,16 @@
         <button onclick="closeMkodModal()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; font-size: 20px; cursor: pointer;">❌</button>
         <iframe src="Menu_M_kod.html" style="width: 100%; height: calc(100% - 40px); border: none;"></iframe>
     </div>
+    <!-- Přidat modální okna před uzavírací tag body -->
+    <div id="zkratkyModal" class="modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 90%; height: 90%; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
+        <button onclick="closeZkratkyModal()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; font-size: 20px; cursor: pointer;">❌</button>
+        <iframe src="Menu_zkratky.html" style="width: 100%; height: calc(100% - 40px); border: none;"></iframe>
+    </div>
+
+    <div id="systemPromModal" class="modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 1000; width: 90%; height: 90%; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
+        <button onclick="closeSystemPromModal()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; font-size: 20px; cursor: pointer;">❌</button>
+        <iframe src="Menu_system_prom.html" style="width: 100%; height: calc(100% - 40px); border: none;"></iframe>
+    </div>
     <!-- Upravit mřížku ikon, přidat nové položky -->
     <div class="big-icons-grid">
         <a href="kalkulace_korekce_nastroje.html" class="big-icon-button">
@@ -704,19 +714,27 @@
         function openZkratkyModal() {
             document.getElementById('zkratkyModal').style.display = 'block';
             document.getElementById('leftMenu').classList.remove('active');
+            window.history.pushState({ modal: 'zkratky' }, '');
         }
 
         function closeZkratkyModal() {
             document.getElementById('zkratkyModal').style.display = 'none';
+            if (window.history.state && window.history.state.modal === 'zkratky') {
+                window.history.back();
+            }
         }
 
         function openSystemPromModal() {
             document.getElementById('systemPromModal').style.display = 'block';
             document.getElementById('leftMenu').classList.remove('active');
+            window.history.pushState({ modal: 'systemprom' }, '');
         }
 
         function closeSystemPromModal() {
             document.getElementById('systemPromModal').style.display = 'none';
+            if (window.history.state && window.history.state.modal === 'systemprom') {
+                window.history.back();
+            }
         }
 
         function updateDateTime() {
@@ -792,6 +810,21 @@
                 }
             }
         }
+
+        // Přidat do existujícího onpopstate handleru
+        window.onpopstate = function(event) {
+            const modals = {
+                'zkratky': 'zkratkyModal',
+                'systemprom': 'systemPromModal',
+                // ...existing modals...
+            };
+
+            if (event.state && event.state.modal && modals[event.state.modal]) {
+                document.getElementById(modals[event.state.modal]).style.display = 'none';
+            }
+
+            // ...rest of existing onpopstate code...
+        };
 
         // Upravit handler pro zpětné tlačítko
         window.onpopstate = function(event) {
