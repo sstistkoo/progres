@@ -83,29 +83,32 @@ N160 M30           ; Konec programu
     <pre>
 ; TRANS - Programovatelné posunutí nulového bodu pro karusel
 ; Základní příkazy:
-TRANS X100            ; Posunutí o 100mm v ose X
-TRANS Z50             ; Posunutí o 50mm v ose Z (délka)
-TRANS X75 Z25         ; Kombinované posunutí v X a Z
+TRANS X100            ; Posunutí nulového bodu na pozici X=100
+TRANS Z50             ; Posunutí nulového bodu na pozici Z=50
+TRANS X75 Z25         ; Kombinované posunutí na X=75 a Z=25
+TRANS X0 Z0           ; Vynulování posunutí (návrat na výchozí nulový bod)
+ATRANS X10            ; Přídavné posunutí o +10mm v ose X
+ATRANS Z20            ; Přídavné posunutí o +20mm v ose Z
 
 ; Příklad 1 - Soustružení více stejných průměrů:
 N100 G0 X100 Z5      ; Výchozí pozice
 N110 TRANS X0 Z0     ; Výchozí nulový bod
 N120 G1 X50 F0.2     ; Soustružení průměru
 N130 G0 X100         ; Odjezd
-N140 TRANS Z=IC(30)  ; Posunutí v Z o 30mm
+N140 TRANS Z30       ; Nastavení nového nulového bodu na Z=30
 N150 G1 X50 F0.2     ; Soustružení druhého průměru
 N160 G0 X100         ; Odjezd
 
-; Příklad 2 - Opakované soustružení s posunutím:
+; Příklad 2 - Opakované soustružení s přídavným posunutím:
 N200 R1=0            ; Počítadlo
 N210 TRANS Z0        ; Výchozí pozice v Z
 N220 G1 X40 F0.15    ; Soustružení průměru
 N230 G0 X80          ; Bezpečná vzdálenost
-N240 TRANS Z=IC(25)  ; Inkrementální posunutí v Z
+N240 ATRANS Z25      ; Přídavné posunutí o +25mm v Z
 N250 R1=R1+1         ; Zvýšení počítadla
 N260 IF R1<3 GOTOB N220  ; Opakování 3x
-
-N270 M30             ; Konec programu
+N270 TRANS X0 Z0     ; Reset na výchozí nulový bod
+N280 M30             ; Konec programu
 </pre>
 
     <style>
