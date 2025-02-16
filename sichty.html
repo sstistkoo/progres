@@ -575,46 +575,65 @@
                     </button>
                 </div>
                 <div class="wage-calculator">
-                    <div class="input-group" style="display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-                        <div class="input-field">
-                            <label>Základní hodinová mzda</label>
-                            <input type="number" id="baseWage" value="150" min="0" step="1">
+                    <div class="input-group" style="display: grid; gap: 15px; grid-template-columns: 1fr 1fr 1fr;">
+                        <!-- První sloupec - Mzdy -->
+                        <div>
+                            <div class="input-field">
+                                <label>Základní hodinová mzda</label>
+                                <input type="number" id="baseWage" value="150" min="0" step="1">
+                            </div>
+                            <div class="input-field">
+                                <label>Osobní hodinová mzda</label>
+                                <input type="number" id="personalWage" value="0" min="0" step="1">
+                            </div>
+                            <div class="input-field">
+                                <label>Prémie a odměny</label>
+                                <input type="number" id="bonusWage" value="0" min="0" step="1">
+                            </div>
                         </div>
-                        <div class="input-field">
-                            <label>Příplatek za noční (%)</label>
-                            <input type="number" id="nightBonus" value="20" min="0" step="1">
+
+                        <!-- Druhý sloupec - Příplatky -->
+                        <div>
+                            <div class="input-field">
+                                <label>Příplatek za víkend (%)</label>
+                                <input type="number" id="weekendBonus" value="15" min="0" step="1">
+                            </div>
+                            <div class="input-field">
+                                <label>Příplatek za svátek (%)</label>
+                                <input type="number" id="holidayBonus" value="100" min="0" step="1">
+                            </div>
+                            <div class="input-field">
+                                <label>Příplatek za noční (%)</label>
+                                <input type="number" id="nightBonus" value="15" min="0" step="1">
+                            </div>
                         </div>
-                        <div class="input-field">
-                            <label>Příplatek za víkend (%)</label>
-                            <input type="number" id="weekendBonus" value="25" min="0" step="1" readonly>
-                        </div>
-                        <div class="input-field">
-                            <label>Příplatek za svátek (%)</label>
-                            <input type="number" id="holidayBonus" value="100" min="0" step="1">
-                        </div>
-                        <div class="input-field">
-                            <label>Počet dětí</label>
-                            <input type="number" id="childCount" value="0" min="0" step="1">
-                        </div>
-                        <div class="input-field">
-                            <label>Invalidní důchod</label>
-                            <select id="disability">
-                                <option value="0">Žádný</option>
-                                <option value="1">1. a 2. stupně</option>
-                                <option value="2">3. stupně</option>
-                            </select>
-                        </div>
-                        <div class="input-field">
-                            <label>Student</label>
-                            <input type="checkbox" id="isStudent">
-                        </div>
-                        <div class="input-field">
-                            <label>Podepsané prohlášení k dani</label>
-                            <input type="checkbox" id="hasTaxDeclaration" checked>
-                        </div>
-                        <div class="input-field">
-                            <label>Příplatek za přesčas (%)</label>
-                            <input type="number" id="overtimeBonus" value="25" min="0" step="1">
+
+                        <!-- Třetí sloupec - Osobní údaje a ostatní -->
+                        <div>
+                            <div class="input-field">
+                                <label>Příplatek za přesčas (%)</label>
+                                <input type="number" id="overtimeBonus" value="25" min="0" step="1">
+                            </div>
+                            <div class="input-field">
+                                <label>Počet dětí</label>
+                                <input type="number" id="childCount" value="0" min="0" step="1">
+                            </div>
+                            <div class="input-field">
+                                <label>Invalidní důchod</label>
+                                <select id="disability">
+                                    <option value="0">Žádný</option>
+                                    <option value="1">1. a 2. stupně</option>
+                                    <option value="2">3. stupně</option>
+                                </select>
+                            </div>
+                            <div class="input-field">
+                                <label>Student</label>
+                                <input type="checkbox" id="isStudent">
+                            </div>
+                            <div class="input-field">
+                                <label>Podepsané prohlášení k dani</label>
+                                <input type="checkbox" id="hasTaxDeclaration" checked>
+                            </div>
                         </div>
                     </div>
 
@@ -863,6 +882,9 @@
             // Pomocná funkce pro výpočet mezd pro export
             function calculateWagesForExport() {
                 const baseWage = parseFloat(document.getElementById('baseWage').value);
+                const personalWage = parseFloat(document.getElementById('personalWage').value) || 0; // Přidáno
+                const bonusWage = parseFloat(document.getElementById('bonusWage').value) || 0; // Přidáno
+                const totalHourlyWage = baseWage + personalWage; // Přidáno - celková hodinová sazba
                 const nightBonus = parseFloat(document.getElementById('nightBonus').value) / 100;
                 const weekendBonus = parseFloat(document.getElementById('weekendBonus').value) / 100;
                 const holidayBonus = parseFloat(document.getElementById('holidayBonus').value) / 100;
@@ -924,20 +946,20 @@
                 const totalHoursWithOvertime = totalHours + totalOvertimeHours;
 
                 // Výpočet mezd
-                const normalWageWithOvertime = baseWage * totalHoursWithOvertime;
-                const nightWageWithOvertime = baseWage * nightBonus * (
+                const normalWageWithOvertime = totalHourlyWage * totalHoursWithOvertime;
+                const nightWageWithOvertime = totalHourlyWage * nightBonus * (
                     // Běžné noční směny - pouze hodiny s příplatkem
                     nightShifts.length * NIGHT_BONUS_HOURS +
                     // Přesčasové noční - také pouze hodiny s příplatkem
                     overtimeNHours * (NIGHT_BONUS_HOURS / SHIFT_HOURS)
                 );
-                const weekendWageWithOvertime = baseWage * weekendBonus * (weekendHours + weekendOvertimeHours);
-                const holidayWageWithOvertime = baseWage * holidayBonus * (holidayHours + holidayOvertimeHours);
-                const overtimeBonusWage = baseWage * overtimeBonus * totalOvertimeHours;
+                const weekendWageWithOvertime = totalHourlyWage * weekendBonus * (weekendHours + weekendOvertimeHours);
+                const holidayWageWithOvertime = totalHourlyWage * holidayBonus * (holidayHours + holidayOvertimeHours);
+                const overtimeBonusWage = totalHourlyWage * overtimeBonus * totalOvertimeHours;
 
                 const totalWage = normalWageWithOvertime + nightWageWithOvertime +
                                 weekendWageWithOvertime + holidayWageWithOvertime +
-                                overtimeBonusWage;
+                                overtimeBonusWage + bonusWage; // Přidáno bonusWage
 
                 // Výpočet daní a odvodů (stejně jako v calculateWages)
                 const childCount = parseInt(document.getElementById('childCount').value) || 0;
@@ -1450,6 +1472,8 @@
             function saveCalculatorSettings() {
                 const settings = {
                     baseWage: document.getElementById('baseWage').value,
+                    personalWage: document.getElementById('personalWage').value, // Přidáno
+                    bonusWage: document.getElementById('bonusWage').value, // Přidáno
                     nightBonus: document.getElementById('nightBonus').value,
                     weekendBonus: document.getElementById('weekendBonus').value,
                     holidayBonus: document.getElementById('holidayBonus').value,
@@ -1467,6 +1491,8 @@
                 if (savedSettings) {
                     const settings = JSON.parse(savedSettings);
                     document.getElementById('baseWage').value = settings.baseWage;
+                    document.getElementById('personalWage').value = settings.personalWage || 0; // Přidáno
+                    document.getElementById('bonusWage').value = settings.bonusWage || 0; // Přidáno
                     document.getElementById('nightBonus').value = settings.nightBonus;
                     document.getElementById('weekendBonus').value = settings.weekendBonus;
                     document.getElementById('holidayBonus').value = settings.holidayBonus;
@@ -1594,6 +1620,9 @@
             function calculateWages() {
                 // Základní hodnoty
                 const baseWage = parseFloat(document.getElementById('baseWage').value);
+                const personalWage = parseFloat(document.getElementById('personalWage').value) || 0; // Přidáno
+                const bonusWage = parseFloat(document.getElementById('bonusWage').value) || 0; // Přidáno
+                const totalHourlyWage = baseWage + personalWage; // Přidáno - celková hodinová sazba
                 const nightBonus = parseFloat(document.getElementById('nightBonus').value) / 100;
                 const weekendBonus = parseFloat(document.getElementById('weekendBonus').value) / 100;
                 const holidayBonus = parseFloat(document.getElementById('holidayBonus').value) / 100;
@@ -1657,20 +1686,20 @@
                 const totalHoursWithOvertime = totalHours + totalOvertimeHours;
 
                 // Výpočet mezd
-                const normalWageWithOvertime = baseWage * totalHoursWithOvertime;
-                const nightWageWithOvertime = baseWage * nightBonus * (
+                const normalWageWithOvertime = totalHourlyWage * totalHoursWithOvertime;
+                const nightWageWithOvertime = totalHourlyWage * nightBonus * (
                     // Běžné noční směny - pouze hodiny s příplatkem
                     nightShifts.length * NIGHT_BONUS_HOURS +
                     // Přesčasové noční - také pouze hodiny s příplatkem
                     overtimeNHours * (NIGHT_BONUS_HOURS / SHIFT_HOURS)
                 );
-                const weekendWageWithOvertime = baseWage * weekendBonus * (weekendHours + weekendOvertimeHours);
-                const holidayWageWithOvertime = baseWage * holidayBonus * (holidayHours + holidayOvertimeHours);
-                const overtimeBonusWage = baseWage * overtimeBonus * totalOvertimeHours;
+                const weekendWageWithOvertime = totalHourlyWage * weekendBonus * (weekendHours + weekendOvertimeHours);
+                const holidayWageWithOvertime = totalHourlyWage * holidayBonus * (holidayHours + holidayOvertimeHours);
+                const overtimeBonusWage = totalHourlyWage * overtimeBonus * totalOvertimeHours;
 
                 const totalWage = normalWageWithOvertime + nightWageWithOvertime +
                                 weekendWageWithOvertime + holidayWageWithOvertime +
-                                overtimeBonusWage;
+                                overtimeBonusWage + bonusWage; // Přidáno bonusWage
 
                 // Výpočet daní a odvodů
                 const childCount = parseInt(document.getElementById('childCount').value) || 0;
