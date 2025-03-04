@@ -380,6 +380,49 @@
                 }
             }
         }
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            overflow: auto;
+        }
+
+        .modal-content {
+            position: fixed;
+            background-color: #fff;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100vh;
+            max-width: none;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: hidden;
+            top: 0;
+            left: 0;
+        }
+
+        .modal-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            transform: none;
+        }
+
+        .close-modal {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            font-size: 28px;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 1002;
+        }
     </style>
 </head>
 <body>
@@ -593,41 +636,42 @@
             document.getElementById('cncModal').style.display = 'none';
         }
         function openModal(url) {
-            var modal = document.createElement('div');
-            modal.id = 'dynamicModal'; // Přidáno ID pro identifikaci
-            modal.style.display = 'block';
-            modal.style.position = 'fixed';
-            modal.style.top = '50%';
-            modal.style.left = '50%';
-            modal.style.transform = 'translate(-50%, -50%)';
-            modal.style.background = 'white';
-            modal.style.border = '1px solid #ccc';
-            modal.style.padding = '20px';
-            modal.style.zIndex = '1000';
-            modal.style.width = '80%';
-            modal.style.height = '80%';
-            var iframe = document.createElement('iframe');
-            iframe.src = url;
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            modal.appendChild(iframe);
-            var closeButton = document.createElement('button');
-            closeButton.onclick = function() {
-                document.body.removeChild(modal); // Změněno z display none na odstranění
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.id = 'dynamicModal';
+            
+            const content = document.createElement('div');
+            content.className = 'modal-content';
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'close-modal';
+            closeBtn.innerHTML = '×';
+            closeBtn.onclick = () => {
+                document.body.removeChild(modal);
+                history.pushState(null, '', window.location.pathname);
             };
-            closeButton.style.position = 'absolute';
-            closeButton.style.top = '10px';
-            closeButton.style.right = '10px';
-            closeButton.style.fontSize = '0.5em';
-            closeButton.innerHTML = '❌';
-            modal.appendChild(closeButton);
+            
+            const iframe = document.createElement('iframe');
+            iframe.className = 'modal-iframe';
+            iframe.src = url;
+            
+            content.appendChild(closeBtn);
+            content.appendChild(iframe);
+            modal.appendChild(content);
+            
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                    history.pushState(null, '', window.location.pathname);
+                }
+            };
+            
             document.body.appendChild(modal);
-
-            // Přidat handler pro tlačítko zpět
-            window.history.pushState({ modal: true }, '');
-            window.onpopstate = function(event) {
-                var modal = document.getElementById('dynamicModal');
+            modal.style.display = 'block';
+            
+            history.pushState({ modal: true }, '', '#modal');
+            window.onpopstate = () => {
+                const modal = document.getElementById('dynamicModal');
                 if (modal) {
                     document.body.removeChild(modal);
                 }
@@ -704,7 +748,7 @@
             document.getElementById('rightMenu').classList.toggle('active');
         }
 
-        // Zavření menu při kliknutí mimo
+        // Zavřít menu při kliknutí mimo
         document.addEventListener('click', (e) => {
             const leftMenu = document.getElementById('leftMenu');
             const rightMenu = document.getElementById('rightMenu');
@@ -912,7 +956,7 @@
             modal.appendChild(closeButton);
             document.body.appendChild(modal);
 
-            window.history.pushState({ modal: true, type: 'dynamic' }, '');
+            window.history.pushState({ modal: true }, '', '#modal');
         }
 
         // Upravené funkce pro ostatní modální okna
