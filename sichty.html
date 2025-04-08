@@ -725,7 +725,8 @@
         </div>
 
         <script>
-            let currentShift = 'A';
+            // Změna z výchozího nastavení směny na prázdnou hodnotu, která se naplní později
+            let currentShift = '';
             let darkMode = false;
             let notes = {};
             let yearView = false;
@@ -1504,10 +1505,23 @@
                 }
             }
 
-            // Upravit funkci initCalendar
+            // Upravená funkce initCalendar, která načte uloženou směnu z localStorage
             function initCalendar() {
                 loadOvertimeData();
                 loadCalculatorSettings(); // Přidat načtení nastavení
+
+                // Načtení uložené směny, pokud existuje
+                const savedShift = localStorage.getItem('currentShift');
+                if (savedShift && ['A', 'B', 'C', 'D'].includes(savedShift)) {
+                    currentShift = savedShift;
+                } else {
+                    currentShift = 'A'; // Pokud není uloženo, použije se výchozí směna A
+                }
+
+                // Aktualizace aktivního tlačítka podle načtené směny
+                document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`.shift-btn[data-shift="${currentShift}"]`).classList.add('active');
+
                 const today = new Date();
                 document.getElementById('monthSelect').value = today.getMonth();
                 const yearShifts = generateShifts('2025-01-04', currentShift);
@@ -1519,17 +1533,24 @@
                 document.querySelector('.theme-toggle i').className = 'fas fa-moon';
             }
 
+            // Přidání nové funkce pro ukládání vybrané směny do localStorage
+            function saveCurrentShift() {
+                localStorage.setItem('currentShift', currentShift);
+            }
+
             // Event listeners
             document.getElementById('monthSelect').addEventListener('change', function(e) {
                 const yearShifts = generateShifts('2025-01-04', currentShift);
                 createCalendar(yearShifts, parseInt(e.target.value));
             });
 
+            // Upravení event listenerů pro tlačítka směn, aby ukládaly vybranou směnu
             document.querySelectorAll('.shift-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
                     currentShift = this.dataset.shift;
+                    saveCurrentShift(); // Přidáno ukládání vybrané směny
                     const yearShifts = generateShifts('2025-01-04', currentShift);
                     if (yearView) {
                         createYearView();
@@ -1550,7 +1571,7 @@
 
             // Poznámky a nastavení budou existovat pouze v paměti během běhu aplikace
             window.addEventListener('beforeunload', function() {
-                // Zde by mohla být implementace alternativního způsobu ukládání dat
+                saveCurrentShift();
                 console.log('Aplikace se ukončuje');
             });
 
