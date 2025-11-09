@@ -51,10 +51,10 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             z-index: 1000;
             display: flex;
-            justify-content: space-between; /* Upraveno pro zarovnání doleva */
+            justify-content: flex-start; /* Upraveno pro zarovnání doleva */
             align-items: center;
             flex-wrap: wrap; /* Přidáno pro lepší mobilní zobrazení */
-            gap: 10px; /* Přidáno pro lepší mezery mezi prvky */
+            gap: 20px; /* Přidáno pro lepší mezery mezi prvky */
         }
 
         .theme-toggle {
@@ -72,7 +72,7 @@
         }
 
         .main-content {
-            margin-top: 60px; /* Sníženo, protože top-controls je nižší */
+            margin-top: 80px; /* Upraveno pro potenciálně vyšší lištu */
         }
 
         .controls {
@@ -437,12 +437,13 @@
 
         @media (max-width: 768px) {
             .main-content {
-                margin-top: 80px; /* Upraveno zpět, pokud by top-controls bylo vyšší */
+                margin-top: 140px; /* Zvětšeno pro vyšší horní lištu */
             }
 
             .top-controls {
                 height: auto; /* Automatická výška pro mobilní zobrazení */
                 padding: 10px 5px; /* Menší padding na mobilech */
+                justify-content: center; /* Zarovnání na střed na mobilu */
             }
 
             .action-buttons {
@@ -492,19 +493,19 @@
         <button class="theme-toggle" onclick="toggleTheme()">
             <i class="fas fa-moon"></i>
         </button>
-        <!-- Tlačítka akcí byla přesunuta níže -->
-    </div>
-
-    <div class="main-content">
-        <!-- <h1 style="text-align: center;">Progres směny</h1> Odstraněno dle požadavku -->
-
-        <!-- Volba směny - PŘESUNUTO SEM -->
-        <div class="shift-select" style="justify-content: center; margin-bottom: 20px;">
+        <!-- Volba směny PŘESUNUTA SEM -->
+        <div class="shift-select">
             <button class="shift-btn active" data-shift="A">Směna A</button>
             <button class="shift-btn" data-shift="B">Směna B</button>
             <button class="shift-btn" data-shift="C">Směna C</button>
             <button class="shift-btn" data-shift="D">Směna D</button>
         </div>
+    </div>
+
+    <div class="main-content">
+        <!-- <h1 style="text-align: center;">Progres směny</h1> Odstraněno dle požadavku -->
+
+        <!-- Volba směny byla přesunuta nahoru -->
 
         <div class="calendar" id="calendar"></div>
         <div class="year-view" id="yearView" style="display: none;">
@@ -513,12 +514,12 @@
 
         <div class="controls">
             <!-- Ovládání roku -->
-            <button class="nav-btn" onclick="previousYear()">«</button>
+            <!-- <button class="nav-btn" onclick="previousYear()">«</button> Odstraněno -->
             <select id="yearSelect" class="month-select"></select>
-            <button class="nav-btn" onclick="nextYear()">»</button>
+            <!-- <button class="nav-btn" onclick="nextYear()">»</button> Odstraněno -->
             
             <!-- Ovládání měsíce -->
-            <button class="nav-btn" onclick="previousMonth()">←</button>
+            <!-- <button class="nav-btn" onclick="previousMonth()">←</button> Odstraněno -->
             <select id="monthSelect" class="month-select">
                 <option value="0">Leden</option>
                 <option value="1">Únor</option>
@@ -533,9 +534,7 @@
                 <option value="10">Listopad</option>
                 <option value="11">Prosinec</option>
             </select>
-            <button class="nav-btn" onclick="nextMonth()">→</button>
-
-            <!-- Volba směny byla přesunuta nahoru nad kalendář -->
+            <!-- <button class="nav-btn" onclick="nextMonth()">→</button> Odstraněno -->
         </div>
 
         <!-- Tlačítka akcí PŘESUNUTA SEM -->
@@ -1416,25 +1415,9 @@
 
             }
             
-            // --- NOVÉ FUNKCE PRO NAVIGACI ---
+            // --- NAVIGAČNÍ FUNKCE UPRAVENY ---
 
-            function previousYear() {
-                const yearSelect = document.getElementById('yearSelect');
-                let newYear = parseInt(yearSelect.value) - 1;
-                if (newYear >= parseInt(yearSelect.options[0].value)) {
-                    yearSelect.value = newYear;
-                    changeYear();
-                }
-            }
-
-            function nextYear() {
-                const yearSelect = document.getElementById('yearSelect');
-                let newYear = parseInt(yearSelect.value) + 1;
-                if (newYear <= parseInt(yearSelect.options[yearSelect.options.length - 1].value)) {
-                    yearSelect.value = newYear;
-                    changeYear();
-                }
-            }
+            // Funkce previousYear, nextYear, previousMonth, nextMonth byly ODSTRANĚNY
 
             function changeYear() {
                 currentYear = parseInt(document.getElementById('yearSelect').value);
@@ -1446,50 +1429,6 @@
                 } else {
                     createCalendar(yearShifts, currentMonth);
                 }
-            }
-
-            function previousMonth() {
-                const yearSelect = document.getElementById('yearSelect');
-                if (currentMonth > 0) {
-                    currentMonth--;
-                } else {
-                    currentMonth = 11;
-                    let newYear = currentYear - 1;
-                    if (newYear >= parseInt(yearSelect.options[0].value)) {
-                        currentYear = newYear;
-                        yearSelect.value = currentYear;
-                        HOLIDAYS = getHolidays(currentYear);
-                    } else {
-                        // Jsme na minimálním roce, dál nemůžeme
-                        currentMonth = 0;
-                        return;
-                    }
-                }
-                document.getElementById('monthSelect').value = currentMonth;
-                const yearShifts = generateShifts(currentYear, currentShift);
-                createCalendar(yearShifts, currentMonth);
-            }
-
-            function nextMonth() {
-                const yearSelect = document.getElementById('yearSelect');
-                if (currentMonth < 11) {
-                    currentMonth++;
-                } else {
-                    currentMonth = 0;
-                    let newYear = currentYear + 1;
-                    if (newYear <= parseInt(yearSelect.options[yearSelect.options.length - 1].value)) {
-                        currentYear = newYear;
-                        yearSelect.value = currentYear;
-                        HOLIDAYS = getHolidays(currentYear);
-                    } else {
-                        // Jsme na maximálním roce, dál nemůžeme
-                        currentMonth = 11;
-                        return;
-                    }
-                }
-                document.getElementById('monthSelect').value = currentMonth;
-                const yearShifts = generateShifts(currentYear, currentShift);
-                createCalendar(yearShifts, currentMonth);
             }
 
             function changeMonth() {
@@ -1662,13 +1601,7 @@
                 });
             });
 
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'ArrowLeft') {
-                    previousMonth();
-                } else if (e.key === 'ArrowRight') {
-                    nextMonth();
-                }
-            });
+            // Event listener pro klávesnici (šipky) byl ODSTRANĚN
 
             // Poznámky a nastavení budou existovat pouze v paměti během běhu aplikace
             window.addEventListener('beforeunload', function() {
