@@ -51,7 +51,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             z-index: 1000;
             display: flex;
-            justify-content: space-between;
+            justify-content: space-between; /* Upraveno pro zarovnání doleva */
             align-items: center;
             flex-wrap: wrap; /* Přidáno pro lepší mobilní zobrazení */
             gap: 10px; /* Přidáno pro lepší mezery mezi prvky */
@@ -72,7 +72,7 @@
         }
 
         .main-content {
-            margin-top: 80px;
+            margin-top: 60px; /* Sníženo, protože top-controls je nižší */
         }
 
         .controls {
@@ -437,7 +437,7 @@
 
         @media (max-width: 768px) {
             .main-content {
-                margin-top: 120px; /* Zvětšení horního marginu pro mobilní zobrazení */
+                margin-top: 80px; /* Upraveno zpět, pokud by top-controls bylo vyšší */
             }
 
             .top-controls {
@@ -492,27 +492,19 @@
         <button class="theme-toggle" onclick="toggleTheme()">
             <i class="fas fa-moon"></i>
         </button>
-        <div class="action-buttons">
-            <button class="action-btn" onclick="exportCalendar()">
-                <i class="fas fa-download"></i> Export
-            </button>
-            <button class="action-btn" onclick="window.print()">
-                <i class="fas fa-print"></i> Tisk
-            </button>
-            <button class="action-btn" onclick="clearOvertimes()">
-                <i class="fas fa-trash"></i> Vymazat přesčasy
-            </button>
-            <button class="action-btn" onclick="toggleYearView()">
-                <i class="fas fa-calendar"></i> <span id="viewToggleText">Celoroční výpis</span>
-            </button>
-            <button class="action-btn" onclick="showWageCalculator()">
-                <i class="fas fa-calculator"></i> Mzdová kalkulačka
-            </button>
-        </div>
+        <!-- Tlačítka akcí byla přesunuta níže -->
     </div>
 
     <div class="main-content">
-        <h1 style="text-align: center;">Progres směny</h1>
+        <!-- <h1 style="text-align: center;">Progres směny</h1> Odstraněno dle požadavku -->
+
+        <!-- Volba směny - PŘESUNUTO SEM -->
+        <div class="shift-select" style="justify-content: center; margin-bottom: 20px;">
+            <button class="shift-btn active" data-shift="A">Směna A</button>
+            <button class="shift-btn" data-shift="B">Směna B</button>
+            <button class="shift-btn" data-shift="C">Směna C</button>
+            <button class="shift-btn" data-shift="D">Směna D</button>
+        </div>
 
         <div class="calendar" id="calendar"></div>
         <div class="year-view" id="yearView" style="display: none;">
@@ -543,13 +535,26 @@
             </select>
             <button class="nav-btn" onclick="nextMonth()">→</button>
 
-            <!-- Volba směny -->
-            <div class="shift-select">
-                <button class="shift-btn active" data-shift="A">Směna A</button>
-                <button class="shift-btn" data-shift="B">Směna B</button>
-                <button class="shift-btn" data-shift="C">Směna C</button>
-                <button class="shift-btn" data-shift="D">Směna D</button>
-            </div>
+            <!-- Volba směny byla přesunuta nahoru nad kalendář -->
+        </div>
+
+        <!-- Tlačítka akcí PŘESUNUTA SEM -->
+        <div class="action-buttons" style="justify-content: center; margin-top: 20px; margin-bottom: 20px;">
+            <button class="action-btn" onclick="exportCalendar()">
+                <i class="fas fa-download"></i> Export
+            </button>
+            <button class="action-btn" onclick="window.print()">
+                <i class="fas fa-print"></i> Tisk
+            </button>
+            <button class="action-btn" onclick="clearOvertimes()">
+                <i class="fas fa-trash"></i> Vymazat přesčasy
+            </button>
+            <button class="action-btn" onclick="toggleYearView()">
+                <i class="fas fa-calendar"></i> <span id="viewToggleText">Celoroční výpis</span>
+            </button>
+            <button class="action-btn" onclick="showWageCalculator()">
+                <i class="fas fa-calculator"></i> Mzdová kalkulačka
+            </button>
         </div>
 
         <div class="stats-panel">
@@ -1149,8 +1154,8 @@
                     switch(shiftType) {
                         case 'A': dayInCycle = dayInCycleA; break;
                         case 'B': dayInCycle = (dayInCycleA + 9) % cycleLength; break; // posun o -3 dny (resp. +9)
-                        case 'C': dayInCycle = (dayInCycleA + 6) % cycleLength; break; // posun o -6 dnů (resp. +6)
-                        case 'D': dayInCycle = (dayInCycleA + 3) % cycleLength; break; // posun o -9 dnů (resp. +3)
+                        case 'C': dayInCycle = (dayInCycleA + 3) % cycleLength; break; // posun o -9 dnů (resp. +3) - ZMĚNĚNO
+                        case 'D': dayInCycle = (dayInCycleA + 6) % cycleLength; break; // posun o -6 dnů (resp. +6) - ZMĚNĚNO
                     }
 
                     // Cyklus: 0,1,2 = R; 3,4,5 = -; 6,7,8 = N; 9,10,11 = -
