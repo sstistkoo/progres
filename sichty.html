@@ -161,13 +161,29 @@
             max-width: 800px;
         }
 
+        /* --- STYLY PRO NOVOU HLAVIČKU MĚSÍCE --- */
+        .month-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
         .month-name {
             text-align: center;
             font-size: 1.5em;
             font-weight: bold;
-            margin-bottom: 20px;
+            margin-bottom: 0; /* Změna z 20px */
             color: var(--text-color);
+            flex-grow: 1; /* Přidáno */
         }
+
+        .month-nav-btn {
+            padding: 8px 12px; /* Přidáno */
+            font-size: 1em; /* Přidáno */
+            flex-shrink: 0; /* Přidáno */
+        }
+        /* --- KONEC NOVÝCH STYLŮ --- */
 
         .days {
             display: grid;
@@ -851,7 +867,12 @@
                     const dayNames = ['Neděle', 'Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota'];
                     const dateStr = `${date.getDate()}.${date.getMonth() + 1}.${currentYear}`;
                     const dayStr = dayNames[date.getDay()];
-                    const isHoliday = HOLIDAYS.find(h => h.date === date.toISOString().split('T')[0]);
+                    
+                    // --- OPRAVA CHYBY ČASOVÉ ZÓNY ---
+                    const dateStrISO = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    const isHoliday = HOLIDAYS.find(h => h.date === dateStrISO);
+                    // --- KONEC OPRAVY ---
+                    
                     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
 
                     // Formátování řádku s informacemi o dni
@@ -867,7 +888,9 @@
                     }
 
                     // Přidání informace o přesčasu
-                    const overtimeDateStr = date.toISOString().split('T')[0];
+                    // --- OPRAVA CHYBY ČASOVÉ ZÓNY (použití stejného formátu) ---
+                    const overtimeDateStr = dateStrISO;
+                    // --- KONEC OPRAVY ---
                     if (overtimeDays[currentShift].has(overtimeDateStr)) {
                         const overtime = overtimeDays[currentShift].get(overtimeDateStr);
                         dayInfo += ` - PŘESČAS (${overtime.type === 'R' ? 'Ranní' : 'Noční'}, ${overtime.hours}h)`;
@@ -989,8 +1012,10 @@
 
                 const holidayOvertimeHours = overtimeEntries
                     .filter(([date]) => {
-                        const dateStr = new Date(date).toISOString().split('T')[0];
-                        return HOLIDAYS.some(h => h.date === dateStr);
+                        // --- OPRAVA CHYBY ČASOVÉ ZÓNY ---
+                        // 'date' je již řetězec 'YYYY-MM-DD', není třeba jej převádět
+                        return HOLIDAYS.some(h => h.date === date);
+                        // --- KONEC OPRAVY ---
                     })
                     .reduce((sum, [_, data]) => sum + parseFloat(data.hours), 0);
 
@@ -1288,10 +1313,29 @@
                 const monthDiv = document.createElement('div');
                 monthDiv.className = 'month';
 
+                // --- ZMĚNA ZOBRAZENÍ NÁZVU MĚSÍCE ---
+                const monthHeader = document.createElement('div');
+                monthHeader.className = 'month-header';
+
+                const prevBtn = document.createElement('button');
+                prevBtn.className = 'nav-btn month-nav-btn';
+                prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+                prevBtn.onclick = previousMonth; 
+
                 const monthName = document.createElement('div');
                 monthName.className = 'month-name';
                 monthName.textContent = `${months[month]} ${currentYear}`;
-                monthDiv.appendChild(monthName);
+
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'nav-btn month-nav-btn';
+                nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+                nextBtn.onclick = nextMonth; 
+
+                monthHeader.appendChild(prevBtn);
+                monthHeader.appendChild(monthName);
+                monthHeader.appendChild(nextBtn);
+                monthDiv.appendChild(monthHeader);
+                // --- KONEC ZMĚNY ---
 
                 const daysDiv = document.createElement('div');
                 daysDiv.className = 'days';
@@ -1437,6 +1481,47 @@
                 createCalendar(yearShifts, currentMonth);
             }
 
+            // --- PŘIDANÉ FUNKCE PRO NAVIGACI MĚSÍCŮ ---
+            function previousMonth() {
+                if (currentMonth === 0) {
+                    currentMonth = 11;
+                    currentYear--;
+                    // Check against yearSelect options
+                    const minYear = parseInt(document.getElementById('yearSelect').options[0].value);
+                    if (currentYear < minYear) currentYear = minYear;
+                    document.getElementById('yearSelect').value = currentYear;
+                } else {
+                    currentMonth--;
+                }
+                document.getElementById('monthSelect').value = currentMonth;
+                
+                // Refresh calendar
+                HOLIDAYS = getHolidays(currentYear); // Aktualizace svátků při změně roku
+                const yearShifts = generateShifts(currentYear, currentShift);
+                createCalendar(yearShifts, currentMonth);
+            }
+
+            function nextMonth() {
+                if (currentMonth === 11) {
+                    currentMonth = 0;
+                    currentYear++;
+                    // Check against yearSelect options
+                    const yearSelect = document.getElementById('yearSelect');
+                    const maxYear = parseInt(yearSelect.options[yearSelect.options.length - 1].value);
+                    if (currentYear > maxYear) currentYear = maxYear;
+                    document.getElementById('yearSelect').value = currentYear;
+                } else {
+                    currentMonth++;
+                }
+                document.getElementById('monthSelect').value = currentMonth;
+
+                // Refresh calendar
+                HOLIDAYS = getHolidays(currentYear); // Aktualizace svátků při změně roku
+                const yearShifts = generateShifts(currentYear, currentShift);
+                createCalendar(yearShifts, currentMonth);
+            }
+            // --- KONEC PŘIDANÝCH FUNKCÍ ---
+
 
             function toggleYearView() {
                 yearView = !yearView;
@@ -1547,6 +1632,22 @@
                 loadOvertimeData();
                 loadCalculatorSettings(); // Přidat načtení nastavení
                 
+                // --- PŘIDANÝ KÓD PRO NAČTENÍ SMĚNY ---
+                const savedShift = localStorage.getItem('currentShift');
+                if (savedShift && ['A', 'B', 'C', 'D'].includes(savedShift)) {
+                    currentShift = savedShift;
+                }
+                
+                // Aktualizace aktivního tlačítka směny
+                document.querySelectorAll('.shift-btn').forEach(btn => {
+                    if (btn.dataset.shift === currentShift) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+                // --- KONEC PŘIDANÉHO KÓDU ---
+                
                 // Nastavení aktuálního data
                 const today = new Date();
                 currentYear = today.getFullYear();
@@ -1591,6 +1692,7 @@
                     document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
                     currentShift = this.dataset.shift;
+                    localStorage.setItem('currentShift', currentShift); // <-- ULOŽENÍ SMĚNY
                     const yearShifts = generateShifts(currentYear, currentShift);
                     if (yearView) {
                         createYearView();
@@ -1723,8 +1825,10 @@
 
                 const holidayOvertimeHours = overtimeEntries
                     .filter(([date]) => {
-                        const dateStr = new Date(date).toISOString().split('T')[0];
-                        return HOLIDAYS.some(h => h.date === dateStr);
+                        // --- OPRAVA CHYBY ČASOVÉ ZÓNY ---
+                        // 'date' je již řetězec 'YYYY-MM-DD', není třeba jej převádět
+                        return HOLIDAYS.some(h => h.date === date);
+                        // --- KONEC OPRAVY ---
                     })
                     .reduce((sum, [_, data]) => sum + parseFloat(data.hours), 0);
 
@@ -1890,7 +1994,9 @@
 
             function showOvertimeTypeModal(date) {
                 selectedDate = date;
-                const dateStr = date.toISOString().split('T')[0];
+                // --- OPRAVA CHYBY ČASOVÉ ZÓNY ---
+                const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                // --- KONEC OPRAVY ---
                 if (overtimeDays[currentShift].has(dateStr)) {
                     const data = overtimeDays[currentShift].get(dateStr);
                     document.getElementById('overtimeHours').value = data.hours;
