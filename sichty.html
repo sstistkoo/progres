@@ -63,10 +63,31 @@
 
         @media (max-width: 768px) {
             .controls {
-                flex-direction: column;
+                /* Změněno z 'column' na 'row', aby to bylo v jednom řádku */
+                flex-direction: row;
+                /* Přidáno 'nowrap', aby se to nezalomilo */
+                flex-wrap: nowrap; 
                 align-items: center;
-                gap: 15px;
+                /* Snížena mezera, aby se to vešlo */
+                gap: 5px; 
+                justify-content: center;
             }
+
+            /* PŘIDÁNO: Nová pravidla pro zmenšení prvků v .controls na mobilu */
+            .controls .nav-btn {
+                padding: 6px 10px; /* Menší padding */
+                font-size: 1em; /* Menší písmo */
+                flex-shrink: 0; /* Tlačítka se nebudou smršťovat */
+            }
+
+            .controls .month-select {
+                padding: 6px 2px; /* Menší padding */
+                font-size: 0.9em; /* Menší písmo */
+                min-width: auto; /* Odebrána minimální šířka */
+                flex-grow: 1; /* Dovolí select boxům roztáhnout se/smrštit se */
+                width: 30%; /* Dáme jim flexibilní šířku */
+            }
+            /* KONEC PŘIDANÝCH STYLŮ */
 
             .shift-select {
                 flex-wrap: wrap;
