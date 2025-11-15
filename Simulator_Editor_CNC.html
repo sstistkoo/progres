@@ -44,8 +44,8 @@
         }
 
         .editor-container {
-            /* ZMĚNA: flex: 1 nahrazeno flex: 1.5, aby byl editor větší */
-            flex: 1.5; /* Zabere 1.5 dílu místa (větší než simulátor) */
+            /* ZMĚNA: flex: 1.5 nahrazeno flex: 1, aby byl poměr se simulátorem 1:1 (blíže k "půlce stránky") */
+            flex: 1; /* Zabere 1 díl místa (stejně jako simulátor) */
             display: flex;
             flex-direction: column;
             background: #fff;
@@ -809,8 +809,22 @@
         }
 
         .program-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
             padding: 10px;
             min-height: 60px; /* Větší minimální výška */
+            width: 100%;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+            box-sizing: border-box;
+            
+            /* ===== OPRAVA PRO ROLOVÁNÍ NA MOBILU ===== */
+            flex-shrink: 0; /* Zabrání smrštění, pokud je editor flexibilní */
+            max-height: 150px; /* Omezení maximální výšky na cca 2-3 řádky tlačítek */
+            overflow-y: auto;  /* Povolí vertikální rolování POUZE pro tento seznam */
+            -webkit-overflow-scrolling: touch; /* Plynulé rolování na iOS */
+            /* ======================================== */
         }
 
         .program-list-item {
@@ -2583,6 +2597,7 @@
                         this.baseScale = 1; 
                         this.zoomFactor = 1;
                     }
+
 
                     const bounds = this.calculateBounds(movements);
                     this.adjustScale(bounds); // Přizpůsobit měřítko
