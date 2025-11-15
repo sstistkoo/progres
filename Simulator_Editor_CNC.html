@@ -2,7 +2,8 @@
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- OPRAVA: Přidán 'user-scalable=no' pro lepší kontrolu na mobilu, i když zoom řešíme v JS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>CNC Editor - Sinumerik 840D</title>
@@ -21,6 +22,9 @@
             flex-direction: column;
             overflow: hidden; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            /* OPRAVA: Zákaz výchozích dotykových akcí na těle (jako "pull-to-refresh") */
+            overscroll-behavior: contain;
+            touch-action: none;
         }
 
         .container {
@@ -36,6 +40,8 @@
             width: 100%;
             border-bottom: 1px solid #ccc;
             position: relative; 
+            /* OPRAVA: Explicitní nastavení dotykových akcí pro simulátor */
+            touch-action: none;
         }
 
         .editor-container {
@@ -55,6 +61,13 @@
             width: 100%;
             height: 100%;
             background: #f8f9fa;
+            /* OPRAVA: Dotykové akce pro canvas */
+            touch-action: none;
+        }
+        
+        #simulatorCanvas {
+            /* OPRAVA: Zajištění, že canvas sám o sobě nemá žádné výchozí dotykové akce */
+            touch-action: none;
         }
 
         .position-info {
@@ -93,6 +106,7 @@
             right: 0; 
             bottom: 0; 
             overscroll-behavior: contain;
+            /* OPRAVA: Povolit pouze vertikální posouvání v editoru */
             touch-action: pan-y;
             user-select: text;
             -webkit-user-select: text;
@@ -144,6 +158,9 @@
             font-size: 20px; /* Zmenšeno */
             margin-right: 8px; /* Přidána mezera napravo */
             margin-bottom: 0;
+            /* Pro zarovnání ikon z FontAwesome */
+            width: 24px;
+            text-align: center;
         }
         
         /* Skryjeme text u tlačítek na desktopu, necháme jen ikony */
@@ -225,6 +242,8 @@
             min-height: 50px; 
             max-height: 60px; /* Upraveno z max-height 120px */
             align-items: center; /* Vystředit tlačítka vertikálně */
+            /* OPRAVA: Povolit dotykové akce pro horizontální rolování */
+            touch-action: pan-x;
         }
 
         .program-list-item {
@@ -265,6 +284,8 @@
             padding: 6px 10px;
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            /* OPRAVA: Povolit kliknutí na odkaz */
+            touch-action: auto;
         }
 
         .home-link:hover {
@@ -314,7 +335,7 @@
                 gap: 4px;
             }
 
-            /* Horní řádek: [📂] [🔄] [ R ] */
+            /* Horní řádek: [📂] [G0] [ R ] */
             .file-input-button,
             .action-button {
                 flex: 1 1 33%; /* Rozdělit na třetiny */
@@ -494,10 +515,13 @@
                     <span class="button-text">Načíst</span>
                     <input type="file" id="actualFileInput" accept=".mpf,.spf" multiple style="display: none;">
                 </label>
-                <button onclick="window.simulator.resetView()" class="action-button">
-                    <span class="button-icon">🔄</span>
-                    <span class="button-text">Reset</span>
+                
+                <!-- ZMĚNA: Tlačítko "Reset" nahrazeno za "Přepnout G0" -->
+                <button id="toggleG0Btn" onclick="window.simulator.toggleRapidMoves()" class="action-button" title="Skrýt G0 (rychloposuv)">
+                    <span class="button-icon"><i class="fas fa-eye-slash"></i></span>
+                    <span class="button-text">G0</span>
                 </button>
+                
                 <button onclick="showParameters()" class="action-button">
                     <span class="button-icon">R</span>
                     <span class="button-text">Parametry</span>
@@ -1530,6 +1554,12 @@
                 this.lastSelectedPoint = null;
                 this.highlightedPoint = null;
                 this.pulseAnimation = null;
+                
+                // ZMĚNA: Vlastnosti pro nové funkce
+                this.showRapidMoves = true; // Pro přepínání G0
+                this.toggleG0Btn = document.getElementById('toggleG0Btn');
+                this.isZooming = false; // Pro opravu mobilního zoomu
+                this.lastTouchDistance = 0; // Pro opravu mobilního zoomu
             }
 
             setupEventListeners() {
@@ -1626,12 +1656,20 @@
                         touch2.clientY - touch1.clientY
                     );
                     this.touchZoomStartScale = this.zoomFactor;
+                    
+                    // --- OPRAVA PRO MOBILNÍ ZOOM ---
+                    // Explicitně zakázat posouvání (isDragging), když začínáme zoomovat
+                    this.isDragging = false; 
+                    this.isZooming = true;
+                    // --- KONEC OPRAVY ---
+                    
                 } else if (event.touches.length === 1) {
                     // Posouvání jedním prstem
                     const touch = event.touches[0];
                     this.touchStartX = touch.clientX;
                     this.touchStartY = touch.clientY;
                     this.isDragging = true;
+                    this.isZooming = false; // Není zoom
                 }
             }
 
@@ -1640,6 +1678,9 @@
 
                 if (event.touches.length === 2) {
                     // Zoom
+                    this.isZooming = true; // Ujistit se, že jsme v režimu zoom
+                    this.isDragging = false; // Ujistit se, že neposouváme
+                    
                     const touch1 = event.touches[0];
                     const touch2 = event.touches[1];
                     const distance = Math.hypot(
@@ -1654,7 +1695,13 @@
                     // Aktualizovat zobrazení
                     this.gridCache = this.createGridCache();
                     this.simulate(false);
-                } else if (event.touches.length === 1 && this.isDragging) { // Opraveno 'and' na '&&'
+                    
+                } else if (event.touches.length === 1 && this.isDragging && !this.isZooming) { 
+                    // --- OPRAVA PRO MOBILNÍ ZOOM ---
+                    // Posouvat POUZE pokud (isDragging = true) A ZÁROVEŇ (isZooming = false)
+                    // (zabraňuje posunu, když jeden prst opustí displej dříve než druhý)
+                    // --- KONEC OPRAVY ---
+                    
                     // Posouvání
                     const touch = event.touches[0];
                     const deltaX = touch.clientX - this.touchStartX;
@@ -1680,7 +1727,9 @@
             }
 
             handleTouchEnd(event) {
+                // Resetovat všechny stavy po puštění prstů
                 this.isDragging = false;
+                this.isZooming = false;
                 this.lastTouchDistance = 0;
 
                 // Přidat vynucené překreslení po puštění
@@ -1960,7 +2009,8 @@
                 }
 
                 // Vykreslit všechny rychloposuvy najednou
-                if (batchRapid.length > 0) {
+                // ZMĚNA: Vykreslit pouze pokud je povoleno
+                if (this.showRapidMoves && batchRapid.length > 0) {
                     this.ctx.strokeStyle = '#ff0000';
                     this.ctx.lineWidth = 1;
                     this.ctx.beginPath();
@@ -1996,6 +2046,31 @@
                 // Vykreslení zvýrazněného bodu na konci
                 if (this.highlightedPoint) {
                     this.drawHighlightedPoint();
+                }
+            }
+            
+            // ZMĚNA: Nová funkce pro přepínání G0
+            toggleRapidMoves() {
+                this.showRapidMoves = !this.showRapidMoves;
+                debug(`Zobrazení G0 (rychloposuv): ${this.showRapidMoves}`);
+                
+                // Aktualizovat ikonu tlačítka
+                if (this.toggleG0Btn) {
+                    const icon = this.toggleG0Btn.querySelector('.button-icon i');
+                    if (icon) {
+                        if (this.showRapidMoves) {
+                            icon.className = 'fas fa-eye-slash'; // Ikona pro "skrýt"
+                            this.toggleG0Btn.title = 'Skrýt G0 (rychloposuv)';
+                        } else {
+                            icon.className = 'fas fa-eye'; // Ikona pro "zobrazit"
+                            this.toggleG0Btn.title = 'Zobrazit G0 (rychloposuv)';
+                        }
+                    }
+                }
+
+                // Okamžitě překreslit dráhu
+                if (this.lastMovements) {
+                    this.drawPath(this.lastMovements);
                 }
             }
 
@@ -2791,11 +2866,12 @@
             debug('Program uložen');
         }
 
-        window.resetView = function() {
-            if (window.simulator) {
-                window.simulator.simulate(true); // Poslat 'true' pro vynucení resetu
-            }
-        }
+        // ZMĚNA: Tato funkce je nyní nahrazena novou funkcí na tlačítku
+        // window.resetView = function() {
+        //     if (window.simulator) {
+        //         window.simulator.simulate(true); // Poslat 'true' pro vynucení resetu
+        //     }
+        // }
 
         // Upravit event listener pro kliknutí na řádek v editoru
         editor.addEventListener('click', async function(e) {
