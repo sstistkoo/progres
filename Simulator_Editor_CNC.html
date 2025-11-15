@@ -1560,6 +1560,11 @@
                 this.toggleG0Btn = document.getElementById('toggleG0Btn');
                 this.isZooming = false; // Pro opravu mobilního zoomu
                 this.lastTouchDistance = 0; // Pro opravu mobilního zoomu
+                // ZMĚNA: Přidání kotevních bodů pro zoom
+                this.touchAnchorWorldX = 0;
+                this.touchAnchorWorldZ = 0;
+                this.touchAnchorCanvasX = 0;
+                this.touchAnchorCanvasY = 0;
             }
 
             setupEventListeners() {
@@ -1661,7 +1666,15 @@
                     // Explicitně zakázat posouvání (isDragging), když začínáme zoomovat
                     this.isDragging = false; 
                     this.isZooming = true;
-                    // --- KONEC OPRAVY ---
+                    
+                    // ZMĚNA: Vypočítat a uložit kotevní body
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.touchAnchorCanvasX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+                    this.touchAnchorCanvasY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+                    
+                    this.touchAnchorWorldX = (this.touchAnchorCanvasX - this.centerX) / this.scale;
+                    this.touchAnchorWorldZ = (this.centerY - this.touchAnchorCanvasY) / this.scale;
+                    // --- KONEC ZMĚNY ---
                     
                 } else if (event.touches.length === 1) {
                     // Posouvání jedním prstem
@@ -1683,14 +1696,29 @@
                     
                     const touch1 = event.touches[0];
                     const touch2 = event.touches[1];
-                    const distance = Math.hypot(
+                    
+                    // ZMĚNA: Použít uložené kotevní body pro výpočet
+                    const newDistance = Math.hypot(
                         touch2.clientX - touch1.clientX,
                         touch2.clientY - touch1.clientY
                     );
 
-                    const scale = distance / this.lastTouchDistance;
-                    this.zoomFactor = Math.min(Math.max(this.touchZoomStartScale * scale, 0.1), 1000);
+                    // Vypočítat poměr změny (vůči startu)
+                    const scaleRatio = newDistance / this.lastTouchDistance;
+                    
+                    // Nastavit nový zoom faktor a měřítko
+                    this.zoomFactor = Math.min(Math.max(this.touchZoomStartScale * scaleRatio, 0.1), 1000);
                     this.scale = this.baseScale * this.zoomFactor;
+                    
+                    // Vypočítat nový střed prstů na plátně
+                    const rect = this.canvas.getBoundingClientRect();
+                    const newMidX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+                    const newMidY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+
+                    // Přepočítat centerX a centerY, aby kotevní bod (ze startu) zůstal pod novým středem prstů
+                    this.centerX = newMidX - this.touchAnchorWorldX * this.scale;
+                    this.centerY = newMidY + this.touchAnchorWorldZ * this.scale;
+                    // --- KONEC ZMĚNY ---
 
                     // Aktualizovat zobrazení
                     this.gridCache = this.createGridCache();
