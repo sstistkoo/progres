@@ -1,61 +1,54 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-    <!-- ... stávající kód ... -->
     <meta charset="UTF-8">
-    <!-- OPRAVENO: Povoleno zoomování pro lepší přístupnost na mobilu -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>CNC Editor - Sinumerik 840D</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
-        /* ... stávající kód ... */
-        
-        /* OPRAVA: Zabránění "skákání" layoutu při zobrazení klávesnice */
         html {
             height: 100%;
-            overflow: hidden; /* Zabrání scrollování celé stránky */
+            overflow: hidden; 
         }
 
         body {
             margin: 0;
             padding: 0;
-            height: 100%; /* ZMĚNA: z 100vh na 100% */
+            height: 100%; 
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* Zabrání scrollování těla stránky */
+            overflow: hidden; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
         .container {
             display: flex;
             flex-direction: column;
             height: 100%;
-            width: 100%; /* Přidáno pro jistotu */
+            width: 100%;
         }
 
         .simulator {
-            /* ZMĚNA: Odebrána výška 50vh, nahrazeno flexboxem */
-            flex: 1; /* Zabere 1 díl dostupného místa */
-            min-height: 200px; /* Minimální výška, aby se nescvrknul moc */
+            flex: 1; 
+            min-height: 150px; /* Sníženo z 200px */
             width: 100%;
             border-bottom: 1px solid #ccc;
-            position: relative; /* Důležité pro .canvas-container */
+            position: relative; 
         }
 
         .editor-container {
-            /* ZMĚNA: flex: 1.5 nahrazeno flex: 1, aby byl poměr se simulátorem 1:1 (blíže k "půlce stránky") */
-            flex: 1; /* Zabere 1 díl místa (stejně jako simulátor) */
+            flex: 1;
             display: flex;
             flex-direction: column;
             background: #fff;
             position: relative;
             overflow: hidden;
-            min-height: 0; /* Důležité pro správné scrollování */
+            min-height: 0; 
         }
 
         .canvas-container {
-            /* ZMĚNA: Přidán position: absolute, aby vyplnil rodiče (.simulator) */
             position: absolute;
             top: 0;
             left: 0;
@@ -64,524 +57,182 @@
             background: #f8f9fa;
         }
 
-        .axis-label {
-            position: absolute;
-            color: #000;
-            font-weight: bold;
-        }
-
-        .axis-label.x {
-            bottom: 10px;
-            right: 10px;
-        }
-
-        .axis-label.z {
-            top: 10px;
-            left: 10px;
-        }
-
         .position-info {
             position: absolute;
             top: 10px;
             right: 10px;
             background: rgba(0, 0, 0, 0.8);
             color: white;
-            padding: 12px 16px;
+            padding: 8px 12px;
             border-radius: 6px;
-            font-size: 24px; /* Zvětšeno z 14px */
+            font-size: 16px; 
             font-family: monospace;
             z-index: 1000;
             pointer-events: none;
             text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
-            min-width: 220px; /* Přidáno pro lepší čitelnost */
-        }
-
-        /* Mobilní optimalizace */
-        @media (max-width: 768px) {
-            /* * OPRAVA: Odstraněna problematická pravidla pro .simulator a .editor-container.
-             * Nový flexbox layout v .container se postará o responzivitu sám
-             * a nebude se hroutit při zobrazení klávesnice.
-             */
-            /*
-            .simulator {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                height: 45vh; 
-                z-index: 100;
-                background: #fff;
-            }
-
-            .editor-container {
-                margin-top: 45vh;
-                height: 55vh;
-                position: relative;
-            }
-            */
-
-            .toolbar {
-                padding: 5px;
-                gap: 5px;
-                flex-wrap: wrap; /* Povolit zalamování tlačítek na mobilu */
-            }
-
-            .toolbar button {
-                height: 40px;
-                min-width: 100px;
-                font-size: 16px;
-                margin: 2px;
-                border-radius: 4px;
-                border: 1px solid #ccc;
-                background: white;
-                touch-action: manipulation;
-            }
-
-            .toolbar button:active {
-                background: #e6e6e6;
-            }
-
-            .position-info {
-                font-size: 20px; /* Zvětšeno pro mobily */
-                padding: 12px 16px;
-                right: 5px;
-                top: 5px;
-                background: rgba(0, 0, 0, 0.9);
-            }
-
-            #editor {
-                font-size: 18px; /* Větší písmo pro mobilní zařízení */
-                line-height: 2em; /* Větší řádkování pro lepší čitelnost a klikání */
-                padding: 20px;
-                height: 100%; /* ZMĚNA: Výška 100% rodiče (.editor-wrapper) */
-                position: relative;
-                overflow-y: auto;
-                -webkit-overflow-scrolling: touch;
-                overscroll-behavior: contain;
-                inputmode: numeric;
-                pattern: "[0-9]*";
-                -webkit-appearance: none;
-                /* Odebráno height: calc(100% - 40px); */
-            }
-
-            /* Přidat styl pro fixní pozici označeného řádku */
-            .editor-line-highlight {
-                position: sticky;
-                top: 40px; /* Druhá pozice od vrchu */
-                background-color: #e6f3ff;
-                z-index: 1;
-                padding: 8px 0;
-                margin: 4px 0;
-            }
-
-            /* Zvětšit mezeru mezi řádky pro lepší dotykové ovládání */
-            .editor-line {
-                min-height: 2em;
-                padding: 8px 0;
-            }
-
-            /* Vylepšení scrollování pro touch zařízení */
-            .editor-container::-webkit-scrollbar {
-                width: 8px;
-            }
-
-            .editor-container::-webkit-scrollbar-thumb {
-                background: rgba(0,0,0,0.2);
-                border-radius: 4px;
-            }
-        }
-
-        /* Vylepšení pro dotykové ovládání */
-        @media (hover: none) {
-            .toolbar button {
-                padding: 12px; /* Větší tlačítka pro dotyk */
-                margin: 2px;
-            }
-
-            #editor {
-                -webkit-overflow-scrolling: touch;
-            }
-
-            .tooltip {
-                padding: 10px 20px;
-                font-size: 18px;
-            }
-
-            .crosshair {
-                width: 30px;
-                height: 30px;
-            }
-
-            .crosshair::before {
-                left: 14px;
-                width: 2px;
-                height: 30px;
-            }
-
-            .crosshair::after {
-                top: 14px;
-                height: 2px;
-                width: 30px;
-            }
-
-            /* Zvětšení dotykové plochy pro body */
-            .canvas-container canvas {
-                touch-action: none; /* Zabránit výchozím gestům */
-            }
-        }
-
-        .tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px 16px; /* Zvětšit vnitřní odsazení */
-            border-radius: 6px;
-            font-size: 16px; /* Zvětšit písmo */
-            pointer-events: none;
-            z-index: 1000;
-            min-width: 120px; /* Přidat minimální šířku */
-            text-align: center; /* Vycentrovat text */
-        }
-
-        .crosshair {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            pointer-events: none;
-            display: none;
-            z-index: 1001;
-        }
-
-        .crosshair::before,
-        .crosshair::after {
-            content: '';
-            position: absolute;
-            background: #000;
-        }
-
-        .crosshair::before {
-            left: 9px;
-            width: 2px;
-            height: 20px;
-        }
-
-        .crosshair::after {
-            top: 9px;
-            height: 2px;
-            width: 20px;
+            min-width: 200px; 
         }
 
         #editor {
             width: 100%;
-            height: 100%; /* Změněno - editor vyplní celý prostor */
-            resize: none; /* Zakázání manuálního resizu */
+            height: 100%; 
+            resize: none; 
             padding: 10px;
             box-sizing: border-box;
             font-family: monospace;
             border: none;
             outline: none;
             background: #fff;
-            line-height: 1.5;
-            cursor: pointer;
-            background: linear-gradient(
-                transparent calc(1.5em * var(--selected-line)),
-                #e6f3ff calc(1.5em * var(--selected-line)),
-                #e6f3ff calc(1.5em * (var(--selected-line) + 1)),
-                transparent calc(1.5em * (var(--selected-line) + 1))
-            );
-            background-size: 100% 100%;
             line-height: 1.5em;
-            -webkit-overflow-scrolling: touch; /* Přidáno pro iOS smooth scroll */
-            overflow-y: auto; /* Přidáno - povolit vertikální scroll */
-            position: absolute; /* Přidáno */
-            top: 0; /* Přidáno */
-            left: 0; /* Přidáno */
-            right: 0; /* Přidáno */
-            bottom: 0; /* Přidáno */
-            -webkit-overflow-scrolling: touch;
-            overflow-y: auto;
+            cursor: pointer;
+            -webkit-overflow-scrolling: touch; 
+            overflow-y: auto; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            bottom: 0; 
             overscroll-behavior: contain;
             touch-action: pan-y;
             user-select: text;
             -webkit-user-select: text;
-            padding: 16px; /* Větší padding pro lepší dotykové ovládání */
-            font-size: 16px; /* Větší písmo pro mobily */
-        }
-
-        /* Přidáno - styl pro zvýrazněný řádek */
-        #editor.has-selection {
-            background: linear-gradient(
-                transparent 0%,
-                transparent calc(1.5em * var(--selected-line)),
-                #e6f3ff calc(1.5em * var(--selected-line)),
-                #e6f3ff calc(1.5em * (var(--selected-line) + 1)),
-                transparent calc(1.5em * (var(--selected-line) + 1))
-            );
-        }
-
-        .editor-line-highlight {
-            background-color: #e6f3ff;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(2); opacity: 0.5; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        .point-pulse {
-            animation: pulse 1s infinite;
-        }
-
-        /* Přidána nová animace pro pulzující bod */
-        @keyframes pointPulse {
-            0% {
-                stroke-opacity: 1;
-                r: 5;
-            }
-            50% {
-                stroke-opacity: 0.8;
-                r: 10;
-            }
-            100% {
-                stroke-opacity: 1;
-                r: 5;
-            }
-        }
-
-        /* Přidat styly pro ovládací prvky přehrávače */
-        .player-controls {
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9);
-            padding: 5px;
-            border-radius: 4px;
-            display: flex;
-            gap: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .player-controls button {
-            padding: 5px 10px;
-            border: 1px solid #ccc;
-            background: white;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-
-        .player-controls button:hover {
-            background: #f0f0f0;
-        }
-
-        .player-controls button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .playback-progress {
-            position: absolute;
-            bottom: 50px;
-            left: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 5px;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-
-        /* Upravit styly přehrávače */
-        .player-controls {
-            /* ...existing styles... */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .player-controls button {
-            width: 40px;
-            height: 40px;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            /* ...rest of existing button styles... */
-        }
-
-        #speedSlider {
-            width: 100px;
-        }
-
-        /* Přidat nové styly pro přehrávač nad editorem */
-        .controls-container {
-            padding: 10px;
-            background: #f5f5f5;
-            border-top: 1px solid #ddd;
-            border-bottom: 1px solid #ddd;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .player-container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex: 1;
-        }
-
-        .player-controls {
-            position: static;
-            transform: none;
-            background: none;
-            box-shadow: none;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            margin: 0;
-        }
-
-        .player-controls button {
-            width: 40px;
-            height: 40px;
-            padding: 0;
-            border-radius: 20px;
-            border: 1px solid #ccc;
-            background: white;
-            font-size: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .player-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-        }
-
-        #speedSlider {
-            width: 100px;
-            margin: 0;
-        }
-
-        /* Mobilní optimalizace */
-        @media (max-width: 768px) {
-            .controls-container {
-                flex-direction: column;
-                padding: 5px;
-            }
-
-            .player-container {
-                width: 100%;
-                justify-content: center;
-            }
-
-            .player-controls button {
-                width: 50px;
-                height: 50px;
-                font-size: 24px;
-            }
-
-            #speedSlider {
-                width: 80px;
-            }
-
-            .toolbar {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-        }
-
-        .file-input-container {
-            position: relative;
-            overflow: hidden;
-            display: inline-block;
-            display: flex;
-            width: 100%;
-            margin-bottom: 8px;
-        }
-
-        .file-input-container input[type="file"] {
-            font-size: 100px;
-            position: absolute;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        .file-input-button {
-            padding: 8px 15px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            display: inline-block;
-            display: block;
-            width: 100%;
-            padding: 12px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            text-align: center;
-            margin: 4px;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .file-name {
-            margin-left: 10px;
-            color: #666;
-            margin-left: 10px;
-            color: #666;
-            background: white;
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-            margin: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: block;
-            width: 100%;
+            font-size: 16px; 
         }
 
         .editor-wrapper {
             flex: 1;
             position: relative;
             overflow: hidden;
-            min-height: 0; /* Důležité pro správné scrollování */
+            min-height: 0; 
+        }
+
+        /* --- Panel nástrojů (Desktop) --- */
+        .toolbar {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap; /* Povolit zalamování i na desktopu pro jistotu */
+            gap: 8px;
+            padding: 8px;
+            align-items: center;
+            flex-shrink: 0;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .file-input-button, 
+        .action-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 50px; /* Zmenšeno */
+            font-size: 16px; 
+            flex: 1;
+            background: #007bff;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            padding: 0 10px;
+            min-width: 60px;
+        }
+        
+        .action-button:hover, .file-input-button:hover {
+            background: #0056b3;
+        }
+
+        .button-icon {
+            font-size: 20px; /* Zmenšeno */
+            margin-right: 8px; /* Přidána mezera napravo */
+            margin-bottom: 0;
+        }
+        
+        /* Skryjeme text u tlačítek na desktopu, necháme jen ikony */
+        .button-text {
+            display: none; 
+        }
+        
+        /* Změna: file-input-button bude mít ikonu a text */
+         .file-input-button {
+            flex-direction: row;
+            text-align: left;
+         }
+         .file-input-button .button-icon {
+             font-size: 20px;
+         }
+
+
+        .player-container {
+            flex: 3; /* Větší prostor pro přehrávač */
+            min-width: 300px; 
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap; /* Vnitřek se neláme */
+        }
+        
+        /* Změna: Tlačítka přehrávače na desktopu */
+        .player-container .action-button {
+            flex: 0 0 50px; /* Pevná šířka */
+            min-height: 50px;
+            min-width: 50px;
+            font-size: 20px;
+            padding: 0;
+        }
+        .player-container .action-button .button-icon {
+            margin: 0; /* Bez odsazení */
+        }
+
+
+        .player-info {
+            flex: 1; /* Zabere zbytek místa */
+            display: flex;
+            flex-direction: column; /* Pod sebe */
+            align-items: stretch; /* Roztáhnout */
+            gap: 4px;
+            font-size: 14px; 
+            min-width: 150px;
+        }
+        
+        .player-info span {
+             text-align: center;
+        }
+
+        #speedSlider {
+            width: 100%; /* Roztáhnout */
+            height: 25px; 
+            margin: 0;
         }
 
         .program-list {
             display: flex;
             flex-wrap: wrap;
             gap: 5px;
-            padding: 5px;
-            flex-shrink: 0; /* OPRAVA: Zabrání smrštění */
+            padding: 8px;
+            width: 100%;
+            background: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            min-height: auto;
+            box-sizing: border-box; 
+            flex-shrink: 0; 
+            max-height: 120px; 
+            overflow-y: auto;  
+            -webkit-overflow-scrolling: touch; 
         }
 
         .program-list-item {
             flex: 0 0 auto;
-            padding: 5px 10px;
-            background: #f0f0f0;
+            padding: 8px 12px; 
+            font-size: 14px; 
+            background: #e9e9e9;
             border-radius: 4px;
             cursor: pointer;
             white-space: nowrap;
             border: 1px solid #ddd;
+            margin: 2px;
         }
 
         .program-list-item:hover {
-            background: #e0e0e0;
+            background: #d0d0d0;
         }
 
         .program-list-item.active {
@@ -589,7 +240,153 @@
             color: white;
             border-color: #0056b3;
         }
+        
+        /* ... Ostatní styly (modal, tooltip atd.) ... */
+        
+        .home-link {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #333;
+            text-decoration: none;
+            font-size: 20px;
+            z-index: 2000;
+            background: white; 
+            padding: 6px 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
 
+        .home-link:hover {
+            color: #666;
+            background: #f5f5f5;
+        }
+
+        /* * ======================================
+         * ==== VELKÁ MOBILNÍ OPRAVA (START) ====
+         * ======================================
+         */
+
+        @media (max-width: 768px) {
+            
+            /* Dáme simulátoru více místa */
+            .simulator {
+                flex: 1.5;
+            }
+            .editor-container {
+                flex: 1;
+            }
+
+            /* Zmenšení pozic */
+            .position-info {
+                font-size: 13px;
+                padding: 4px 8px;
+                right: 5px;
+                top: 5px;
+                min-width: 170px;
+                max-width: 220px;
+            }
+            
+            .home-link {
+                top: 5px;
+                left: 5px;
+                font-size: 18px;
+                padding: 6px 8px;
+            }
+
+            /* --- NOVÝ LAYOUT TOOLBARU PRO MOBIL --- */
+
+            .toolbar {
+                padding: 4px;
+                gap: 4px;
+                flex-direction: column; /* Vše pod sebe */
+            }
+            
+            /* Kontejner pro horní řádek tlačítek */
+            .toolbar-row {
+                display: flex;
+                width: 100%;
+                gap: 4px;
+            }
+
+            /* Horní řádek: [📂] [🔄] [ R ] */
+            .file-input-button,
+            .action-button {
+                flex: 1 1 33%; /* Rozdělit na třetiny */
+                min-height: 44px;
+                font-size: 14px;
+                padding: 4px;
+            }
+            
+            .button-icon {
+                font-size: 18px;
+                margin: 0; /* Bez odsazení */
+            }
+            
+            /* Spodní řádek: Přehrávač */
+            .player-container {
+                flex-basis: 100%; /* Plná šířka */
+                order: 10; /* Vždy dole */
+                flex: 1 1 100%;
+                min-width: auto; 
+                padding: 0; /* Bez vnitřního paddingu */
+                gap: 4px;
+                flex-wrap: nowrap; /* ZABRÁNIT LÁMÁNÍ TLAČÍTEK */
+            }
+
+            /* Tlačítka přehrávače [⏪] [▶️] [⏩] */
+            .player-container .action-button {
+                flex: 0 0 44px; /* Pevná velikost */
+                min-height: 44px; 
+                min-width: 44px;
+                font-size: 18px; 
+                padding: 0;
+            }
+
+            /* Zbytek přehrávače (slider + text) */
+            .player-info {
+                flex: 1 1 auto; /* Zabere zbytek */
+                min-width: 100px;
+                flex-direction: column; /* Pod sebe */
+                gap: 2px;
+                font-size: 12px;
+                padding: 0 4px; /* Malé odsazení */
+            }
+
+            #speedSlider {
+                width: 100%; 
+                height: 20px;
+                margin: 0;
+            }
+            /* --- KONEC NOVÉHO LAYOUTU TOOLBARU --- */
+
+            #editor {
+                font-size: 16px;
+                line-height: 1.5em;
+                padding: 10px;
+            }
+
+            .program-list {
+                max-height: 80px; 
+                padding: 4px;
+            }
+
+            .program-list-item {
+                flex: 1 1 auto;
+                text-align: center;
+                min-width: 80px;
+                padding: 6px 10px;
+                font-size: 14px;
+            }
+            
+            .modal-content {
+                margin: 10% auto; /* Méně místa shora */
+                width: 90%; /* Větší šířka */
+            }
+        }
+        
+        /* ... zbytek ... */
+        
         .modal {
             display: none;
             position: fixed;
@@ -618,268 +415,8 @@
             border-collapse: collapse;
             margin-top: 10px;
         }
-
-        .parameters-table th,
-        .parameters-table td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .parameters-table th {
-            background-color: #f5f5f5;
-        }
-
-        .close {
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close:hover {
-            color: #f00;
-        }
-
-        .action-button {
-            padding: 8px 16px;
-            margin: 4px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .action-button:hover {
-            background: #0056b3;
-        }
-
-        /* Upravené styly pro toolbar */
-        .toolbar {
-            display: flex;
-            flex-direction: row;
-            gap: 8px;
-            padding: 8px;
-            align-items: center;
-            flex-shrink: 0; /* OPRAVA: Zabrání smrštění */
-        }
-
-        .file-input-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 80px;
-            font-size: 24px;
-            flex: 1;
-            background: #007bff;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            cursor: pointer;
-            padding: 0;
-        }
-
-        .action-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 80px;
-            font-size: 24px;
-            flex: 1;
-            background: #007bff;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            cursor: pointer;
-            padding: 0;
-        }
-
-        .action-button:hover, .file-input-button:hover {
-            background: #0056b3;
-        }
-
-        /* Přidat styly pro touch zařízení */
-        @media (hover: none) {
-            .toolbar button, .file-input-button {
-                min-height: 80px;
-                font-size: 24px;
-                touch-action: manipulation;
-            }
-
-            .toolbar {
-                touch-action: none;
-                user-select: none;
-            }
-        }
-
-        /* Přidat styly pro ikony */
-        .button-icon {
-            font-size: 32px;
-            margin-bottom: 4px;
-        }
-
-        /* Upravené styly pro player controls */
-        .controls-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            gap: 8px;
-            background: none;
-            border: none;
-        }
-
-        .player-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex: 2; /* Zvětšit na dvojnásobek oproti ostatním tlačítkům */
-        }
-
-        .player-controls {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .player-controls button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 120px; /* Zvětšit šířku tlačítek */
-            min-height: 80px;
-            font-size: 32px;
-            flex: 1;
-            background: #007bff;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            padding: 0;
-        }
-
-        .player-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 18px; /* Zvětšit písmo */
-            min-width: 150px; /* Minimální šířka pro počítadlo */
-        }
-
-        #speedSlider {
-            width: 200px; /* Zvětšit šířku slideru */
-            height: 40px;
-        }
-
-        .program-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            padding: 5px;
-            width: 100%;
-            background: #f5f5f5;
-            border-bottom: 1px solid #ddd;
-            min-height: 50px;
-            box-sizing: border-box; /* Přidáno */
-        }
-
-        .player-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex: 3; /* Zvětšit na trojnásobek */
-            flex-wrap: wrap; /* Povolit zalamování */
-            padding: 8px;
-        }
-
-        .player-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 18px;
-            min-width: 200px; /* Větší minimální šířka */
-            margin-top: 8px; /* Odsazení shora */
-            flex-direction: column; /* Informace pod sebe */
-            align-items: flex-start;
-        }
-
-        #speedSlider {
-            width: 250px; /* Větší šířka slideru */
-            height: 40px;
-        }
-
-        .program-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            padding: 10px;
-            min-height: 60px; /* Větší minimální výška */
-            width: 100%;
-            background: #f5f5f5;
-            border-bottom: 1px solid #ddd;
-            box-sizing: border-box;
-            
-            /* ===== OPRAVA PRO ROLOVÁNÍ NA MOBILU ===== */
-            flex-shrink: 0; /* Zabrání smrštění, pokud je editor flexibilní */
-            max-height: 150px; /* Omezení maximální výšky na cca 2-3 řádky tlačítek */
-            overflow-y: auto;  /* Povolí vertikální rolování POUZE pro tento seznam */
-            -webkit-overflow-scrolling: touch; /* Plynulé rolování na iOS */
-            /* ======================================== */
-        }
-
-        .program-list-item {
-            padding: 12px 16px; /* Větší padding */
-            font-size: 18px; /* Větší písmo */
-            margin: 4px;
-            min-width: 120px; /* Minimální šířka položky */
-        }
-
-        @media (max-width: 768px) {
-            .player-container {
-                padding: 12px;
-            }
-
-            .player-controls button {
-                width: 80px; /* Větší šířka tlačítek na mobilu */
-                min-height: 80px;
-            }
-
-            .player-info {
-                width: 100%; /* Na celou šířku na mobilu */
-                text-align: center;
-                padding: 8px;
-            }
-
-            #speedSlider {
-                width: 100%; /* Slider na celou šířku */
-                margin: 8px 0;
-            }
-
-            .program-list-item {
-                flex: 1 1 auto; /* Lepší přizpůsobení na mobilu */
-                text-align: center;
-                min-width: 150px; /* Větší minimální šířka na mobilu */
-            }
-        }
-
-        .home-link {
-            position: absolute;
-            top: 70px; /* Posunout dolů pod position-info */
-            right: 10px;
-            color: #333;
-            text-decoration: none;
-            font-size: 24px;
-            z-index: 2000;
-            background: white; /* Přidat bílé pozadí */
-            padding: 8px;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .home-link:hover {
-            color: #666;
-            background: #f5f5f5;
-        }
+        /* ... atd ... */
+        
     </style>
 </head>
 <body>
@@ -896,33 +433,44 @@
                 </div>
             </div>
         </div>
+        
+        <!-- ZMĚNA HTML: Přidány dva řádky pro lepší kontrolu na mobilu -->
         <div class="toolbar">
-            <label class="file-input-button">
-                <span class="button-icon">📂</span>
-                <input type="file" id="actualFileInput" accept=".mpf,.spf" multiple style="display: none;">
-            </label>
-            <button onclick="window.simulator.resetView()" class="action-button">
-                <span class="button-icon">🔄</span>
-            </button>
-            <button onclick="showParameters()" class="action-button">
-                <span class="button-icon">R</span>
-            </button>
-            <div class="player-container">
-                <button id="prevBtn" class="action-button" title="Krok zpět">
-                    <span class="button-icon">⏪</span>
+            <div class="toolbar-row">
+                <label class="file-input-button">
+                    <span class="button-icon">📂</span>
+                    <!-- Přidán text, který se skryje na mobilu -->
+                    <span class="button-text">Načíst</span>
+                    <input type="file" id="actualFileInput" accept=".mpf,.spf" multiple style="display: none;">
+                </label>
+                <button onclick="window.simulator.resetView()" class="action-button">
+                    <span class="button-icon">🔄</span>
+                    <span class="button-text">Reset</span>
                 </button>
-                <button id="playBtn" class="action-button" title="Přehrát/Pozastavit">
-                    <span class="button-icon">▶️</span>
+                <button onclick="showParameters()" class="action-button">
+                    <span class="button-icon">R</span>
+                    <span class="button-text">Parametry</span>
                 </button>
-                <button id="nextBtn" class="action-button" title="Krok vpřed">
-                    <span class="button-icon">⏩</span>
-                </button>
-                <div class="player-info">
-                    <input type="range" id="speedSlider" min="1" max="100" value="50" title="Rychlost přehrávání">
-                    <span>Řádek: <span id="currentLine">0</span>/<span id="totalLines">0</span></span>
+            </div>
+            <div class="toolbar-row">
+                <div class="player-container">
+                    <button id="prevBtn" class="action-button" title="Krok zpět">
+                        <span class="button-icon">⏪</span>
+                    </button>
+                    <button id="playBtn" class="action-button" title="Přehrát/Pozastavit">
+                        <span class="button-icon">▶️</span>
+                    </button>
+                    <button id="nextBtn" class="action-button" title="Krok vpřed">
+                        <span class="button-icon">⏩</span>
+                    </button>
+                    <div class="player-info">
+                        <input type="range" id="speedSlider" min="1" max="100" value="50" title="Rychlost přehrávání">
+                        <span>Řádek: <span id="currentLine">0</span>/<span id="totalLines">0</span></span>
+                    </div>
                 </div>
             </div>
         </div>
+        
         <div class="program-list" id="programList"></div>
         <div class="editor-container">
             <div class="editor-wrapper">
@@ -2148,7 +1696,7 @@
                 ctx.strokeStyle = '#ddd';
                 ctx.lineWidth = 0.5;
                 ctx.fillStyle = '#666';
-                ctx.font = '22px Arial'; /* Zvětšeno z 11px */
+                ctx.font = '14px Arial'; /* Zmenšeno pro více popisků */
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
 
@@ -2183,9 +1731,7 @@
                     const x = i * subGridStep; // Vypočítat čerstvou hodnotu
                     const screenX = this.worldToScreen(x, 0).x;
                     
-                    // --- NOVÁ LOGIKA MŘÍŽKY ---
                     const isMainLine = (i % 5) === 0; // Každá pátá čára je hlavní
-                    // --- KONEC LOGIKY ---
 
                     if (isMainLine) {
                         mainLines.push(() => {
@@ -2195,9 +1741,8 @@
                             ctx.moveTo(screenX, 0);
                             ctx.lineTo(screenX, this.canvas.height);
                             ctx.stroke();
-                            // Změnit popisek z Z na X
-                            if (Math.abs(x) > 0.001 || i === 0) { // Zobrazit i X0
-                                ctx.fillText(`X${x.toFixed(decimals)}`, screenX + 8, this.canvas.height - 20);
+                            if (Math.abs(x) > 0.001 || i === 0) { 
+                                ctx.fillText(`X${x.toFixed(decimals)}`, screenX + 4, this.canvas.height - 15);
                             }
                         });
                     } else {
@@ -2216,10 +1761,8 @@
                 for (let i = iStartY; i <= iEndY; i++) {
                     const y = i * subGridStep; // Vypočítat čerstvou hodnotu
                     const screenY = this.worldToScreen(0, y).y;
-
-                    // --- NOVÁ LOGIKA MŘÍŽKY ---
-                    const isMainLine = (i % 5) === 0; // Každá pátá čára je hlavní
-                    // --- KONEC LOGIKY ---
+                    
+                    const isMainLine = (i % 5) === 0; 
                     
                     if (isMainLine) {
                         mainLines.push(() => {
@@ -2229,9 +1772,8 @@
                             ctx.moveTo(0, screenY);
                             ctx.lineTo(this.canvas.width, screenY);
                             ctx.stroke();
-                            // Změnit popisek z X na Z
-                            if (Math.abs(y) > 0.001 || i === 0) { // Zobrazit i Z0
-                                ctx.fillText(`Z${y.toFixed(decimals)}`, 8, screenY + 8);
+                            if (Math.abs(y) > 0.001 || i === 0) { 
+                                ctx.fillText(`Z${y.toFixed(decimals)}`, 4, screenY + 4);
                             }
                         });
                     } else {
@@ -2279,7 +1821,7 @@
 
                 // Popisky os
                 this.ctx.fillStyle = '#000';
-                this.ctx.font = 'bold 22px Arial';
+                this.ctx.font = 'bold 16px Arial';
 
                 // X na konci horizontální osy vpravo
                 this.ctx.textAlign = 'right';
@@ -2597,7 +2139,6 @@
                         this.baseScale = 1; 
                         this.zoomFactor = 1;
                     }
-
 
                     const bounds = this.calculateBounds(movements);
                     this.adjustScale(bounds); // Přizpůsobit měřítko
