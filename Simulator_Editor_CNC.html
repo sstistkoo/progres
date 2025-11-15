@@ -501,6 +501,33 @@
             z-index: 1001;
             /* OPRAVA: Zarovnání křížku, aby byl střed tam, kde má být */
             transform: translate(-10px, -10px);
+            
+            /* ZMĚNA: Přidání zaměřovacího kříže dovnitř čtverečku */
+            overflow: hidden;
+        }
+        
+        /* Horizontální čára kříže */
+        .crosshair::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background-color: red;
+            transform: translateY(-50%);
+        }
+        
+        /* Vertikální čára kříže */
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 1px;
+            background-color: red;
+            transform: translateX(-50%);
         }
         
         /* OPRAVA: Styl pro fullscreen editor */
@@ -1639,7 +1666,7 @@
                 // ZMĚNA: Vlastnosti pro dotykovou inspekci
                 this.inspectTimer = null; // Timer pro dlouhé podržení
                 this.isInspecting = false; // Zda jsme v režimu inspekce
-                this.touchInspectOffsetY = -60; // O kolik pixelů nad prstem bude křížek
+                this.touchInspectOffsetY = -80; // ZMĚNA: Větší offset z -60 na -80
                 this.lastTouchInspectTime = 0; // Kdy se naposledy zobrazil tooltip
             }
 
