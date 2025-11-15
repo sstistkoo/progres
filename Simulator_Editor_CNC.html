@@ -1568,6 +1568,7 @@
 
                 if (event.touches.length === 2) {
                     // Zoom pomocí dvou prstů
+                    this.isDragging = false; // DŮLEŽITÉ: Zastavit posouvání jedním prstem
                     const touch1 = event.touches[0];
                     const touch2 = event.touches[1];
                     this.lastTouchDistance = Math.hypot(
@@ -1588,21 +1589,46 @@
                 event.preventDefault();
 
                 if (event.touches.length === 2) {
-                    // Zoom
+                    // === OPRAVENÁ LOGIKA ZOOMU ===
                     const touch1 = event.touches[0];
                     const touch2 = event.touches[1];
+                    
+                    // 1. Vypočítat novou vzdálenost
                     const distance = Math.hypot(
                         touch2.clientX - touch1.clientX,
                         touch2.clientY - touch1.clientY
                     );
 
+                    // 2. Vypočítat nový zoom faktor
                     const scale = distance / this.lastTouchDistance;
-                    this.zoomFactor = Math.min(Math.max(this.touchZoomStartScale * scale, 0.1), 1000);
+                    const newZoomFactor = Math.min(Math.max(this.touchZoomStartScale * scale, 0.1), 1000);
+                    
+                    // 3. Najít střed zoomu (kam uživatel ukazuje)
+                    const midX = (touch1.clientX + touch2.clientX) / 2;
+                    const midY = (touch1.clientY + touch2.clientY) / 2;
+                    const rect = this.canvas.getBoundingClientRect();
+                    const canvasX = midX - rect.left;
+                    const canvasY = midY - rect.top;
+
+                    // 4. Zjistit, na jaký "světový" bod se díváme PŘED změnou zoomu
+                    // Použijeme this.scale (staré měřítko)
+                    const worldX = (canvasX - this.centerX) / this.scale;
+                    const worldY = (this.centerY - canvasY) / this.scale;
+
+                    // 5. Aplikovat nový zoom a měřítko
+                    this.zoomFactor = newZoomFactor;
                     this.scale = this.baseScale * this.zoomFactor;
 
-                    // Aktualizovat zobrazení
+                    // 6. Přepočítat centerX/Y tak, aby "světový" bod zůstal pod prsty
+                    // (Nové centrum = pozice prstů - (světový bod * nové měřítko))
+                    this.centerX = canvasX - worldX * this.scale;
+                    this.centerY = canvasY + worldY * this.scale;
+
+                    // 7. Aktualizovat zobrazení
                     this.gridCache = this.createGridCache();
                     this.simulate(false);
+                    // === KONEC OPRAVENÉ LOGIKY ===
+
                 } else if (event.touches.length === 1 && this.isDragging) { // Opraveno 'and' na '&&'
                     // Posouvání
                     const touch = event.touches[0];
