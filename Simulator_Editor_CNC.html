@@ -2781,14 +2781,22 @@
                  const cleanLines = lines.map(line => line.replace(/^→\s*/, ''));
                  
                  // Získat rozměry
-                 const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24; // Výška řádku
                  const editorHeight = editor.clientHeight;
+                 
+                 // --- KLÍČOVÁ OPRAVA VÝPOČTU VÝŠKY ŘÁDKU ---
+                 // getComputedStyle je nespolehlivý. Vypočítáme průměrnou výšku řádku.
+                 const totalLines = lines.length || 1; // Zajistit, abychom nedělili nulou
+                 const avgLineHeight = editor.scrollHeight / totalLines;
+                 // Použít buď průměr, nebo fallback na 24, pokud je výpočet divný (např. prázdný editor)
+                 const lineHeight = (avgLineHeight > 10) ? avgLineHeight : 24; 
+                 // --- KONEC OPRAVY ---
+
                  let newScrollTop = editor.scrollTop; // Výchozí pozice scrollu = aktuální
 
                  if (lineIndex >= 0 && lineIndex < cleanLines.length) {
                      cleanLines[lineIndex] = '→ ' + cleanLines[lineIndex];
                      
-                     // --- NOVÁ LOGIKA SCROLLOVÁNÍ (CENTRACE) ---
+                     // --- Stávající LOGIKA SCROLLOVÁNÍ (CENTRACE) ---
                      
                      // 1. Jaká je pozice řádku v pixelech (od úplného začátku textu)
                      const linePixelTop = lineIndex * lineHeight;
@@ -2805,7 +2813,7 @@
                          // (Pozice řádku - polovina výšky editoru + polovina výšky řádku)
                          newScrollTop = Math.max(0, linePixelTop - (editorHeight / 2) + (lineHeight / 2));
                      }
-                     // --- KONEC NOVÉ LOGIKY ---
+                     // --- KONEC LOGIKY ---
                  }
                  
                  // Optimalizace: Měnit value a HNED POTÉ nastavit scrollTop
