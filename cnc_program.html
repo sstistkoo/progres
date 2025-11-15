@@ -155,7 +155,7 @@
             white-space: pre;
             overflow-wrap: normal;
             overflow-x: auto;
-            line-height: 20px;
+            line-height: 20px; /* Důležité pro výpočet scrollTop */
         }
 
         .section-title {
@@ -239,9 +239,7 @@
             }
         }
 
-        /* Odstraníme automatický tmavý režim */
-
-        /* Přidáme třídu pro tmavý režim */
+        /* Tmavý režim */
         body.dark-mode {
             background-color: #121212;
             color: #e0e0e0;
@@ -276,20 +274,9 @@
             border-bottom-color: #64b5f6;
         }
 
-        /* Styly pro tlačítko přepínání režimu */
-        .theme-toggle {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            padding: 10px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            z-index: 1000;
-            font-size: 24px;
-        }
+        /* Tlačítko přepínání režimu bylo odstraněno */
 
-        /* Styly pro menu */
+        /* Menu */
         .menu {
             display: flex;
             justify-content: center;
@@ -319,45 +306,44 @@
             background-color: #283593;
         }
 
-        /* Přidat styl pro navigační ikonu */
+        /* Navigační ikona */
         .home-link {
             position: fixed;
             top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #1976d2; /* Změněno na modrou barvu */
+            left: 10px; /* Změna pozice */
+            transform: none; /* Odstraněn transform */
+            color: #1976d2;
             text-decoration: none;
             font-size: 24px;
             z-index: 1000;
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: center; /* Přidáno pro centrování ikony */
+            /* gap: 8px; */ /* Odstraněno */
             background: #e3f2fd;
-            padding: 8px 16px;
-            border-radius: 20px;
+            padding: 10px; /* Změna z 8px 16px */
+            width: 44px; /* Pevná velikost pro kruh */
+            height: 44px; /* Pevná velikost pro kruh */
+            border-radius: 50%; /* Změna na kruh */
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            transition: all 0.3s ease; /* Plynulá animace */
+            transition: all 0.3s ease;
         }
 
         .home-link i {
             font-size: 20px;
-        }
-
-        .home-link span {
-            font-size: 14px;
-            font-weight: 500;
+            /* Styl pro span byl odstraněn */
         }
 
         .home-link:hover {
-            color: #1565c0; /* Tmavší modrá při najetí */
+            color: #1565c0;
             background: #bbdefb;
-            transform: translateX(-50%) scale(1.05);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3); /* Výraznější stín */
+            transform: scale(1.05); /* Odstraněn translateX */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
         body.dark-mode .home-link {
-            background: #1a237e; /* Tmavší pozadí v dark mode */
-            color: #90caf9; /* Světlejší modrá v dark mode */
+            background: #1a237e;
+            color: #90caf9;
         }
 
         body.dark-mode .home-link:hover {
@@ -366,18 +352,19 @@
     </style>
 </head>
 <body>
-    <!-- Přidat navigační ikonu hned po začátku body -->
     <a href="index.html" class="home-link">
         <i class="fas fa-home"></i>
-        <span>Hlavní menu</span>
+        <!-- <span>Hlavní menu</span> --> <!-- Odstraněn text -->
     </a>
 
+    <!--
     <button class="theme-toggle" onclick="toggleDarkMode()" title="Přepnout tmavý režim">
         🌓
     </button>
+    -->
 
     <div class="container">
-        <h1>PROGRES CNC Programů</h1>
+        <h1>Nože a absolutní hodnoty</h1> <!-- Změněn nadpis -->
 
         <div class="file-input-container">
             <label class="file-input-label">Vyberte CNC programy pro analýzu:</label>
@@ -414,16 +401,18 @@
     </div>
 
     <script>
+        /* Odstraněna funkce toggleDarkMode()
         function toggleDarkMode() {
             document.body.classList.toggle('dark-mode');
-            // Volitelně uložit preferenci do localStorage
             localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
         }
+        */
 
-        // Obnovit uloženou preferenci při načtení stránky
+        /* Odstraněna kontrola localStorage pro dark mode
         if (localStorage.getItem('darkMode') === 'true') {
             document.body.classList.add('dark-mode');
         }
+        */
 
         class CNCProgramAnalyzer {
             constructor() {
@@ -432,6 +421,7 @@
                 this.toolInfo = {};
                 this.combinedProgram = '';
                 this.g90Program = '';
+                this.lineHeight = 20; // Definuje výšku řádku (musí odpovídat CSS)
                 this.initializeEventListeners();
             }
 
@@ -444,35 +434,34 @@
                     tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
                 });
 
-                // Event listener pro kliknutí v editoru
+                // Event listener pro kliknutí v editoru "Program"
                 document.getElementById('combinedProgram').addEventListener('click', (e) => {
                     const textarea = e.target;
                     const clickPosition = textarea.selectionStart;
-
-                    // Najdeme aktuální program a relativní pozici v něm
                     const text = textarea.value;
                     const lines = text.split('\n');
+                    
                     let currentProgram = null;
-                    let lineIndex = 0;
-                    let programStartLine = 0;
+                    let lineIndex = 0; // Relativní index řádku od hlavičky programu
+                    let programStartLine = 0; // Absolutní index řádku hlavičky programu
+                    let currentLineAbs = 0; // Absolutní index kliknutého řádku
 
-                    // Najdeme aktuální řádek a program
                     for (let i = 0; i < lines.length; i++) {
                         const line = lines[i];
                         if (line.startsWith('==================================================')) {
                             const nextLine = lines[i + 1] || '';
                             if (nextLine.includes('PROGRAM:')) {
                                 currentProgram = nextLine;
-                                programStartLine = i + 2;
+                                programStartLine = i + 2; // Řádek, kde začíná kód programu
                             }
                         }
 
-                        const lineStart = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
+                        const lineStart = text.substring(0, text.indexOf(line, (i > 0 ? lines.slice(0, i).join('\n').length : 0))).length;
                         const lineEnd = lineStart + line.length;
 
-                        if (clickPosition >= lineStart && clickPosition <= lineEnd) {
+                        if (clickPosition >= lineStart && clickPosition <= lineEnd + 1) { // +1 pro \n
+                            currentLineAbs = i;
                             lineIndex = i - programStartLine;
-                            // Označíme celý řádek v Program
                             textarea.setSelectionRange(lineStart, lineEnd);
                             break;
                         }
@@ -483,26 +472,35 @@
                         const g90Textarea = document.getElementById('g90Program');
                         const g90Text = g90Textarea.value;
                         const g90Lines = g90Text.split('\n');
-                        const g90Program = currentProgram.replace('PROGRAM:', 'PROGRAM (G90):');
+                        const g90ProgramHeader = currentProgram.replace('PROGRAM:', 'PROGRAM (G90):');
 
                         let g90ProgramStart = -1;
                         for (let i = 0; i < g90Lines.length; i++) {
-                            if (g90Lines[i] === g90Program) {
-                                g90ProgramStart = i + 1;
+                            if (g90Lines[i] === g90ProgramHeader) {
+                                g90ProgramStart = i + 1; // První řádek kódu v G90
                                 break;
                             }
                         }
+                        
+                        if (g90ProgramStart !== -1) {
+                            const targetLineAbs = g90ProgramStart + lineIndex;
+                            
+                            if(targetLineAbs < g90Lines.length) {
+                                const targetLine = g90Lines[targetLineAbs];
+                                // Musíme najít přesnou pozici targetLine, protože indexof nemusí stačit
+                                let lineStart = 0;
+                                for(let i=0; i < targetLineAbs; i++) {
+                                    lineStart += g90Lines[i].length + 1; // +1 pro \n
+                                }
+                                const lineEnd = lineStart + targetLine.length;
 
-                        if (g90ProgramStart !== -1 && g90ProgramStart + lineIndex < g90Lines.length) {
-                            const targetLine = g90ProgramStart + lineIndex;
-                            const lineStart = g90Lines.slice(0, targetLine).join('\n').length + (targetLine > 0 ? 1 : 0);
-                            const lineEnd = lineStart + g90Lines[targetLine].length;
-
-                            // Přepneme na G90 a označíme odpovídající řádek
-                            this.switchTab('g90');
-                            g90Textarea.focus();
-                            g90Textarea.setSelectionRange(lineStart, lineEnd);
-                            g90Textarea.scrollTop = (targetLine - 2) * 20; // -2 aby byl řádek vidět na začátku
+                                // Přepneme na G90 a označíme odpovídající řádek
+                                this.switchTab('g90');
+                                g90Textarea.focus();
+                                g90Textarea.setSelectionRange(lineStart, lineEnd);
+                                // Scrollujeme tak, aby byl řádek nahoře
+                                g90Textarea.scrollTop = targetLineAbs * this.lineHeight; 
+                            }
                         }
                     }
                 });
@@ -516,6 +514,9 @@
                 document.getElementById('selectedFiles').textContent = `Vybrané soubory: ${fileList}`;
 
                 this.showStatus('Načítání programů...');
+                this.mainPrograms = {};
+                this.subPrograms = {};
+                this.toolInfo = {};
 
                 for (let file of files) {
                     try {
@@ -527,6 +528,7 @@
                         }
                     } catch (error) {
                         console.error(`Chyba při čtení souboru ${file.name}:`, error);
+                        this.showStatus(`Chyba při čtení souboru ${file.name}`);
                     }
                 }
 
@@ -548,6 +550,7 @@
                 for (const [name, content] of Object.entries(this.subPrograms)) {
                     this.toolInfo[name] = this.findToolInfo(content);
                     const calls = this.findSubprogramCalls(name);
+                    // Přiřadíme první nalezené volání ke každému nástroji (tohle možná není ideální, ale odpovídá původní logice)
                     this.toolInfo[name] = this.toolInfo[name].map(([tool, next]) =>
                         [tool, next, calls[0] || '']);
                 }
@@ -571,19 +574,21 @@
             }
 
             findSubprogramCalls(subprogramName) {
-                const subBaseName = subprogramName.split('.')[0];
-                const subNumber = subBaseName.match(/\d+/);
+                const subBaseName = subprogramName.split('.')[0].toUpperCase(); // Normalizujeme na velká písmena
+                const subNumberMatch = subBaseName.match(/\d+/);
 
-                if (!subNumber) return [];
+                if (!subNumberMatch) return [];
 
-                const subNum = subNumber[0];
+                const subNum = subNumberMatch[0];
                 const calls = [];
 
                 Object.values(this.mainPrograms).forEach(content => {
                     const lines = content.split('\n');
                     lines.forEach(line => {
-                        if (line.includes(`L${subNum}`) ||
-                            (line.includes(subBaseName) && line.toUpperCase().includes('CALL'))) {
+                        const upperLine = line.toUpperCase();
+                        // Hledáme L<číslo> nebo CALL "<jméno>"
+                        if (upperLine.includes(`L${subNum}`) ||
+                            (upperLine.includes('CALL') && upperLine.includes(`"${subBaseName}"`))) {
                             calls.push(line.trim());
                         }
                     });
@@ -595,15 +600,17 @@
             convertToG90(content) {
                 const lines = content.split('\n');
                 let currentX = 0;
-                let currentY = 0;
+                let currentY = 0; // Přidáno pro úplnost, i když se nepoužívá
                 let currentZ = 0;
                 let isG91Mode = false;
-                let lastAbsoluteZ = 0; // Přidáme sledování poslední absolutní Z pozice
+                let lastAbsoluteZ = 0; // Sleduje poslední absolutní Z pozici pro G91
 
                 const convertedLines = lines.map(line => {
                     const originalLine = line.trim();
+                    let g90Comment = ""; // Komentář pro G90
+                    let outputLine = originalLine;
 
-                    // Aktualizace absolutních pozic při G90
+                    // Detekce G90
                     if (originalLine.includes('G90')) {
                         isG91Mode = false;
                         // Aktualizovat absolutní pozice ze současného G90 řádku
@@ -614,64 +621,115 @@
                             currentZ = parseFloat(zMatch[1]);
                             lastAbsoluteZ = currentZ; // Uložit poslední absolutní Z pozici
                         }
-                        return originalLine;
+                        return originalLine; // Vracíme původní řádek
                     }
 
-                    // Zpracování G91 řádku
+                    // Detekce G91
                     if (originalLine.includes('G91')) {
                         isG91Mode = true;
+                        g90Comment = ` ; (puvodni: ${originalLine})`;
+                        
                         const xMatch = originalLine.match(/X([-\d.]+)/);
                         const zMatch = originalLine.match(/Z([-\d.]+)/);
 
                         if (xMatch || zMatch) {
-                            // Aktualizovat relativní pozice
+                            // Tento G91 řádek obsahuje i pohyb
                             if (xMatch) currentX += parseFloat(xMatch[1]);
                             if (zMatch) {
                                 const zIncrement = parseFloat(zMatch[1]);
-                                currentZ = lastAbsoluteZ + zIncrement; // Použít poslední absolutní Z pozici
-                                lastAbsoluteZ = currentZ; // Aktualizovat poslední absolutní Z pozici
+                                currentZ = lastAbsoluteZ + zIncrement; // Použít poslední absolutní Z
+                                lastAbsoluteZ = currentZ; 
                             }
 
                             // Sestavit nový G90 řádek
-                            let newLine = 'G90';
+                            // *** OPRAVA FORMÁTOVÁNÍ N-BLOKU ***
+                            
+                            // 1. Najdeme N-blok
+                            let nBlock = '';
+                            const nMatch = originalLine.match(/N\d+/);
+                            if (nMatch) {
+                                nBlock = nMatch[0] + ' ';
+                            }
+
+                            // 2. Najdeme zbytek (bez N, G91, X, Z)
+                            const restOfLine = originalLine
+                                .replace(/N\d+/, '')
+                                .replace(/G91|X[-\d.]+|Z[-\d.]+/g, '')
+                                .trim();
+
+                            // 3. Sestavíme nový řádek
+                            let newLine = nBlock + 'G90'; // N-blok je první
                             if (xMatch) newLine += ` X${currentX.toFixed(3)}`;
                             if (zMatch) newLine += ` Z${currentZ.toFixed(3)}`;
-
-                            // Zachovat zbytek řádku (posuv, M kódy atd.)
-                            const restOfLine = originalLine.replace(/G91|X[-\d.]+|Z[-\d.]+/g, '').trim();
+                            
                             if (restOfLine) newLine += ' ' + restOfLine;
-
-                            return `${newLine} ; (puvodni: ${originalLine}) (začátek převodu)`;
+                            
+                            outputLine = newLine.trim() + g90Comment;
+                            // *** KONEC OPRAVY FORMÁTOVÁNÍ ***
+                        } else {
+                            // Samotný G91 (bez X/Z)
+                            // *** OPRAVA FORMÁTOVÁNÍ PRO SAMOTNÝ G91 ***
+                            let nBlock = '';
+                            const nMatch = originalLine.match(/N\d+/);
+                            if (nMatch) {
+                                nBlock = nMatch[0] + ' ';
+                            }
+                            const restOfLine = originalLine.replace(/N\d+/, '').replace(/G91/g, '').trim();
+                            outputLine = (nBlock + 'G90 ' + restOfLine).trim() + g90Comment;
+                            // *** KONEC OPRAVY ***
                         }
-                        return 'G90 ; (puvodni: G91) (začátek převodu)';
+                        return outputLine;
                     }
 
-                    // Zpracování následujících G91 řádků
+                    // Zpracování řádků, když jsme v G91 módu
                     if (isG91Mode && /[XZ]/.test(originalLine)) {
                         const xMatch = originalLine.match(/X([-\d.]+)/);
                         const zMatch = originalLine.match(/Z([-\d.]+)/);
 
                         if (xMatch || zMatch) {
-                            if (xMatch) currentX += parseFloat(xMatch[1]);
+                            g90Comment = ` ; (puvodni: ${originalLine})`;
+                            let newLine = originalLine;
+
+                            if (xMatch) {
+                                currentX += parseFloat(xMatch[1]);
+                                newLine = newLine.replace(/X[-\d.]+/, `X${currentX.toFixed(3)}`);
+                            }
                             if (zMatch) {
                                 const zIncrement = parseFloat(zMatch[1]);
                                 currentZ = lastAbsoluteZ + zIncrement;
                                 lastAbsoluteZ = currentZ;
+                                newLine = newLine.replace(/Z[-\d.]+/, `Z${currentZ.toFixed(3)}`);
                             }
-
-                            let newLine = originalLine;
-                            if (xMatch) newLine = newLine.replace(/X[-\d.]+/, `X${currentX.toFixed(3)}`);
-                            if (zMatch) newLine = newLine.replace(/Z[-\d.]+/, `Z${currentZ.toFixed(3)}`);
-
-                            return `${newLine} ; (puvodni: ${originalLine})`;
+                            
+                            // Ujistíme se, že G90 je modální (není třeba ho přidávat na každý řádek)
+                            outputLine = newLine + g90Comment;
                         }
+                        return outputLine;
                     }
 
+                    // *** OPRAVA CHYBY: Zpracování řádků, když jsme v G90 módu (!isG91Mode) ***
+                    if (!isG91Mode && /[XZ]/.test(originalLine)) {
+                        const xMatch = originalLine.match(/X([-\d.]+)/);
+                        const zMatch = originalLine.match(/Z([-\d.]+)/);
+                        
+                        if (xMatch) currentX = parseFloat(xMatch[1]);
+                        if (zMatch) {
+                            currentZ = parseFloat(zMatch[1]);
+                            lastAbsoluteZ = currentZ; // Musíme aktualizovat lastAbsoluteZ
+                        }
+                        // Není třeba nic měnit na řádku, jen aktualizovat interní stav
+                        return originalLine; 
+                    }
+                    // *** KONEC OPRAVY ***
+
+
+                    // Všechny ostatní řádky
                     return originalLine;
                 });
 
                 return convertedLines.join('\n');
             }
+
 
             createCombinedProgram() {
                 const parts = [];
@@ -751,23 +809,17 @@
                 const indexG90 = textG90.indexOf(searchTextG90);
 
                 if (index !== -1 && indexG90 !== -1) {
-                    // Přepneme na Program záložku
                     this.switchTab('program');
                     textarea.focus();
 
-                    // Označíme hlavičku programu
                     textarea.setSelectionRange(index, index + searchText.length);
-                    const programStart = text.indexOf('\n', index) + 1;
+                    const linesBeforeProgram = text.substring(0, index).split('\n').length - 1;
+                    textarea.scrollTop = linesBeforeProgram * this.lineHeight;
 
-                    // Nastavíme scroll na začátek programu
-                    const lineHeight = 20;
-                    const linesBeforeProgram = text.substring(0, programStart).split('\n').length;
-                    textarea.scrollTop = linesBeforeProgram * lineHeight;
-
-                    // Synchronizujeme s G90
-                    const g90Start = textG90.indexOf('\n', indexG90) + 1;
+                    // Synchronizujeme G90
+                    const linesBeforeG90 = textG90.substring(0, indexG90).split('\n').length - 1;
                     textareaG90.setSelectionRange(indexG90, indexG90 + searchTextG90.length);
-                    textareaG90.scrollTop = (textG90.substring(0, g90Start).split('\n').length) * lineHeight;
+                    textareaG90.scrollTop = linesBeforeG90 * this.lineHeight;
                 }
             }
 
@@ -780,48 +832,62 @@
                     content.classList.toggle('active', content.id === `${tabId}Content`);
                 });
 
-                // Při přepnutí na G90 najdeme odpovídající řádek
-                if (tabId === 'g90') {
+                // Při přepnutí na G90 ze záložky Program
+                if (tabId === 'g90' && document.querySelector('.tab[data-tab="program"]').classList.contains('active')) {
                     const programTextarea = document.getElementById('combinedProgram');
                     const g90Textarea = document.getElementById('g90Program');
 
-                    // Získáme vybraný text v Program záložce
                     const selStart = programTextarea.selectionStart;
-                    const selEnd = programTextarea.selectionEnd;
-                    const selectedText = programTextarea.value.substring(selStart, selEnd);
+                    const textBeforeSelection = programTextarea.value.substring(0, selStart);
+                    const currentLineNumber = textBeforeSelection.split('\n').length; // 1-based
 
-                    // Pokud je něco vybráno, najdeme odpovídající text v G90
-                    if (selectedText) {
-                        const textBeforeSelection = programTextarea.value.substring(0, selStart);
-                        const currentLineNumber = textBeforeSelection.split('\n').length;
+                    // Najdeme poslední hlavičku programu
+                    const programMatch = /((?:HLAVNÍ PROGRAM|PODPROGRAM): (.+?))(?=\n|$)/g;
+                    let lastMatch = null;
+                    let match;
+                    while ((match = programMatch.exec(textBeforeSelection)) !== null) {
+                        lastMatch = match;
+                    }
 
-                        // Najdeme poslední hlavičku programu
-                        const programMatch = textBeforeSelection.match(/(?:HLAVNÍ PROGRAM|PODPROGRAM): (.+?)(?=\n|$)/);
-                        if (programMatch) {
-                            const isMain = programMatch[0].includes('HLAVNÍ PROGRAM');
-                            const programName = programMatch[1];
-                            const g90Header = `${isMain ? 'HLAVNÍ PROGRAM (G90)' : 'PODPROGRAM (G90)'}: ${programName}`;
+                    if (lastMatch) {
+                        const isMain = lastMatch[0].includes('HLAVNÍ PROGRAM');
+                        const programName = lastMatch[2].trim();
+                        const programHeaderText = lastMatch[1];
+                        const g90Header = `${isMain ? 'HLAVNÍ PROGRAM (G90)' : 'PODPROGRAM (G90)'}: ${programName}`;
 
-                            // Najdeme pozici v G90 textu
-                            const g90Text = g90Textarea.value;
-                            const g90Lines = g90Text.split('\n');
-                            const headerIndex = g90Lines.findIndex(line => line.includes(g90Header));
+                        // Najdeme pozici hlavičky v G90 textu
+                        const g90Text = g90Textarea.value;
+                        const g90Lines = g90Text.split('\n');
+                        const headerIndex = g90Lines.findIndex(line => line.includes(g90Header)); // 0-based
 
-                            if (headerIndex !== -1) {
-                                const targetLineIndex = headerIndex + (currentLineNumber - textBeforeSelection.split('\n').filter(l => l.includes(`: ${programName}`)).length);
-                                if (targetLineIndex < g90Lines.length) {
-                                    const targetLine = g90Lines[targetLineIndex];
-                                    const targetStart = g90Text.indexOf(targetLine);
-                                    const targetEnd = targetStart + targetLine.length;
+                        if (headerIndex !== -1) {
+                            // *** OPRAVA LOGIKY ***
+                            // Najdeme řádek hlavičky v původním textu
+                            const headerCharIndex = textBeforeSelection.lastIndexOf(programHeaderText);
+                            const textBeforeHeader = textBeforeSelection.substring(0, headerCharIndex);
+                            const headerLineNumber = textBeforeHeader.split('\n').length; // 1-based
 
-                                    // Nastavíme focus a označení v G90
-                                    g90Textarea.focus();
-                                    g90Textarea.setSelectionRange(targetStart, targetEnd);
+                            // Vypočítáme relativní offset řádku od hlavičky
+                            const relativeLineIndex = (currentLineNumber - headerLineNumber); 
+                            
+                            // Cílový řádek v G90
+                            const targetLineIndex = headerIndex + relativeLineIndex; // 0-based
+                            // *** KONEC OPRAVY ***
 
-                                    // Scrollujeme na začátek, aby byl označený řádek první viditelný
-                                    const lineHeight = 20;
-                                    g90Textarea.scrollTop = targetLineIndex * lineHeight;
+                            if (targetLineIndex < g90Lines.length) {
+                                const targetLine = g90Lines[targetLineIndex];
+                                
+                                // Najdeme startovní pozici cílového řádku
+                                let lineStart = 0;
+                                for(let i=0; i < targetLineIndex; i++) {
+                                    lineStart += g90Lines[i].length + 1; // +1 pro \n
                                 }
+                                const lineEnd = lineStart + targetLine.length;
+
+                                // Nastavíme focus a označení v G90
+                                g90Textarea.focus();
+                                g90Textarea.setSelectionRange(lineStart, lineEnd);
+                                g90Textarea.scrollTop = targetLineIndex * this.lineHeight;
                             }
                         }
                     }
