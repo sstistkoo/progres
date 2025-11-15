@@ -2780,35 +2780,35 @@
                  const lines = editor.value.split('\n');
                  const cleanLines = lines.map(line => line.replace(/^→\s*/, ''));
                  
+                 // Získat rozměry
                  const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24; // Výška řádku
+                 const editorHeight = editor.clientHeight;
                  let newScrollTop = editor.scrollTop; // Výchozí pozice scrollu = aktuální
 
                  if (lineIndex >= 0 && lineIndex < cleanLines.length) {
                      cleanLines[lineIndex] = '→ ' + cleanLines[lineIndex];
                      
-                     // --- VYLEPŠENÁ LOGIKA SCROLLOVÁNÍ ---
+                     // --- NOVÁ LOGIKA SCROLLOVÁNÍ (CENTRACE) ---
                      
-                     // 1. Kam chceme řádek ideálně posunout (např. 3. řádek shora)
-                     const idealScrollTop = Math.max(0, (lineIndex - 2) * lineHeight);
-
-                     // 2. Jaká je aktuální pozice řádku v pixelech (od úplného začátku textu)
+                     // 1. Jaká je pozice řádku v pixelech (od úplného začátku textu)
                      const linePixelTop = lineIndex * lineHeight;
                      const linePixelBottom = (lineIndex + 1) * lineHeight;
 
-                     // 3. Jaká je viditelná "komfortní" oblast (s 3 řádky "polštář" nahoře a dole)
-                     const comfortPadding = 3 * lineHeight; 
+                     // 2. Jaká je viditelná "komfortní" oblast (s 1 řádkem "polštář" nahoře a dole)
+                     const comfortPadding = 1 * lineHeight; 
                      const visibleTop = editor.scrollTop + comfortPadding;
-                     const visibleBottom = editor.scrollTop + editor.clientHeight - comfortPadding;
+                     const visibleBottom = editor.scrollTop + editorHeight - comfortPadding;
 
-                     // 4. Pokud je řádek MIMO tuto komfortní zónu, přepočítáme scroll
+                     // 3. Pokud je řádek MIMO tuto komfortní zónu, přepočítáme scroll
                      if (linePixelTop < visibleTop || linePixelBottom > visibleBottom) {
-                         newScrollTop = idealScrollTop; // Nastavit ideální pozici
+                         // Vypočítat scrollTop tak, aby byl řádek uprostřed
+                         // (Pozice řádku - polovina výšky editoru + polovina výšky řádku)
+                         newScrollTop = Math.max(0, linePixelTop - (editorHeight / 2) + (lineHeight / 2));
                      }
-                     // --- KONEC VYLEPŠENÉ LOGIKY ---
+                     // --- KONEC NOVÉ LOGIKY ---
                  }
                  
                  // Optimalizace: Měnit value a HNED POTÉ nastavit scrollTop
-                 // Tím se zabrání "poskočení", protože stará pozice scrollu se neukládá
                  editor.value = cleanLines.join('\n');
                  editor.scrollTop = newScrollTop; 
                  
