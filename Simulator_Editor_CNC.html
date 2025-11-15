@@ -2636,19 +2636,22 @@
                 } else {
                     this.currentIndex = -1; // Jít na startovní pozici (před první pohyb)
                 }
-                this.drawToCurrentIndex();
+                // OPRAVA: Přehrávač necentruje pohled
+                this.drawToCurrentIndex(false);
                 this.updateControls();
             }
 
             next() {
                 if (this.currentIndex < this.movements.length - 1) {
                     this.currentIndex++;
-                    this.drawToCurrentIndex();
+                    // OPRAVA: Přehrávač necentruje pohled
+                    this.drawToCurrentIndex(false);
                     this.updateControls();
                 }
             }
             
-            async drawToCurrentIndex() {
+            // OPRAVA: Přidán parametr 'centerView', který určí, zda se má centrovat pohled
+            async drawToCurrentIndex(centerView = false) {
                 if (this.currentIndex < 0) {
                     // Reset na počáteční stav
                     this.simulator.clearAllHighlights();
@@ -2663,15 +2666,19 @@
                 const currentMovements = this.movements.slice(0, this.currentIndex + 1);
                 
                 if (currentMovements.length > 0) {
-                    //this.simulator.drawPath(currentMovements); // TOTO BUDE ZAVOLÁNO V centerOnPoint
                     
                     const lastMove = currentMovements[currentMovements.length - 1];
                     this.elements.posX.textContent = this.simulator.formatNumber(lastMove.toX);
                     this.elements.posZ.textContent = this.simulator.formatNumber(lastMove.toZ);
                     
-                    // OPRAVA: Zavolat centrování a AŽ POTOM zvýraznění
-                    // true = povolit zoom, pokud je potřeba
-                    this.simulator.centerOnPoint(lastMove.toX, lastMove.toZ, true); 
+                    // OPRAVA: Centrovat pohled POUZE pokud je to explicitně vyžádáno (kliknutím)
+                    if (centerView) {
+                        // true = povolit zoom, pokud je potřeba
+                        this.simulator.centerOnPoint(lastMove.toX, lastMove.toZ, true); 
+                    } else {
+                        // Při přehrávání pouze překreslit částečnou dráhu
+                        this.simulator.drawPath(currentMovements);
+                    }
                     
                     // Zvýraznit bod (překreslí se přes centrovaný pohled)
                     this.simulator.highlightPoint(lastMove.toX, lastMove.toZ);
@@ -2782,7 +2789,8 @@
                 // Použít requestAnimationFrame pro plynulejší animaci
                 requestAnimationFrame(async () => {
                     if (!this.isPlaying) return; // Zkontrolovat, zda se mezitím nezmáčklo pause
-                    await this.drawToCurrentIndex(); // Vykreslit stav do aktuálního indexu
+                    // OPRAVA: Přehrávač necentruje pohled
+                    await this.drawToCurrentIndex(false); // Vykreslit stav do aktuálního indexu
                     this.updateControls();
 
                     // Naplánovat další frame
@@ -2894,6 +2902,16 @@
                 
                 // OPRAVA: Nastavit editor na 'readonly' při startu
                 editor.readOnly = true;
+                
+                // OPRAVA: Přidat listener pro automatické zavření editoru při skrytí klávesnice (ztráta fokusu)
+                editor.addEventListener('blur', () => {
+                    // Pokud editor ztratí fokus (klávesnice se skryje)
+                    // a POUZE pokud jsme byli v režimu úprav (!readOnly)
+                    if (!editor.readOnly) {
+                        // Automaticky zavoláme funkci, která přepne zpět do normálního zobrazení.
+                        toggleEditorMode();
+                    }
+                });
 
                 debug('Inicializace dokončena');
             } catch (error) {
@@ -2994,7 +3012,8 @@
             }
             
             window.simulator.player.currentIndex = targetMovementIndex;
-            await window.simulator.player.drawToCurrentIndex();
+            // OPRAVA: Kliknutí v editoru explicitně vyžádá centrování pohledu
+            await window.simulator.player.drawToCurrentIndex(true);
             window.simulator.player.updateControls();
         });
 
