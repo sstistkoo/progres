@@ -3,35 +3,49 @@
 <head>
     <!-- ... stávající kód ... -->
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- OPRAVENO: Povoleno zoomování pro lepší přístupnost na mobilu -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>CNC Editor - Sinumerik 840D</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
         /* ... stávající kód ... */
+        
+        /* OPRAVA: Zabránění "skákání" layoutu při zobrazení klávesnice */
+        html {
+            height: 100%;
+            overflow: hidden; /* Zabrání scrollování celé stránky */
+        }
+
         body {
             margin: 0;
             padding: 0;
-            height: 100vh;
+            height: 100%; /* ZMĚNA: z 100vh na 100% */
             display: flex;
             flex-direction: column;
+            overflow: hidden; /* Zabrání scrollování těla stránky */
         }
 
         .container {
             display: flex;
             flex-direction: column;
             height: 100%;
+            width: 100%; /* Přidáno pro jistotu */
         }
 
         .simulator {
-            height: 50vh;
+            /* ZMĚNA: Odebrána výška 50vh, nahrazeno flexboxem */
+            flex: 1; /* Zabere 1 díl dostupného místa */
+            min-height: 200px; /* Minimální výška, aby se nescvrknul moc */
             width: 100%;
             border-bottom: 1px solid #ccc;
+            position: relative; /* Důležité pro .canvas-container */
         }
 
         .editor-container {
-            flex: 1;
+            /* ZMĚNA: flex: 1 nahrazeno flex: 1.5, aby byl editor větší */
+            flex: 1.5; /* Zabere 1.5 dílu místa (větší než simulátor) */
             display: flex;
             flex-direction: column;
             background: #fff;
@@ -41,6 +55,10 @@
         }
 
         .canvas-container {
+            /* ZMĚNA: Přidán position: absolute, aby vyplnil rodiče (.simulator) */
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             background: #f8f9fa;
@@ -80,12 +98,17 @@
 
         /* Mobilní optimalizace */
         @media (max-width: 768px) {
+            /* * OPRAVA: Odstraněna problematická pravidla pro .simulator a .editor-container.
+             * Nový flexbox layout v .container se postará o responzivitu sám
+             * a nebude se hroutit při zobrazení klávesnice.
+             */
+            /*
             .simulator {
                 position: fixed;
                 top: 0;
                 left: 0;
                 right: 0;
-                height: 45vh;
+                height: 45vh; 
                 z-index: 100;
                 background: #fff;
             }
@@ -95,10 +118,12 @@
                 height: 55vh;
                 position: relative;
             }
+            */
 
             .toolbar {
                 padding: 5px;
                 gap: 5px;
+                flex-wrap: wrap; /* Povolit zalamování tlačítek na mobilu */
             }
 
             .toolbar button {
@@ -128,7 +153,7 @@
                 font-size: 18px; /* Větší písmo pro mobilní zařízení */
                 line-height: 2em; /* Větší řádkování pro lepší čitelnost a klikání */
                 padding: 20px;
-                height: calc(100% - 40px); /* Výška mínus padding */
+                height: 100%; /* ZMĚNA: Výška 100% rodiče (.editor-wrapper) */
                 position: relative;
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
@@ -136,6 +161,7 @@
                 inputmode: numeric;
                 pattern: "[0-9]*";
                 -webkit-appearance: none;
+                /* Odebráno height: calc(100% - 40px); */
             }
 
             /* Přidat styl pro fixní pozici označeného řádku */
@@ -541,6 +567,7 @@
             flex-wrap: wrap;
             gap: 5px;
             padding: 5px;
+            flex-shrink: 0; /* OPRAVA: Zabrání smrštění */
         }
 
         .program-list-item {
@@ -635,6 +662,7 @@
             gap: 8px;
             padding: 8px;
             align-items: center;
+            flex-shrink: 0; /* OPRAVA: Zabrání smrštění */
         }
 
         .file-input-button {
@@ -752,6 +780,7 @@
             background: #f5f5f5;
             border-bottom: 1px solid #ddd;
             min-height: 50px;
+            box-sizing: border-box; /* Přidáno */
         }
 
         .player-container {
@@ -2050,11 +2079,28 @@
             }
 
             setupCanvas() {
-                this.canvas.width = this.canvas.parentElement.clientWidth;
-                this.canvas.height = this.canvas.parentElement.clientHeight;
+                // ZMĚNA: Ujistěte se, že rodičovský element má rozměry
+                const parent = this.canvas.parentElement;
+                if (parent.clientWidth === 0 || parent.clientHeight === 0) {
+                     // Pokud rodič ještě nemá rozměry (např. při startu), zkuste to za chvíli znovu
+                     setTimeout(() => this.setupCanvas(), 50);
+                     return;
+                }
+                
+                this.canvas.width = parent.clientWidth;
+                this.canvas.height = parent.clientHeight;
+                
                 this.centerX = this.canvas.width / 2;
                 this.centerY = this.canvas.height / 2;
-                this.scale = Math.min(this.canvas.width, this.canvas.height) / 200;
+                
+                // Přizpůsobení počátečního měřítka
+                if (this.baseScale === 1) { // Pouze pokud ještě nebylo nastaveno
+                   this.scale = Math.min(this.canvas.width, this.canvas.height) / 200;
+                   this.baseScale = this.scale;
+                } else {
+                   this.scale = this.baseScale * this.zoomFactor;
+                }
+
                 this.gridCache = this.createGridCache();
                 this.simulate();
             }
