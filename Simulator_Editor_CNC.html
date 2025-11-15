@@ -508,6 +508,41 @@
             flex: 1;
             height: 100%; /* Zabrat celou výšku */
         }
+        
+        /* --- OPRAVA: Tlačítko "Hotovo" pro fullscreen editor --- */
+        .editor-done-button {
+            display: none; /* Skryto ve výchozím stavu */
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 2000; /* Musí být nad editorem */
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%; /* Kulaté */
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            /* OPRAVA: Povolit kliknutí */
+            touch-action: auto; 
+        }
+
+        .editor-done-button:hover {
+            background: #0056b3;
+        }
+
+        /* Zobrazit tlačítko POUZE v režimu fullscreen */
+        .container.editor-fullscreen .editor-done-button {
+            display: block;
+        }
+
+        /* Zajistit, aby editor nezačal až pod tlačítkem */
+        .container.editor-fullscreen #editor {
+            /* Zvětšíme odsazení, aby bylo místo i na mobilu */
+            padding-top: 60px; 
+        }
         /* --- Konec opravy --- */
         
     </style>
@@ -575,6 +610,10 @@
         <div class="program-list" id="programList"></div>
         <div class="editor-container">
             <div class="editor-wrapper">
+                <!-- OPRAVA: Přidáno tlačítko "Hotovo" pro mobilní editor -->
+                <button id="editorDoneBtn" class="editor-done-button" title="Hotovo">
+                    <i class="fas fa-check"></i>
+                </button>
                 <!-- OPRAVA: Atribut 'readonly' je pryč, bude řízen přes JS -->
                 <textarea id="editor" spellcheck="false" placeholder="Vložte váš CNC program zde..."></textarea>
             </div>
@@ -2912,6 +2951,15 @@
                         toggleEditorMode();
                     }
                 });
+
+                // OPRAVA: Přidat listener pro nové tlačítko "Hotovo" v editoru
+                const editorDoneBtn = document.getElementById('editorDoneBtn');
+                if (editorDoneBtn) {
+                    editorDoneBtn.addEventListener('click', () => {
+                        // Zavolat stejnou funkci, která přepíná režim
+                        window.toggleEditorMode();
+                    });
+                }
 
                 debug('Inicializace dokončena');
             } catch (error) {
