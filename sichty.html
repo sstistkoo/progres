@@ -2068,6 +2068,67 @@
                     closeConfirm();
                 });
                 document.getElementById('confirmNo').addEventListener('click', closeConfirm);
+
+                // --- NOVÝ KÓD PRO SWIPE GESTA ---
+                const calendarEl = document.getElementById('calendar');
+                let touchStartX = 0;
+                let touchStartY = 0;
+                let touchMoveX = 0;
+                let touchMoveY = 0;
+                const swipeThreshold = 50; // Minimální posun v pixelech pro rozpoznání swipe
+
+                calendarEl.addEventListener('touchstart', (e) => {
+                    if (e.touches.length === 1) {
+                        touchStartX = e.touches[0].clientX;
+                        touchStartY = e.touches[0].clientY;
+                        touchMoveX = touchStartX;
+                        touchMoveY = touchStartY;
+                    }
+                }, { passive: true }); // 'passive: true' pro lepší výkon scrollování
+
+                calendarEl.addEventListener('touchmove', (e) => {
+                    if (e.touches.length === 1) {
+                        touchMoveX = e.touches[0].clientX;
+                        touchMoveY = e.touches[0].clientY;
+
+                        // Zjistíme, zda je pohyb více horizontální než vertikální
+                        const deltaX = Math.abs(touchStartX - touchMoveX);
+                        const deltaY = Math.abs(touchStartY - touchMoveY);
+
+                        if (deltaX > deltaY && deltaX > 10) { 
+                            // Pokud je to horizontální swipe, zabráníme vertikálnímu scrollování stránky
+                            e.preventDefault();
+                        }
+                    }
+                }, { passive: false }); // 'passive: false' je nutné pro e.preventDefault()
+
+                calendarEl.addEventListener('touchend', (e) => {
+                    if (touchStartX === 0) {
+                        return; // Nebyl zaznamenán platný start
+                    }
+
+                    const deltaX = touchStartX - touchMoveX;
+                    const deltaY = touchStartY - touchMoveY;
+
+                    // Musí to být převážně horizontální swipe
+                    if (Math.abs(deltaX) > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+                        if (deltaX > 0) {
+                            // Přejetí doleva (Start > Move) -> Další měsíc
+                            nextMonth();
+                        } else {
+                            // Přejetí doprava (Start < Move) -> Předchozí měsíc
+                            previousMonth();
+                        }
+                    }
+
+                    // Reset hodnot
+                    touchStartX = 0;
+                    touchStartY = 0;
+                    touchMoveX = 0;
+                    touchMoveY = 0;
+                });
+                // --- KONEC KÓDU PRO SWIPE GESTA ---
+
             });
         </script>
     </div>
