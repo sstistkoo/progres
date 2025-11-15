@@ -112,6 +112,14 @@
             -webkit-user-select: text;
             font-size: 16px; 
         }
+        
+        /* OPRAVA: Zajistí, že readonly editor nevypadá šedivě/neaktivně */
+        #editor[readonly] {
+            background: #fff;
+            color: #000;
+            cursor: pointer;
+        }
+
 
         .editor-wrapper {
             flex: 1;
@@ -335,10 +343,11 @@
                 gap: 4px;
             }
 
-            /* Horní řádek: [📂] [G0] [ R ] */
+            /* Horní řádek: [📂] [🔄] [⌨️] [ R ] */
             .file-input-button,
             .action-button {
-                flex: 1 1 33%; /* Rozdělit na třetiny */
+                /* OPRAVA: Nyní 4 tlačítka, takže 25% */
+                flex: 1 1 25%; /* Rozdělit na čtvrtiny */
                 min-height: 44px;
                 font-size: 14px;
                 padding: 4px;
@@ -487,7 +496,19 @@
             display: none;
             z-index: 1001;
         }
-        /* ... atd ... */
+        
+        /* OPRAVA: Styl pro fullscreen editor */
+        .container.editor-fullscreen .simulator,
+        .container.editor-fullscreen .toolbar,
+        .container.editor-fullscreen .program-list {
+            display: none;
+        }
+        
+        .container.editor-fullscreen .editor-container {
+            flex: 1;
+            height: 100%; /* Zabrat celou výšku */
+        }
+        /* --- Konec opravy --- */
         
     </style>
 </head>
@@ -516,10 +537,15 @@
                     <input type="file" id="actualFileInput" accept=".mpf,.spf" multiple style="display: none;">
                 </label>
                 
-                <!-- ZMĚNA: Tlačítko "Reset" nahrazeno za "Přepnout G0" -->
-                <button id="toggleG0Btn" onclick="window.simulator.toggleRapidMoves()" class="action-button" title="Skrýt G0 (rychloposuv)">
-                    <span class="button-icon"><i class="fas fa-eye-slash"></i></span>
-                    <span class="button-text">G0</span>
+                <!-- ZMĚNA: Tlačítko G0 nahrazeno za Refresh (který resetuje i pohled) -->
+                <button id="refreshBtn" onclick="window.simulator.resetView()" class="action-button" title="Obnovit simulaci a pohled">
+                    <span class="button-icon"><i class="fas fa-sync-alt"></i></span>
+                    <span class="button-text">Refresh</span>
+                </button>
+                <!-- ZMĚNA: Nové tlačítko pro přepínání klávesnice/editoru -->
+                <button id="toggleKeyboardBtn" onclick="toggleEditorMode()" class="action-button" title="Povolit úpravy">
+                    <span class="button-icon"><i class="fas fa-keyboard"></i></span>
+                    <span class="button-text">Editor</span>
                 </button>
                 
                 <button onclick="showParameters()" class="action-button">
@@ -549,6 +575,7 @@
         <div class="program-list" id="programList"></div>
         <div class="editor-container">
             <div class="editor-wrapper">
+                <!-- OPRAVA: Atribut 'readonly' je pryč, bude řízen přes JS -->
                 <textarea id="editor" spellcheck="false" placeholder="Vložte váš CNC program zde..."></textarea>
             </div>
         </div>
@@ -1557,7 +1584,7 @@
                 
                 // ZMĚNA: Vlastnosti pro nové funkce
                 this.showRapidMoves = true; // Pro přepínání G0
-                this.toggleG0Btn = document.getElementById('toggleG0Btn');
+                // this.toggleG0Btn = document.getElementById('toggleG0Btn'); // ZMĚNA: Tlačítko odebráno
                 this.isZooming = false; // Pro opravu mobilního zoomu
                 this.lastTouchDistance = 0; // Pro opravu mobilního zoomu
                 // ZMĚNA: Přidání kotevních bodů pro zoom
@@ -2037,7 +2064,7 @@
                 }
 
                 // Vykreslit všechny rychloposuvy najednou
-                // ZMĚNA: Vykreslit pouze pokud je povoleno
+                // ZMĚNA: Vykreslit pouze pokud je povoleno (tlačítko odebráno, ale proměnná zůstává)
                 if (this.showRapidMoves && batchRapid.length > 0) {
                     this.ctx.strokeStyle = '#ff0000';
                     this.ctx.lineWidth = 1;
@@ -2077,28 +2104,29 @@
                 }
             }
             
-            // ZMĚNA: Nová funkce pro přepínání G0
-            toggleRapidMoves() {
-                this.showRapidMoves = !this.showRapidMoves;
-                debug(`Zobrazení G0 (rychloposuv): ${this.showRapidMoves}`);
-                
-                // Aktualizovat ikonu tlačítka
-                if (this.toggleG0Btn) {
-                    const icon = this.toggleG0Btn.querySelector('.button-icon i');
-                    if (icon) {
-                        if (this.showRapidMoves) {
-                            icon.className = 'fas fa-eye-slash'; // Ikona pro "skrýt"
-                            this.toggleG0Btn.title = 'Skrýt G0 (rychloposuv)';
-                        } else {
-                            icon.className = 'fas fa-eye'; // Ikona pro "zobrazit"
-                            this.toggleG0Btn.title = 'Zobrazit G0 (rychloposuv)';
-                        }
-                    }
+            // ZMĚNA: Funkce pro přepínání G0 odebrána, protože tlačítko bylo odebráno
+            // toggleRapidMoves() { ... }
+            
+            // OPRAVA: Nová funkce pro centrování pohledu
+            centerOnPoint(worldX, worldZ, zoom = true) {
+                // Přepočítat měřítko, pokud je potřeba zoom
+                if (zoom && this.zoomFactor < 5) { // Přiblížit pouze pokud jsme oddálení
+                    this.zoomFactor = 5; 
                 }
+                this.scale = this.baseScale * this.zoomFactor; // Použít nový nebo stávající zoomFactor
 
-                // Okamžitě překreslit dráhu
+                // Vypočítat nový střed
+                this.centerX = (this.canvas.width / 2) - (worldX * this.scale);
+                this.centerY = (this.canvas.height / 2) + (worldZ * this.scale);
+
+                // Překreslit vše s novým středem a měřítkem
+                this.gridCache = this.createGridCache();
                 if (this.lastMovements) {
                     this.drawPath(this.lastMovements);
+                } else {
+                    // Pokud ještě nejsou dráhy, překreslit jen osy
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.drawAxes();
                 }
             }
 
@@ -2635,13 +2663,17 @@
                 const currentMovements = this.movements.slice(0, this.currentIndex + 1);
                 
                 if (currentMovements.length > 0) {
-                    this.simulator.drawPath(currentMovements);
+                    //this.simulator.drawPath(currentMovements); // TOTO BUDE ZAVOLÁNO V centerOnPoint
                     
                     const lastMove = currentMovements[currentMovements.length - 1];
                     this.elements.posX.textContent = this.simulator.formatNumber(lastMove.toX);
                     this.elements.posZ.textContent = this.simulator.formatNumber(lastMove.toZ);
                     
-                    // Zvýraznit bod
+                    // OPRAVA: Zavolat centrování a AŽ POTOM zvýraznění
+                    // true = povolit zoom, pokud je potřeba
+                    this.simulator.centerOnPoint(lastMove.toX, lastMove.toZ, true); 
+                    
+                    // Zvýraznit bod (překreslí se přes centrovaný pohled)
                     this.simulator.highlightPoint(lastMove.toX, lastMove.toZ);
                     
                     // Najít a zvýraznit odpovídající řádek v editoru
@@ -2852,12 +2884,16 @@
                 if (editor) {
                     // Spustit simulaci až po chvíli nečinnosti
                     const debouncedSimulate = debounce(async () => {
-                        if (window.simulator) {
+                        // ZMĚNA: Automaticky simulovat pouze pokud nejsme v režimu úprav
+                        if (window.simulator && editor.readOnly) {
                             await simulateProgram();
                         }
                     }, 500); // Zvýšený debounce pro složitější parsování
                     editor.addEventListener('input', debouncedSimulate);
                 }
+                
+                // OPRAVA: Nastavit editor na 'readonly' při startu
+                editor.readOnly = true;
 
                 debug('Inicializace dokončena');
             } catch (error) {
@@ -2900,11 +2936,44 @@
         //         window.simulator.simulate(true); // Poslat 'true' pro vynucení resetu
         //     }
         // }
+        
+        // OPRAVA: Nová funkce pro přepínání režimu editoru (klávesnice)
+        window.toggleEditorMode = function() {
+            const editor = document.getElementById('editor');
+            const container = document.querySelector('.container');
+            const btn = document.getElementById('toggleKeyboardBtn');
+            const icon = btn.querySelector('.button-icon i');
+
+            // Přepnout 'readonly' stav
+            editor.readOnly = !editor.readOnly;
+            
+            // Přepnout 'fullscreen' třídu
+            container.classList.toggle('editor-fullscreen');
+
+            if (editor.readOnly) {
+                // Stav NORMÁLNÍ (se simulátorem)
+                icon.className = 'fas fa-keyboard';
+                btn.title = 'Povolit úpravy';
+                editor.blur(); // Odebrat fokus, skrýt klávesnici
+                // Po návratu z úprav rovnou obnovit simulaci
+                window.simulateProgram(); 
+            } else {
+                // Stav FULLSCREEN EDITOR
+                icon.className = 'fas fa-check'; // Ikona "Hotovo"
+                btn.title = 'Hotovo (skrýt klávesnici)';
+                editor.focus(); // Otevřít klávesnici
+            }
+        }
+
 
         // Upravit event listener pro kliknutí na řádek v editoru
         editor.addEventListener('click', async function(e) {
             if (!window.simulator || !window.simulator.player) return;
             if (window.simulator.player.isPlaying) return; // Neblokovat při přehrávání
+            
+            // OPRAVA: Povolit klikání na řádky pouze pokud je editor 'readonly'
+            // (zamezí nechtěnému centrování při psaní)
+            if (!editor.readOnly) return;
 
             const cursorPosition = editor.selectionStart;
             const lines = editor.value.split('\n');
