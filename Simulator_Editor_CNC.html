@@ -486,15 +486,21 @@
             z-index: 1000;
             min-width: 100px;
             text-align: center;
+            /* OPRAVA: Zajistit, aby byl tooltip vždy nahoře */
+            transform: translate(-50%, -120%);
         }
 
         .crosshair {
             position: absolute;
             width: 20px;
             height: 20px;
+            border: 1px solid red;
+            background-color: rgba(255, 0, 0, 0.2);
             pointer-events: none;
             display: none;
             z-index: 1001;
+            /* OPRAVA: Zarovnání křížku, aby byl střed tam, kde má být */
+            transform: translate(-10px, -10px);
         }
         
         /* OPRAVA: Styl pro fullscreen editor */
@@ -509,41 +515,36 @@
             height: 100%; /* Zabrat celou výšku */
         }
         
-        /* --- OPRAVA: Tlačítko "Hotovo" pro fullscreen editor --- */
+        /* OPRAVA: Tlačítko "Hotovo" v editoru */
         .editor-done-button {
-            display: none; /* Skryto ve výchozím stavu */
+            display: none; /* Skryté ve výchozím stavu */
             position: absolute;
             top: 10px;
             right: 10px;
-            z-index: 2000; /* Musí být nad editorem */
-            background: #007bff;
+            z-index: 10;
+            background-color: #007bff;
             color: white;
             border: none;
-            border-radius: 50%; /* Kulaté */
+            border-radius: 50%;
             width: 44px;
             height: 44px;
             font-size: 20px;
+            line-height: 44px;
+            text-align: center;
             cursor: pointer;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            /* OPRAVA: Povolit kliknutí */
-            touch-action: auto; 
         }
-
-        .editor-done-button:hover {
-            background: #0056b3;
-        }
-
-        /* Zobrazit tlačítko POUZE v režimu fullscreen */
+        
+        /* Zobrazit tlačítko pouze ve fullscreen režimu */
         .container.editor-fullscreen .editor-done-button {
             display: block;
         }
-
-        /* Zajistit, aby editor nezačal až pod tlačítkem */
+        
+        /* Přidat padding editoru, aby text nebyl pod tlačítkem */
         .container.editor-fullscreen #editor {
-            /* Zvětšíme odsazení, aby bylo místo i na mobilu */
-            padding-top: 60px; 
+            padding-top: 54px; 
         }
-        /* --- Konec opravy --- */
+        
         
     </style>
 </head>
@@ -610,8 +611,8 @@
         <div class="program-list" id="programList"></div>
         <div class="editor-container">
             <div class="editor-wrapper">
-                <!-- OPRAVA: Přidáno tlačítko "Hotovo" pro mobilní editor -->
-                <button id="editorDoneBtn" class="editor-done-button" title="Hotovo">
+                <!-- OPRAVA: Tlačítko "Hotovo" přidané pro mobilní zobrazení -->
+                <button id="editorDoneBtn" class="editor-done-button" onclick="toggleEditorMode()">
                     <i class="fas fa-check"></i>
                 </button>
                 <!-- OPRAVA: Atribut 'readonly' je pryč, bude řízen přes JS -->
@@ -1515,7 +1516,7 @@
             
                 return result;
             }
-        }
+        };
 
         class Simulator {
             constructor() {
@@ -1551,9 +1552,14 @@
             setupEventHandlers() {
                 // Definovat všechny event handler metody
                 this.handleMouseMove = (event) => {
-                    if (!this.isDragging) {
-                        this.checkPointUnderCrosshair(event.clientX, event.clientY);
-                    }
+                    if (this.isDragging) return;
+                    
+                    const rect = this.canvas.getBoundingClientRect();
+                    const mouseX = event.clientX - rect.left;
+                    const mouseY = event.clientY - rect.top;
+
+                    // ZMĚNA: Použít offset 0/0 pro myš
+                    this.checkPointUnderCrosshair(mouseX, mouseY, 0); 
                 };
 
                 this.handleZoom = (event) => {
@@ -1623,18 +1629,18 @@
                 
                 // ZMĚNA: Vlastnosti pro nové funkce
                 this.showRapidMoves = true; // Pro přepínání G0
-                // this.toggleG0Btn = document.getElementById('toggleG0Btn'); // ZMĚNA: Tlačítko odebráno
                 this.isZooming = false; // Pro opravu mobilního zoomu
                 this.lastTouchDistance = 0; // Pro opravu mobilního zoomu
-                // ZMĚNA: Přidání kotevních bodů pro zoom
                 this.touchAnchorWorldX = 0;
                 this.touchAnchorWorldZ = 0;
                 this.touchAnchorCanvasX = 0;
                 this.touchAnchorCanvasY = 0;
-
-                // OPRAVA: Přidáno pro long-press inspekci na mobilu
-                this.longPressTimer = null;
-                this.isInspecting = false;
+                
+                // ZMĚNA: Vlastnosti pro dotykovou inspekci
+                this.inspectTimer = null; // Timer pro dlouhé podržení
+                this.isInspecting = false; // Zda jsme v režimu inspekce
+                this.touchInspectOffsetY = -60; // O kolik pixelů nad prstem bude křížek
+                this.lastTouchInspectTime = 0; // Kdy se naposledy zobrazil tooltip
             }
 
             setupEventListeners() {
@@ -1662,7 +1668,14 @@
 
                     // Použít předem vytvořenou bound metodu
                     this.canvas.addEventListener('mousemove', this.boundHandleMouseMove);
-                    this.canvas.addEventListener('mouseout', () => this.tooltip.style.display = 'none');
+                
+                // OPRAVA: Přidán středník výše a opraveno formátování
+                this.canvas.addEventListener('mouseout', () => {
+                    // Skrýt pouze pokud nejsme v režimu inspekce (ten ovládá touchend)
+                    if (!this.isInspecting) {
+                        this.tooltip.style.display = 'none';
+                    }
+                });
 
                     // Přidat crosshair
                     this.crosshair = document.createElement('div');
@@ -1722,6 +1735,16 @@
             handleTouchStart(event) {
                 event.preventDefault();
 
+                // Zastavit předchozí timer, pokud existuje
+                if (this.inspectTimer) {
+                    clearTimeout(this.inspectTimer);
+                    this.inspectTimer = null;
+                }
+                
+                // Skrýt křížek a tooltip, pokud byly viditelné
+                this.crosshair.style.display = 'none';
+                this.tooltip.style.display = 'none';
+
                 if (event.touches.length === 2) {
                     // Zoom pomocí dvou prstů
                     const touch1 = event.touches[0];
@@ -1732,101 +1755,84 @@
                     );
                     this.touchZoomStartScale = this.zoomFactor;
                     
-                    // --- OPRAVA PRO MOBILNÍ ZOOM ---
                     // Explicitně zakázat posouvání (isDragging), když začínáme zoomovat
                     this.isDragging = false; 
                     this.isZooming = true;
+                    this.isInspecting = false; // Zrušit inspekci při zoomu
                     
-                    // ZMĚNA: Vypočítat a uložit kotevní body
+                    // Vypočítat a uložit kotevní body
                     const rect = this.canvas.getBoundingClientRect();
                     this.touchAnchorCanvasX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
                     this.touchAnchorCanvasY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
                     
                     this.touchAnchorWorldX = (this.touchAnchorCanvasX - this.centerX) / this.scale;
                     this.touchAnchorWorldZ = (this.centerY - this.touchAnchorCanvasY) / this.scale;
-                    // --- KONEC ZMĚNY ---
                     
                 } else if (event.touches.length === 1) {
-                    // Posouvání jedním prstem NEBO long press
+                    // Posouvání jedním prstem NEBO začátek inspekce
                     const touch = event.touches[0];
                     this.touchStartX = touch.clientX;
                     this.touchStartY = touch.clientY;
-                    // this.isDragging = true; // <-- NEPOUŠTĚT HNED
-                    this.isZooming = false;
-                    
-                    // Nastavit časovač pro long press
-                    this.longPressTimer = setTimeout(() => {
+                    this.isDragging = true; // Začít jako posouvání
+                    this.isZooming = false; // Není zoom
+                    this.isInspecting = false; // Zatím není inspekce
+
+                    // Nastavit timer pro dlouhé podržení (inspekce)
+                    this.inspectTimer = setTimeout(() => {
+                        this.isDragging = false; // Pokud je to dlouhé podržení, není to posouvání
                         this.isInspecting = true; // Aktivovat mód inspekce
-                        this.isDragging = false; // Ujistit se, že netaHÁME
-                        // Zobrazit tooltip na stisknuté pozici
-                        this.checkPointUnderCrosshair(touch.clientX, touch.clientY);
-                        this.longPressTimer = null; // Časovač doběhl
-                    }, 500); // 500ms pro long press
+                        this.inspectTimer = null;
+                        
+                        // Okamžitě zobrazit křížek a tooltip
+                        const rect = this.canvas.getBoundingClientRect();
+                        const canvasX = touch.clientX - rect.left;
+                        const canvasY = touch.clientY - rect.top;
+                        // Použít offset
+                        this.checkPointUnderCrosshair(canvasX, canvasY, this.touchInspectOffsetY);
+                        
+                    }, 500); // 500ms pro aktivaci
                 }
             }
 
             handleTouchMove(event) {
                 event.preventDefault();
-
-                // 1. Zrušit long press, pokud se prst pohnul dříve
-                if (this.longPressTimer) {
-                    clearTimeout(this.longPressTimer);
-                    this.longPressTimer = null;
+                
+                // Pokud se prst pohnul, zrušit timer pro inspekci
+                if (this.inspectTimer) {
+                    clearTimeout(this.inspectTimer);
+                    this.inspectTimer = null;
                 }
 
                 if (event.touches.length === 2) {
-                    // 2. Zoom
-                    this.isZooming = true; // Ujistit se, že jsme v režimu zoom
-                    this.isDragging = false; // Ujistit se, že neposouváme
-                    this.isInspecting = false; // Zrušit inspekci při zoomu
+                    // Zoom
+                    this.isZooming = true;
+                    this.isDragging = false;
+                    this.isInspecting = false; // Zrušit inspekci
                     
                     const touch1 = event.touches[0];
                     const touch2 = event.touches[1];
                     
-                    // ZMĚNA: Použít uložené kotevní body pro výpočet
                     const newDistance = Math.hypot(
                         touch2.clientX - touch1.clientX,
                         touch2.clientY - touch1.clientY
                     );
 
-                    // Vypočítat poměr změny (vůči startu)
                     const scaleRatio = newDistance / this.lastTouchDistance;
                     
-                    // Nastavit nový zoom faktor a měřítko
                     this.zoomFactor = Math.min(Math.max(this.touchZoomStartScale * scaleRatio, 0.1), 1000);
                     this.scale = this.baseScale * this.zoomFactor;
                     
-                    // Vypočítat nový střed prstů na plátně
                     const rect = this.canvas.getBoundingClientRect();
                     const newMidX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
                     const newMidY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
 
-                    // Přepočítat centerX a centerY, aby kotevní bod (ze startu) zůstal pod novým středem prstů
                     this.centerX = newMidX - this.touchAnchorWorldX * this.scale;
                     this.centerY = newMidY + this.touchAnchorWorldZ * this.scale;
-                    // --- KONEC ZMĚNY ---
 
-                    // Aktualizovat zobrazení
                     this.gridCache = this.createGridCache();
                     this.simulate(false);
                     
-                } 
-                // 3. Nový mód: Inspekce bodů
-                else if (event.touches.length === 1 && this.isInspecting) {
-                    // Pokud jsme v módu inspekce, jen pohybujeme tooltipem
-                    const touch = event.touches[0];
-                    this.checkPointUnderCrosshair(touch.clientX, touch.clientY);
-                }
-                // 4. Stávající mód: Posouvání (Panning)
-                else if (event.touches.length === 1 && !this.isZooming && !this.isInspecting) { 
-                    // Nyní jsme si jisti, že jde o posun
-                    this.isDragging = true; 
-                    
-                    // --- OPRAVA PRO MOBILNÍ ZOOM ---
-                    // Posouvat POUZE pokud (isDragging = true) A ZÁROVEŇ (isZooming = false)
-                    // (zabraňuje posunu, když jeden prst opustí displej dříve než druhý)
-                    // --- KONEC OPRAVY ---
-                    
+                } else if (event.touches.length === 1 && this.isDragging && !this.isZooming && !this.isInspecting) { 
                     // Posouvání
                     const touch = event.touches[0];
                     const deltaX = touch.clientX - this.touchStartX;
@@ -1838,9 +1844,18 @@
                     this.touchStartX = touch.clientX;
                     this.touchStartY = touch.clientY;
 
-                    // Aktualizovat zobrazení
                     this.gridCache = this.createGridCache();
                     this.simulate();
+                    
+                } else if (event.touches.length === 1 && this.isInspecting) {
+                    // Pohyb v režimu inspekce
+                    const touch = event.touches[0];
+                    const rect = this.canvas.getBoundingClientRect();
+                    const canvasX = touch.clientX - rect.left;
+                    const canvasY = touch.clientY - rect.top;
+                    
+                    // Aktualizovat křížek a tooltip s offsetem
+                    this.checkPointUnderCrosshair(canvasX, canvasY, this.touchInspectOffsetY);
                 }
 
                 // Přidat průběžné překreslování během pohybu
@@ -1852,25 +1867,22 @@
             }
 
             handleTouchEnd(event) {
-                // 1. Zrušit jakýkoli čekající long press
-                if (this.longPressTimer) {
-                    clearTimeout(this.longPressTimer);
-                    this.longPressTimer = null;
-                    // Pokud se zrušil, byl to tap, necháme 'click' event, aby se postaral o zbytek
+                // Zrušit timer, pokud ještě běží
+                if (this.inspectTimer) {
+                    clearTimeout(this.inspectTimer);
+                    this.inspectTimer = null;
                 }
-
-                // 2. Pokud jsme byli v módu inspekce, schovat tooltip se zpožděním
+                
+                // Pokud jsme byli v režimu inspekce, skrýt křížek a tooltip
                 if (this.isInspecting) {
-                    setTimeout(() => {
-                        this.tooltip.style.display = 'none';
-                        this.isInspecting = false;
-                    }, 1500); // Nechat viditelné 1.5s po puštění
+                    this.crosshair.style.display = 'none';
+                    this.tooltip.style.display = 'none';
                 }
 
-
-                // Resetovat všechny stavy po puštění prstů
+                // Resetovat všechny stavy
                 this.isDragging = false;
                 this.isZooming = false;
+                this.isInspecting = false;
                 this.lastTouchDistance = 0;
 
                 // Přidat vynucené překreslení po puštění
@@ -2390,6 +2402,17 @@
                     y: this.centerY - z * this.scale      // Z na vertikální osu - opraveno znaménko
                 };
             }
+            
+            // ZMĚNA: Převod pozice na obrazovce (s offsetem) na světové souřadnice
+            screenToWorld(screenX, screenY, offsetY = 0) {
+                 // Aplikovat offset (pouze pro Y)
+                const targetY = screenY + offsetY;
+                
+                return {
+                    x: (screenX - this.centerX) / this.scale,
+                    z: (this.centerY - targetY) / this.scale 
+                };
+            }
 
             async simulate(resetView = false) {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -2425,39 +2448,77 @@
                 // Odstranit koncové nuly za desetinnou čárkou a případně i desetinnou čárku
                 return rounded.replace(/\.?0+$/, '');
             }
+            
+            // ZMĚNA: Funkce upravena pro offset a přichytávání
+            checkPointUnderCrosshair(canvasX, canvasY, offsetY = 0) {
+                
+                // 1. Pozice křížku na obrazovce (s offsetem)
+                const crosshairX = canvasX;
+                const crosshairY = canvasY + offsetY;
 
-            checkPointUnderCrosshair(x, y) {
-                const rect = this.canvas.getBoundingClientRect();
-                const mouseX = x - rect.left;
-                const mouseY = y - rect.top;
+                // 2. Převod pozice křížku na světové souřadnice
+                const worldCoords = this.screenToWorld(crosshairX, crosshairY);
 
-                const hitPoint = this.points.find(point => {
-                    const dx = mouseX - point.screenX;
-                    const dy = mouseY - point.screenY;
-                    return Math.sqrt(dx * dx + dy * dy) < 15; // Větší tolerance pro dotyk
-                });
+                // 3. Tolerance pro přichycení (ve světoVÝCH souřadnicích)
+                // Vypočítáme, kolika světovým jednotkám odpovídá 15 pixelů
+                const worldTolerance = 15 / this.scale;
+
+                // 4. Najít nejbližší bod v toleranci
+                let hitPoint = null;
+                let minDistance = Infinity;
+
+                for (const point of this.points) {
+                    const dx = point.x - worldCoords.x;
+                    const dz = point.z - worldCoords.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+
+                    if (distance < worldTolerance && distance < minDistance) {
+                        minDistance = distance;
+                        hitPoint = point;
+                    }
+                }
+                
+                // 5. Zobrazit křížek
+                this.crosshair.style.display = 'block';
+                this.crosshair.style.left = `${crosshairX}px`;
+                this.crosshair.style.top = `${crosshairY}px`;
+
+                // 6. Zobrazit tooltip
+                this.tooltip.style.display = 'block';
+                this.tooltip.style.left = `${crosshairX}px`; // Pozice X tooltipu (CSS transform se postará o zbytek)
+                this.tooltip.style.top = `${crosshairY}px`;  // Pozice Y tooltipu (CSS transform se postará o zbytek)
+
 
                 if (hitPoint) {
-                    this.tooltip.style.display = 'block';
-                    this.tooltip.style.left = (x + 20) + 'px';
-                    this.tooltip.style.top = (y - 30) + 'px';
+                    // PŘICHYCENO K BODU
                     this.tooltip.textContent = `X${this.formatNumber(hitPoint.x)} Z${this.formatNumber(hitPoint.z)}`;
-
-                    // Aktualizujeme poslední vybraný bod a jeho souřadnice
-                    this.lastSelectedPoint = hitPoint;
                     this.updateSelectedPosition(hitPoint.x, hitPoint.z);
+                    this.lastSelectedPoint = hitPoint;
+                    
+                    // Přesunout křížek přesně na bod (vizuální přichycení)
+                    const screenPoint = this.worldToScreen(hitPoint.x, hitPoint.z);
+                    this.crosshair.style.left = `${screenPoint.x}px`;
+                    this.crosshair.style.top = `${screenPoint.y}px`;
+                    
+                    // Přesunout i tooltip
+                    this.tooltip.style.left = `${screenPoint.x}px`;
+                    this.tooltip.style.top = `${screenPoint.y}px`;
+                    
                 } else {
-                    this.tooltip.style.display = 'none';
+                    // VOLNÝ POHYB
+                    this.tooltip.textContent = `X${this.formatNumber(worldCoords.x)} Z${this.formatNumber(worldCoords.z)}`;
+                    this.updateSelectedPosition(null, null); // Vyčistit vybranou pozici
                 }
             }
 
+
             updateSelectedPosition(x, z) {
                 if (x !== null && z !== null) {
-                    // Převést relativní souřadnice na absolutní, pokud je potřeba
-                    // Tato logika je zde zjednodušená, protože neznáme kontext G90/G91 daného bodu
-                    // Pro přesnost je lepší spoléhat na parser
                     selectedPosXElement.textContent = this.formatNumber(x);
                     selectedPosZElement.textContent = this.formatNumber(z);
+                } else {
+                    selectedPosXElement.textContent = '-';
+                    selectedPosZElement.textContent = '-';
                 }
             }
 
@@ -2572,7 +2633,9 @@
                 this.highlightPoint(point.x, point.z);
 
                 // Scrollovat k vybranému řádku a udržet ho na druhé pozici
-                const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24; // 24 je fallback
+                
+                // OPRAVA VÝPOČTU VÝŠKY ŘÁDKU
+                const lineHeight = (editor.scrollHeight / lines.length) || 24; // Fallback
                 const viewportHeight = editor.clientHeight;
                 const targetPosition = lineHeight * (lineIndex - 1);
 
@@ -2646,7 +2709,7 @@
                 this.parser.modalMotionCommand = savedState.modalMotionCommand; // Přejmenováno
                 this.parser.parameters = savedState.parameters;
             }
-        }
+        };
 
         class CNCPlayer {
             constructor(simulator) {
@@ -2827,46 +2890,52 @@
                  const lines = editor.value.split('\n');
                  const cleanLines = lines.map(line => line.replace(/^→\s*/, ''));
                  
-                 // Získat rozměry
-                 const editorHeight = editor.clientHeight;
+                 // --- OPRAVA CHYBY ---
+                 let targetScroll; // Deklarovat proměnnou zde
                  
-                 // --- KLÍČOVÁ OPRAVA VÝPOČTU VÝŠKY ŘÁDKU ---
-                 // getComputedStyle je nespolehlivý. Vypočítáme průměrnou výšku řádku.
-                 const totalLines = lines.length || 1; // Zajistit, abychom nedělili nulou
-                 const avgLineHeight = editor.scrollHeight / totalLines;
-                 // Použít buď průměr, nebo fallback na 24, pokud je výpočet divný (např. prázdný editor)
-                 const lineHeight = (avgLineHeight > 10) ? avgLineHeight : 24; 
+                 // OPRAVA VÝPOČTU VÝŠKY ŘÁDKU (PRO MOBILNÍ ZAŘÍZENÍ)
+                 // Místo getComputedStyle použijeme přesný výpočet
+                 const editorHeight = editor.clientHeight;
+                 const totalLines = lines.length || 1;
+                 const lineHeight = (editor.scrollHeight / totalLines) || 24; // Fallback
                  // --- KONEC OPRAVY ---
-
-                 let newScrollTop = editor.scrollTop; // Výchozí pozice scrollu = aktuální
 
                  if (lineIndex >= 0 && lineIndex < cleanLines.length) {
                      cleanLines[lineIndex] = '→ ' + cleanLines[lineIndex];
                      
-                     // --- Stávající LOGIKA SCROLLOVÁNÍ (CENTRACE) ---
+                     // Pozice řádku od vrchu
+                     const lineTop = lineIndex * lineHeight;
                      
-                     // 1. Jaká je pozice řádku v pixelech (od úplného začátku textu)
-                     const linePixelTop = lineIndex * lineHeight;
-                     const linePixelBottom = (lineIndex + 1) * lineHeight;
+                     // ZMĚNA: Cílová pozice scrollu, aby byl řádek v horní TŘETINĚ
+                     targetScroll = Math.max(0, lineTop - (editorHeight / 3)); 
 
-                     // 2. Jaká je viditelná "komfortní" oblast (s 1 řádkem "polštář" nahoře a dole)
-                     const comfortPadding = 1 * lineHeight; 
-                     const visibleTop = editor.scrollTop + comfortPadding;
-                     const visibleBottom = editor.scrollTop + editorHeight - comfortPadding;
+                     // Komfortní zóna (horní a dolní okraj)
+                     const comfortZoneTop = editor.scrollTop + lineHeight; // 1 řádek od vrchu
+                     const comfortZoneBottom = editor.scrollTop + editorHeight - (lineHeight * 2); // 2 řádky od spodku
 
-                     // 3. Pokud je řádek MIMO tuto komfortní zónu, přepočítáme scroll
-                     if (linePixelTop < visibleTop || linePixelBottom > visibleBottom) {
-                         // Vypočítat scrollTop tak, aby byl řádek uprostřed
-                         // (Pozice řádku - polovina výšky editoru + polovina výšky řádku)
-                         // OPRAVA: Změněno z (editorHeight / 2) na (editorHeight / 3) pro posun nahoru
-                         newScrollTop = Math.max(0, linePixelTop - (editorHeight / 3)); 
+                     // Scrollovat pouze pokud je řádek mimo komfortní zónu
+                     if (lineTop < comfortZoneTop || lineTop > comfortZoneBottom) {
+                         // Pouze pokud hrajeme, jinak nescrolovat
+                         if (this.isPlaying) {
+                            editor.scrollTop = targetScroll;
+                         }
                      }
-                     // --- KONEC LOGIKY ---
                  }
                  
-                 // Optimalizace: Měnit value a HNED POTÉ nastavit scrollTop
+                 const currentScroll = editor.scrollTop;
                  editor.value = cleanLines.join('\n');
-                 editor.scrollTop = newScrollTop; 
+                 editor.scrollTop = currentScroll; // Obnovit pozici scrollu
+
+                 // Znovu nastavit scroll, pokud byl změněn (a hrajeme)
+                 if (this.isPlaying && lineIndex >= 0) {
+                     const lineTop = lineIndex * lineHeight;
+                     const comfortZoneTop = editor.scrollTop + lineHeight;
+                     const comfortZoneBottom = editor.scrollTop + editorHeight - (lineHeight * 2);
+                     
+                     if (lineTop < comfortZoneTop || lineTop > comfortZoneBottom) {
+                         editor.scrollTop = targetScroll;
+                     }
+                 }
                  
                  this.currentLineIndex = lineIndex;
             }
@@ -2914,7 +2983,7 @@
             setSpeed(value) {
                 this.speed = parseInt(value);
             }
-        }
+        };
 
         // Event handlers
         window.addEventListener('DOMContentLoaded', () => {
@@ -3012,15 +3081,6 @@
                     }
                 });
 
-                // OPRAVA: Přidat listener pro nové tlačítko "Hotovo" v editoru
-                const editorDoneBtn = document.getElementById('editorDoneBtn');
-                if (editorDoneBtn) {
-                    editorDoneBtn.addEventListener('click', () => {
-                        // Zavolat stejnou funkci, která přepíná režim
-                        window.toggleEditorMode();
-                    });
-                }
-
                 debug('Inicializace dokončena');
             } catch (error) {
                 console.error('Chyba při inicializaci:', error);
@@ -3054,8 +3114,8 @@
 
             window.URL.revokeObjectURL(url);
             debug('Program uložen');
-        }
-
+        };
+        
         // ZMĚNA: Tato funkce je nyní nahrazena novou funkcí na tlačítku
         // window.resetView = function() {
         //     if (window.simulator) {
@@ -3089,7 +3149,7 @@
                 btn.title = 'Hotovo (skrýt klávesnici)';
                 editor.focus(); // Otevřít klávesnici
             }
-        }
+        };
 
 
         // Upravit event listener pro kliknutí na řádek v editoru
@@ -3153,7 +3213,7 @@
             });
 
             input.click();
-        }
+        };
 
         // Přidat globální funkci simulateProgram
         window.simulateProgram = async function() {
@@ -3169,7 +3229,7 @@
                     await window.simulator.player.setProgram(editor.value);
                 }
             }
-        }
+        };
 
         // Přidat funkce pro práci s modálním oknem
         function showParameters() {
@@ -3222,7 +3282,7 @@
             if (event.target === modal) {
                 modal.style.display = 'none';
             }
-        }
+        };
 
         // Přidat funkce pro práci s localStorage
         function saveSimulatorState() {
@@ -3264,38 +3324,6 @@
                 }
             }
         }
-
-        // Upravit event listener pro DOMContentLoaded
-        window.addEventListener('DOMContentLoaded', () => {
-            try {
-                // ...existing initialization code...
-
-                // Přidat načtení uloženého stavu
-                // loadSimulatorState(); // Dočasně zakázáno, může způsobovat konflikty při načítání
-
-                // Event listener pro ukládání stavu při změnách
-                editor.addEventListener('input', debounce(() => {
-                    saveSimulatorState();
-                    // Simulace se již volá v 'debouncedSimulate' v hlavním DOMContentLoaded
-                }, 1000));
-
-                // Přidat ukládání při změně zobrazení
-                if (window.simulator && window.simulator.canvas) {
-                    window.simulator.canvas.addEventListener('wheel', debounce(() => {
-                        saveSimulatorState();
-                    }, 1000));
-
-                    window.simulator.canvas.addEventListener('mouseup', () => {
-                        if (window.simulator.isDragging) {
-                            saveSimulatorState();
-                        }
-                    });
-                }
-
-            } catch (error) {
-                console.error('Chyba při inicializaci:', error);
-            }
-        }, { once: true }); // 'once: true' bylo již zde, ale loadSimulatorState() by měl být volán zde
 
         // Načtení stavu po plné inicializaci
         window.addEventListener('load', () => {
