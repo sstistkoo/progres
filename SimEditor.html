@@ -9,11 +9,6 @@
     <!-- Načtení Font Awesome pro ikony -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     
-    <!-- Knihovna CodeMirror pro syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-    <!-- OPRAVA: Načtení spolehlivého "eclipse" tématu -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css">
-    
     <style>
         .file-item:hover {
             background-color: #e5e7eb; /* gray-200 */
@@ -34,63 +29,22 @@
             border-radius: 3px;
         }
         
-        /* Základní nastavení pro CodeMirror */
-        .CodeMirror {
+        /* Styl pro obyčejnou textarea */
+        #main-editor {
             flex: 1; 
             width: 100%;
             height: 100%;
             font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
             font-size: 14px; 
-            line-height: 1.4;
-            /* Pozadí a barvu textu už definuje téma 'eclipse' */
-        }
-
-        /* OPRAVA: Naše G-code téma teď přepisuje 'eclipse' téma */
-        .cm-s-eclipse .cm-comment { 
-            background: #d1fae5; /* Zelené pozadí */
-            color: #065f46; /* Tmavě zelený text */
-            padding: 1px 4px;
-            border-radius: 3px;
-        }
-        .cm-s-eclipse .cm-keyword { /* G-kódy, M-kódy */
-            background: #dbeafe; /* Modré pozadí */
-            color: #1d4ed8; /* Tmavě modrý text */
-            padding: 1px 4px;
-            border-radius: 3px;
-            font-weight: bold;
-        }
-        .cm-s-eclipse .cm-variable { /* X, Z, F atd. */
-            background: #fef3c7; /* Žluté pozadí */
-            color: #92400e; /* Hnědý text */
-            padding: 1px 4px;
-            border-radius: 3px;
-            font-weight: bold;
-        }
-        .cm-s-eclipse .cm-number { /* Čísla */
-            background: #e0e7ff; /* Fialové pozadí */
-            color: #4338ca; /* Tmavě fialový text */
-            padding: 1px 4px;
-            border-radius: 3px;
-        }
-        .cm-s-eclipse .cm-string { /* Text v MSG("") */
-            background: #fce7f3; /* Růžové pozadí */
-            color: #9d174d; /* Tmavě růžový text */
-            padding: 1px 4px;
-            border-radius: 3px;
+            line-height: 1.6;
+            background: #ffffff;
+            color: #333;
+            padding: 0.5rem;
+            resize: none;
+            border: none;
+            outline: none;
         }
         
-        /* Přepsání výchozí černé barvy pro text, který nemá speciální styl */
-        .cm-s-eclipse.CodeMirror {
-             color: #333;
-        }
-        
-         .CodeMirror-activeline-background {
-            background: transparent !important;
-        }
-        .CodeMirror-gutters {
-            background: #f1f5f9; /* Světle šedé pozadí čísel řádků */
-            border-right: 1px solid #e2e8f0;
-        }
     </style>
 </head>
 <body class="h-full flex flex-col">
@@ -140,9 +94,13 @@
             <div class="p-4 border-b">
                 <h2 class="text-lg font-semibold text-gray-800">Strojní čas</h2>
                 <div id="time-summary" class="mt-2 p-3 bg-gray-50 rounded-lg">
-                    <p class="text-sm text-gray-600">Celkový čas (G1, G2, G3):</p>
+                    <p class="text-sm text-gray-600">Celkový čas (všech programů):</p>
                     <p id="total-time" class="text-2xl font-bold text-blue-600">Výpočet...</p>
                     <p id="time-details" class="text-xs text-gray-500"></p>
+                    
+                    <p class="text-sm text-gray-600 mt-3 border-t pt-2">Čas pro vybraný soubor:</p>
+                    <p id="file-time" class="text-xl font-semibold text-green-600">Vyberte soubor</p>
+                    <p id="file-time-details" class="text-xs text-gray-500"></p>
                 </div>
             </div>
 
@@ -190,21 +148,506 @@
         </main>
     </div>
 
-    <!-- JS Knihovny pro CodeMirror -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/gcode/gcode.min.js"></script>
-
     <script>
         // Globální úložiště pro načtená data
         let loadedData = {
             mainProgramName: "", 
-            parameters: [],
+            parameters: new Map(),
             movements: [],
             loadedPrograms: {}
         };
         
         let originalCodeStore = "";
         let isShowingAbsoluteCode = false;
+        
+        function debug(message) {
+            console.log(`[Editor] ${message}`);
+        }
+
+        // --- PLNÁ TŘÍDA CNCParser ---
+        class CNCParser {
+            constructor() {
+                this.parameters = new Map();
+                this.loadedSubprograms = new Map(); 
+                this.subprogramFiles = new Map(); 
+                this.loadedPrograms = new Map(); 
+
+                for (let i = 0; i <= 99; i++) {
+                    this.parameters.set(`R${i}`, 0);
+                }
+
+                this.modalFeedRate = 1; 
+                this.modalSpindleSpeed = 1000; 
+                this.modalFeedMode = 'G95'; 
+                this.modalSpindleMode = 'G97'; 
+
+                this.reset();
+            }
+
+            reset() {
+                this.currentX = 0;
+                this.currentZ = 0;
+                this.absoluteMode = true;
+                this.isFirstMove = true;
+                this.modalMotionCommand = 'G0'; 
+
+                if (this.parameters && this.parameters.size > 0) {
+                     this.parameters.clear();
+                     for (let i = 0; i <= 99; i++) {
+                        this.parameters.set(`R${i}`, 0);
+                    }
+                }
+
+                this.modalFeedRate = 1;
+                this.modalSpindleSpeed = 1000;
+                this.modalFeedMode = 'G95';
+                this.modalSpindleMode = 'G97';
+            }
+
+            // --- PŘIDÁNO: Načtení parametrů z globálního úložiště ---
+            // Tím se zajistí, že R-parametry jsou k dispozici pro výpočty
+            loadParameters(parametersMap) {
+                 if (parametersMap instanceof Map) {
+                    this.parameters = new Map(parametersMap);
+                } else if (Array.isArray(parametersMap)) {
+                    // Fallback pro případ, že by data byla pole
+                    this.parameters = new Map(parametersMap);
+                }
+                // Doplnit chybějící R-parametry nulami
+                 for (let i = 0; i <= 99; i++) {
+                    if (!this.parameters.has(`R${i}`)) {
+                        this.parameters.set(`R${i}`, 0);
+                    }
+                }
+            }
+
+            // --- PŘIDÁNO: Načtení podprogramů z globálního úložiště ---
+            loadSubprograms(loadedProgramsData) {
+                this.loadedSubprograms.clear();
+                for (const filename in loadedProgramsData) {
+                    if (filename.toUpperCase().startsWith('L') && filename.toUpperCase().endsWith('.SPF')) {
+                        const baseName = filename.toUpperCase().replace(/\.SPF$/, '');
+                        this.loadedSubprograms.set(baseName, loadedProgramsData[filename]);
+                    }
+                }
+                debug(`Parser v editoru načetl ${this.loadedSubprograms.size} podprogramů.`);
+            }
+
+            evaluateParameters(expression) {
+                try {
+                    const fullLine = expression.split(';')[0].trim();
+                    const cleanLine = fullLine.replace(/^N\d+\s*/, '');
+                    const rAssignment = cleanLine.match(/R(\d+)\s*=\s*(.+)/);
+
+                    if (rAssignment) {
+                        const [, paramNum, expression] = rAssignment;
+                        try {
+                            const expandedExpr = expression.replace(/R(\d+)/g, (match, num) => {
+                                const value = this.parameters.get(`R${num}`);
+                                return value !== undefined ? value : '0';
+                            });
+                            const result = Function(`return ${expandedExpr}`)();
+                            const numResult = Number(result);
+                            if (!isNaN(numResult)) {
+                                this.parameters.set(`R${paramNum}`, numResult);
+                                return numResult;
+                            } else {
+                                console.warn(`✗ Neplatný výsledek pro R${paramNum}: ${result}`);
+                            }
+                        } catch (e) {
+                            console.warn(`✗ Chyba při vyhodnocení R${paramNum} = ${expression}:`, e);
+                        }
+                    }
+                    return 0;
+                } catch (e) {
+                    console.warn('Chyba při zpracování parametrů:', expression, e);
+                    return 0;
+                }
+            }
+
+            parseParameterValue(value) {
+                try {
+                    let expression = value;
+                    if (value.includes('=')) {
+                        expression = value.split('=')[1].trim();
+                    }
+                    const evaluatedExp = expression.replace(/R(\d+)/g, (match, number) => {
+                        const paramValue = this.parameters.get(`R${number}`);
+                        return paramValue !== undefined ? paramValue : '0';
+                    });
+                    if (!/^[0-9\.\-\+\*\/\s\(\)]+$/.test(evaluatedExp) && !/^[0-9\.]+$/.test(evaluatedExp)) {
+                        return 0; 
+                    }
+                    const result = Function(`return ${evaluatedExp}`)();
+                    const numResult = Number(result);
+                    if (isNaN(numResult)) return 0;
+                    return numResult;
+                } catch (e) {
+                    return 0;
+                }
+            }
+
+            parseCoordinate(value, current) {
+                try {
+                    let numericalValue;
+                    if (value.includes('=')) {
+                        const expression = value.split('=')[1].trim();
+                        const evaluatedExp = expression.replace(/R(\d+)/g, (match, number) => {
+                            const paramValue = this.parameters.get(`R${number}`);
+                            return paramValue !== undefined ? paramValue : '0';
+                        });
+                        const result = Function(`return ${evaluatedExp}`)();
+                        numericalValue = Number(result);
+                    } else {
+                        numericalValue = parseFloat(value);
+                    }
+                    if (isNaN(numericalValue)) return current;
+                    const rounded = Number(numericalValue.toFixed(3));
+                    if (this.absoluteMode) {
+                        return rounded;
+                    } else {
+                        return Number((current + rounded).toFixed(3));
+                    }
+                } catch (e) {
+                    console.warn('Chyba při parsování souřadnice:', value, e);
+                    return current;
+                }
+            }
+
+            calculateArcPoints(start, end, center, isClockwise, resolution = 50) {
+                const startAngle = Math.atan2(start.x - center.x, start.z - center.z);
+                const endAngle = Math.atan2(end.x - center.x, end.z - center.z);
+                let radius = Math.hypot(start.x - center.x, start.z - center.z);
+                let angleStep;
+                let points = [];
+                let totalAngle = endAngle - startAngle;
+                if (isClockwise) {
+                    if (totalAngle >= 0) totalAngle -= 2 * Math.PI;
+                } else {
+                    if (totalAngle <= 0) totalAngle += 2 * Math.PI;
+                }
+                angleStep = totalAngle / resolution;
+                for (let i = 0; i <= resolution; i++) {
+                    const angle = startAngle + angleStep * i;
+                    const x = center.x + radius * Math.sin(angle);
+                    const z = center.z + radius * Math.cos(angle);
+                    points.push({ x: Number(x.toFixed(3)), z: Number(z.toFixed(3)) });
+                }
+                return points;
+            }
+
+            parseArcMovement(words, movement) {
+                let hasCR = false;
+                let hasAR = false;
+                let arcRadius = 0;
+                const params = { CR: null, AR: null, I: null, K: null, I1: null, K1: null, CT: null, TURN: 0 };
+
+                for (let word of words) {
+                    if (word.includes('=')) {
+                        const [param, expression] = word.split('=');
+                        let evaluatedValue;
+                        try {
+                            const expandedExpr = expression.replace(/R(\d+)/g, (match, num) => {
+                                const rVal = this.parameters.get(`R${num}`);
+                                return rVal !== undefined ? rVal : '0';
+                            });
+                            evaluatedValue = Function(`return ${expandedExpr}`)();
+                        } catch (e) {
+                            console.warn(`Chyba při vyhodnocení parametru ${param}=${expression}`, e);
+                            evaluatedValue = NaN;
+                        }
+                        const numValue = parseFloat(evaluatedValue); 
+                        switch (param.toUpperCase()) {
+                            case 'CR': params.CR = Math.abs(numValue); hasCR = true; break;
+                            case 'AR': params.AR = numValue; break;
+                            case 'TURN': params.TURN = parseInt(numValue); break;
+                        }
+                        continue; 
+                    }
+                    const command = word[0];
+                    const value = parseFloat(word.slice(1));
+                    if (isNaN(value)) continue;
+                    switch (command) {
+                        case 'I': params.I = movement.fromX + value; break;
+                        case 'K': params.K = movement.fromZ + value; break;
+                        case 'I1': params.I1 = movement.fromX + value; break;
+                        case 'K1': params.K1 = movement.fromZ + value; break;
+                    }
+                }
+
+                const startPoint = { x: movement.fromX, z: movement.fromZ };
+                const endPoint = { x: movement.toX, z: movement.toZ };
+                let centerPoint = { x: 0, z: 0 };
+
+                if (params.I !== null && params.K !== null) {
+                    centerPoint = { x: params.I, z: params.K };
+                } else if (params.I1 !== null && params.K1 !== null) {
+                    centerPoint = { x: params.I1, z: params.K1 };
+                } else if (hasCR) {
+                    if (isNaN(params.CR)) {
+                         console.error('Chybná hodnota CR, oblouk nelze vypočítat.', words);
+                         return { points: [], center: null };
+                    }
+                    const chord = Math.hypot(endPoint.x - startPoint.x, endPoint.z - startPoint.z);
+                    if (params.CR < chord / 2) {
+                        console.warn('CR je příliš malý, použije se minimální možný poloměr');
+                        params.CR = chord / 2;
+                    }
+                    const h = Math.sqrt(params.CR * params.CR - (chord * chord / 4));
+                    const midX = (startPoint.x + endPoint.x) / 2;
+                    const midZ = (startPoint.z + endPoint.z) / 2;
+                    const dirX = (startPoint.z - endPoint.z) / chord;
+                    const dirZ = (endPoint.x - startPoint.x) / chord;
+                    const center1 = { x: midX + h * dirX, z: midZ + h * dirZ };
+                    const center2 = { x: midX - h * dirX, z: midZ - h * dirZ };
+                    const angle1 = this.calculateTotalAngle(startPoint, endPoint, center1, movement.type === 'G2');
+                    const angle2 = this.calculateTotalAngle(startPoint, endPoint, center2, movement.type === 'G2');
+                    centerPoint = Math.abs(angle1) <= Math.abs(angle2) ? center1 : center2;
+                }
+
+                const radius = Math.hypot(startPoint.x - centerPoint.x, startPoint.z - centerPoint.z);
+                const startAngle = Math.atan2(startPoint.x - centerPoint.x, startPoint.z - centerPoint.z);
+                let endAngle = Math.atan2(endPoint.x - centerPoint.x, endPoint.z - centerPoint.z);
+
+                if (movement.type === 'G2') { 
+                    if (endAngle >= startAngle) endAngle -= 2 * Math.PI;
+                    endAngle -= 2 * Math.PI * (params.TURN || 0);
+                } else { 
+                    if (endAngle <= startAngle) endAngle += 2 * Math.PI;
+                    endAngle += 2 * Math.PI * (params.TURN || 0);
+                }
+
+                const points = [];
+                const steps = Math.max(50, Math.abs(endAngle - startAngle) * 20);
+                const angleStep = (endAngle - startAngle) / steps;
+
+                for (let i = 0; i <= steps; i++) {
+                    const angle = startAngle + angleStep * i;
+                    const x = centerPoint.x + radius * Math.sin(angle);
+                    const z = centerPoint.z + radius * Math.cos(angle);
+                    points.push({ x: Number(x.toFixed(3)), z: Number(z.toFixed(3)) });
+                }
+                return { points: points, center: centerPoint };
+            }
+
+            calculateTotalAngle(start, end, center, isClockwise) {
+                const startAngle = Math.atan2(start.x - center.x, start.z - center.z);
+                let endAngle = Math.atan2(end.x - center.x, end.z - center.z);
+                let totalAngle = endAngle - startAngle;
+                if (isClockwise) {
+                    if (totalAngle > 0) totalAngle -= 2 * Math.PI;
+                } else {
+                    if (totalAngle < 0) totalAngle += 2 * Math.PI;
+                }
+                return totalAngle;
+            }
+
+            async parseLine(line) {
+                const lMatch = line.trim().match(/L(\d+)/i);
+                if (lMatch) {
+                    const subprogramNumber = parseInt(lMatch[1]);
+                    // --- OPRAVA: Volat processSubprogramParameters ---
+                    await this.processSubprogramParameters(subprogramNumber);
+                    return null; 
+                }
+
+                const cleanedLine = line.trim().toUpperCase().replace(/G0(?=[XZ])/g, 'G0 ').replace(/G1(?=[XZ])/g, 'G1 ').replace(/G91(?=[XZ])/g, 'G91 ').replace(/G90(?=[XZ])/g, 'G90 '); 
+
+                if (cleanedLine.includes('=')) {
+                    const parts = cleanedLine.split(/\s+/);
+                    let hasParameterAssignment = false;
+                    for (const part of parts) {
+                         if (part.match(/R(\d+)\s*=\s*(.+)/) && !part.startsWith('CR=')) { 
+                             this.evaluateParameters(part);
+                             hasParameterAssignment = true;
+                         }
+                    }
+                    if (hasParameterAssignment && !parts.some(p => p.startsWith('X') || p.startsWith('Z') || p.startsWith('G'))) {
+                         return null;
+                    }
+                }
+
+                const words = cleanedLine.split(/\s+/);
+                if (words.length === 0) return null;
+
+                const movement = {
+                    fromX: this.currentX, fromZ: this.currentZ,
+                    toX: this.currentX, toZ: this.currentZ, 
+                    rapid: this.modalMotionCommand === 'G0', 
+                    center: null, arcPoints: null,
+                    isArc: (this.modalMotionCommand === 'G2' || this.modalMotionCommand === 'G3'),
+                    type: this.modalMotionCommand,
+                    feedRate: this.modalFeedRate,
+                    spindleSpeed: this.modalSpindleSpeed,
+                    feedMode: this.modalFeedMode, 
+                    spindleMode: this.modalSpindleMode 
+                };
+
+                let hasMove = false;
+                let hasGCommand = false; 
+                let nextX = this.currentX; 
+                let nextZ = this.currentZ; 
+
+                for (let word of words) {
+                    if (!word) continue;
+                    if (word.startsWith('CR=') || word.startsWith('AR=') || word.startsWith('TURN=')) continue;
+                    if (word.startsWith('I') || word.startsWith('K')) {
+                         if (!word.startsWith('I1') && !word.startsWith('K1')) continue;
+                    }
+                    const command = word[0];
+                    let value = word.slice(1);
+                    if (command === 'X' || command === 'Z') {
+                        if (value.includes('=')) value = '=' + value.split('=')[1];  
+                    }
+                    switch (command) {
+                        case 'G':
+                            hasGCommand = true;
+                            const gValue = parseInt(value);
+                            switch (gValue) {
+                                case 0: movement.rapid = true; this.modalMotionCommand = 'G0'; movement.type = 'G0'; movement.isArc = false; break;
+                                case 1: movement.rapid = false; this.modalMotionCommand = 'G1'; movement.type = 'G1'; movement.isArc = false; break;
+                                case 90: this.absoluteMode = true; break;
+                                case 91: this.absoluteMode = false; break;
+                                case 2: movement.rapid = false; this.modalMotionCommand = 'G2'; movement.type = 'G2'; movement.isArc = true; break;
+                                case 3: movement.rapid = false; this.modalMotionCommand = 'G3'; movement.type = 'G3'; movement.isArc = true; break;
+                                case 94: this.modalFeedMode = 'G94'; movement.feedMode = 'G94'; break;
+                                case 95: this.modalFeedMode = 'G95'; movement.feedMode = 'G95'; break;
+                                case 96: this.modalSpindleMode = 'G96'; movement.spindleMode = 'G96'; break;
+                                case 97: this.modalSpindleMode = 'G97'; movement.spindleMode = 'G97'; break;
+                            }
+                            break;
+                        case 'X': nextX = this.parseCoordinate(value, this.currentX); hasMove = true; break;
+                        case 'Z': nextZ = this.parseCoordinate(value, this.currentZ); hasMove = true; break;
+                        case 'F':
+                            if (value.startsWith('=') || /^[0-9\.\-]+$/.test(value)) {
+                                this.modalFeedRate = this.parseParameterValue(value);
+                                movement.feedRate = this.modalFeedRate;
+                            }
+                            break;
+                        case 'S':
+                            if (value.startsWith('=') || /^[0-9\.\-]+$/.test(value) || /S=R\d+/.test(word)) {
+                                this.modalSpindleSpeed = this.parseParameterValue(value);
+                                movement.spindleSpeed = this.modalSpindleSpeed;
+                            }
+                            break;
+                    }
+                }
+
+                if(hasMove) {
+                    movement.toX = nextX;
+                    movement.toZ = nextZ;
+                    this.currentX = nextX;
+                    this.currentZ = nextZ;
+                }
+                if (!hasGCommand && words.some(w => w.startsWith('CR='))) {
+                    movement.isArc = true; 
+                    movement.type = this.modalMotionCommand; 
+                    movement.rapid = false; 
+                }
+                if (hasMove && movement.isArc) { 
+                    if (movement.type === 'G0' || movement.type === 'G1') {
+                        console.warn('CR=... byl volán s aktivním G0/G1. Chybí G2/G3. Použije se G3 (default).');
+                        movement.type = 'G3'; 
+                        this.modalMotionCommand = 'G3'; 
+                    }
+                    const arcResult = this.parseArcMovement(words, movement);
+                    movement.arcPoints = arcResult.points;
+                    movement.center = arcResult.center; 
+                }
+                if (hasMove) {
+                    if (movement.arcPoints && movement.arcPoints.length > 0) {
+                        movement.points = [...movement.arcPoints];
+                    } else {
+                        movement.points = [{ x: movement.toX, z: movement.toZ }];
+                    }
+                }
+                return hasMove ? movement : null;
+            }
+
+            // --- OPRAVA: Načítá podprogramy z this.loadedSubprograms ---
+            async loadSubprogram(number) {
+                const baseName = `L${number}`;
+                
+                // Zkusit načíst z již načtených dat v editoru
+                if (this.loadedSubprograms.has(baseName)) {
+                    return this.loadedSubprograms.get(baseName);
+                }
+                
+                // Fallback (pro jistotu, i když by to nemělo nastat)
+                console.warn(`Podprogram ${baseName} nenalezen v 'loadedSubprograms'.`);
+                return null;
+            }
+
+            async processSubprogramParameters(subprogramNumber) {
+                const content = await this.loadSubprogram(subprogramNumber);
+                if (!content) return;
+
+                const lines = content.split('\n');
+                for (const line of lines) {
+                    const trimmedLine = line.trim().toUpperCase();
+                    if (trimmedLine.includes('R') && trimmedLine.includes('=')) {
+                        const lineWithoutComments = trimmedLine.split(';')[0].trim();
+                        const cleanLine = lineWithoutComments.replace(/^N\d+\s*/, '');
+                        const parts = cleanLine.split(/\s+/);
+                        for (const part of parts) {
+                            const match = part.match(/^R(\d+)\s*=\s*([^=].*)/);
+                            if (match) {
+                                const [, paramNum, expression] = match;
+                                try {
+                                    let cleanExpr = expression.replace(/^\(|\)$/g, '');
+                                    const expandedExpr = cleanExpr.replace(/R(\d+)/g, (match, num) => {
+                                        const value = this.parameters.get(`R${num}`);
+                                        return value !== undefined ? value : '0';
+                                    });
+                                    const result = Function(`return ${expandedExpr}`)();
+                                    const numResult = Number(result);
+                                    if (!isNaN(numResult)) {
+                                        this.parameters.set(`R${paramNum}`, numResult);
+                                    }
+                                } catch (e) {
+                                    console.warn(`[Editor Parser] ✗ Chyba při zpracování parametru '${part}' v L${subprogramNumber}:`, e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            async parseProgram(program) {
+                this.reset();
+                // Načíst parametry a podprogramy z globálního úložiště
+                this.loadParameters(loadedData.parameters);
+                this.loadSubprograms(loadedData.loadedPrograms);
+                
+                const lines = program.split('\n');
+                const movements = [];
+                const lineIndexes = []; 
+
+                // Zde už nevoláme processSubprogramParameters globálně,
+                // protože parseLine to dělá řádek po řádku
+                this.currentX = 0;
+                this.currentZ = 0;
+                this.absoluteMode = true; 
+                this.modalMotionCommand = 'G0'; 
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (line.trim() === '' || line.trim().startsWith(';')) continue;
+                    
+                    const movement = await this.parseLine(line);
+                    
+                    if (movement) {
+                        movements.push(movement);
+                        lineIndexes.push(i); 
+                    }
+                }
+
+                debug(`Naparsováno ${movements.length} pohybů pro tento soubor.`);
+                return { movements, lineIndexes, program }; 
+            }
+        }
+        // --- KONEC TŘÍDY CNCParser ---
+
 
         // DOM Elementy
         const mainEditor = document.getElementById('main-editor');
@@ -214,9 +657,6 @@
         const timeDetailsEl = document.getElementById('time-details');
         const currentFileNameEl = document.getElementById('current-file-name');
         
-        let cmEditor;
-
-        // DOM Elementy pro mobilní menu
         const toolsPanel = document.getElementById('tools-panel');
         const overlay = document.getElementById('overlay');
         const toolsOpenBtn = document.getElementById('tools-open-btn');
@@ -238,14 +678,22 @@
                 if (!dataString) {
                     const errorMsg = "CHYBA: V localStorage nebyla nalezena žádná data (cncExternalEditorData).\n\nZkuste se vrátit do simulátoru a znovu kliknout na tlačítko 'Upravit'.";
                     console.warn(errorMsg); 
-                    cmEditor.setValue(errorMsg);
+                    mainEditor.value = errorMsg; 
                     programListEl.innerHTML = '<p class="text-red-500 text-sm">Data nenalezena.</p>';
                     totalTimeEl.textContent = "Chyba";
-                    setTimeout(() => cmEditor.refresh(), 100);
                     return; 
                 }
             
                 loadedData = JSON.parse(dataString);
+                
+                // OPRAVA: Přenese pole parametrů do Map
+                if (Array.isArray(loadedData.parameters)) {
+                    loadedData.parameters = new Map(loadedData.parameters);
+                } else {
+                    // Fallback pro případ, že by to už byl objekt
+                    loadedData.parameters = new Map(Object.entries(loadedData.parameters || {}));
+                }
+
 
                 if (!loadedData.loadedPrograms || !loadedData.parameters || !loadedData.movements || !loadedData.mainProgramName) {
                     throw new Error("Data v localStorage jsou nekompletní nebo chybí 'mainProgramName'.");
@@ -253,18 +701,17 @@
 
                 populateProgramList(loadedData.loadedPrograms);
                 populateParameters(loadedData.parameters);
-                calculateMachiningTime(loadedData.movements);
-
-                displayFileContent(loadedData.mainProgramName); 
                 
-                setTimeout(() => cmEditor.refresh(), 100);
+                calculateMachiningTime(loadedData.movements, 'total-time', 'time-details');
+
+                // UPRAVENO: Zavolá novou async funkci
+                displayFileContent(loadedData.mainProgramName); 
 
             } catch (error) {
                 console.error("Chyba při parsování dat z localStorage:", error);
-                cmEditor.setValue(`CHYBA: Nepodařilo se zpracovat data z localStorage.\n\n${error.message}`);
+                mainEditor.value = `CHYBA: Nepodařilo se zpracovat data z localStorage.\n\n${error.message}`; 
                 programListEl.innerHTML = '<p class="text-red-500 text-sm">Data nenalezena.</p>';
                 totalTimeEl.textContent = "Chyba";
-                setTimeout(() => cmEditor.refresh(), 100);
             }
         }
 
@@ -342,9 +789,9 @@
         /**
          * Zobrazí obsah vybraného souboru v editoru
          */
-        function displayFileContent(filename) {
+        async function displayFileContent(filename) {
             if (loadedData.loadedPrograms[filename] !== undefined) {
-                cmEditor.setValue(loadedData.loadedPrograms[filename]);
+                mainEditor.value = loadedData.loadedPrograms[filename]; 
                 currentFileNameEl.textContent = filename; 
 
                 document.querySelectorAll('.file-item').forEach(item => {
@@ -354,12 +801,10 @@
                     }
                 });
 
-                // Zavřít panel na mobilu
                 if (detailsOpenBtn.offsetParent !== null) {
                     closeDetailsPanel();
                 }
 
-                // Resetovat tlačítko "Převést"
                 if (isShowingAbsoluteCode) {
                     const convertBtn = document.getElementById('convert-to-absolute-btn');
                     convertBtn.textContent = "Převést na Absolutní G-kód";
@@ -369,7 +814,23 @@
                     originalCodeStore = "";
                 }
                 
-                setTimeout(() => cmEditor.refresh(), 100);
+                // --- PŘEPOČET ČASU PRO TENTO SOUBOR ---
+                try {
+                    // Vytvoříme novou instanci parseru pro každý přepočet
+                    const localParser = new CNCParser();
+                    // Důležité: Dáme mu globální parametry a seznam podprogramů
+                    localParser.loadParameters(loadedData.parameters);
+                    localParser.loadSubprograms(loadedData.loadedPrograms);
+                    
+                    const programText = loadedData.loadedPrograms[filename];
+                    
+                    const parsedData = await localParser.parseProgram(programText);
+                    calculateMachiningTime(parsedData.movements, 'file-time', 'file-time-details');
+                } catch (e) {
+                    console.error(`Chyba při parsování souboru ${filename} pro čas:`, e);
+                    document.getElementById('file-time').textContent = "Chyba";
+                    document.getElementById('file-time-details').textContent = e.message;
+                }
 
             } else {
                 console.warn(`Soubor ${filename} nebyl nalezen v loadedData.`);
@@ -382,7 +843,8 @@
         function populateParameters(parameters) {
             parameterListEl.innerHTML = ''; 
             
-            const filteredParams = parameters.filter(([key, value]) => value !== 0);
+            const filteredParams = Array.from(parameters.entries())
+                .filter(([key, value]) => value !== 0);
 
             filteredParams.sort((a, b) => {
                 const numA = parseInt(a[0].replace('R', ''));
@@ -406,11 +868,17 @@
         /**
          * Vypočítá a zobrazí celkový strojní čas
          */
-        function calculateMachiningTime(movements) {
+        function calculateMachiningTime(movements, targetTimeElementId = 'total-time', targetDetailsElementId = 'time-details') {
+            const timeEl = document.getElementById(targetTimeElementId);
+            const detailsEl = document.getElementById(targetDetailsElementId);
+
+            if (!timeEl || !detailsEl) return; 
+
             let totalTimeMinutes = 0;
 
             if (!movements || movements.length === 0) {
-                totalTimeEl.textContent = "N/A";
+                timeEl.textContent = "0:00";
+                detailsEl.textContent = "(0.00 minut)";
                 return;
             }
 
@@ -447,8 +915,8 @@
             }
 
             const time = formatTime(totalTimeMinutes);
-            totalTimeEl.textContent = time.formatted;
-            timeDetailsEl.textContent = `(${totalTimeMinutes.toFixed(2)} minut)`;
+            timeEl.textContent = time.formatted;
+            detailsEl.textContent = `(${totalTimeMinutes.toFixed(2)} minut)`;
         }
 
         /**
@@ -477,7 +945,7 @@
          * Zkopíruje aktuální obsah editoru do schránky
          */
         async function copyToClipboard() {
-            const textToCopy = cmEditor.getValue();
+            const textToCopy = mainEditor.value; 
             const saveBtn = document.getElementById('save-btn');
             
             if (!saveBtn) return;
@@ -518,6 +986,8 @@
             window.close();
         }
 
+
+
         /**
          * Pomocná funkce pro formátování čísel do G-kódu
          */
@@ -537,7 +1007,7 @@
             const convertBtn = document.getElementById('convert-to-absolute-btn');
             if (isShowingAbsoluteCode) {
                 // Vrátit zpět
-                cmEditor.setValue(originalCodeStore);
+                mainEditor.value = originalCodeStore; 
                 originalCodeStore = "";
                 
                 convertBtn.textContent = "Převést na Absolutní G-kód";
@@ -555,7 +1025,7 @@
 
             } else {
                 // Provést konverzi
-                originalCodeStore = cmEditor.getValue();
+                originalCodeStore = mainEditor.value; 
                 
                 const success = convertGCodeToAbsolute(); 
                 
@@ -569,7 +1039,6 @@
                     originalCodeStore = ""; 
                 }
             }
-            setTimeout(() => cmEditor.refresh(), 100);
         }
 
         /**
@@ -581,7 +1050,7 @@
                 return false; 
             }
             
-            const originalCode = cmEditor.getValue();
+            const originalCode = mainEditor.value; 
             const originalLines = originalCode.split('\n');
             const originalHeader = originalLines.slice(0, 2).map(line => `; ${line.replace(/^;/, '').trim()}`);
 
@@ -643,7 +1112,7 @@
                 newCode.push(lineParts.join(' '));
             }
 
-            cmEditor.setValue(newCode.join('\n'));
+            mainEditor.value = newCode.join('\n'); 
             
             const activeItem = document.querySelector('.file-item.active');
             let baseName = loadedData.mainProgramName;
@@ -660,21 +1129,9 @@
         }
 
         /**
-         * Inicializace CodeMirror editoru
-         */
-        function initializeEditor() {
-            cmEditor = CodeMirror.fromTextArea(document.getElementById('main-editor'), {
-                lineNumbers: true,
-                mode: 'gcode',
-                theme: 'eclipse' // OPRAVA: Použijeme 'eclipse'
-            });
-        }
-        
-        /**
          * Spuštění aplikace po načtení DOM
          */
         document.addEventListener('DOMContentLoaded', () => {
-            initializeEditor();
             setupPanelListeners();
             loadDataFromStorage();
         });
