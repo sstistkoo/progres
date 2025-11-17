@@ -11,8 +11,6 @@
     
     <!-- Knihovna CodeMirror pro syntax highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-    <!-- Téma pro CodeMirror (světlé) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css">
     
     <style>
         .file-item:hover {
@@ -24,21 +22,17 @@
             color: #1d4ed8; /* blue-700 */
         }
         
-        #parameter-list::-webkit-scrollbar {
-            width: 6px;
-        }
-        #parameter-list::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1; /* cool-gray-300 */
-            border-radius: 3px;
-        }
+        #parameter-list::-webkit-scrollbar,
         #program-list::-webkit-scrollbar {
             width: 6px;
         }
+        #parameter-list::-webkit-scrollbar-thumb,
         #program-list::-webkit-scrollbar-thumb {
             background-color: #cbd5e1; /* cool-gray-300 */
             border-radius: 3px;
         }
         
+        /* Základní nastavení pro CodeMirror */
         .CodeMirror {
             flex: 1; 
             width: 100%;
@@ -46,6 +40,52 @@
             font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
             font-size: 14px; 
             line-height: 1.4;
+            background: #ffffff; /* Bílé pozadí */
+            color: #333; /* Tmavý text */
+        }
+
+        /* Naše vlastní G-code "téma" s barevným pozadím (přepisuje 'default' téma) */
+        .cm-s-default .cm-comment { 
+            background: #d1fae5; /* Zelené pozadí */
+            color: #065f46; /* Tmavě zelený text */
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+        .cm-s-default .cm-keyword { /* G-kódy, M-kódy */
+            background: #dbeafe; /* Modré pozadí */
+            color: #1d4ed8; /* Tmavě modrý text */
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        /* CodeMirror používá 'variable' pro X, Z, F atd. v 'gcode' módu */
+        .cm-s-default .cm-variable { 
+            background: #fef3c7; /* Žluté pozadí */
+            color: #92400e; /* Hnědý text */
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .cm-s-default .cm-number { /* Čísla */
+            background: #e0e7ff; /* Fialové pozadí */
+            color: #4338ca; /* Tmavě fialový text */
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+        .cm-s-default .cm-string { /* Text v MSG("") */
+            background: #fce7f3; /* Růžové pozadí */
+            color: #9d174d; /* Tmavě růžový text */
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+        
+        /* Nezvýrazňujeme aktivní řádek, pokud máme barevné pozadí tokenů */
+         .CodeMirror-activeline-background {
+            background: transparent !important;
+        }
+        .CodeMirror-gutters {
+            background: #f1f5f9; /* Světle šedé pozadí čísel řádků */
+            border-right: 1px solid #e2e8f0;
         }
     </style>
 </head>
@@ -155,7 +195,8 @@
         let loadedData = {
             mainProgramName: "", 
             parameters: [],
-            programData: {} // Změna: už ne movements a loadedPrograms
+            movements: [],
+            loadedPrograms: {}
         };
         
         let originalCodeStore = "";
@@ -180,35 +221,46 @@
         const detailsPanel = document.getElementById('details-panel');
         const detailsOpenBtn = document.getElementById('details-open-btn');
         const detailsCloseBtn = document.getElementById('details-close-btn');
+        const convertToAbsoluteBtn = document.getElementById('convert-to-absolute-btn');
 
         /**
          * Načte data z localStorage a spustí naplnění UI
          */
         function loadDataFromStorage() {
-            const dataString = localStorage.getItem('cncExternalEditorData');
-            if (!dataString) {
-                cmEditor.setValue("CHYBA: V localStorage nebyla nalezena žádná data (cncExternalEditorData).\n\nZkuste se vrátit do simulátoru a znovu kliknout na tlačítko 'Upravit'.");
-                programListEl.innerHTML = '<p class="text-red-500 text-sm">Data nenalezena.</p>';
-                totalTimeEl.textContent = "Chyba";
-                return;
-            }
-
+            let dataString;
             try {
+                dataString = localStorage.getItem('cncExternalEditorData');
+                
+                if (!dataString) {
+                    const errorMsg = "CHYBA: V localStorage nebyla nalezena žádná data (cncExternalEditorData).\n\nZkuste se vrátit do simulátoru a znovu kliknout na tlačítko 'Upravit'.";
+                    console.warn(errorMsg); 
+                    cmEditor.setValue(errorMsg);
+                    programListEl.innerHTML = '<p class="text-red-500 text-sm">Data nenalezena.</p>';
+                    totalTimeEl.textContent = "Chyba";
+                    setTimeout(() => cmEditor.refresh(), 100);
+                    return; 
+                }
+            
                 loadedData = JSON.parse(dataString);
 
-                if (!loadedData.programData || !loadedData.parameters || !loadedData.mainProgramName) {
-                    throw new Error("Data v localStorage jsou nekompletní nebo chybí 'programData' / 'mainProgramName'.");
+                if (!loadedData.loadedPrograms || !loadedData.parameters || !loadedData.movements || !loadedData.mainProgramName) {
+                    throw new Error("Data v localStorage jsou nekompletní nebo chybí 'mainProgramName'.");
                 }
 
-                populateProgramList(loadedData.programData);
+                populateProgramList(loadedData.loadedPrograms);
                 populateParameters(loadedData.parameters);
-                
-                // Zobrazit hlavní program (tím se spočítá i čas)
+                calculateMachiningTime(loadedData.movements);
+
                 displayFileContent(loadedData.mainProgramName); 
+                
+                setTimeout(() => cmEditor.refresh(), 100);
 
             } catch (error) {
                 console.error("Chyba při parsování dat z localStorage:", error);
                 cmEditor.setValue(`CHYBA: Nepodařilo se zpracovat data z localStorage.\n\n${error.message}`);
+                programListEl.innerHTML = '<p class="text-red-500 text-sm">Data nenalezena.</p>';
+                totalTimeEl.textContent = "Chyba";
+                setTimeout(() => cmEditor.refresh(), 100);
             }
         }
 
@@ -231,6 +283,10 @@
                     closeToolsPanel();
                     closeDetailsPanel(); 
                 });
+            }
+            
+            if (convertToAbsoluteBtn) {
+                convertToAbsoluteBtn.addEventListener('click', toggleAbsoluteCodeView);
             }
         }
         
@@ -264,10 +320,10 @@
         /**
          * Naplní seznam souborů v postranním panelu
          */
-        function populateProgramList(programData) {
+        function populateProgramList(programs) {
             programListEl.innerHTML = ''; 
 
-            const subprogramNames = Object.keys(programData).sort();
+            const subprogramNames = Object.keys(programs).sort();
             
             for (const filename of subprogramNames) {
                 const el = document.createElement('div');
@@ -283,12 +339,9 @@
          * Zobrazí obsah vybraného souboru v editoru
          */
         function displayFileContent(filename) {
-            if (loadedData.programData[filename] !== undefined) {
-                cmEditor.setValue(loadedData.programData[filename].text);
+            if (loadedData.loadedPrograms[filename] !== undefined) {
+                cmEditor.setValue(loadedData.loadedPrograms[filename]);
                 currentFileNameEl.textContent = filename; 
-
-                // Vypočítat strojní čas pro TENTO konkrétní program
-                calculateMachiningTime(loadedData.programData[filename].movements);
 
                 document.querySelectorAll('.file-item').forEach(item => {
                     item.classList.remove('active');
@@ -297,10 +350,12 @@
                     }
                 });
 
+                // Zavřít panel na mobilu
                 if (detailsOpenBtn.offsetParent !== null) {
                     closeDetailsPanel();
                 }
 
+                // Resetovat tlačítko "Převést"
                 if (isShowingAbsoluteCode) {
                     const convertBtn = document.getElementById('convert-to-absolute-btn');
                     convertBtn.textContent = "Převést na Absolutní G-kód";
@@ -309,6 +364,8 @@
                     isShowingAbsoluteCode = false;
                     originalCodeStore = "";
                 }
+                
+                setTimeout(() => cmEditor.refresh(), 100);
 
             } else {
                 console.warn(`Soubor ${filename} nebyl nalezen v loadedData.`);
@@ -470,11 +527,12 @@
         }
 
         /**
-         * Spravuje přepínání mezi absolutním a původním kódem
+         * Spravuje přepínání mezi původním a absolutním kódem
          */
         function toggleAbsoluteCodeView() {
             const convertBtn = document.getElementById('convert-to-absolute-btn');
             if (isShowingAbsoluteCode) {
+                // Vrátit zpět
                 cmEditor.setValue(originalCodeStore);
                 originalCodeStore = "";
                 
@@ -492,6 +550,7 @@
                 }
 
             } else {
+                // Provést konverzi
                 originalCodeStore = cmEditor.getValue();
                 
                 const success = convertGCodeToAbsolute(); 
@@ -506,32 +565,25 @@
                     originalCodeStore = ""; 
                 }
             }
+            setTimeout(() => cmEditor.refresh(), 100);
         }
 
         /**
          * Převede 'movements' z localStorage na absolutní G-kód
          */
         function convertGCodeToAbsolute() {
-            let activeFilename = loadedData.mainProgramName;
-            const activeItem = document.querySelector('.file-item.active');
-            if (activeItem) {
-                activeFilename = activeItem.dataset.filename;
-            }
-            
-            const movements = loadedData.programData[activeFilename]?.movements;
-
-            if (!movements || movements.length === 0) {
-                alert("CHYBA: Pro tento program nejsou načtena žádná data o pohybech ze simulátoru.");
+            if (!loadedData.movements || loadedData.movements.length === 0) {
+                alert("CHYBA: Nejsou načtena žádná data o pohybech ze simulátoru.");
                 return false; 
             }
             
-            const originalLines = originalCodeStore.split('\n');
-            const originalHeader = originalLines.slice(0, 2).map(line => `; ${line.trim()}`);
+            const originalCode = cmEditor.getValue();
+            const originalLines = originalCode.split('\n');
+            const originalHeader = originalLines.slice(0, 2).map(line => `; ${line.replace(/^;/, '').trim()}`);
 
             let newCode = [];
-            newCode.push('; --- KÓD PŘEVEDENÝ NA ABSOLUTNÍ HODNOTY ---');
             newCode.push(...originalHeader);
-            newCode.push(';');
+            newCode.push('; --- KÓD PŘEVEDENÝ NA ABSOLUTNÍ HODNOTY ---');
             newCode.push('G90 ; Absolutní souřadnice');
             
             let lastFeed = -1;
@@ -540,7 +592,7 @@
             let lastFeedMode = "";
             let lastSpindleMode = "";
 
-            for (const move of movements) {
+            for (const move of loadedData.movements) {
                 let lineParts = [];
 
                 if (move.feedMode !== lastFeedMode) {
@@ -589,49 +641,38 @@
 
             cmEditor.setValue(newCode.join('\n'));
             
-            // Nastavení záhlaví
-            let activeFilenameForTitle = loadedData.mainProgramName;
-            const activeItemForTitle = document.querySelector('.file-item.active');
-            if (activeItemForTitle) {
-                activeFilenameForTitle = activeItemForTitle.dataset.filename;
+            const activeItem = document.querySelector('.file-item.active');
+            let baseName = loadedData.mainProgramName;
+            if (activeItem) {
+                baseName = activeItem.dataset.filename;
             }
-            currentFileNameEl.textContent = `${activeFilenameForTitle} (Absolutní)`;
+            currentFileNameEl.textContent = `${baseName} (Absolutní)`;
 
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('active');
             });
-
-            if (toolsOpenBtn.offsetParent !== null) {
-                closeToolsPanel();
-            }
             
-            return true; 
+            return true;
         }
 
         /**
-         * Spuštění po načtení DOM
+         * Inicializace CodeMirror editoru
          */
-        window.addEventListener('DOMContentLoaded', () => {
-            
-            cmEditor = CodeMirror.fromTextArea(mainEditor, {
-                lineNumbers: true,      
-                mode: 'text/x-gcode', // OPRAVA: 'gcode' změněno na 'text/x-gcode'
-                theme: 'eclipse',       
-                lineWrapping: true,     
-                readOnly: false
+        function initializeEditor() {
+            cmEditor = CodeMirror.fromTextArea(document.getElementById('main-editor'), {
+                lineNumbers: true,
+                mode: 'gcode',
+                theme: 'default' // Použijeme 'default', který přepíšeme v CSS
             });
-            
-            const cmWrapper = cmEditor.getWrapperElement();
-            cmWrapper.style.flex = '1';
-            cmWrapper.style.minHeight = '0'; 
-            
-            loadDataFromStorage();
+        }
+        
+        /**
+         * Spuštění aplikace po načtení DOM
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeEditor();
             setupPanelListeners();
-            
-            const convertBtn = document.getElementById('convert-to-absolute-btn');
-            if (convertBtn) {
-                convertBtn.addEventListener('click', toggleAbsoluteCodeView); 
-            }
+            loadDataFromStorage();
         });
 
     </script>
