@@ -6,6 +6,8 @@
     <title>CNC Hlavní Editor</title>
     <!-- Načtení Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Načtení Font Awesome pro ikony -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
         /* Jednoduchý styl pro plynulý přechod a aktivní položku */
         .file-item:hover {
@@ -16,21 +18,45 @@
             font-weight: 600;
             color: #1d4ed8; /* blue-700 */
         }
+        
+        /* Skrývání scrollbaru (volitelné, pro čistší vzhled na PC) */
+        #parameter-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        #parameter-list::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1; /* cool-gray-300 */
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body class="h-full flex flex-col">
 
-    <!-- Hlavní kontejner -->
-    <div class="flex-1 flex overflow-hidden">
+    <!-- 
+      Hlavní kontejner
+      'relative' je potřeba pro absolutní pozicování postranního panelu na mobilu 
+    -->
+    <div class="flex-1 flex relative overflow-hidden">
 
-        <!-- Levý postranní panel (Sidebar) -->
-        <nav class="w-80 h-full bg-white border-r border-gray-200 overflow-y-auto flex flex-col shadow-lg">
+        <!-- 
+          Levý postranní panel (Sidebar)
+          - Na mobilu: 'fixed', 'inset-y-0', 'left-0', 'z-40' (vysoký z-index)
+          - Schovaný mimo obrazovku: '-translate-x-full'
+          - Na PC (lg:): 'relative', 'translate-x-0' (vrácení do normálního stavu)
+        -->
+        <nav id="sidebar" class="fixed lg:relative inset-y-0 left-0 w-80 h-full bg-white border-r border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+            
+            <!-- Hlavička postranního panelu (NOVÁ) -->
+            <div class="flex justify-between items-center p-4 border-b lg:hidden">
+                <h2 class="text-lg font-semibold text-gray-800">Menu</h2>
+                <button id="menu-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+            </div>
             
             <!-- Sekce: Seznam souborů -->
             <div class="p-4 border-b">
                 <h2 class="text-lg font-semibold text-gray-800">Načtené programy</h2>
                 <div id="program-list" class="mt-2 space-y-1">
-                    <!-- Sem se dynamicky vloží seznam souborů -->
                     <p class="text-gray-500 text-sm">Načítání dat...</p>
                 </div>
             </div>
@@ -54,12 +80,24 @@
             </div>
         </nav>
 
+        <!-- Overlay (NOVÝ) - pro ztmavení pozadí na mobilu -->
+        <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
+
         <!-- Hlavní obsah (Editor) -->
         <main class="flex-1 flex flex-col overflow-hidden">
             <!-- Záhlaví editoru -->
             <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center">
-                <h1 id="current-file-name" class="text-xl font-semibold text-gray-900">Editor</h1>
-                <button onclick="saveAndClose()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                
+                <!-- Tlačítko Menu (NOVÉ) - zobrazí se jen na mobilu (lg:hidden) -->
+                <button id="menu-open-btn" class="p-2 mr-2 text-gray-600 hover:text-gray-800 lg:hidden">
+                    <i class="fas fa-bars fa-lg"></i>
+                </button>
+                
+                <h1 id="current-file-name" class="text-xl font-semibold text-gray-900 truncate">
+                    Editor
+                </h1>
+                
+                <button onclick="saveAndClose()" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 flex-shrink-0">
                     Uložit a vrátit
                 </button>
             </div>
@@ -86,12 +124,42 @@
         const timeDetailsEl = document.getElementById('time-details');
         const currentFileNameEl = document.getElementById('current-file-name');
 
+        // NOVÉ DOM Elementy pro mobilní menu
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        const menuOpenBtn = document.getElementById('menu-open-btn');
+        const menuCloseBtn = document.getElementById('menu-close-btn');
+
         /**
          * Spustí se po načtení stránky
          */
         window.onload = function() {
             loadDataFromStorage();
+            setupMenuListeners();
         };
+
+        /**
+         * NOVÁ FUNKCE: Nastaví listenery pro otevírání/zavírání menu
+         */
+        function setupMenuListeners() {
+            if (menuOpenBtn && menuCloseBtn && sidebar && overlay) {
+                menuOpenBtn.addEventListener('click', openSidebar);
+                menuCloseBtn.addEventListener('click', closeSidebar);
+                overlay.addEventListener('click', closeSidebar);
+            }
+        }
+        
+        /** NOVÁ FUNKCE: Otevře postranní panel */
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+        }
+
+        /** NOVÁ FUNKCE: Zavře postranní panel */
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+        }
 
         /**
          * Načte data z localStorage a spustí naplnění UI
@@ -108,17 +176,14 @@
             try {
                 loadedData = JSON.parse(dataString);
 
-                // Kontrola dat
                 if (!loadedData.loadedPrograms || !loadedData.parameters || !loadedData.movements) {
                     throw new Error("Data v localStorage jsou nekompletní.");
                 }
 
-                // Spuštění funkcí pro naplnění UI
                 populateProgramList(loadedData.loadedPrograms, loadedData.rawCode);
                 populateParameters(loadedData.parameters);
                 calculateMachiningTime(loadedData.movements);
 
-                // Zobrazit hlavní program jako výchozí
                 displayFileContent('main_program'); // Použijeme speciální klíč
 
             } catch (error) {
@@ -140,13 +205,11 @@
             mainEl.onclick = () => displayFileContent('main_program');
             programListEl.appendChild(mainEl);
 
-            // Uložit obsah hlavního programu pod speciální klíč
             loadedData.loadedPrograms['main_program'] = mainCode;
 
             // 2. Přidat podprogramy
             const subprogramNames = Object.keys(programs).sort();
             for (const filename of subprogramNames) {
-                // Přeskočit 'main_program', ten už máme
                 if (filename === 'main_program') continue; 
 
                 const el = document.createElement('div');
@@ -159,19 +222,26 @@
 
         /**
          * Zobrazí obsah vybraného souboru v editoru
+         * (UPRAVENO: Zavře menu na mobilu po kliknutí)
          */
         function displayFileContent(filename) {
             if (loadedData.loadedPrograms[filename] !== undefined) {
                 mainEditor.value = loadedData.loadedPrograms[filename];
                 currentFileNameEl.textContent = (filename === 'main_program') ? "Hlavní program" : filename;
 
-                // Aktualizovat aktivní třídu
                 document.querySelectorAll('.file-item').forEach(item => {
                     item.classList.remove('active');
                     if (item.textContent.startsWith(filename) || (filename === 'main_program' && item.textContent.startsWith("HLAVNÍ"))) {
                         item.classList.add('active');
                     }
                 });
+
+                // NOVÉ: Zavřít menu, pokud jsme na mobilu
+                // (Kontrolujeme, zda je menu-open-btn viditelné)
+                if (menuOpenBtn.offsetParent !== null) {
+                    closeSidebar();
+                }
+
             } else {
                 console.warn(`Soubor ${filename} nebyl nalezen v loadedData.`);
             }
@@ -183,10 +253,8 @@
         function populateParameters(parameters) {
             parameterListEl.innerHTML = ''; // Vyčistit
             
-            // Filtrovat jen nenulové
             const filteredParams = parameters.filter(([key, value]) => value !== 0);
 
-            // Seřadit
             filteredParams.sort((a, b) => {
                 const numA = parseInt(a[0].replace('R', ''));
                 const numB = parseInt(b[0].replace('R', ''));
@@ -218,26 +286,21 @@
             }
 
             for (const move of movements) {
-                // Přeskočit G0 (rapid) pohyby, ty jsou pro výpočet času (obvykle) irelevantní
                 if (move.rapid) continue;
 
-                // 1. Vypočítat délku dráhy
                 let distance = 0;
                 if (move.isArc && move.arcPoints && move.arcPoints.length > 1) {
-                    // Pro oblouk sečteme délky jednotlivých segmentů
                     let lastPoint = { x: move.fromX, z: move.fromZ };
                     for (const point of move.arcPoints) {
                         distance += Math.hypot(point.x - lastPoint.x, point.z - lastPoint.z);
                         lastPoint = point;
                     }
                 } else if (!move.isArc) {
-                    // Pro přímý pohyb (G1)
                     distance = Math.hypot(move.toX - move.fromX, move.toZ - move.fromZ);
                 }
 
                 if (distance === 0) continue;
 
-                // 2. Vypočítat čas pro tento pohyb (v minutách)
                 let timeForMove = 0;
 
                 if (move.feedMode === 'G95') { // Posuv na otáčku (mm/ot)
@@ -254,7 +317,6 @@
                 totalTimeMinutes += timeForMove;
             }
 
-            // 3. Zobrazit výsledek
             const time = formatTime(totalTimeMinutes);
             totalTimeEl.textContent = time.formatted;
             timeDetailsEl.textContent = `(${totalTimeMinutes.toFixed(2)} minut)`;
@@ -286,33 +348,25 @@
          * Uloží upravená data a vrátí se zpět do simulátoru
          */
         function saveAndClose() {
-            // Najít aktivní soubor
             const activeItem = document.querySelector('.file-item.active');
             let activeFilename = 'main_program'; // Default
             if (activeItem) {
                  activeFilename = activeItem.textContent.startsWith("HLAVNÍ") ? 'main_program' : activeItem.textContent;
             }
             
-            // Uložit aktuální obsah editoru do našeho globálního objektu
             loadedData.loadedPrograms[activeFilename] = mainEditor.value;
 
-            // TODO: V budoucnu by zde byla složitější logika pro
-            // "přepočítání" 'movements' a 'parameters' na základě změn v kódu.
-            // Prozatím jen uložíme zpět upravené texty programů.
-
-            // Aktualizovat data v localStorage
-            // Uložíme jen upravený obsah programů
+            // TODO: Přepočítání 'movements' a 'parameters'
+            
             const dataToSave = {
                 ...loadedData,
-                rawCode: loadedData.loadedPrograms['main_program'], // Aktualizovat hlavní kód
-                // Ponechat staré movements a parameters, protože je zde neumíme přepočítat
+                rawCode: loadedData.loadedPrograms['main_program'], 
             };
             
             localStorage.setItem('cncExternalEditorData', JSON.stringify(dataToSave));
             
-            // Informovat uživatele a zavřít
             alert("Změny byly uloženy. \n\nVraťte se prosím ručně na záložku simulátoru a obnovte ji (F5), aby se změny načetly.");
-            // window.close(); // Zavření okna nemusí vždy fungovat
+            // window.close(); 
         }
 
     </script>
