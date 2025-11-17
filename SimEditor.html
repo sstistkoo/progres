@@ -159,7 +159,6 @@
             loadedPrograms: {}
         };
         
-        // NOVÉ: Globální proměnné pro přepínač "Převést"
         let originalCodeStore = "";
         let isShowingAbsoluteCode = false;
 
@@ -300,7 +299,6 @@
                     closeDetailsPanel();
                 }
 
-                // NOVÉ: Resetování tlačítka "Převést", pokud bylo aktivní
                 if (isShowingAbsoluteCode) {
                     const convertBtn = document.getElementById('convert-to-absolute-btn');
                     convertBtn.textContent = "Převést na Absolutní G-kód";
@@ -364,7 +362,8 @@
                         lastPoint = point;
                     }
                 } else if (!move.isArc) {
-                    distance = Math.hypot(move.toX - move.fromX, move.toZ - moveL.fromZ);
+                    // TADY BYLA CHYBA: opraveno z moveL.fromZ na move.fromZ
+                    distance = Math.hypot(move.toX - move.fromX, move.toZ - move.fromZ);
                 }
 
                 if (distance === 0) continue;
@@ -461,23 +460,20 @@
          * Pomocná funkce pro formátování čísel do G-kódu
          */
         function formatNum(num) {
-            // Zajistí, že i celé číslo bude mít .0, ale odstraní koncové nuly
             let s = Number(num).toFixed(3);
             if (s.indexOf('.') > -1) {
                  s = s.replace(/\.?0+$/, '');
             }
-            // Pokud po odstranění nul zbyde jen '123.', čárku necháme
-            if (s === "") return "0"; // Pro případ, že by bylo 0.000
+            if (s === "") return "0"; 
             return s;
         }
 
         /**
-         * UPRAVENO: Nová funkce, která spravuje přepínání
+         * Spravuje přepínání mezi absolutním a původním kódem
          */
         function toggleAbsoluteCodeView() {
             const convertBtn = document.getElementById('convert-to-absolute-btn');
             if (isShowingAbsoluteCode) {
-                // Stav 2: Zobrazujeme absolutní kód, vrátit zpět
                 cmEditor.setValue(originalCodeStore);
                 originalCodeStore = "";
                 
@@ -487,7 +483,6 @@
                 
                 isShowingAbsoluteCode = false;
                 
-                // Obnovit původní název souboru
                 const activeItem = document.querySelector('.file-item.active');
                 if (activeItem) {
                     currentFileNameEl.textContent = activeItem.dataset.filename;
@@ -496,10 +491,9 @@
                 }
 
             } else {
-                // Stav 1: Zobrazujeme původní kód, provést konverzi
                 originalCodeStore = cmEditor.getValue();
                 
-                const success = convertGCodeToAbsolute(); // Spustí konverzi
+                const success = convertGCodeToAbsolute(); 
                 
                 if (success) {
                     convertBtn.textContent = "Vrátit zpět na původní kód";
@@ -515,12 +509,11 @@
 
         /**
          * Převede 'movements' z localStorage na absolutní G-kód
-         * UPRAVENO: Přidány S, G94/G95, G96/G97 a vrací true/false
          */
         function convertGCodeToAbsolute() {
             if (!loadedData.movements || loadedData.movements.length === 0) {
                 alert("CHYBA: Nejsou načtena žádná data o pohybech ze simulátoru.");
-                return false; // Chyba
+                return false; 
             }
 
             let newCode = [];
@@ -537,7 +530,6 @@
             for (const move of loadedData.movements) {
                 let lineParts = [];
 
-                // 1. Modální G-kódy (Posuv, Otáčky)
                 if (move.feedMode !== lastFeedMode) {
                     lineParts.push(move.feedMode);
                     lastFeedMode = move.feedMode;
@@ -547,33 +539,28 @@
                     lastSpindleMode = move.spindleMode;
                 }
                 
-                // 2. Modální G-kód (Pohyb)
                 if (move.type !== lastMoveType) {
                     lineParts.push(move.type);
                     lastMoveType = move.type;
                 }
                 
-                // 3. Otáčky (S)
                 if (move.spindleSpeed !== lastSpindleSpeed) {
                     lineParts.push(`S${formatNum(move.spindleSpeed)}`);
                     lastSpindleSpeed = move.spindleSpeed;
                 }
 
-                // 4. Souřadnice
                 const x = formatNum(move.toX);
                 const z = formatNum(move.toZ);
                 lineParts.push(`X${x}`);
                 lineParts.push(`Z${z}`);
                 
                 if (move.isArc && move.center) {
-                    // Doplnění I a K pro oblouky
                     const i = formatNum(move.center.x - move.fromX);
                     const k = formatNum(move.center.z - move.fromZ);
                     lineParts.push(`I${i}`);
                     lineParts.push(`K${k}`);
                 }
 
-                // 5. Posuv (F) - jen pro G1/G2/G3
                 if (!move.rapid) {
                     const f = formatNum(move.feedRate);
                     if (move.feedRate !== lastFeed) {
@@ -581,7 +568,7 @@
                         lastFeed = move.feedRate;
                     }
                 } else {
-                    lastFeed = -1; // Resetovat F pro G0
+                    lastFeed = -1; 
                 }
                 
                 newCode.push(lineParts.join(' '));
@@ -598,7 +585,7 @@
                 closeToolsPanel();
             }
             
-            return true; // Byl úspěch
+            return true; 
         }
 
         /**
@@ -606,28 +593,24 @@
          */
         window.addEventListener('DOMContentLoaded', () => {
             
-            // NOVÉ: Inicializace CodeMirror editoru
             cmEditor = CodeMirror.fromTextArea(mainEditor, {
-                lineNumbers: true,      // Přidá čísla řádků
-                mode: 'gcode',          // Nastaví mód pro CNC
-                theme: 'eclipse',       // Světlé téma
-                lineWrapping: true,     // Automaticky zalamuje řádky
+                lineNumbers: true,      
+                mode: 'gcode',          
+                theme: 'eclipse',       
+                lineWrapping: true,     
                 readOnly: false
             });
             
-            // NOVÉ: Nastavení, aby editor vyplnil flexibilní kontejner
-            // Musí být provedeno po inicializaci
             const cmWrapper = cmEditor.getWrapperElement();
             cmWrapper.style.flex = '1';
-            cmWrapper.style.minHeight = '0'; // Důležité pro flexbox
+            cmWrapper.style.minHeight = '0'; 
             
-            // Až teď spustit zbytek
             loadDataFromStorage();
             setupPanelListeners();
             
             const convertBtn = document.getElementById('convert-to-absolute-btn');
             if (convertBtn) {
-                convertBtn.addEventListener('click', toggleAbsoluteCodeView); // Změna: Volá novou přepínací funkci
+                convertBtn.addEventListener('click', toggleAbsoluteCodeView); 
             }
         });
 
