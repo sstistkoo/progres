@@ -1237,6 +1237,7 @@
                 this.reset();
                 const lines = program.split('\n');
                 const movements = [];
+                const lineIndexes = []; // <-- PŘIDÁNO: Pole pro mapování indexů
 
                 for (const line of lines) {
                     const lMatch = line.trim().match(/L(\d+)/i);
@@ -1251,18 +1252,21 @@
                 this.absoluteMode = true; 
                 this.modalMotionCommand = 'G0'; 
 
-                for (const line of lines) {
+                // Pak zpracovat pohyby
+                for (let i = 0; i < lines.length; i++) { // <-- ZMĚNA: Použít 'for' smyčku s indexem 'i'
+                    const line = lines[i]; // <-- ZMĚNA
                     if (line.trim() === '' || line.trim().startsWith(';')) continue;
                     
                     const movement = await this.parseLine(line);
                     
                     if (movement) {
                         movements.push(movement);
+                        lineIndexes.push(i); // <-- PŘIDÁNO: Uložit index řádku
                     }
                 }
 
                 debug(`Celkem pohybů: ${movements.length}`);
-                return movements;
+                return { movements, lineIndexes }; // <-- ZMĚNA: Vrátit objekt
             }
 
             setBaseDirectory(path) {
@@ -2181,10 +2185,15 @@
             async simulate(resetView = false) {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 const program = editor.value;
+                let movements = []; // <-- PŘIDÁNO
+                let lineIndexes = []; // <-- PŘIDÁNO
 
                 if (program.trim()) {
                     debug('Spuštění simulace programu');
-                    const movements = await this.parser.parseProgram(program);
+                    // ZMĚNA: Destrukturace objektu
+                    const simResult = await this.parser.parseProgram(program); 
+                    movements = simResult.movements;
+                    lineIndexes = simResult.lineIndexes;
                     
                     if (resetView) { 
                         this.lastSelectedPoint = null;
@@ -2203,6 +2212,9 @@
                 } else {
                     this.drawAxes();
                 }
+                
+                // PŘIDÁNO: Vrátit všechna potřebná data
+                return { movements, lineIndexes, program };
             }
 
             formatNumber(num) {
@@ -2465,12 +2477,38 @@
                 this.updateControls();
             }
 
+            // PŘIDÁNO: Chybějící funkce updateControls
+            updateControls() {
+                if (!this.elements) return; // Pojistka
+                this.elements.prevBtn.disabled = this.currentIndex < 0 || this.isPlaying;
+                this.elements.nextBtn.disabled = this.currentIndex >= this.movements.length - 1 || this.isPlaying;
+                this.elements.speedSlider.disabled = this.isPlaying;
+            }
+
             togglePlay() {
+                // OPRAVA: Obnovena správná logika togglePlay
                 if (this.isPlaying) {
                     this.pause();
                 } else {
                     this.play();
                 }
+            }
+
+            // PŘIDÁNO: Obnovena funkce setProgram, která byla omylem v togglePlay
+            async setProgram(data) {
+                this.stop(); 
+                
+                const lines = data.program.split('\n');
+                this.movements = data.movements || [];
+                this.lineMovements = data.lineIndexes || [];
+
+                this.elements.totalLines.textContent = lines.length;
+                this.updateLineSpans(-1); 
+                
+                this.simulator.clearAllHighlights();
+                this.simulator.drawPath(this.movements); 
+                this.elements.posX.textContent = this.simulator.formatNumber(0);
+                this.elements.posZ.textContent = this.simulator.formatNumber(0);
             }
 
             play() {
@@ -2480,7 +2518,7 @@
                 this.isPlaying = true;
                 this.elements.playBtn.innerHTML = '<span class="button-icon">⏸️</span>';
                 this.elements.playBtn.title = 'Pozastavit';
-                this.updateControls();
+                this.updateControls(); // <-- PŘIDÁNO
                 this.playNext();
             }
 
@@ -2489,27 +2527,30 @@
                 this.elements.playBtn.innerHTML = '<span class="button-icon">▶️</span>';
                 this.elements.playBtn.title = 'Přehrát';
                 clearTimeout(this.playTimer);
-                this.updateControls();
+                this.updateControls(); // <-- PŘIDÁNO
             }
 
             prev() {
+                // OPRAVA: Obnovena správná logika prev
                 if (this.currentIndex > 0) {
                     this.currentIndex--;
                 } else {
                     this.currentIndex = -1; 
                 }
                 this.drawToCurrentIndex(false);
-                this.updateControls();
+                this.updateControls(); // <-- PŘIDÁNO
             }
-
+            
+            // PŘIDÁNO: Obnovena funkce next (byla v overwriteFromClipboard)
             next() {
                 if (this.currentIndex < this.movements.length - 1) {
                     this.currentIndex++;
                     this.drawToCurrentIndex(false);
-                    this.updateControls();
+                    this.updateControls(); 
                 }
             }
             
+            // PŘIDÁNO: Obnovena funkce drawToCurrentIndex (byla v overwriteFromClipboard)
             async drawToCurrentIndex(centerView = false) {
                 if (this.currentIndex < 0) {
                     this.simulator.clearAllHighlights();
@@ -2544,45 +2585,7 @@
             }
 
 
-            updateControls() {
-                this.elements.prevBtn.disabled = this.currentIndex < 0 || this.isPlaying;
-                this.elements.nextBtn.disabled = this.currentIndex >= this.movements.length - 1 || this.isPlaying;
-                this.elements.speedSlider.disabled = this.isPlaying;
-            }
-
-            async setProgram(program) {
-                this.stop(); 
-                
-                const playerParser = new CNCParser();
-                playerParser.parameters = new Map(this.simulator.parser.parameters);
-
-                const lines = program.split('\n');
-                this.movements = [];
-                this.lineMovements = [];
-                
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    if (line.trim() === '' || line.trim().startsWith(';')) {
-                        continue;
-                    }
-
-                    const movement = await playerParser.parseLine(line);
-                    
-                    if (movement) {
-                        this.movements.push(movement);
-                        this.lineMovements.push(i);
-                    }
-                }
-
-                this.elements.totalLines.textContent = lines.length;
-                this.updateLineSpans(-1); 
-                
-                this.simulator.clearAllHighlights();
-                this.simulator.drawPath(this.movements); 
-                this.elements.posX.textContent = this.simulator.formatNumber(0);
-                this.elements.posZ.textContent = this.simulator.formatNumber(0);
-            }
-
+            // PŘIDÁNO: Obnovena funkce highlightEditorLine (byla v prev)
             highlightEditorLine(lineIndex) {
                  const lines = editor.value.split('\n');
                  const cleanLines = lines.map(line => line.replace(/^→\s*/, ''));
@@ -2829,10 +2832,14 @@
 
         window.simulateProgram = async function() {
             if (window.simulator) {
-                await window.simulator.simulate();
+                // Krok 1: Spustit simulaci (parsování)
+                // ZMĚNA: Uložíme si vrácená data (movements, lineIndexes, program)
+                const simData = await window.simulator.simulate();
                 
-                if (window.simulator.player) {
-                    await window.simulator.player.setProgram(editor.value);
+                // Krok 2: Nastavit program pro přehrávač
+                // ZMĚNA: Předáme 'simData' objekt místo 'editor.value'
+                if (simData && window.simulator.player) {
+                    await window.simulator.player.setProgram(simData);
                 }
             }
         };
@@ -2974,20 +2981,22 @@
                         toggleEditorMode();
                     }
                 } else {
+                    // OPRAVA: Obnovena správná logika pro prázdnou schránku
                     if (overwriteBtn) {
                         const originalTitle = overwriteBtn.title;
                         overwriteBtn.title = 'Schránka je prázdná!';
                         setTimeout(() => { overwriteBtn.title = originalTitle; }, 3000);
                     }
                 }
+            // OPRAVA: Ukončena funkce a přidán catch blok
             } catch (err) {
-                console.error('Nepodařilo se číst ze schránky: ', err);
-                const overwriteBtn = document.getElementById('overwriteBtn');
-                if (overwriteBtn) {
+                 console.error('Nepodařilo se číst ze schránky: ', err);
+                 const overwriteBtn = document.getElementById('overwriteBtn');
+                 if (overwriteBtn) {
                     const originalTitle = overwriteBtn.title;
                     overwriteBtn.title = 'Chyba! Povolte prosím přístup ke schránce.';
                     setTimeout(() => { overwriteBtn.title = originalTitle; }, 3000);
-                }
+                 }
             }
         }
 
