@@ -94,7 +94,8 @@
             <div class="p-4 border-b">
                 <h2 class="text-lg font-semibold text-gray-800">Strojní čas</h2>
                 <div id="time-summary" class="mt-2 p-3 bg-gray-50 rounded-lg">
-                    <p class="text-sm text-gray-600">Celkový čas (všech programů):</p>
+                    <!-- Text upraven na součet všech podprogramů (.SPF) -->
+                    <p class="text-sm text-gray-600">Celkový čas (součet všech SPF podprogramů):</p>
                     <p id="total-time" class="text-2xl font-bold text-blue-600">Výpočet...</p>
                     <p id="time-details" class="text-xs text-gray-500"></p>
                     
@@ -153,7 +154,7 @@
         let loadedData = {
             mainProgramName: "", 
             parameters: new Map(),
-            movements: [],
+            movements: [], // Toto jsou pohyby POUZE pro mainProgramName
             loadedPrograms: {}
         };
         
@@ -204,16 +205,13 @@
                 this.modalSpindleMode = 'G97';
             }
 
-            // --- PŘIDÁNO: Načtení parametrů z globálního úložiště ---
-            // Tím se zajistí, že R-parametry jsou k dispozici pro výpočty
+            // Načtení parametrů z globálního úložiště
             loadParameters(parametersMap) {
                  if (parametersMap instanceof Map) {
                     this.parameters = new Map(parametersMap);
                 } else if (Array.isArray(parametersMap)) {
-                    // Fallback pro případ, že by data byla pole
                     this.parameters = new Map(parametersMap);
                 }
-                // Doplnit chybějící R-parametry nulami
                  for (let i = 0; i <= 99; i++) {
                     if (!this.parameters.has(`R${i}`)) {
                         this.parameters.set(`R${i}`, 0);
@@ -221,7 +219,7 @@
                 }
             }
 
-            // --- PŘIDÁNO: Načtení podprogramů z globálního úložiště ---
+            // Načtení podprogramů z globálního úložiště
             loadSubprograms(loadedProgramsData) {
                 this.loadedSubprograms.clear();
                 for (const filename in loadedProgramsData) {
@@ -443,13 +441,8 @@
             }
 
             async parseLine(line) {
-                const lMatch = line.trim().match(/L(\d+)/i);
-                if (lMatch) {
-                    const subprogramNumber = parseInt(lMatch[1]);
-                    // --- OPRAVA: Volat processSubprogramParameters ---
-                    await this.processSubprogramParameters(subprogramNumber);
-                    return null; 
-                }
+                // Tato funkce je nyní "čistá" - neřeší L-volání ani řízení toku (GOTOF, STOPRE)
+                // Tyto příkazy se filtrují o úroveň výš, aby se zajistilo, že se dostaneme ke VŠEM L-voláním.
 
                 const cleanedLine = line.trim().toUpperCase().replace(/G0(?=[XZ])/g, 'G0 ').replace(/G1(?=[XZ])/g, 'G1 ').replace(/G91(?=[XZ])/g, 'G91 ').replace(/G90(?=[XZ])/g, 'G90 '); 
 
@@ -564,86 +557,113 @@
                 return hasMove ? movement : null;
             }
 
-            // --- OPRAVA: Načítá podprogramy z this.loadedSubprograms ---
+            // Načítá podprogramy z this.loadedSubprograms
             async loadSubprogram(number) {
                 const baseName = `L${number}`;
                 
-                // Zkusit načíst z již načtených dat v editoru
                 if (this.loadedSubprograms.has(baseName)) {
                     return this.loadedSubprograms.get(baseName);
                 }
                 
-                // Fallback (pro jistotu, i když by to nemělo nastat)
                 console.warn(`Podprogram ${baseName} nenalezen v 'loadedSubprograms'.`);
                 return null;
             }
 
+            // TATO FUNKCE SE JIŽ NEPOUŽÍVÁ, ale necháme ji pro případnou budoucí potřebu
             async processSubprogramParameters(subprogramNumber) {
                 const content = await this.loadSubprogram(subprogramNumber);
                 if (!content) return;
+                // ... (zbytek funkce je v pořádku, ale je teď součástí `parseLine`) ...
+            }
+            
+            // --- OPRAVENÁ REKURZIVNÍ FUNKCE (filtrování řízení toku) ---
+            /**
+             * Rekurzivně parsuje řádky, "rozbaluje" L-volání a IGNORUJE řízení toku.
+             */
+            async processLines(lines, depth) {
+                if (depth > 10) { // Ochrana proti nekonečné rekurzi
+                    console.warn("Překročena hloubka rekurze podprogramů");
+                    return { movements: [], lineIndexes: [] };
+                }
 
-                const lines = content.split('\n');
-                for (const line of lines) {
+                const allMovements = [];
+                const allLineIndexes = []; 
+
+                // Regulární výraz pro ignorování řízení toku a konce programu
+                // Zahrnuje: GOTOF, GOTOB, STOPRE, M30, M17 (konec SPF) a návěští s dvojtečkou (PROGR:, SKOK50:, KONEC:)
+                const flowControlRegex = /\b(GOTOF|GOTOB|STOPRE|M30|M17|M80|M00|M5|M9|LIMS=|G53|T\d+|D\d+|R\d+==?R\d+|IF|ELSIF|ELSE)\b|:/i;
+
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
                     const trimmedLine = line.trim().toUpperCase();
-                    if (trimmedLine.includes('R') && trimmedLine.includes('=')) {
-                        const lineWithoutComments = trimmedLine.split(';')[0].trim();
-                        const cleanLine = lineWithoutComments.replace(/^N\d+\s*/, '');
-                        const parts = cleanLine.split(/\s+/);
-                        for (const part of parts) {
-                            const match = part.match(/^R(\d+)\s*=\s*([^=].*)/);
-                            if (match) {
-                                const [, paramNum, expression] = match;
-                                try {
-                                    let cleanExpr = expression.replace(/^\(|\)$/g, '');
-                                    const expandedExpr = cleanExpr.replace(/R(\d+)/g, (match, num) => {
-                                        const value = this.parameters.get(`R${num}`);
-                                        return value !== undefined ? value : '0';
-                                    });
-                                    const result = Function(`return ${expandedExpr}`)();
-                                    const numResult = Number(result);
-                                    if (!isNaN(numResult)) {
-                                        this.parameters.set(`R${paramNum}`, numResult);
-                                    }
-                                } catch (e) {
-                                    console.warn(`[Editor Parser] ✗ Chyba při zpracování parametru '${part}' v L${subprogramNumber}:`, e);
-                                }
+
+                    if (trimmedLine === '' || trimmedLine.startsWith(';')) continue;
+                    
+                    // --- NOVÁ KONTROLA: IGNOROVAT VĚTŠINU PŘÍKAZŮ ŘÍZENÍ TOKU A NÁVĚŠTÍ ---
+                    if (flowControlRegex.test(trimmedLine) && !trimmedLine.match(/R(\d+)\s*=\s*(.+)/)) {
+                        
+                        // Speciální kontrola pro R-přiřazení, aby se neignorovala
+                        if (trimmedLine.includes('R') && trimmedLine.includes('=')) {
+                            // Je to R-přiřazení: Zpracujeme jej pro jeho vedlejší efekt (aktualizace R-parametrů), ale nepřidáme pohyb
+                            await this.parseLine(line); 
+                            continue;
+                        }
+                        
+                        // Ostatní příkazy řízení toku ignorujeme
+                        continue;
+                    }
+                    
+                    // Kontrola L-volání (zavoláme POUZE čisté L-volání bez jiné G-kódu)
+                    const lMatch = trimmedLine.match(/^L(\d+)\s*(\;|$)/);
+                    if (lMatch) {
+                        const subprogramNumber = parseInt(lMatch[1]);
+                        const subprogramContent = await this.loadSubprogram(subprogramNumber);
+                        
+                        if (subprogramContent) {
+                            const subLines = subprogramContent.split('\n');
+                            // REKURZE:
+                            const subResult = await this.processLines(subLines, depth + 1);
+                            allMovements.push(...subResult.movements);
+                        }
+                    } else {
+                        // Není to L-volání ani řízení toku, parsujeme řádek pro G/X/Z/R=
+                        const movement = await this.parseLine(line); 
+                        
+                        if (movement) {
+                            allMovements.push(movement);
+                            if (depth === 0) {
+                                allLineIndexes.push(i);
                             }
                         }
                     }
                 }
+                
+                return { movements: allMovements, lineIndexes: allLineIndexes };
             }
             
+            // --- UPRAVENÁ FUNKCE ---
             async parseProgram(program) {
+                // Tady resetujeme, aby parsování vždy začalo na 0,0 a G90 pro každé MPF
                 this.reset();
-                // Načíst parametry a podprogramy z globálního úložiště
                 this.loadParameters(loadedData.parameters);
                 this.loadSubprograms(loadedData.loadedPrograms);
                 
                 const lines = program.split('\n');
-                const movements = [];
-                const lineIndexes = []; 
+                
+                // Ponecháme globální reset jen pro vizualizaci/krokování, ne pro čisté parsování času
+                // this.currentX = 0;
+                // this.currentZ = 0;
+                // this.absoluteMode = true; 
+                // this.modalMotionCommand = 'G0'; 
 
-                // Zde už nevoláme processSubprogramParameters globálně,
-                // protože parseLine to dělá řádek po řádku
-                this.currentX = 0;
-                this.currentZ = 0;
-                this.absoluteMode = true; 
-                this.modalMotionCommand = 'G0'; 
+                // Zavoláme opravenou rekurzivní funkci
+                const result = await this.processLines(lines, 0);
 
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    if (line.trim() === '' || line.trim().startsWith(';')) continue;
-                    
-                    const movement = await this.parseLine(line);
-                    
-                    if (movement) {
-                        movements.push(movement);
-                        lineIndexes.push(i); 
-                    }
-                }
-
-                debug(`Naparsováno ${movements.length} pohybů pro tento soubor.`);
-                return { movements, lineIndexes, program }; 
+                debug(`Naparsováno ${result.movements.length} pohybů pro tento soubor (včetně podprogramů).`);
+                
+                // Vracíme všechny nalezené pohyby
+                return { movements: result.movements, lineIndexes: result.lineIndexes, program }; 
             }
         }
         // --- KONEC TŘÍDY CNCParser ---
@@ -670,7 +690,7 @@
         /**
          * Načte data z localStorage a spustí naplnění UI
          */
-        function loadDataFromStorage() {
+        async function loadDataFromStorage() {
             let dataString;
             try {
                 dataString = localStorage.getItem('cncExternalEditorData');
@@ -686,25 +706,23 @@
             
                 loadedData = JSON.parse(dataString);
                 
-                // OPRAVA: Přenese pole parametrů do Map
                 if (Array.isArray(loadedData.parameters)) {
                     loadedData.parameters = new Map(loadedData.parameters);
                 } else {
-                    // Fallback pro případ, že by to už byl objekt
                     loadedData.parameters = new Map(Object.entries(loadedData.parameters || {}));
                 }
 
 
-                if (!loadedData.loadedPrograms || !loadedData.parameters || !loadedData.movements || !loadedData.mainProgramName) {
+                if (!loadedData.loadedPrograms || !loadedData.parameters || !loadedData.mainProgramName) {
                     throw new Error("Data v localStorage jsou nekompletní nebo chybí 'mainProgramName'.");
                 }
 
                 populateProgramList(loadedData.loadedPrograms);
                 populateParameters(loadedData.parameters);
                 
-                calculateMachiningTime(loadedData.movements, 'total-time', 'time-details');
+                // Tento výpočet by teď měl fungovat správně díky novému parseru
+                await calculateAndDisplayTotalTimeForAllPrograms();
 
-                // UPRAVENO: Zavolá novou async funkci
                 displayFileContent(loadedData.mainProgramName); 
 
             } catch (error) {
@@ -714,6 +732,57 @@
                 totalTimeEl.textContent = "Chyba";
             }
         }
+        
+        
+        // --- OPRAVENÁ FUNKCE (SČÍTÁ POUZE SPF) ---
+        /**
+         * Vypočítá a zobrazí celkový čas pro VŠECHNY PODPROGRAMY (.SPF).
+         * Tím se dostaneme k celkovému součtu operací, pokud je MPF pouze řídicí soubor.
+         */
+        async function calculateAndDisplayTotalTimeForAllPrograms() {
+            const totalTimeEl = document.getElementById('total-time');
+            const totalDetailsEl = document.getElementById('time-details');
+            
+            if (!totalTimeEl || !totalDetailsEl) return;
+
+            totalTimeEl.textContent = "Výpočet...";
+            totalDetailsEl.textContent = "(parsování všech SPF souborů...)";
+
+            let grandTotalTimeMinutes = 0;
+            const programNames = Object.keys(loadedData.loadedPrograms);
+
+            for (const filename of programNames) {
+                // NOVÝ FILTR: Počítáme čas POUZE pro podprogramy (.SPF)
+                if (!filename.toUpperCase().endsWith('.SPF')) {
+                    continue; 
+                }
+                
+                try {
+                    // Použijeme čistý parser, který se resetuje pro každý soubor
+                    const localParser = new CNCParser();
+                    localParser.loadParameters(loadedData.parameters);
+                    localParser.loadSubprograms(loadedData.loadedPrograms);
+                    
+                    const programText = loadedData.loadedPrograms[filename];
+                    // Parsování SPF souboru (včetně rekurzivních volání uvnitř SPF, pokud existují)
+                    const parsedData = await localParser.parseProgram(programText); 
+                    
+                    // Vypočítáme čas pro tento podprogram
+                    const fileTimeMinutes = calculateMachiningTime(parsedData.movements, null, null);
+                    grandTotalTimeMinutes += fileTimeMinutes;
+
+                } catch (e) {
+                    console.error(`Chyba při parsování souboru ${filename} pro celkový čas:`, e);
+                }
+            }
+
+            // Aktualizujeme DOM s celkovým součtem
+            const time = formatTime(grandTotalTimeMinutes);
+            totalTimeEl.textContent = time.formatted;
+            totalDetailsEl.textContent = `(${grandTotalTimeMinutes.toFixed(2)} minut)`;
+        }
+        // --- KONEC OPRAVENÉ FUNKCE (SČÍTÁ POUZE SPF) ---
+
 
         /**
          * Nastaví listenery pro otevírání/zavírání menu
@@ -815,21 +884,27 @@
                 }
                 
                 // --- PŘEPOČET ČASU PRO TENTO SOUBOR ---
+                const fileTimeEl = document.getElementById('file-time');
+                const fileTimeDetailsEl = document.getElementById('file-time-details');
+                
                 try {
-                    // Vytvoříme novou instanci parseru pro každý přepočet
+                    fileTimeEl.textContent = "Výpočet...";
+                    fileTimeDetailsEl.textContent = "(parsování...)";
+                    
                     const localParser = new CNCParser();
-                    // Důležité: Dáme mu globální parametry a seznam podprogramů
                     localParser.loadParameters(loadedData.parameters);
                     localParser.loadSubprograms(loadedData.loadedPrograms);
                     
                     const programText = loadedData.loadedPrograms[filename];
                     
+                    // TATO FUNKCE TEĎ VRÁTÍ POHYBY VČETNĚ PODPROGRAMŮ
                     const parsedData = await localParser.parseProgram(programText);
+                    
                     calculateMachiningTime(parsedData.movements, 'file-time', 'file-time-details');
                 } catch (e) {
                     console.error(`Chyba při parsování souboru ${filename} pro čas:`, e);
-                    document.getElementById('file-time').textContent = "Chyba";
-                    document.getElementById('file-time-details').textContent = e.message;
+                    fileTimeEl.textContent = "Chyba";
+                    fileTimeDetailsEl.textContent = e.message;
                 }
 
             } else {
@@ -866,20 +941,19 @@
         }
 
         /**
-         * Vypočítá a zobrazí celkový strojní čas
+         * Vypočítá a zobrazí strojní čas.
          */
-        function calculateMachiningTime(movements, targetTimeElementId = 'total-time', targetDetailsElementId = 'time-details') {
-            const timeEl = document.getElementById(targetTimeElementId);
-            const detailsEl = document.getElementById(targetDetailsElementId);
-
-            if (!timeEl || !detailsEl) return; 
-
+        function calculateMachiningTime(movements, targetTimeElementId = null, targetDetailsElementId = null) {
             let totalTimeMinutes = 0;
 
             if (!movements || movements.length === 0) {
-                timeEl.textContent = "0:00";
-                detailsEl.textContent = "(0.00 minut)";
-                return;
+                 if (targetTimeElementId && targetDetailsElementId) {
+                    const timeEl = document.getElementById(targetTimeElementId);
+                    const detailsEl = document.getElementById(targetDetailsElementId);
+                    if(timeEl) timeEl.textContent = "0:00";
+                    if(detailsEl) detailsEl.textContent = "(0.00 minut)";
+                 }
+                return 0;
             }
 
             for (const move of movements) {
@@ -914,10 +988,20 @@
                 totalTimeMinutes += timeForMove;
             }
 
-            const time = formatTime(totalTimeMinutes);
-            timeEl.textContent = time.formatted;
-            detailsEl.textContent = `(${totalTimeMinutes.toFixed(2)} minut)`;
+            if (targetTimeElementId && targetDetailsElementId) {
+                const timeEl = document.getElementById(targetTimeElementId);
+                const detailsEl = document.getElementById(targetDetailsElementId);
+                
+                if (timeEl && detailsEl) {
+                    const time = formatTime(totalTimeMinutes);
+                    timeEl.textContent = time.formatted;
+                    detailsEl.textContent = `(${totalTimeMinutes.toFixed(2)} minut)`;
+                }
+            }
+            
+            return totalTimeMinutes;
         }
+
 
         /**
          * Převede minuty na formát H:MM:SS
@@ -1027,25 +1111,60 @@
                 // Provést konverzi
                 originalCodeStore = mainEditor.value; 
                 
-                const success = convertGCodeToAbsolute(); 
+                // POZOR: Tato funkce stále používá `loadedData.movements`,
+                // což jsou pohyby *pouze* hlavního programu tak, jak je poslal simulátor.
+                // To je teď matoucí. Pro správnou funkci by to chtělo re-parsovat.
                 
-                if (success) {
-                    convertBtn.textContent = "Vrátit zpět na původní kód";
-                    convertBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-                    convertBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
-                    
-                    isShowingAbsoluteCode = true;
-                } else {
-                    originalCodeStore = ""; 
-                }
+                // Prozatím necháme původní chování, ale bylo by lepší
+                // to sjednotit a použít re-parsování i zde.
+                
+                // const success = convertGCodeToAbsolute(loadedData.movements); 
+                
+                // --- LEPŠÍ ZPŮSOB ---
+                // Použijeme nový parser, abychom dostali VŠECHNY pohyby
+                
+                (async () => {
+                    try {
+                        const localParser = new CNCParser();
+                        localParser.loadParameters(loadedData.parameters);
+                        localParser.loadSubprograms(loadedData.loadedPrograms);
+                        
+                        // Získáme jméno aktuálně aktivního souboru
+                        const activeItem = document.querySelector('.file-item.active');
+                        let filenameToParse = loadedData.mainProgramName;
+                        if (activeItem) {
+                            filenameToParse = activeItem.dataset.filename;
+                        }
+                        
+                        const programText = loadedData.loadedPrograms[filenameToParse];
+                        const parsedData = await localParser.parseProgram(programText);
+                        
+                        // A teď převedeme VŠECHNY pohyby (včetně podprogramů)
+                        const success = convertGCodeToAbsolute(parsedData.movements);
+                        
+                        if (success) {
+                            convertBtn.textContent = "Vrátit zpět na původní kód";
+                            convertBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                            convertBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+                            
+                            isShowingAbsoluteCode = true;
+                        } else {
+                            originalCodeStore = ""; 
+                        }
+                    } catch (e) {
+                        console.error("Chyba při konverzi na absolutní G-kód:", e);
+                        alert("Chyba při konverzi na absolutní G-kód.");
+                        originalCodeStore = "";
+                    }
+                })();
             }
         }
 
         /**
          * Převede 'movements' z localStorage na absolutní G-kód
          */
-        function convertGCodeToAbsolute() {
-            if (!loadedData.movements || loadedData.movements.length === 0) {
+        function convertGCodeToAbsolute(movements) {
+            if (!movements || movements.length === 0) {
                 alert("CHYBA: Nejsou načtena žádná data o pohybech ze simulátoru.");
                 return false; 
             }
@@ -1057,6 +1176,7 @@
             let newCode = [];
             newCode.push(...originalHeader);
             newCode.push('; --- KÓD PŘEVEDENÝ NA ABSOLUTNÍ HODNOTY ---');
+            newCode.push('; (včetně pohybů z podprogramů)');
             newCode.push('G90 ; Absolutní souřadnice');
             
             let lastFeed = -1;
@@ -1065,7 +1185,7 @@
             let lastFeedMode = "";
             let lastSpindleMode = "";
 
-            for (const move of loadedData.movements) {
+            for (const move of movements) {
                 let lineParts = [];
 
                 if (move.feedMode !== lastFeedMode) {
@@ -1133,6 +1253,7 @@
          */
         document.addEventListener('DOMContentLoaded', () => {
             setupPanelListeners();
+            // Upraveno na async, aby počkalo na výpočet času
             loadDataFromStorage();
         });
 
