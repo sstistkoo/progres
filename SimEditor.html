@@ -172,6 +172,41 @@
 
 
         /**
+         * Načte data z localStorage a spustí naplnění UI
+         * (TATO FUNKCE BYLA OMYLEM SMAZÁNA A NYNÍ JE VRÁCENA)
+         */
+        function loadDataFromStorage() {
+            const dataString = localStorage.getItem('cncExternalEditorData');
+            if (!dataString) {
+                mainEditor.value = "CHYBA: V localStorage nebyla nalezena žádná data (cncExternalEditorData).\n\nZkuste se vrátit do simulátoru a znovu kliknout na tlačítko 'Upravit'.";
+                programListEl.innerHTML = '<p class="text-red-500 text-sm">Data nenalezena.</p>';
+                totalTimeEl.textContent = "Chyba";
+                return;
+            }
+
+            try {
+                loadedData = JSON.parse(dataString);
+
+                // Kontrola dat
+                if (!loadedData.loadedPrograms || !loadedData.parameters || !loadedData.movements) {
+                    throw new Error("Data v localStorage jsou nekompletní.");
+                }
+
+                // Spuštění funkcí pro naplnění UI
+                populateProgramList(loadedData.loadedPrograms, loadedData.rawCode);
+                populateParameters(loadedData.parameters);
+                calculateMachiningTime(loadedData.movements);
+
+                // Zobrazit hlavní program jako výchozí
+                displayFileContent('main_program'); // Použijeme speciální klíč
+
+            } catch (error) {
+                console.error("Chyba při parsování dat z localStorage:", error);
+                mainEditor.value = `CHYBA: Nepodařilo se zpracovat data z localStorage.\n\n${error.message}`;
+            }
+        }
+
+        /**
          * NOVÁ FUNKCE: Nastaví listenery pro otevírání/zavírání menu
          */
         function setupMenuListeners() {
@@ -428,6 +463,14 @@
             // která byla otevřena pomocí skriptu (což je náš případ)
             window.close();
         }
+
+        /**
+         * Spustí se po načtení DOM
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDataFromStorage();
+            setupMenuListeners();
+        });
 
     </script>
 </body>
