@@ -362,7 +362,6 @@
                         lastPoint = point;
                     }
                 } else if (!move.isArc) {
-                    // TADY BYLA CHYBA: opraveno z moveL.fromZ na move.fromZ
                     distance = Math.hypot(move.toX - move.fromX, move.toZ - move.fromZ);
                 }
 
@@ -515,10 +514,14 @@
                 alert("CHYBA: Nejsou načtena žádná data o pohybech ze simulátoru.");
                 return false; 
             }
+            
+            const originalLines = originalCodeStore.split('\n');
+            const originalHeader = originalLines.slice(0, 2).map(line => `; ${line.trim()}`);
 
             let newCode = [];
             newCode.push('; --- KÓD PŘEVEDENÝ NA ABSOLUTNÍ HODNOTY ---');
-            newCode.push('; --- Vygenerováno ze všech pohybů (G0-G3) ---');
+            newCode.push(...originalHeader);
+            newCode.push(';');
             newCode.push('G90 ; Absolutní souřadnice');
             
             let lastFeed = -1;
@@ -575,7 +578,14 @@
             }
 
             cmEditor.setValue(newCode.join('\n'));
-            currentFileNameEl.textContent = "Absolutní G-kód (Přepočteno)";
+            
+            // Nastavení záhlaví
+            let activeFilename = loadedData.mainProgramName;
+            const activeItem = document.querySelector('.file-item.active');
+            if (activeItem) {
+                activeFilename = activeItem.dataset.filename;
+            }
+            currentFileNameEl.textContent = `${activeFilename} (Absolutní)`;
 
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('active');
