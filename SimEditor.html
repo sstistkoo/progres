@@ -61,7 +61,28 @@
                 </div>
             </div>
 
-            <!-- Sekce: Čas stroje -->
+            <!-- Sekce: Čas stroje (PŘESUNUTO DO PRAVÉHO PANELU) -->
+            
+            <!-- Sekce: Parametry (PŘESUNUTO DO PRAVÉHO PANELU) -->
+            
+        </nav>
+
+        <!-- 
+          Pravý postranní panel (NOVÝ) - pro detaily
+          - Na mobilu: 'fixed', 'inset-y-0', 'right-0', 'z-40'
+          - Schovaný mimo obrazovku: 'translate-x-full'
+          - Na PC (lg:): 'relative', 'translate-x-0'
+        -->
+        <aside id="details-panel" class="fixed lg:relative inset-y-0 right-0 w-80 h-full bg-white border-l border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+            <!-- Hlavička postranního panelu (NOVÁ) -->
+            <div class="flex justify-between items-center p-4 border-b lg:hidden">
+                <h2 class="text-lg font-semibold text-gray-800">Detaily</h2>
+                <button id="details-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+            </div>
+
+            <!-- Sekce: Čas stroje (PŘESUNUTO SEM) -->
             <div class="p-4 border-b">
                 <h2 class="text-lg font-semibold text-gray-800">Strojní čas</h2>
                 <div id="time-summary" class="mt-2 p-3 bg-gray-50 rounded-lg">
@@ -71,14 +92,14 @@
                 </div>
             </div>
 
-            <!-- Sekce: Parametry -->
+            <!-- Sekce: Parametry (PŘESUNUTO SEM) -->
             <div class="p-4 flex-1">
                 <h2 class="text-lg font-semibold text-gray-800">R-Parametry</h2>
                 <div id="parameter-list" class="mt-2 h-64 overflow-y-auto bg-gray-50 rounded-lg p-2 text-sm font-mono space-y-1">
                     <!-- Sem se dynamicky vloží parametry -->
                 </div>
             </div>
-        </nav>
+        </aside>
 
         <!-- Overlay (NOVÝ) - pro ztmavení pozadí na mobilu -->
         <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
@@ -88,18 +109,32 @@
             <!-- Záhlaví editoru -->
             <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center">
                 
-                <!-- Tlačítko Menu (NOVÉ) - zobrazí se jen na mobilu (lg:hidden) -->
-                <button id="menu-open-btn" class="p-2 mr-2 text-gray-600 hover:text-gray-800 lg:hidden">
-                    <i class="fas fa-bars fa-lg"></i>
-                </button>
+                <!-- Tlačítka vlevo (Menu + Detaily) -->
+                <div class="flex items-center gap-2">
+                    <!-- Tlačítko Menu (lg:hidden) -->
+                    <button id="menu-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 lg:hidden">
+                        <i class="fas fa-bars fa-lg"></i>
+                    </button>
+                    <!-- Tlačítko Detaily (NOVÉ) (lg:hidden) -->
+                    <button id="details-open-btn" class="p-2 text-gray-600 hover:text-gray-800 lg:hidden">
+                        <i class="fas fa-info-circle fa-lg"></i>
+                    </button>
+                </div>
                 
-                <h1 id="current-file-name" class="text-xl font-semibold text-gray-900 truncate">
+                <h1 id="current-file-name" class="text-xl font-semibold text-gray-900 truncate mx-2">
                     Editor
                 </h1>
                 
-                <button id="save-btn" onclick="copyToClipboard()" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 flex-shrink-0 transition-colors duration-200">
-                    Uložit
-                </button>
+                <!-- Tlačítka vpravo (Uložit + Zavřít) -->
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <button id="save-btn" onclick="copyToClipboard()" class="ml-0 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors duration-200">
+                        Uložit
+                    </button>
+                    <!-- Tlačítko Zavřít (NOVÉ) -->
+                    <button id="close-btn" onclick="closeTab()" title="Zavřít záložku" class="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
             
             <!-- Textový editor -->
@@ -130,13 +165,11 @@
         const menuOpenBtn = document.getElementById('menu-open-btn');
         const menuCloseBtn = document.getElementById('menu-close-btn');
 
-        /**
-         * Spustí se po načtení stránky
-         */
-        window.onload = function() {
-            loadDataFromStorage();
-            setupMenuListeners();
-        };
+        // NOVÉ DOM Elementy pro panel detailů
+        const detailsPanel = document.getElementById('details-panel');
+        const detailsOpenBtn = document.getElementById('details-open-btn');
+        const detailsCloseBtn = document.getElementById('details-close-btn');
+
 
         /**
          * NOVÁ FUNKCE: Nastaví listenery pro otevírání/zavírání menu
@@ -145,12 +178,24 @@
             if (menuOpenBtn && menuCloseBtn && sidebar && overlay) {
                 menuOpenBtn.addEventListener('click', openSidebar);
                 menuCloseBtn.addEventListener('click', closeSidebar);
-                overlay.addEventListener('click', closeSidebar);
+            }
+            // NOVÉ: Přidání listenerů pro pravý panel
+            if (detailsOpenBtn && detailsCloseBtn && detailsPanel) {
+                detailsOpenBtn.addEventListener('click', openDetailsPanel);
+                detailsCloseBtn.addEventListener('click', closeDetailsPanel);
+            }
+            // Společný overlay
+            if (overlay) {
+                overlay.addEventListener('click', () => {
+                    closeSidebar();
+                    closeDetailsPanel();
+                });
             }
         }
         
         /** NOVÁ FUNKCE: Otevře postranní panel */
         function openSidebar() {
+            closeDetailsPanel(); // Zavřít druhý panel, pokud je otevřený
             sidebar.classList.remove('-translate-x-full');
             overlay.classList.remove('hidden');
         }
@@ -158,37 +203,25 @@
         /** NOVÁ FUNKCE: Zavře postranní panel */
         function closeSidebar() {
             sidebar.classList.add('-translate-x-full');
-            overlay.classList.add('hidden');
+            // Skrýt overlay, pouze pokud je i druhý panel zavřený
+            if (detailsPanel.classList.contains('translate-x-full')) {
+                overlay.classList.add('hidden');
+            }
         }
 
-        /**
-         * Načte data z localStorage a spustí naplnění UI
-         */
-        function loadDataFromStorage() {
-            const dataString = localStorage.getItem('cncExternalEditorData');
-            if (!dataString) {
-                mainEditor.value = "CHYBA: V localStorage nebyla nalezena žádná data (cncExternalEditorData).\n\nZkuste se vrátit do simulátoru a znovu kliknout na tlačítko 'Upravit'.";
-                programListEl.innerHTML = '<p class="text-red-500 text-sm">Data nenalezena.</p>';
-                totalTimeEl.textContent = "Chyba";
-                return;
-            }
+        /** NOVÁ FUNKCE: Otevře panel detailů */
+        function openDetailsPanel() {
+            closeSidebar(); // Zavřít druhý panel, pokud je otevřený
+            detailsPanel.classList.remove('translate-x-full');
+            overlay.classList.remove('hidden');
+        }
 
-            try {
-                loadedData = JSON.parse(dataString);
-
-                if (!loadedData.loadedPrograms || !loadedData.parameters || !loadedData.movements) {
-                    throw new Error("Data v localStorage jsou nekompletní.");
-                }
-
-                populateProgramList(loadedData.loadedPrograms, loadedData.rawCode);
-                populateParameters(loadedData.parameters);
-                calculateMachiningTime(loadedData.movements);
-
-                displayFileContent('main_program'); // Použijeme speciální klíč
-
-            } catch (error) {
-                console.error("Chyba při parsování dat z localStorage:", error);
-                mainEditor.value = `CHYBA: Nepodařilo se zpracovat data z localStorage.\n\n${error.message}`;
+        /** NOVÁ FUNKCE: Zavře panel detailů */
+        function closeDetailsPanel() {
+            detailsPanel.classList.add('translate-x-full');
+            // Skrýt overlay, pouze pokud je i druhý panel zavřený
+            if (sidebar.classList.contains('-translate-x-full')) {
+                overlay.classList.add('hidden');
             }
         }
 
@@ -387,8 +420,14 @@
             }
         }
         
-        // Původní funkce saveAndClose() je nyní kompletně nahrazena
-        // funkcí copyToClipboard().
+        /**
+         * NOVÁ FUNKCE: Zavře aktuální záložku prohlížeče
+         */
+        function closeTab() {
+            // Poznámka: Tohle funguje spolehlivě jen u oken, 
+            // která byla otevřena pomocí skriptu (což je náš případ)
+            window.close();
+        }
 
     </script>
 </body>
