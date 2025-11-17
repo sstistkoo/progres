@@ -798,9 +798,7 @@
                                 return value !== undefined ? value : '0';
                             });
 
-                            let cleanExpr = expandedExpr.replace(/^\(|\)$/g, '');
-
-                            const result = Function(`return ${cleanExpr}`)();
+                            const result = Function(`return ${expandedExpr}`)();
                             const numResult = Number(result);
 
                             if (!isNaN(numResult)) {
@@ -1041,8 +1039,8 @@
 
                 for (let i = 0; i <= steps; i++) {
                     const angle = startAngle + angleStep * i;
-                    const x = center.x + radius * Math.sin(angle);
-                    const z = center.z + radius * Math.cos(angle);
+                    const x = centerPoint.x + radius * Math.sin(angle);
+                    const z = centerPoint.z + radius * Math.cos(angle);
                     points.push({
                         x: Number(x.toFixed(3)),
                         z: Number(z.toFixed(3))
