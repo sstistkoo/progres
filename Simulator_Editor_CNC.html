@@ -2968,7 +2968,7 @@
                     }
                 }
             } catch (err) {
-                 console.error('Nepodařilo se číst ze schránky: ', err);
+                 console.error('Nepodařilo se číst ze schránky: ', err.message);
                  const overwriteBtn = document.getElementById('overwriteBtn');
                  if (overwriteBtn) {
                     const originalTitle = overwriteBtn.title;
@@ -3001,7 +3001,7 @@
                     }
                 }
             } catch (err) {
-                 console.error('Nepodařilo se číst ze schránky: ', err);
+                 console.error('Nepodařilo se číst ze schránky: ', err.message);
                  const pasteBtn = document.getElementById('pasteBtn');
                  if (pasteBtn) {
                     const originalTitle = pasteBtn.title;
@@ -3017,27 +3017,50 @@
                 return;
             }
 
-            const movements = window.simulator.player.movements;
+            // Zastaralé: const movements = window.simulator.player.movements;
             
-            // Najdeme aktivní program
             const activeProgramEl = document.querySelector('.program-list-item.active');
-            const activeProgramName = activeProgramEl ? activeProgramEl.dataset.filename : 'HlavniProgram.mpf'; // Fallback
+            const activeProgramName = activeProgramEl ? activeProgramEl.dataset.filename : 'HlavniProgram.mpf'; 
             
             const dataToStore = {
-                mainProgramName: activeProgramName, // NOVÉ: Jméno hlavního programu
-                parameters: Array.from(window.simulator.parser.parameters.entries()), 
-                movements: movements, 
-                loadedPrograms: {} 
+                mainProgramName: activeProgramName, 
+                parameters: Array.from(window.simulator.parser.parameters), // Uložíme finální R-parametry
+                programData: {} // NOVÁ STRUKTURA: Místo movements a loadedPrograms
             };
 
             const programNames = window.simulator.parser.getProgramList();
+            
+            // Projít všechny načtené programy
             for (const name of programNames) {
-                dataToStore.loadedPrograms[name] = window.simulator.parser.getProgram(name);
+                const programText = window.simulator.parser.getProgram(name);
+                if (!programText) continue;
+
+                // Vytvořit dočasný parser pro tento jeden program
+                const tempParser = new CNCParser();
+                // DŮLEŽITÉ: Dáme mu finální R-parametry ze simulátoru
+                tempParser.parameters = new Map(window.simulator.parser.parameters);
+                
+                // Naparsujeme tento konkrétní program
+                const parsedData = await tempParser.parseProgram(programText);
+                
+                // Uložíme text I absolutní pohyby pro tento program
+                dataToStore.programData[name] = {
+                    text: programText,
+                    movements: parsedData.movements
+                };
             }
             
-            // Zajistíme, že hlavní (aktivní) program je v seznamu
-            if (!dataToStore.loadedPrograms[activeProgramName]) {
-                 dataToStore.loadedPrograms[activeProgramName] = editor.value;
+            // Zajistíme, že hlavní (aktivní) program je v seznamu, pokud by tam ještě nebyl
+            if (!dataToStore.programData[activeProgramName]) {
+                 const mainProgramText = editor.value;
+                 const tempParser = new CNCParser();
+                 tempParser.parameters = new Map(window.simulator.parser.parameters);
+                 const parsedData = await tempParser.parseProgram(mainProgramText);
+                 
+                 dataToStore.programData[activeProgramName] = {
+                    text: mainProgramText,
+                    movements: parsedData.movements
+                 };
             }
 
             try {
