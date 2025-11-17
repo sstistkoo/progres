@@ -8,6 +8,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Načtení Font Awesome pro ikony -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    
+    <!-- NOVÉ: Knihovna CodeMirror pro syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <!-- NOVÉ: Téma pro CodeMirror (světlé) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css">
+    
     <style>
         /* Jednoduchý styl pro plynulý přechod a aktivní položku */
         .file-item:hover {
@@ -26,6 +32,23 @@
         #parameter-list::-webkit-scrollbar-thumb {
             background-color: #cbd5e1; /* cool-gray-300 */
             border-radius: 3px;
+        }
+        #program-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        #program-list::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1; /* cool-gray-300 */
+            border-radius: 3px;
+        }
+        
+        /* NOVÉ: Styly pro CodeMirror, aby vyplnil flex kontejner */
+        .CodeMirror {
+            flex: 1; /* Make it fill the flex container */
+            width: 100%;
+            height: 100%;
+            font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+            font-size: 14px; /* Zvětšení písma pro lepší čitelnost */
+            line-height: 1.4;
         }
     </style>
 </head>
@@ -47,13 +70,11 @@
             
             <!-- Hlavička postranního panelu (NOVÁ) -->
             <div class="flex justify-between items-center p-4 border-b lg:hidden">
-                <h2 class="text-lg font-semibold text-gray-800">Nástroje a Detaily</h2>
+                <h2 class="text-lg font-semibold text-gray-800">Nástroje</h2>
                 <button id="tools-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
                     <i class="fas fa-times fa-lg"></i>
                 </button>
             </div>
-            
-            <!-- Sekce: Seznam souborů (PŘESUNUTO DO PRAVÉHO PANELU) -->
             
             <!-- Sekce: Nástroje (NOVÁ) -->
             <div class="p-4 border-b">
@@ -63,12 +84,37 @@
                         Převést na Absolutní G-kód
                     </button>
                     <p class="text-xs text-gray-500">
-                        Vygeneruje G-kód pouze z pracovních pohybů (G1, G2, G3) načtených ze simulátoru.
+                        Vygeneruje G-kód ze všech pohybů (G0, G1, G2, G3) načtených ze simulátoru.
                     </p>
                 </div>
             </div>
+            
+        </nav>
 
-            <!-- Sekce: Čas stroje (PŘESUNUTO ZPĚT SEM) -->
+        <!-- 
+          Pravý postranní panel (OBNOVEN) -> Nyní "Detaily a Programy"
+          - Na mobilu: 'fixed', 'inset-y-0', 'right-0', 'z-40'
+          - Schovaný mimo obrazovku: 'translate-x-full'
+          - Na PC (lg:): 'relative', 'translate-x-0'
+        -->
+        <aside id="details-panel" class="fixed lg:relative inset-y-0 right-0 w-80 h-full bg-white border-l border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+            <!-- Hlavička postranního panelu (NOVÁ) -->
+            <div class="flex justify-between items-center p-4 border-b lg:hidden">
+                <h2 class="text-lg font-semibold text-gray-800">Detaily a Programy</h2>
+                <button id="details-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+            </div>
+
+            <!-- Sekce: Seznam souborů (PŘESUNUTO SEM) -->
+            <div class="p-4 border-b">
+                <h2 class="text-lg font-semibold text-gray-800">Načtené programy</h2>
+                <div id="program-list" class="mt-2 h-64 overflow-y-auto bg-gray-50 rounded-lg p-2 text-sm space-y-1">
+                    <p class="text-gray-500 text-sm">Načítání dat...</p>
+                </div>
+            </div>
+
+            <!-- Sekce: Čas stroje (PŘESUNUTO SEM) -->
             <div class="p-4 border-b">
                 <h2 class="text-lg font-semibold text-gray-800">Strojní čas</h2>
                 <div id="time-summary" class="mt-2 p-3 bg-gray-50 rounded-lg">
@@ -78,42 +124,13 @@
                 </div>
             </div>
 
-            <!-- Sekce: Parametry (PŘESUNUTO ZPĚT SEM) -->
+            <!-- Sekce: Parametry (PŘESUNUTO SEM) -->
             <div class="p-4 flex-1">
                 <h2 class="text-lg font-semibold text-gray-800">R-Parametry</h2>
                 <div id="parameter-list" class="mt-2 h-64 overflow-y-auto bg-gray-50 rounded-lg p-2 text-sm font-mono space-y-1">
                     <!-- Sem se dynamicky vloží parametry -->
                 </div>
             </div>
-        </nav>
-
-        <!-- 
-          Pravý postranní panel (NOVÝ) -> Nyní "Seznam souborů"
-          - Na mobilu: 'fixed', 'inset-y-0', 'right-0', 'z-40'
-          - Schovaný mimo obrazovku: 'translate-x-full'
-          - Na PC (lg:): 'relative', 'translate-x-0'
-        -->
-        <aside id="files-panel" class="fixed lg:relative inset-y-0 right-0 w-80 h-full bg-white border-l border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
-            <!-- Hlavička postranního panelu (NOVÁ) -->
-            <div class="flex justify-between items-center p-4 border-b lg:hidden">
-                <h2 class="text-lg font-semibold text-gray-800">Programy</h2>
-                <button id="files-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times fa-lg"></i>
-                </button>
-            </div>
-
-            <!-- Sekce: Seznam souborů (PŘESUNUTO SEM) -->
-            <div class="p-4 border-b">
-                <h2 class="text-lg font-semibold text-gray-800">Načtené programy</h2>
-                <div id="program-list" class="mt-2 space-y-1">
-                    <p class="text-gray-500 text-sm">Načítání dat...</p>
-                </div>
-            </div>
-
-            <!-- Sekce: Čas stroje (PŘESUNUTO DO LEVÉHO PANELU) -->
-
-            <!-- Sekce: Parametry (PŘESUNUTO DO LEVÉHO PANELU) -->
-            
         </aside>
 
         <!-- Overlay (NOVÝ) - pro ztmavení pozadí na mobilu -->
@@ -130,10 +147,6 @@
                     <button id="tools-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 lg:hidden">
                         <i class="fas fa-bars fa-lg"></i>
                     </button>
-                    <!-- Tlačítko Detaily (NOVÉ) (lg:hidden) -> Nyní pro Soubory (vpravo) -->
-                    <button id="files-open-btn" class="p-2 text-gray-600 hover:text-gray-800 lg:hidden">
-                        <i class="fas fa-info-circle fa-lg"></i>
-                    </button>
                 </div>
                 
                 <h1 id="current-file-name" class="text-xl font-semibold text-gray-900 truncate mx-2">
@@ -149,13 +162,27 @@
                     <button id="close-btn" onclick="closeTab()" title="Zavřít záložku" class="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50">
                         <i class="fas fa-times"></i>
                     </button>
+                    
+                    <!-- Tlačítko Detaily (PŘESUNUTO SEM) (lg:hidden) -> Nyní pro Detaily (vpravo) -->
+                    <button id="details-open-btn" class="p-2 ml-1 text-gray-600 hover:text-gray-800 lg:hidden">
+                        <i class="fas fa-list-ul fa-lg"></i>
+                    </button>
                 </div>
             </div>
             
-            <!-- Textový editor -->
-            <textarea id="main-editor" class="flex-1 w-full h-full p-4 font-mono text-sm resize-none outline-none" spellcheck="false" placeholder="Načtěte data ze simulátoru..."></textarea>
+            <!-- 
+              Textový editor
+              UPRAVENO: Toto je nyní CodeMirror editor. 
+              Původní <textarea> je skryta a spravována knihovnou.
+            -->
+            <textarea id="main-editor" spellcheck="false" placeholder="Načtěte data ze simulátoru..."></textarea>
         </main>
     </div>
+
+    <!-- NOVÉ: JS Knihovny pro CodeMirror -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <!-- NOVÉ: JS mód pro G-Code -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/gcode/gcode.min.js"></script>
 
     <script>
         // Globální úložiště pro načtená data
@@ -173,33 +200,28 @@
         const totalTimeEl = document.getElementById('total-time');
         const timeDetailsEl = document.getElementById('time-details');
         const currentFileNameEl = document.getElementById('current-file-name');
+        
+        // NOVÁ GLOBÁLNÍ PROMĚNNÁ: Instance CodeMirror editoru
+        let cmEditor;
 
-        // NOVÉ DOM Elementy pro mobilní menu
+        // DOM Elementy pro mobilní menu
         const toolsPanel = document.getElementById('tools-panel');
         const overlay = document.getElementById('overlay');
         const toolsOpenBtn = document.getElementById('tools-open-btn');
         const toolsCloseBtn = document.getElementById('tools-close-btn');
 
-        // NOVÉ DOM Elementy pro panel detailů
-        const filesPanel = document.getElementById('files-panel');
-        const filesOpenBtn = document.getElementById('files-open-btn');
-        const filesCloseBtn = document.getElementById('files-close-btn');
-
-
-        // NOVÉ DOM Elementy pro panel detailů
         const detailsPanel = document.getElementById('details-panel');
         const detailsOpenBtn = document.getElementById('details-open-btn');
         const detailsCloseBtn = document.getElementById('details-close-btn');
 
-
         /**
          * Načte data z localStorage a spustí naplnění UI
-         * (TATO FUNKCE BYLA OMYLEM SMAZÁNA A NYNÍ JE VRÁCENA)
          */
         function loadDataFromStorage() {
             const dataString = localStorage.getItem('cncExternalEditorData');
             if (!dataString) {
-                mainEditor.value = "CHYBA: V localStorage nebyla nalezena žádná data (cncExternalEditorData).\n\nZkuste se vrátit do simulátoru a znovu kliknout na tlačítko 'Upravit'.";
+                // UPRAVENO: Použít cmEditor.setValue
+                cmEditor.setValue("CHYBA: V localStorage nebyla nalezena žádná data (cncExternalEditorData).\n\nZkuste se vrátit do simulátoru a znovu kliknout na tlačítko 'Upravit'.");
                 programListEl.innerHTML = '<p class="text-red-500 text-sm">Data nenalezena.</p>';
                 totalTimeEl.textContent = "Chyba";
                 return;
@@ -208,86 +230,82 @@
             try {
                 loadedData = JSON.parse(dataString);
 
-                // Kontrola dat
                 if (!loadedData.loadedPrograms || !loadedData.parameters || !loadedData.movements) {
                     throw new Error("Data v localStorage jsou nekompletní.");
                 }
 
-                // Spuštění funkcí pro naplnění UI
                 populateProgramList(loadedData.loadedPrograms, loadedData.rawCode);
                 populateParameters(loadedData.parameters);
                 calculateMachiningTime(loadedData.movements);
 
-                // Zobrazit hlavní program jako výchozí
-                displayFileContent('main_program'); // Použijeme speciální klíč
+                displayFileContent('main_program'); 
 
             } catch (error) {
                 console.error("Chyba při parsování dat z localStorage:", error);
-                mainEditor.value = `CHYBA: Nepodařilo se zpracovat data z localStorage.\n\n${error.message}`;
+                // UPRAVENO: Použít cmEditor.setValue
+                cmEditor.setValue(`CHYBA: Nepodařilo se zpracovat data z localStorage.\n\n${error.message}`);
             }
         }
 
         /**
-         * NOVÁ FUNKCE: Nastaví listenery pro otevírání/zavírání menu
+         * Nastaví listenery pro otevírání/zavírání menu
          */
         function setupPanelListeners() {
             if (toolsOpenBtn && toolsCloseBtn && toolsPanel && overlay) {
                 toolsOpenBtn.addEventListener('click', openToolsPanel);
                 toolsCloseBtn.addEventListener('click', closeToolsPanel);
             }
-            // NOVÉ: Přidání listenerů pro pravý panel
-            if (filesOpenBtn && filesCloseBtn && filesPanel) {
-                filesOpenBtn.addEventListener('click', openFilesPanel);
-                filesCloseBtn.addEventListener('click', closeFilesPanel);
+            
+            if (detailsOpenBtn && detailsCloseBtn && detailsPanel) {
+                detailsOpenBtn.addEventListener('click', openDetailsPanel);
+                detailsCloseBtn.addEventListener('click', closeDetailsPanel);
             }
-            // Společný overlay
+            
             if (overlay) {
                 overlay.addEventListener('click', () => {
                     closeToolsPanel();
-                    closeFilesPanel();
+                    closeDetailsPanel(); 
                 });
             }
         }
         
-        /** NOVÁ FUNKCE: Otevře postranní panel */
+        /** Otevře postranní panel */
         function openToolsPanel() {
-            closeFilesPanel(); // Zavřít druhý panel, pokud je otevřený
+            closeDetailsPanel(); 
             toolsPanel.classList.remove('-translate-x-full');
             overlay.classList.remove('hidden');
         }
 
-        /** NOVÁ FUNKCE: Zavře postranní panel */
+        /** Zavře postranní panel */
         function closeToolsPanel() {
             toolsPanel.classList.add('-translate-x-full');
-            // Skrýt overlay, pouze pokud je i druhý panel zavřený
-            if (filesPanel.classList.contains('translate-x-full')) {
+            if (detailsPanel && detailsPanel.classList.contains('translate-x-full')) {
                 overlay.classList.add('hidden');
             }
         }
-
-        /** NOVÁ FUNKCE: Otevře panel detailů */
-        function openFilesPanel() {
-            closeToolsPanel(); // Zavřít druhý panel, pokud je otevřený
-            filesPanel.classList.remove('translate-x-full');
+        
+        /** Otevře panel detailů */
+        function openDetailsPanel() {
+            closeToolsPanel(); 
+            detailsPanel.classList.remove('translate-x-full');
             overlay.classList.remove('hidden');
         }
 
-        /** NOVÁ FUNKCE: Zavře panel detailů */
-        function closeFilesPanel() {
-            filesPanel.classList.add('translate-x-full');
-            // Skrýt overlay, pouze pokud je i druhý panel zavřený
-            if (toolsPanel.classList.contains('-translate-x-full')) {
+        /** Zavře panel detailů */
+        function closeDetailsPanel() {
+            detailsPanel.classList.add('translate-x-full');
+            if (toolsPanel && toolsPanel.classList.contains('-translate-x-full')) {
                 overlay.classList.add('hidden');
             }
         }
+        
 
         /**
          * Naplní seznam souborů v postranním panelu
          */
         function populateProgramList(programs, mainCode) {
-            programListEl.innerHTML = ''; // Vyčistit
+            programListEl.innerHTML = ''; 
 
-            // 1. Přidat hlavní program
             const mainEl = document.createElement('div');
             mainEl.textContent = "HLAVNÍ PROGRAM (.mpf)";
             mainEl.className = "file-item p-2 rounded-md cursor-pointer text-gray-700";
@@ -296,7 +314,6 @@
 
             loadedData.loadedPrograms['main_program'] = mainCode;
 
-            // 2. Přidat podprogramy
             const subprogramNames = Object.keys(programs).sort();
             for (const filename of subprogramNames) {
                 if (filename === 'main_program') continue; 
@@ -311,11 +328,11 @@
 
         /**
          * Zobrazí obsah vybraného souboru v editoru
-         * (UPRAVENO: Zavře menu na mobilu po kliknutí)
          */
         function displayFileContent(filename) {
             if (loadedData.loadedPrograms[filename] !== undefined) {
-                mainEditor.value = loadedData.loadedPrograms[filename];
+                // UPRAVENO: Použít cmEditor.setValue
+                cmEditor.setValue(loadedData.loadedPrograms[filename]);
                 currentFileNameEl.textContent = (filename === 'main_program') ? "Hlavní program" : filename;
 
                 document.querySelectorAll('.file-item').forEach(item => {
@@ -325,10 +342,8 @@
                     }
                 });
 
-                // NOVÉ: Zavřít menu, pokud jsme na mobilu
-                // (Kontrolujeme, zda je menu-open-btn viditelné)
-                if (filesOpenBtn.offsetParent !== null) {
-                    closeFilesPanel();
+                if (detailsOpenBtn.offsetParent !== null) {
+                    closeDetailsPanel();
                 }
 
             } else {
@@ -340,7 +355,7 @@
          * Zobrazí R-Parametry v postranním panelu
          */
         function populateParameters(parameters) {
-            parameterListEl.innerHTML = ''; // Vyčistit
+            parameterListEl.innerHTML = ''; 
             
             const filteredParams = parameters.filter(([key, value]) => value !== 0);
 
@@ -392,14 +407,14 @@
 
                 let timeForMove = 0;
 
-                if (move.feedMode === 'G95') { // Posuv na otáčku (mm/ot)
-                    const feedPerMinute = move.feedRate * move.spindleSpeed; // mm/min
+                if (move.feedMode === 'G95') { 
+                    const feedPerMinute = move.feedRate * move.spindleSpeed; 
                     if (feedPerMinute > 0) {
-                        timeForMove = distance / feedPerMinute; // min
+                        timeForMove = distance / feedPerMinute; 
                     }
-                } else { // G94 - Posuv za minutu (mm/min)
+                } else { 
                     if (move.feedRate > 0) {
-                        timeForMove = distance / move.feedRate; // min
+                        timeForMove = distance / move.feedRate; 
                     }
                 }
                 
@@ -435,10 +450,10 @@
 
         /**
          * Zkopíruje aktuální obsah editoru do schránky
-         * (Nahrazuje původní funkci saveAndClose)
          */
         async function copyToClipboard() {
-            const textToCopy = mainEditor.value;
+            // UPRAVENO: Použít cmEditor.getValue
+            const textToCopy = cmEditor.getValue();
             const saveBtn = document.getElementById('save-btn');
             
             if (!saveBtn) return;
@@ -447,12 +462,10 @@
             try {
                 await navigator.clipboard.writeText(textToCopy);
                 
-                // Úspěch: Změnit tlačítko na "Zkopírováno"
                 saveBtn.textContent = 'Zkopírováno!';
                 saveBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-red-500');
                 saveBtn.classList.add('bg-green-500');
 
-                // Vrátit zpět po 2 sekundách
                 setTimeout(() => {
                     saveBtn.textContent = originalText;
                     saveBtn.classList.remove('bg-green-500');
@@ -462,12 +475,10 @@
             } catch (err) {
                 console.error('Chyba při kopírování do schránky: ', err);
 
-                // Chyba: Změnit tlačítko na "Chyba"
                 saveBtn.textContent = 'Chyba!';
                 saveBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-green-500');
                 saveBtn.classList.add('bg-red-500');
 
-                // Vrátit zpět po 3 sekundách
                 setTimeout(() => {
                     saveBtn.textContent = originalText;
                     saveBtn.classList.remove('bg-red-500');
@@ -477,11 +488,9 @@
         }
         
         /**
-         * NOVÁ FUNKCE: Zavře aktuální záložku prohlížeče
+         * Zavře aktuální záložku prohlížeče
          */
         function closeTab() {
-            // Poznámka: Tohle funguje spolehlivě jen u oken, 
-            // která byla otevřena pomocí skriptu (což je náš případ)
             window.close();
         }
 
@@ -489,13 +498,11 @@
          * Pomocná funkce pro formátování čísel do G-kódu
          */
         function formatNum(num) {
-            // Převede číslo na string s 3 desetinnými místy
-            // a odstraní koncové nuly (a případně i desetinnou tečku)
             return Number(num).toFixed(3).replace(/\.?0+$/, '');
         }
 
         /**
-         * NOVÁ FUNKCE: Převede 'movements' z localStorage na absolutní G-kód
+         * Převede 'movements' z localStorage na absolutní G-kód
          */
         function convertGCodeToAbsolute() {
             if (!loadedData.movements || loadedData.movements.length === 0) {
@@ -505,73 +512,85 @@
 
             let newCode = [];
             newCode.push('; --- KÓD PŘEVEDENÝ NA ABSOLUTNÍ HODNOTY ---');
-            newCode.push('; --- Vygenerováno z pracovních pohybů (G1, G2, G3) ---');
+            newCode.push('; --- Vygenerováno ze všech pohybů (G0-G3) ---');
             newCode.push('G90 ; Absolutní souřadnice');
             
             let lastFeed = -1;
             let lastSpindle = -1;
+            let lastMoveType = ""; 
 
             for (const move of loadedData.movements) {
-                // Ignorovat rychloposuvy
-                if (move.rapid) continue;
-
                 const x = formatNum(move.toX);
                 const z = formatNum(move.toZ);
-                const f = formatNum(move.feedRate);
                 
                 let line = "";
 
+                if (move.type !== lastMoveType) {
+                    line += `${move.type} `;
+                    lastMoveType = move.type;
+                }
+
                 if (move.isArc && move.center) {
-                    // Oblouk G2 / G3
-                    line += `${move.type} X${x} Z${z}`;
+                    line += `X${x} Z${z}`;
                     
-                    // Výpočet I a K (vždy relativně od počátečního bodu ke středu)
                     const i = formatNum(move.center.x - move.fromX);
                     const k = formatNum(move.center.z - move.fromZ);
                     line += ` I${i} K${k}`;
                     
                 } else {
-                    // Přímka G1
-                    line += `G1 X${x} Z${z}`;
+                    line += `X${x} Z${z}`;
                 }
 
-                // Přidat posuv, jen pokud se změnil (pro přehlednost)
-                if (move.feedRate !== lastFeed) {
-                    line += ` F${f}`;
-                    lastFeed = move.feedRate;
+                if (!move.rapid) {
+                    const f = formatNum(move.feedRate);
+                    if (move.feedRate !== lastFeed) {
+                        line += ` F${f}`;
+                        lastFeed = move.feedRate;
+                    }
+                } else {
+                    lastFeed = -1;
                 }
-                
-                // TODO: Přidat i S (spindle speed), pokud by bylo potřeba
                 
                 newCode.push(line);
             }
 
-            // Zobrazit v editoru
-            mainEditor.value = newCode.join('\n');
+            // UPRAVENO: Použít cmEditor.setValue
+            cmEditor.setValue(newCode.join('\n'));
             currentFileNameEl.textContent = "Absolutní G-kód (Přepočteno)";
 
-            // Odznačit aktivní soubor v seznamu
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('active');
             });
             
-            // Na mobilu zavřít panel nástrojů
             if (toolsOpenBtn.offsetParent !== null) {
                 closeToolsPanel();
             }
-            
-            alert("Kód byl převeden na absolutní hodnoty a zobrazen v editoru.");
         }
 
-
         /**
-         * Spustí se po načtení DOM
+         * Spuštění po načtení DOM
          */
-        document.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', () => {
+            
+            // NOVÉ: Inicializace CodeMirror editoru
+            cmEditor = CodeMirror.fromTextArea(mainEditor, {
+                lineNumbers: true,      // Přidá čísla řádků
+                mode: 'gcode',          // Nastaví mód pro CNC
+                theme: 'eclipse',       // Světlé téma
+                lineWrapping: true,     // Automaticky zalamuje řádky
+                readOnly: false
+            });
+            
+            // NOVÉ: Nastavení, aby editor vyplnil flexibilní kontejner
+            // Musí být provedeno po inicializaci
+            const cmWrapper = cmEditor.getWrapperElement();
+            cmWrapper.style.flex = '1';
+            cmWrapper.style.minHeight = '0'; // Důležité pro flexbox
+            
+            // Až teď spustit zbytek
             loadDataFromStorage();
             setupPanelListeners();
             
-            // Přidat listener pro nové tlačítko
             const convertBtn = document.getElementById('convert-to-absolute-btn');
             if (convertBtn) {
                 convertBtn.addEventListener('click', convertGCodeToAbsolute);
