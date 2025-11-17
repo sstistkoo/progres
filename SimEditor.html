@@ -11,6 +11,8 @@
     
     <!-- Knihovna CodeMirror pro syntax highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <!-- OPRAVA: Načtení spolehlivého "eclipse" tématu -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css">
     
     <style>
         .file-item:hover {
@@ -40,46 +42,48 @@
             font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
             font-size: 14px; 
             line-height: 1.4;
-            background: #ffffff; /* Bílé pozadí */
-            color: #333; /* Tmavý text */
+            /* Pozadí a barvu textu už definuje téma 'eclipse' */
         }
 
-        /* Naše vlastní G-code "téma" s barevným pozadím (přepisuje 'default' téma) */
-        .cm-s-default .cm-comment { 
+        /* OPRAVA: Naše G-code téma teď přepisuje 'eclipse' téma */
+        .cm-s-eclipse .cm-comment { 
             background: #d1fae5; /* Zelené pozadí */
             color: #065f46; /* Tmavě zelený text */
             padding: 1px 4px;
             border-radius: 3px;
         }
-        .cm-s-default .cm-keyword { /* G-kódy, M-kódy */
+        .cm-s-eclipse .cm-keyword { /* G-kódy, M-kódy */
             background: #dbeafe; /* Modré pozadí */
             color: #1d4ed8; /* Tmavě modrý text */
             padding: 1px 4px;
             border-radius: 3px;
             font-weight: bold;
         }
-        /* CodeMirror používá 'variable' pro X, Z, F atd. v 'gcode' módu */
-        .cm-s-default .cm-variable { 
+        .cm-s-eclipse .cm-variable { /* X, Z, F atd. */
             background: #fef3c7; /* Žluté pozadí */
             color: #92400e; /* Hnědý text */
             padding: 1px 4px;
             border-radius: 3px;
             font-weight: bold;
         }
-        .cm-s-default .cm-number { /* Čísla */
+        .cm-s-eclipse .cm-number { /* Čísla */
             background: #e0e7ff; /* Fialové pozadí */
             color: #4338ca; /* Tmavě fialový text */
             padding: 1px 4px;
             border-radius: 3px;
         }
-        .cm-s-default .cm-string { /* Text v MSG("") */
+        .cm-s-eclipse .cm-string { /* Text v MSG("") */
             background: #fce7f3; /* Růžové pozadí */
             color: #9d174d; /* Tmavě růžový text */
             padding: 1px 4px;
             border-radius: 3px;
         }
         
-        /* Nezvýrazňujeme aktivní řádek, pokud máme barevné pozadí tokenů */
+        /* Přepsání výchozí černé barvy pro text, který nemá speciální styl */
+        .cm-s-eclipse.CodeMirror {
+             color: #333;
+        }
+        
          .CodeMirror-activeline-background {
             background: transparent !important;
         }
@@ -662,7 +666,7 @@
             cmEditor = CodeMirror.fromTextArea(document.getElementById('main-editor'), {
                 lineNumbers: true,
                 mode: 'gcode',
-                theme: 'default' // Použijeme 'default', který přepíšeme v CSS
+                theme: 'eclipse' // OPRAVA: Použijeme 'eclipse'
             });
         }
         
