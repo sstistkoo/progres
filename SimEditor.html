@@ -473,7 +473,10 @@
                     feedRate: this.modalFeedRate,
                     spindleSpeed: this.modalSpindleSpeed,
                     feedMode: this.modalFeedMode, 
-                    spindleMode: this.modalSpindleMode 
+                    spindleMode: this.modalSpindleMode,
+                    
+                    // Uložíme původní blokové číslo, pokud existuje
+                    blockNumber: line.trim().match(/^N(\d+)/i)?.[0] || null
                 };
 
                 let hasMove = false;
@@ -591,8 +594,8 @@
 
                 // Regulární výraz pro ignorování řízení toku a konce programu
                 // Zahrnuje: GOTOF, GOTOB, STOPRE, M30, M17 (konec SPF) a návěští s dvojtečkou (PROGR:, SKOK50:, KONEC:)
-                const flowControlRegex = /\b(GOTOF|GOTOB|STOPRE|M30|M17|M80|M00|M5|M9|LIMS=|G53|T\d+|D\d+|R\d+==?R\d+|IF|ELSIF|ELSE)\b|:/i;
-
+                const flowControlRegex = /\b(GOTOF|GOTOB|STOPRE|M30|M17|M80|M00|M5|M9|G53|T\d+|D\d+|R\d+==?R\d+|IF|ELSIF|ELSE)\b|:/i;
+                // Speciální manipulace s LIMS se provádí v parseProgram/convertGCodeToAbsolute
 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
@@ -1111,15 +1114,6 @@
                 // Provést konverzi
                 originalCodeStore = mainEditor.value; 
                 
-                // POZOR: Tato funkce stále používá `loadedData.movements`,
-                // což jsou pohyby *pouze* hlavního programu tak, jak je poslal simulátor.
-                // To je teď matoucí. Pro správnou funkci by to chtělo re-parsovat.
-                
-                // Prozatím necháme původní chování, ale bylo by lepší
-                // to sjednotit a použít re-parsování i zde.
-                
-                // const success = convertGCodeToAbsolute(loadedData.movements); 
-                
                 // --- LEPŠÍ ZPŮSOB ---
                 // Použijeme nový parser, abychom dostali VŠECHNY pohyby
                 
@@ -1140,7 +1134,7 @@
                         const parsedData = await localParser.parseProgram(programText);
                         
                         // A teď převedeme VŠECHNY pohyby (včetně podprogramů)
-                        const success = convertGCodeToAbsolute(parsedData.movements);
+                        const success = convertGCodeToAbsolute(parsedData.movements, filenameToParse);
                         
                         if (success) {
                             convertBtn.textContent = "Vrátit zpět na původní kód";
@@ -1159,35 +1153,105 @@
                 })();
             }
         }
+        
+        // Funkce pro získání hodnoty LIMS z celého programu
+        function getLIMSValue(loadedPrograms) {
+            let limsValue = null;
+            const programNames = Object.keys(loadedPrograms);
+            const limsRegex = /LIMS\s*=\s*(\d+(\.\d+)?)/i;
+
+            for (const filename of programNames) {
+                const programText = loadedPrograms[filename];
+                const match = programText.match(limsRegex);
+                if (match) {
+                    // Převezmeme pouze poslední platnou hodnotu LIMS nalezenou v programu
+                    limsValue = parseFloat(match[1]);
+                }
+            }
+            return limsValue !== null ? formatNum(limsValue) : null;
+        }
+
 
         /**
          * Převede 'movements' z localStorage na absolutní G-kód
+         * * @param {Array} movements Pole parsovaných pohybů.
+         * @param {string} originalFileName Původní název souboru pro určení ukončovacího příkazu.
+         * @returns {boolean} True, pokud byla konverze úspěšná.
          */
-        function convertGCodeToAbsolute(movements) {
+        function convertGCodeToAbsolute(movements, originalFileName) {
             if (!movements || movements.length === 0) {
                 alert("CHYBA: Nejsou načtena žádná data o pohybech ze simulátoru.");
                 return false; 
             }
             
-            const originalCode = mainEditor.value; 
-            const originalLines = originalCode.split('\n');
-            const originalHeader = originalLines.slice(0, 2).map(line => `; ${line.replace(/^;/, '').trim()}`);
+            // Souřadnice pro bezpečnou polohu karuselu (X=průměr, Z=délka/hloubka)
+            const SAFE_X = 600;
+            const SAFE_Z = 400;
+
+            // Určení ukončovacího kódu (M30 pro MPF, M17 pro SPF)
+            const upperFileName = originalFileName.toUpperCase();
+            const terminationCode = upperFileName.endsWith('.MPF') ? 'M30' : 'M17';
+            
+            // Najdeme první reálnou otáčku v pohybech pro G97
+            let initialSpindleSpeed = 0;
+            for(const move of movements) {
+                if (move.spindleSpeed > 0 && move.spindleMode === 'G97') {
+                     initialSpindleSpeed = move.spindleSpeed;
+                     break;
+                }
+            }
+            
+            const limsValue = getLIMSValue(loadedData.loadedPrograms);
+
 
             let newCode = [];
-            newCode.push(...originalHeader);
-            newCode.push('; --- KÓD PŘEVEDENÝ NA ABSOLUTNÍ HODNOTY ---');
-            newCode.push('; (včetně pohybů z podprogramů)');
-            newCode.push('G90 ; Absolutní souřadnice');
+            // --- HLAVIČKA ---
+            newCode.push(`; --- PŘEVEDENO NA ABSOLUTNÍ G-KÓD (${originalFileName}) ---`);
+            newCode.push(`; Všechny pohyby jsou převedeny na G90 absolutní souřadnice.`);
+            newCode.push(`; Bezpečná poloha pro karusel: X${SAFE_X} Z${SAFE_Z}`);
+            newCode.push('');
             
+            // Inicializační blok
+            newCode.push(`N1 G90 G54 D0`);
+            
+            // Přidání LIMS, pokud existuje
+            if (limsValue !== null) {
+                newCode.push(`N2 LIMS=${limsValue} ; Nastaveni limitnich otacek G96 (z originalniho kodu)`);
+                newCode.push(`; POZNÁMKA: Kalkulátor času nepočítá dynamické otáčky G96, ale používá S z G-kódu.`);
+            } else {
+                 newCode.push(`N2 ; LIMS neni definovan v originalnich souborech.`);
+            }
+            
+            // M4 / M3 (nastavujeme M4 jako standard)
+            if (initialSpindleSpeed > 0) {
+                newCode.push(`N3 M4 S${formatNum(initialSpindleSpeed)} G97`);
+            } else {
+                newCode.push(`N3 M4 G97 S1000 ; Otáčky G97/M4 jsou nutné. S1000 je default.`);
+            }
+            
+            // UPRAVENO: Použití bezpečné vzdálenosti pro karusel X600 Z400
+            newCode.push(`N4 G0 X${SAFE_X} Z${SAFE_Z} ; Najeti na bezpecnou pozici (Karusel)`);
+            newCode.push(`N5 G90`);
+            newCode.push('');
+
+
+            let currentLineNum = 10;
             let lastFeed = -1;
-            let lastSpindleSpeed = -1;
+            let lastSpindleSpeed = initialSpindleSpeed;
             let lastMoveType = ""; 
-            let lastFeedMode = "";
-            let lastSpindleMode = "";
+            let lastFeedMode = "G95";
+            let lastSpindleMode = "G97";
 
             for (const move of movements) {
+                if (!move.points || move.points.length === 0) continue; 
+                
                 let lineParts = [];
-
+                
+                // 1. Řádkové číslo (blok) - Použije původní, nebo vygeneruje nové
+                const blockNum = move.blockNumber || `N${currentLineNum}`;
+                lineParts.push(blockNum);
+                
+                // 2. Modální stavy (G95/G94, G97/G96)
                 if (move.feedMode !== lastFeedMode) {
                     lineParts.push(move.feedMode);
                     lastFeedMode = move.feedMode;
@@ -1197,28 +1261,39 @@
                     lastSpindleMode = move.spindleMode;
                 }
                 
+                // 3. Otáčky (S) - Vždy doplnit, pokud se změní nebo pokud se nejedná o rychloposuv
+                const currentSpindleSpeed = move.spindleSpeed > 0 ? move.spindleSpeed : lastSpindleSpeed;
+                if (currentSpindleSpeed !== lastSpindleSpeed || (!move.rapid && lastSpindleSpeed <= 0) || (move.spindleMode === 'G97' && !move.rapid)) {
+                     // Zajišťujeme, že se S vypíše, pokud:
+                     // 1. se změnilo
+                     // 2. je to první posuvný pohyb bez předchozích S (lastSpindleSpeed <= 0)
+                     // 3. dojde k přepnutí na G97
+                    lineParts.push(`S${formatNum(currentSpindleSpeed)}`);
+                    lastSpindleSpeed = currentSpindleSpeed;
+                }
+                
+                // 4. Pohyb (G0/G1/G2/G3)
                 if (move.type !== lastMoveType) {
                     lineParts.push(move.type);
                     lastMoveType = move.type;
                 }
-                
-                if (move.spindleSpeed !== lastSpindleSpeed) {
-                    lineParts.push(`S${formatNum(move.spindleSpeed)}`);
-                    lastSpindleSpeed = move.spindleSpeed;
-                }
 
+                // 5. Souřadnice
                 const x = formatNum(move.toX);
                 const z = formatNum(move.toZ);
                 lineParts.push(`X${x}`);
                 lineParts.push(`Z${z}`);
                 
+                // 6. Kruhové interpolace (I/K)
                 if (move.isArc && move.center) {
+                    // I a K jsou přírůstkové od STARTOVNÍHO bodu segmentu
                     const i = formatNum(move.center.x - move.fromX);
                     const k = formatNum(move.center.z - move.fromZ);
                     lineParts.push(`I${i}`);
                     lineParts.push(`K${k}`);
                 }
 
+                // 7. Posuv (F)
                 if (!move.rapid) {
                     const f = formatNum(move.feedRate);
                     if (move.feedRate !== lastFeed) {
@@ -1226,11 +1301,20 @@
                         lastFeed = move.feedRate;
                     }
                 } else {
-                    lastFeed = -1; 
+                    lastFeed = -1; // Reset posuvu po G0
                 }
                 
                 newCode.push(lineParts.join(' '));
+                currentLineNum += 10;
             }
+
+            // --- PATIČKA ---
+            newCode.push('');
+            // UPRAVENO: Použití bezpečné vzdálenosti pro karusel
+            newCode.push(`N${currentLineNum} G0 G53 X${SAFE_X} Z${SAFE_Z} ; Odjezd do bezpecne polohy (Karusel)`);
+            newCode.push(`N${currentLineNum + 10} M5 ; Zastaveni vřetena`);
+            newCode.push(`N${currentLineNum + 20} ${terminationCode} ; Konec programu`);
+
 
             mainEditor.value = newCode.join('\n'); 
             
