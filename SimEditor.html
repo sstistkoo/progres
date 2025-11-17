@@ -155,8 +155,7 @@
         let loadedData = {
             mainProgramName: "", 
             parameters: [],
-            movements: [],
-            loadedPrograms: {}
+            programData: {} // Změna: už ne movements a loadedPrograms
         };
         
         let originalCodeStore = "";
@@ -197,14 +196,14 @@
             try {
                 loadedData = JSON.parse(dataString);
 
-                if (!loadedData.loadedPrograms || !loadedData.parameters || !loadedData.movements || !loadedData.mainProgramName) {
-                    throw new Error("Data v localStorage jsou nekompletní nebo chybí 'mainProgramName'.");
+                if (!loadedData.programData || !loadedData.parameters || !loadedData.mainProgramName) {
+                    throw new Error("Data v localStorage jsou nekompletní nebo chybí 'programData' / 'mainProgramName'.");
                 }
 
-                populateProgramList(loadedData.loadedPrograms);
+                populateProgramList(loadedData.programData);
                 populateParameters(loadedData.parameters);
-                calculateMachiningTime(loadedData.movements);
-
+                
+                // Zobrazit hlavní program (tím se spočítá i čas)
                 displayFileContent(loadedData.mainProgramName); 
 
             } catch (error) {
@@ -265,10 +264,10 @@
         /**
          * Naplní seznam souborů v postranním panelu
          */
-        function populateProgramList(programs) {
+        function populateProgramList(programData) {
             programListEl.innerHTML = ''; 
 
-            const subprogramNames = Object.keys(programs).sort();
+            const subprogramNames = Object.keys(programData).sort();
             
             for (const filename of subprogramNames) {
                 const el = document.createElement('div');
@@ -284,9 +283,12 @@
          * Zobrazí obsah vybraného souboru v editoru
          */
         function displayFileContent(filename) {
-            if (loadedData.loadedPrograms[filename] !== undefined) {
-                cmEditor.setValue(loadedData.loadedPrograms[filename]);
+            if (loadedData.programData[filename] !== undefined) {
+                cmEditor.setValue(loadedData.programData[filename].text);
                 currentFileNameEl.textContent = filename; 
+
+                // Vypočítat strojní čas pro TENTO konkrétní program
+                calculateMachiningTime(loadedData.programData[filename].movements);
 
                 document.querySelectorAll('.file-item').forEach(item => {
                     item.classList.remove('active');
@@ -510,8 +512,16 @@
          * Převede 'movements' z localStorage na absolutní G-kód
          */
         function convertGCodeToAbsolute() {
-            if (!loadedData.movements || loadedData.movements.length === 0) {
-                alert("CHYBA: Nejsou načtena žádná data o pohybech ze simulátoru.");
+            let activeFilename = loadedData.mainProgramName;
+            const activeItem = document.querySelector('.file-item.active');
+            if (activeItem) {
+                activeFilename = activeItem.dataset.filename;
+            }
+            
+            const movements = loadedData.programData[activeFilename]?.movements;
+
+            if (!movements || movements.length === 0) {
+                alert("CHYBA: Pro tento program nejsou načtena žádná data o pohybech ze simulátoru.");
                 return false; 
             }
             
@@ -530,7 +540,7 @@
             let lastFeedMode = "";
             let lastSpindleMode = "";
 
-            for (const move of loadedData.movements) {
+            for (const move of movements) {
                 let lineParts = [];
 
                 if (move.feedMode !== lastFeedMode) {
@@ -580,12 +590,12 @@
             cmEditor.setValue(newCode.join('\n'));
             
             // Nastavení záhlaví
-            let activeFilename = loadedData.mainProgramName;
-            const activeItem = document.querySelector('.file-item.active');
-            if (activeItem) {
-                activeFilename = activeItem.dataset.filename;
+            let activeFilenameForTitle = loadedData.mainProgramName;
+            const activeItemForTitle = document.querySelector('.file-item.active');
+            if (activeItemForTitle) {
+                activeFilenameForTitle = activeItemForTitle.dataset.filename;
             }
-            currentFileNameEl.textContent = `${activeFilename} (Absolutní)`;
+            currentFileNameEl.textContent = `${activeFilenameForTitle} (Absolutní)`;
 
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('active');
