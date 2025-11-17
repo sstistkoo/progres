@@ -38,51 +38,37 @@
     <div class="flex-1 flex relative overflow-hidden">
 
         <!-- 
-          Levý postranní panel (Sidebar)
+          Levý postranní panel (Sidebar) -> Nyní "Nástroje a Detaily"
           - Na mobilu: 'fixed', 'inset-y-0', 'left-0', 'z-40' (vysoký z-index)
           - Schovaný mimo obrazovku: '-translate-x-full'
           - Na PC (lg:): 'relative', 'translate-x-0' (vrácení do normálního stavu)
         -->
-        <nav id="sidebar" class="fixed lg:relative inset-y-0 left-0 w-80 h-full bg-white border-r border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+        <nav id="tools-panel" class="fixed lg:relative inset-y-0 left-0 w-80 h-full bg-white border-r border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
             
             <!-- Hlavička postranního panelu (NOVÁ) -->
             <div class="flex justify-between items-center p-4 border-b lg:hidden">
-                <h2 class="text-lg font-semibold text-gray-800">Menu</h2>
-                <button id="menu-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
+                <h2 class="text-lg font-semibold text-gray-800">Nástroje a Detaily</h2>
+                <button id="tools-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
                     <i class="fas fa-times fa-lg"></i>
                 </button>
             </div>
             
-            <!-- Sekce: Seznam souborů -->
+            <!-- Sekce: Seznam souborů (PŘESUNUTO DO PRAVÉHO PANELU) -->
+            
+            <!-- Sekce: Nástroje (NOVÁ) -->
             <div class="p-4 border-b">
-                <h2 class="text-lg font-semibold text-gray-800">Načtené programy</h2>
-                <div id="program-list" class="mt-2 space-y-1">
-                    <p class="text-gray-500 text-sm">Načítání dat...</p>
+                <h2 class="text-lg font-semibold text-gray-800">Nástroje</h2>
+                <div class="mt-2 space-y-2">
+                    <button id="convert-to-absolute-btn" class="w-full px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        Převést na Absolutní G-kód
+                    </button>
+                    <p class="text-xs text-gray-500">
+                        Vygeneruje G-kód pouze z pracovních pohybů (G1, G2, G3) načtených ze simulátoru.
+                    </p>
                 </div>
             </div>
 
-            <!-- Sekce: Čas stroje (PŘESUNUTO DO PRAVÉHO PANELU) -->
-            
-            <!-- Sekce: Parametry (PŘESUNUTO DO PRAVÉHO PANELU) -->
-            
-        </nav>
-
-        <!-- 
-          Pravý postranní panel (NOVÝ) - pro detaily
-          - Na mobilu: 'fixed', 'inset-y-0', 'right-0', 'z-40'
-          - Schovaný mimo obrazovku: 'translate-x-full'
-          - Na PC (lg:): 'relative', 'translate-x-0'
-        -->
-        <aside id="details-panel" class="fixed lg:relative inset-y-0 right-0 w-80 h-full bg-white border-l border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
-            <!-- Hlavička postranního panelu (NOVÁ) -->
-            <div class="flex justify-between items-center p-4 border-b lg:hidden">
-                <h2 class="text-lg font-semibold text-gray-800">Detaily</h2>
-                <button id="details-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times fa-lg"></i>
-                </button>
-            </div>
-
-            <!-- Sekce: Čas stroje (PŘESUNUTO SEM) -->
+            <!-- Sekce: Čas stroje (PŘESUNUTO ZPĚT SEM) -->
             <div class="p-4 border-b">
                 <h2 class="text-lg font-semibold text-gray-800">Strojní čas</h2>
                 <div id="time-summary" class="mt-2 p-3 bg-gray-50 rounded-lg">
@@ -92,13 +78,42 @@
                 </div>
             </div>
 
-            <!-- Sekce: Parametry (PŘESUNUTO SEM) -->
+            <!-- Sekce: Parametry (PŘESUNUTO ZPĚT SEM) -->
             <div class="p-4 flex-1">
                 <h2 class="text-lg font-semibold text-gray-800">R-Parametry</h2>
                 <div id="parameter-list" class="mt-2 h-64 overflow-y-auto bg-gray-50 rounded-lg p-2 text-sm font-mono space-y-1">
                     <!-- Sem se dynamicky vloží parametry -->
                 </div>
             </div>
+        </nav>
+
+        <!-- 
+          Pravý postranní panel (NOVÝ) -> Nyní "Seznam souborů"
+          - Na mobilu: 'fixed', 'inset-y-0', 'right-0', 'z-40'
+          - Schovaný mimo obrazovku: 'translate-x-full'
+          - Na PC (lg:): 'relative', 'translate-x-0'
+        -->
+        <aside id="files-panel" class="fixed lg:relative inset-y-0 right-0 w-80 h-full bg-white border-l border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+            <!-- Hlavička postranního panelu (NOVÁ) -->
+            <div class="flex justify-between items-center p-4 border-b lg:hidden">
+                <h2 class="text-lg font-semibold text-gray-800">Programy</h2>
+                <button id="files-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+            </div>
+
+            <!-- Sekce: Seznam souborů (PŘESUNUTO SEM) -->
+            <div class="p-4 border-b">
+                <h2 class="text-lg font-semibold text-gray-800">Načtené programy</h2>
+                <div id="program-list" class="mt-2 space-y-1">
+                    <p class="text-gray-500 text-sm">Načítání dat...</p>
+                </div>
+            </div>
+
+            <!-- Sekce: Čas stroje (PŘESUNUTO DO LEVÉHO PANELU) -->
+
+            <!-- Sekce: Parametry (PŘESUNUTO DO LEVÉHO PANELU) -->
+            
         </aside>
 
         <!-- Overlay (NOVÝ) - pro ztmavení pozadí na mobilu -->
@@ -111,12 +126,12 @@
                 
                 <!-- Tlačítka vlevo (Menu + Detaily) -->
                 <div class="flex items-center gap-2">
-                    <!-- Tlačítko Menu (lg:hidden) -->
-                    <button id="menu-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 lg:hidden">
+                    <!-- Tlačítko Menu (lg:hidden) -> Nyní pro Nástroje (vlevo) -->
+                    <button id="tools-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 lg:hidden">
                         <i class="fas fa-bars fa-lg"></i>
                     </button>
-                    <!-- Tlačítko Detaily (NOVÉ) (lg:hidden) -->
-                    <button id="details-open-btn" class="p-2 text-gray-600 hover:text-gray-800 lg:hidden">
+                    <!-- Tlačítko Detaily (NOVÉ) (lg:hidden) -> Nyní pro Soubory (vpravo) -->
+                    <button id="files-open-btn" class="p-2 text-gray-600 hover:text-gray-800 lg:hidden">
                         <i class="fas fa-info-circle fa-lg"></i>
                     </button>
                 </div>
@@ -160,10 +175,16 @@
         const currentFileNameEl = document.getElementById('current-file-name');
 
         // NOVÉ DOM Elementy pro mobilní menu
-        const sidebar = document.getElementById('sidebar');
+        const toolsPanel = document.getElementById('tools-panel');
         const overlay = document.getElementById('overlay');
-        const menuOpenBtn = document.getElementById('menu-open-btn');
-        const menuCloseBtn = document.getElementById('menu-close-btn');
+        const toolsOpenBtn = document.getElementById('tools-open-btn');
+        const toolsCloseBtn = document.getElementById('tools-close-btn');
+
+        // NOVÉ DOM Elementy pro panel detailů
+        const filesPanel = document.getElementById('files-panel');
+        const filesOpenBtn = document.getElementById('files-open-btn');
+        const filesCloseBtn = document.getElementById('files-close-btn');
+
 
         // NOVÉ DOM Elementy pro panel detailů
         const detailsPanel = document.getElementById('details-panel');
@@ -209,53 +230,53 @@
         /**
          * NOVÁ FUNKCE: Nastaví listenery pro otevírání/zavírání menu
          */
-        function setupMenuListeners() {
-            if (menuOpenBtn && menuCloseBtn && sidebar && overlay) {
-                menuOpenBtn.addEventListener('click', openSidebar);
-                menuCloseBtn.addEventListener('click', closeSidebar);
+        function setupPanelListeners() {
+            if (toolsOpenBtn && toolsCloseBtn && toolsPanel && overlay) {
+                toolsOpenBtn.addEventListener('click', openToolsPanel);
+                toolsCloseBtn.addEventListener('click', closeToolsPanel);
             }
             // NOVÉ: Přidání listenerů pro pravý panel
-            if (detailsOpenBtn && detailsCloseBtn && detailsPanel) {
-                detailsOpenBtn.addEventListener('click', openDetailsPanel);
-                detailsCloseBtn.addEventListener('click', closeDetailsPanel);
+            if (filesOpenBtn && filesCloseBtn && filesPanel) {
+                filesOpenBtn.addEventListener('click', openFilesPanel);
+                filesCloseBtn.addEventListener('click', closeFilesPanel);
             }
             // Společný overlay
             if (overlay) {
                 overlay.addEventListener('click', () => {
-                    closeSidebar();
-                    closeDetailsPanel();
+                    closeToolsPanel();
+                    closeFilesPanel();
                 });
             }
         }
         
         /** NOVÁ FUNKCE: Otevře postranní panel */
-        function openSidebar() {
-            closeDetailsPanel(); // Zavřít druhý panel, pokud je otevřený
-            sidebar.classList.remove('-translate-x-full');
+        function openToolsPanel() {
+            closeFilesPanel(); // Zavřít druhý panel, pokud je otevřený
+            toolsPanel.classList.remove('-translate-x-full');
             overlay.classList.remove('hidden');
         }
 
         /** NOVÁ FUNKCE: Zavře postranní panel */
-        function closeSidebar() {
-            sidebar.classList.add('-translate-x-full');
+        function closeToolsPanel() {
+            toolsPanel.classList.add('-translate-x-full');
             // Skrýt overlay, pouze pokud je i druhý panel zavřený
-            if (detailsPanel.classList.contains('translate-x-full')) {
+            if (filesPanel.classList.contains('translate-x-full')) {
                 overlay.classList.add('hidden');
             }
         }
 
         /** NOVÁ FUNKCE: Otevře panel detailů */
-        function openDetailsPanel() {
-            closeSidebar(); // Zavřít druhý panel, pokud je otevřený
-            detailsPanel.classList.remove('translate-x-full');
+        function openFilesPanel() {
+            closeToolsPanel(); // Zavřít druhý panel, pokud je otevřený
+            filesPanel.classList.remove('translate-x-full');
             overlay.classList.remove('hidden');
         }
 
         /** NOVÁ FUNKCE: Zavře panel detailů */
-        function closeDetailsPanel() {
-            detailsPanel.classList.add('translate-x-full');
+        function closeFilesPanel() {
+            filesPanel.classList.add('translate-x-full');
             // Skrýt overlay, pouze pokud je i druhý panel zavřený
-            if (sidebar.classList.contains('-translate-x-full')) {
+            if (toolsPanel.classList.contains('-translate-x-full')) {
                 overlay.classList.add('hidden');
             }
         }
@@ -306,8 +327,8 @@
 
                 // NOVÉ: Zavřít menu, pokud jsme na mobilu
                 // (Kontrolujeme, zda je menu-open-btn viditelné)
-                if (menuOpenBtn.offsetParent !== null) {
-                    closeSidebar();
+                if (filesOpenBtn.offsetParent !== null) {
+                    closeFilesPanel();
                 }
 
             } else {
@@ -465,11 +486,96 @@
         }
 
         /**
+         * Pomocná funkce pro formátování čísel do G-kódu
+         */
+        function formatNum(num) {
+            // Převede číslo na string s 3 desetinnými místy
+            // a odstraní koncové nuly (a případně i desetinnou tečku)
+            return Number(num).toFixed(3).replace(/\.?0+$/, '');
+        }
+
+        /**
+         * NOVÁ FUNKCE: Převede 'movements' z localStorage na absolutní G-kód
+         */
+        function convertGCodeToAbsolute() {
+            if (!loadedData.movements || loadedData.movements.length === 0) {
+                alert("CHYBA: Nejsou načtena žádná data o pohybech ze simulátoru.");
+                return;
+            }
+
+            let newCode = [];
+            newCode.push('; --- KÓD PŘEVEDENÝ NA ABSOLUTNÍ HODNOTY ---');
+            newCode.push('; --- Vygenerováno z pracovních pohybů (G1, G2, G3) ---');
+            newCode.push('G90 ; Absolutní souřadnice');
+            
+            let lastFeed = -1;
+            let lastSpindle = -1;
+
+            for (const move of loadedData.movements) {
+                // Ignorovat rychloposuvy
+                if (move.rapid) continue;
+
+                const x = formatNum(move.toX);
+                const z = formatNum(move.toZ);
+                const f = formatNum(move.feedRate);
+                
+                let line = "";
+
+                if (move.isArc && move.center) {
+                    // Oblouk G2 / G3
+                    line += `${move.type} X${x} Z${z}`;
+                    
+                    // Výpočet I a K (vždy relativně od počátečního bodu ke středu)
+                    const i = formatNum(move.center.x - move.fromX);
+                    const k = formatNum(move.center.z - move.fromZ);
+                    line += ` I${i} K${k}`;
+                    
+                } else {
+                    // Přímka G1
+                    line += `G1 X${x} Z${z}`;
+                }
+
+                // Přidat posuv, jen pokud se změnil (pro přehlednost)
+                if (move.feedRate !== lastFeed) {
+                    line += ` F${f}`;
+                    lastFeed = move.feedRate;
+                }
+                
+                // TODO: Přidat i S (spindle speed), pokud by bylo potřeba
+                
+                newCode.push(line);
+            }
+
+            // Zobrazit v editoru
+            mainEditor.value = newCode.join('\n');
+            currentFileNameEl.textContent = "Absolutní G-kód (Přepočteno)";
+
+            // Odznačit aktivní soubor v seznamu
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Na mobilu zavřít panel nástrojů
+            if (toolsOpenBtn.offsetParent !== null) {
+                closeToolsPanel();
+            }
+            
+            alert("Kód byl převeden na absolutní hodnoty a zobrazen v editoru.");
+        }
+
+
+        /**
          * Spustí se po načtení DOM
          */
         document.addEventListener('DOMContentLoaded', () => {
             loadDataFromStorage();
-            setupMenuListeners();
+            setupPanelListeners();
+            
+            // Přidat listener pro nové tlačítko
+            const convertBtn = document.getElementById('convert-to-absolute-btn');
+            if (convertBtn) {
+                convertBtn.addEventListener('click', convertGCodeToAbsolute);
+            }
         });
 
     </script>
