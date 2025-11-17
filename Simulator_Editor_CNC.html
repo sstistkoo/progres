@@ -105,6 +105,7 @@
             user-select: text;
             -webkit-user-select: text;
             font-size: 16px; 
+            padding-right: 55px;
         }
         
         #editor[readonly] {
@@ -272,8 +273,6 @@
             touch-action: auto;
         }
 
-        /* OPRAVA 2: (Odstraněno nefunkční pravidlo) */
-
         .home-link:hover {
             color: #666;
             background: #f5f5f5;
@@ -366,6 +365,7 @@
                 font-size: 16px;
                 line-height: 1.5em;
                 padding: 10px;
+                padding-right: 55px;
             }
 
             .program-list {
@@ -502,57 +502,93 @@
             display: none; 
             position: absolute;
             top: 10px;
-            right: 10px;
             left: 10px; 
-            width: auto; 
+            right: 10px; 
             z-index: 10;
-            /* OPRAVA 1: 'display: flex;' bylo odstraněno. Zobrazí se jen při :fullscreen. */
+            pointer-events: none; 
+            display: flex;
             justify-content: space-between; 
+            align-items: flex-start; 
         }
 
-        .container.editor-fullscreen .editor-buttons-wrapper {
+        .editor-buttons-left,
+        .editor-buttons-right {
+            display: flex;
+            gap: 8px;
+            pointer-events: auto; 
+        }
+        
+        .editor-action-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: none; 
+        }
+
+        .editor-action-button:hover {
+            opacity: 0.9;
+        }
+
+        #overwriteBtn {
+            background-color: #28a745; 
+        }
+        #pasteBtn {
+            background-color: #ffc107; 
+            color: #212529;
+        }
+        #editorLinkBtn {
+            background-color: #17a2b8; 
+        }
+        #editorDoneBtn {
+            background-color: #007bff; 
+        }
+        
+        .container.editor-fullscreen .editor-buttons-wrapper,
+        .container.editor-fullscreen .editor-action-button {
             display: flex; 
         }
 
-        /* PŘIDÁNO: Pravidlo pro vnořené skupiny tlačítek */
-        .editor-buttons-wrapper > div {
-            display: flex;
-            gap: 8px;
-        }
-
-        .editor-menu-button {
-            background-color: #f8f9fa;
-            color: #333;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 10px 15px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .editor-menu-button:hover {
-            background-color: #e9ecef;
-        }
-
-        #editorDoneBtn { background-color: #007bff; color: white; border-color: #007bff; }
-        #editorDoneBtn:hover { background-color: #0056b3; }
-        
-        #editorLinkBtn { background-color: #17a2b8; color: white; border-color: #17a2b8; }
-        #editorLinkBtn:hover { background-color: #138496; }
-        
-        #overwriteBtn { background-color: #28a745; color: white; border-color: #28a745; }
-        #overwriteBtn:hover { background-color: #218838; }
-        
-        #pasteBtn { background-color: #ffc107; color: #212529; border-color: #ffc107; }
-        #pasteBtn:hover { background-color: #e0a800; }
-        
-        
         .container.editor-fullscreen #editor {
-            padding-top: 64px; /* Zvětšeno pro místo na tlačítka */
-            padding-right: 10px; 
+            padding-top: 64px; 
+            padding-left: 10px;
+            padding-right: 10px;
         }
         
+        .editor-quick-edit-button {
+            display: block; 
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            background-color: rgba(0, 123, 255, 0.7); 
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            font-size: 16px;
+            font-weight: bold;
+            line-height: 44px;
+            text-align: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        
+        .editor-quick-edit-button:hover {
+            opacity: 1;
+        }
+        
+        .container.editor-fullscreen .editor-quick-edit-button {
+            display: none;
+        }
         
     </style>
 </head>
@@ -583,8 +619,8 @@
                     <span class="button-icon"><i class="fas fa-sync-alt"></i></span>
                     <span class="button-text">Refresh</span>
                 </button>
-                <button id="toggleKeyboardBtn" onclick="toggleEditorMode()" class="action-button" title="Povolit úpravy">
-                    <span class="button-icon"><i class="fas fa-keyboard"></i></span>
+                <button id="toggleKeyboardBtn" onclick="openExternalEditor()" class="action-button" title="Otevřít v externím editoru">
+                    <span class="button-icon"><i class="fas fa-edit"></i></span>
                     <span class="button-text">Editor</span>
                 </button>
                 
@@ -616,37 +652,29 @@
         <div class="editor-container">
             <div class="editor-wrapper">
                 
+                <button id="quickEditBtn" class="editor-quick-edit-button" onclick="toggleEditorMode()" title="Otevřít velký editor">
+                    Ed.
+                </button>
+
                 <div class="editor-buttons-wrapper">
-                    <!-- Skupina vlevo -->
-                    <div>
-                        <button id="overwriteBtn" class="editor-menu-button" 
-                                onclick="overwriteFromClipboard()" 
-                                onmousedown="isOpeningExternalEditor = true" 
-                                ontouchstart="isOpeningExternalEditor = true"
-                                title="Přepsat kód ze schránky">
+                    <div class="editor-buttons-left">
+                        <button id="overwriteBtn" class="editor-action-button" onclick="overwriteFromClipboard()" title="Smaže editor a vloží obsah schránky">
                             Přepsat
                         </button>
-                        <button id="pasteBtn" class="editor-menu-button" 
-                                onclick="pasteAtCursor()" 
-                                onmousedown="isOpeningExternalEditor = true" 
-                                ontouchstart="isOpeningExternalEditor = true"
-                                title="Vložit na pozici kurzoru">
+                        <button id="pasteBtn" class="editor-action-button" onclick="pasteAtCursor()" title="Vloží obsah schránky na pozici kurzoru">
                             Vložit
                         </button>
                     </div>
                     
-                    <!-- Skupina vpravo -->
-                    <div>
-                        <button id="editorLinkBtn" class="editor-menu-button" 
+                    <div class="editor-buttons-right">
+                        <button id="editorLinkBtn" class="editor-action-button" 
                                 onclick="openExternalEditor()" 
                                 onmousedown="isOpeningExternalEditor = true" 
                                 ontouchstart="isOpeningExternalEditor = true"
-                                title="Otevřít ve velkém editoru">
+                                title="Otevřít v externím editoru (nová záložka)">
                             Editor...
                         </button>
-                        <button id="editorDoneBtn" class="editor-menu-button" 
-                                onclick="toggleEditorMode()" 
-                                title="Hotovo">
+                        <button id="editorDoneBtn" class="editor-action-button" onclick="toggleEditorMode()" title="Zavřít velký editor">
                             Hotovo
                         </button>
                     </div>
@@ -1237,7 +1265,7 @@
                 this.reset();
                 const lines = program.split('\n');
                 const movements = [];
-                const lineIndexes = []; // <-- PŘIDÁNO: Pole pro mapování indexů
+                const lineIndexes = []; 
 
                 for (const line of lines) {
                     const lMatch = line.trim().match(/L(\d+)/i);
@@ -1252,21 +1280,20 @@
                 this.absoluteMode = true; 
                 this.modalMotionCommand = 'G0'; 
 
-                // Pak zpracovat pohyby
-                for (let i = 0; i < lines.length; i++) { // <-- ZMĚNA: Použít 'for' smyčku s indexem 'i'
-                    const line = lines[i]; // <-- ZMĚNA
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
                     if (line.trim() === '' || line.trim().startsWith(';')) continue;
                     
                     const movement = await this.parseLine(line);
                     
                     if (movement) {
                         movements.push(movement);
-                        lineIndexes.push(i); // <-- PŘIDÁNO: Uložit index řádku
+                        lineIndexes.push(i); 
                     }
                 }
 
                 debug(`Celkem pohybů: ${movements.length}`);
-                return { movements, lineIndexes }; // <-- ZMĚNA: Vrátit objekt
+                return { movements, lineIndexes, program }; 
             }
 
             setBaseDirectory(path) {
@@ -2102,7 +2129,8 @@
                 const program = editor.value;
                 if (!program.trim()) return;
 
-                this.parser.parseProgram(program).then(movements => {
+                this.parser.parseProgram(program).then(parsedData => {
+                    const movements = parsedData.movements;
                     if (movements && Array.isArray(movements)) {
                         const workMoves = movements.filter(move => !move.rapid);
 
@@ -2185,15 +2213,12 @@
             async simulate(resetView = false) {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 const program = editor.value;
-                let movements = []; // <-- PŘIDÁNO
-                let lineIndexes = []; // <-- PŘIDÁNO
 
                 if (program.trim()) {
                     debug('Spuštění simulace programu');
-                    // ZMĚNA: Destrukturace objektu
-                    const simResult = await this.parser.parseProgram(program); 
-                    movements = simResult.movements;
-                    lineIndexes = simResult.lineIndexes;
+                    
+                    const parsedData = await this.parser.parseProgram(program);
+                    const movements = parsedData.movements;
                     
                     if (resetView) { 
                         this.lastSelectedPoint = null;
@@ -2209,12 +2234,12 @@
                     this.drawAxes();
                     this.drawPath(movements);
                     debug('Simulace dokončena');
+                    
+                    return parsedData; 
                 } else {
                     this.drawAxes();
+                    return null; 
                 }
-                
-                // PŘIDÁNO: Vrátit všechna potřebná data
-                return { movements, lineIndexes, program };
             }
 
             formatNumber(num) {
@@ -2377,6 +2402,7 @@
                 selectedPosZElement.textContent = this.formatNumber(point.z);
 
                 this.highlightPoint(point.x, point.z);
+
                 
                 const lineHeight = (editor.scrollHeight / lines.length) || 24; 
                 const viewportHeight = editor.clientHeight;
@@ -2429,8 +2455,8 @@
                     parameters: new Map(this.parser.parameters) 
                 };
 
-                const movements = await this.parser.parseProgram(lines);
-                this.drawPath(movements);
+                const parsedData = await this.parser.parseProgram(lines);
+                this.drawPath(parsedData.movements);
 
                 this.parser.currentX = savedState.currentX;
                 this.parser.currentZ = savedState.currentZ;
@@ -2477,16 +2503,14 @@
                 this.updateControls();
             }
 
-            // PŘIDÁNO: Chybějící funkce updateControls
             updateControls() {
-                if (!this.elements) return; // Pojistka
+                if (!this.elements) return; 
                 this.elements.prevBtn.disabled = this.currentIndex < 0 || this.isPlaying;
                 this.elements.nextBtn.disabled = this.currentIndex >= this.movements.length - 1 || this.isPlaying;
                 this.elements.speedSlider.disabled = this.isPlaying;
             }
 
             togglePlay() {
-                // OPRAVA: Obnovena správná logika togglePlay
                 if (this.isPlaying) {
                     this.pause();
                 } else {
@@ -2494,7 +2518,6 @@
                 }
             }
 
-            // PŘIDÁNO: Obnovena funkce setProgram, která byla omylem v togglePlay
             async setProgram(data) {
                 this.stop(); 
                 
@@ -2518,7 +2541,7 @@
                 this.isPlaying = true;
                 this.elements.playBtn.innerHTML = '<span class="button-icon">⏸️</span>';
                 this.elements.playBtn.title = 'Pozastavit';
-                this.updateControls(); // <-- PŘIDÁNO
+                this.updateControls(); 
                 this.playNext();
             }
 
@@ -2527,21 +2550,19 @@
                 this.elements.playBtn.innerHTML = '<span class="button-icon">▶️</span>';
                 this.elements.playBtn.title = 'Přehrát';
                 clearTimeout(this.playTimer);
-                this.updateControls(); // <-- PŘIDÁNO
+                this.updateControls(); 
             }
 
             prev() {
-                // OPRAVA: Obnovena správná logika prev
                 if (this.currentIndex > 0) {
                     this.currentIndex--;
                 } else {
                     this.currentIndex = -1; 
                 }
                 this.drawToCurrentIndex(false);
-                this.updateControls(); // <-- PŘIDÁNO
+                this.updateControls(); 
             }
-            
-            // PŘIDÁNO: Obnovena funkce next (byla v overwriteFromClipboard)
+
             next() {
                 if (this.currentIndex < this.movements.length - 1) {
                     this.currentIndex++;
@@ -2550,7 +2571,6 @@
                 }
             }
             
-            // PŘIDÁNO: Obnovena funkce drawToCurrentIndex (byla v overwriteFromClipboard)
             async drawToCurrentIndex(centerView = false) {
                 if (this.currentIndex < 0) {
                     this.simulator.clearAllHighlights();
@@ -2585,7 +2605,6 @@
             }
 
 
-            // PŘIDÁNO: Obnovena funkce highlightEditorLine (byla v prev)
             highlightEditorLine(lineIndex) {
                  const lines = editor.value.split('\n');
                  const cleanLines = lines.map(line => line.replace(/^→\s*/, ''));
@@ -2779,21 +2798,19 @@
         window.toggleEditorMode = function() {
             const editor = document.getElementById('editor');
             const container = document.querySelector('.container');
-            const homeLink = document.querySelector('.home-link'); /* OPRAVA: Našli jsme odkaz */
+            const homeLink = document.querySelector('.home-link');
 
             editor.readOnly = !editor.readOnly;
             
             container.classList.toggle('editor-fullscreen');
 
             if (editor.readOnly) {
-                /* Vracíme se z fullscreen editoru */
                 editor.blur(); 
                 window.simulateProgram(); 
-                if (homeLink) homeLink.style.display = 'block'; /* OPRAVA: Ukázat domeček */
+                if (homeLink) homeLink.style.display = 'block'; 
             } else {
-                /* Jdeme do fullscreen editoru */
                 editor.focus(); 
-                if (homeLink) homeLink.style.display = 'none'; /* OPRAVA: Skrýt domeček */
+                if (homeLink) homeLink.style.display = 'none'; 
             }
         };
 
@@ -2832,14 +2849,10 @@
 
         window.simulateProgram = async function() {
             if (window.simulator) {
-                // Krok 1: Spustit simulaci (parsování)
-                // ZMĚNA: Uložíme si vrácená data (movements, lineIndexes, program)
-                const simData = await window.simulator.simulate();
+                const parsedData = await window.simulator.simulate();
                 
-                // Krok 2: Nastavit program pro přehrávač
-                // ZMĚNA: Předáme 'simData' objekt místo 'editor.value'
-                if (simData && window.simulator.player) {
-                    await window.simulator.player.setProgram(simData);
+                if (window.simulator.player && parsedData) {
+                    await window.simulator.player.setProgram(parsedData);
                 }
             }
         };
@@ -2936,6 +2949,68 @@
             saveSimulatorState();
         });
 
+        async function overwriteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                const overwriteBtn = document.getElementById('overwriteBtn');
+                
+                if (text && text.trim() !== '') {
+                    editor.value = text;
+                    await simulateProgram(); 
+                    if (!editor.readOnly) {
+                        toggleEditorMode();
+                    }
+                } else {
+                    if (overwriteBtn) {
+                        const originalTitle = overwriteBtn.title;
+                        overwriteBtn.title = 'Schránka je prázdná!';
+                        setTimeout(() => { overwriteBtn.title = originalTitle; }, 3000);
+                    }
+                }
+            } catch (err) {
+                 console.error('Nepodařilo se číst ze schránky: ', err);
+                 const overwriteBtn = document.getElementById('overwriteBtn');
+                 if (overwriteBtn) {
+                    const originalTitle = overwriteBtn.title;
+                    overwriteBtn.title = 'Chyba! Povolte prosím přístup ke schránce.';
+                    setTimeout(() => { overwriteBtn.title = originalTitle; }, 3000);
+                 }
+            }
+        }
+
+        async function pasteAtCursor() {
+            try {
+                const text = await navigator.clipboard.readText();
+                const pasteBtn = document.getElementById('pasteBtn');
+                
+                if (text && text.trim() !== '') {
+                    const start = editor.selectionStart;
+                    const end = editor.selectionEnd;
+                    const currentText = editor.value;
+                    
+                    editor.value = currentText.substring(0, start) + text + currentText.substring(end);
+                    
+                    editor.selectionStart = start + text.length;
+                    editor.selectionEnd = start + text.length;
+                    
+                } else {
+                    if (pasteBtn) {
+                        const originalTitle = pasteBtn.title;
+                        pasteBtn.title = 'Schránka je prázdná!';
+                        setTimeout(() => { pasteBtn.title = originalTitle; }, 3000);
+                    }
+                }
+            } catch (err) {
+                 console.error('Nepodařilo se číst ze schránky: ', err);
+                 const pasteBtn = document.getElementById('pasteBtn');
+                 if (pasteBtn) {
+                    const originalTitle = pasteBtn.title;
+                    pasteBtn.title = 'Chyba! Povolte prosím přístup ke schránce.';
+                    setTimeout(() => { pasteBtn.title = originalTitle; }, 3000);
+                 }
+            }
+        }
+
         async function openExternalEditor() {
             if (!window.simulator || !window.simulator.parser) {
                 console.error("Simulátor není připraven.");
@@ -2967,69 +3042,6 @@
             }
 
             isOpeningExternalEditor = false;
-        }
-
-        async function overwriteFromClipboard() {
-            try {
-                const text = await navigator.clipboard.readText();
-                const overwriteBtn = document.getElementById('overwriteBtn');
-                
-                if (text && text.trim() !== '') {
-                    editor.value = text;
-                    await simulateProgram(); 
-                    if (!editor.readOnly) {
-                        toggleEditorMode();
-                    }
-                } else {
-                    // OPRAVA: Obnovena správná logika pro prázdnou schránku
-                    if (overwriteBtn) {
-                        const originalTitle = overwriteBtn.title;
-                        overwriteBtn.title = 'Schránka je prázdná!';
-                        setTimeout(() => { overwriteBtn.title = originalTitle; }, 3000);
-                    }
-                }
-            // OPRAVA: Ukončena funkce a přidán catch blok
-            } catch (err) {
-                 console.error('Nepodařilo se číst ze schránky: ', err);
-                 const overwriteBtn = document.getElementById('overwriteBtn');
-                 if (overwriteBtn) {
-                    const originalTitle = overwriteBtn.title;
-                    overwriteBtn.title = 'Chyba! Povolte prosím přístup ke schránce.';
-                    setTimeout(() => { overwriteBtn.title = originalTitle; }, 3000);
-                 }
-            }
-        }
-
-        async function pasteAtCursor() {
-            try {
-                const text = await navigator.clipboard.readText();
-                const pasteBtn = document.getElementById('pasteBtn');
-
-                if (text && text.trim() !== '') {
-                    const start = editor.selectionStart;
-                    const end = editor.selectionEnd;
-                    
-                    editor.value = editor.value.substring(0, start) + text + editor.value.substring(end);
-                    
-                    editor.selectionStart = editor.selectionEnd = start + text.length;
-                    
-                    editor.focus();
-                } else {
-                    if (pasteBtn) {
-                        const originalTitle = pasteBtn.title;
-                        pasteBtn.title = 'Schránka je prázdná!';
-                        setTimeout(() => { pasteBtn.title = originalTitle; }, 3000);
-                    }
-                }
-            } catch (err) {
-                console.error('Nepodařilo se číst ze schránky: ', err);
-                const pasteBtn = document.getElementById('pasteBtn');
-                if (pasteBtn) {
-                    const originalTitle = pasteBtn.title;
-                    pasteBtn.title = 'Chyba! Povolte prosím přístup ke schránce.';
-                    setTimeout(() => { pasteBtn.title = originalTitle; }, 3000);
-                }
-            }
         }
 
     </script>
