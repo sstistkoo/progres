@@ -97,8 +97,8 @@
                     Editor
                 </h1>
                 
-                <button onclick="saveAndClose()" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 flex-shrink-0">
-                    Uložit a vrátit
+                <button id="save-btn" onclick="copyToClipboard()" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 flex-shrink-0 transition-colors duration-200">
+                    Uložit
                 </button>
             </div>
             
@@ -345,29 +345,50 @@
         }
 
         /**
-         * Uloží upravená data a vrátí se zpět do simulátoru
+         * Zkopíruje aktuální obsah editoru do schránky
+         * (Nahrazuje původní funkci saveAndClose)
          */
-        function saveAndClose() {
-            const activeItem = document.querySelector('.file-item.active');
-            let activeFilename = 'main_program'; // Default
-            if (activeItem) {
-                 activeFilename = activeItem.textContent.startsWith("HLAVNÍ") ? 'main_program' : activeItem.textContent;
-            }
+        async function copyToClipboard() {
+            const textToCopy = mainEditor.value;
+            const saveBtn = document.getElementById('save-btn');
             
-            loadedData.loadedPrograms[activeFilename] = mainEditor.value;
+            if (!saveBtn) return;
+            const originalText = saveBtn.textContent;
 
-            // TODO: Přepočítání 'movements' a 'parameters'
-            
-            const dataToSave = {
-                ...loadedData,
-                rawCode: loadedData.loadedPrograms['main_program'], 
-            };
-            
-            localStorage.setItem('cncExternalEditorData', JSON.stringify(dataToSave));
-            
-            alert("Změny byly uloženy. \n\nVraťte se prosím ručně na záložku simulátoru a obnovte ji (F5), aby se změny načetly.");
-            // window.close(); 
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                
+                // Úspěch: Změnit tlačítko na "Zkopírováno"
+                saveBtn.textContent = 'Zkopírováno!';
+                saveBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-red-500');
+                saveBtn.classList.add('bg-green-500');
+
+                // Vrátit zpět po 2 sekundách
+                setTimeout(() => {
+                    saveBtn.textContent = originalText;
+                    saveBtn.classList.remove('bg-green-500');
+                    saveBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                }, 2000);
+
+            } catch (err) {
+                console.error('Chyba při kopírování do schránky: ', err);
+
+                // Chyba: Změnit tlačítko na "Chyba"
+                saveBtn.textContent = 'Chyba!';
+                saveBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-green-500');
+                saveBtn.classList.add('bg-red-500');
+
+                // Vrátit zpět po 3 sekundách
+                setTimeout(() => {
+                    saveBtn.textContent = originalText;
+                    saveBtn.classList.remove('bg-red-500');
+                    saveBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                }, 3000);
+            }
         }
+        
+        // Původní funkce saveAndClose() je nyní kompletně nahrazena
+        // funkcí copyToClipboard().
 
     </script>
 </body>
