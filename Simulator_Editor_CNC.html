@@ -3019,8 +3019,12 @@
 
             const movements = window.simulator.player.movements;
             
+            // Najdeme aktivní program
+            const activeProgramEl = document.querySelector('.program-list-item.active');
+            const activeProgramName = activeProgramEl ? activeProgramEl.dataset.filename : 'HlavniProgram.mpf'; // Fallback
+            
             const dataToStore = {
-                rawCode: editor.value, 
+                mainProgramName: activeProgramName, // NOVÉ: Jméno hlavního programu
                 parameters: Array.from(window.simulator.parser.parameters.entries()), 
                 movements: movements, 
                 loadedPrograms: {} 
@@ -3029,6 +3033,11 @@
             const programNames = window.simulator.parser.getProgramList();
             for (const name of programNames) {
                 dataToStore.loadedPrograms[name] = window.simulator.parser.getProgram(name);
+            }
+            
+            // Zajistíme, že hlavní (aktivní) program je v seznamu
+            if (!dataToStore.loadedPrograms[activeProgramName]) {
+                 dataToStore.loadedPrograms[activeProgramName] = editor.value;
             }
 
             try {
