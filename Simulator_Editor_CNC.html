@@ -1041,8 +1041,8 @@
 
                 for (let i = 0; i <= steps; i++) {
                     const angle = startAngle + angleStep * i;
-                    const x = centerPoint.x + radius * Math.sin(angle);
-                    const z = centerPoint.z + radius * Math.cos(angle);
+                    const x = center.x + radius * Math.sin(angle);
+                    const z = center.z + radius * Math.cos(angle);
                     points.push({
                         x: Number(x.toFixed(3)),
                         z: Number(z.toFixed(3))
@@ -3016,53 +3016,26 @@
                 console.error("Simulátor není připraven.");
                 return;
             }
-
-            // Zastaralé: const movements = window.simulator.player.movements;
             
             const activeProgramEl = document.querySelector('.program-list-item.active');
             const activeProgramName = activeProgramEl ? activeProgramEl.dataset.filename : 'HlavniProgram.mpf'; 
             
             const dataToStore = {
                 mainProgramName: activeProgramName, 
-                parameters: Array.from(window.simulator.parser.parameters), // Uložíme finální R-parametry
-                programData: {} // NOVÁ STRUKTURA: Místo movements a loadedPrograms
+                parameters: Array.from(window.simulator.parser.parameters),
+                movements: window.simulator.player.movements, 
+                loadedPrograms: {}
             };
-
+        
             const programNames = window.simulator.parser.getProgramList();
-            
-            // Projít všechny načtené programy
             for (const name of programNames) {
-                const programText = window.simulator.parser.getProgram(name);
-                if (!programText) continue;
-
-                // Vytvořit dočasný parser pro tento jeden program
-                const tempParser = new CNCParser();
-                // DŮLEŽITÉ: Dáme mu finální R-parametry ze simulátoru
-                tempParser.parameters = new Map(window.simulator.parser.parameters);
-                
-                // Naparsujeme tento konkrétní program
-                const parsedData = await tempParser.parseProgram(programText);
-                
-                // Uložíme text I absolutní pohyby pro tento program
-                dataToStore.programData[name] = {
-                    text: programText,
-                    movements: parsedData.movements
-                };
+                dataToStore.loadedPrograms[name] = window.simulator.parser.getProgram(name);
             }
             
-            // Zajistíme, že hlavní (aktivní) program je v seznamu, pokud by tam ještě nebyl
-            if (!dataToStore.programData[activeProgramName]) {
-                 const mainProgramText = editor.value;
-                 const tempParser = new CNCParser();
-                 tempParser.parameters = new Map(window.simulator.parser.parameters);
-                 const parsedData = await tempParser.parseProgram(mainProgramText);
-                 
-                 dataToStore.programData[activeProgramName] = {
-                    text: mainProgramText,
-                    movements: parsedData.movements
-                 };
+            if (!dataToStore.loadedPrograms[activeProgramName]) {
+                 dataToStore.loadedPrograms[activeProgramName] = editor.value;
             }
-
+        
             try {
                 localStorage.setItem('cncExternalEditorData', JSON.stringify(dataToStore));
                 
