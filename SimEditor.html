@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CNC Hlavní Editor (Sinumerik)</title>
+    <title>CNC Hlavní Editor (Smart Syntax)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     
@@ -17,20 +17,41 @@
         
         .editor-wrapper { position: relative; width: 100%; height: 100%; background-color: #ffffff; overflow: hidden; }
         .editor-common { position: absolute; top: 0; left: 0; width: 100%; height: 100%; margin: 0; padding: 1rem; border: none; font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace; font-size: 15px; line-height: 1.6; white-space: pre; overflow: auto; box-sizing: border-box; tab-size: 4; }
-        #editor-backdrop { z-index: 1; pointer-events: none; background-color: #fff; color: transparent; }
-        #main-editor { z-index: 2; color: transparent; background-color: transparent; caret-color: #000; resize: none; outline: none; }
+        
+        /* --- VRSTVA PRO BARVENÍ (Backdrop) --- */
+        #editor-backdrop { 
+            z-index: 1; 
+            pointer-events: none; 
+            background-color: #fff; 
+            /* POJISTKA: Pokud se něco neobarví, bude to tmavě šedé a viditelné */
+            color: #374151 !important; 
+        }
+        
+        /* --- VRSTVA PRO PSANÍ (Main Editor) --- */
+        #main-editor { 
+            z-index: 2; 
+            /* Text je průhledný, aby prosvítaly barvy zespodu */
+            color: transparent; 
+            background-color: transparent; 
+            /* Kurzor musí být vidět (černý) */
+            caret-color: #000; 
+            resize: none; 
+            outline: none; 
+        }
         #main-editor::selection { background-color: rgba(0, 120, 215, 0.3); color: transparent; }
 
-        .hl-g { color: #2563eb; font-weight: bold; } 
-        .hl-m { color: #db2777; font-weight: bold; } 
-        .hl-coord { color: #059669; } 
-        .hl-val { color: #d97706; } 
-        .hl-feed { color: #0891b2; font-weight: bold; } 
-        .hl-param { color: #7c3aed; } 
-        .hl-comment { color: #9ca3af; font-style: italic; } 
-        .hl-msg { color: #ca8a04; } 
-        .hl-block { color: #6b7280; font-size: 0.9em; } 
-        .hl-logic { color: #dc2626; font-weight: bold; } 
+        /* --- BARVY SYNTAXE --- */
+        .hl-g { color: #2563eb; font-weight: bold; } /* G-kódy (Modrá) */
+        .hl-m { color: #db2777; font-weight: bold; } /* M-kódy (Růžová) */
+        .hl-coord { color: #059669; } /* X, Z, I, K (Zelená) */
+        .hl-val { color: #d97706; } /* Čísla a výrazy (Oranžová) */
+        .hl-feed { color: #0891b2; font-weight: bold; } /* F, S, T, D (Tyrkysová) */
+        .hl-param { color: #7c3aed; } /* R-parametry (Fialová) */
+        .hl-comment { color: #9ca3af; font-style: italic; } /* Komentáře (Šedá) */
+        .hl-msg { color: #b45309; } /* MSG (Hnědo-oranžová) */
+        .hl-block { color: #6b7280; font-size: 0.9em; } /* N čísla (Tmavě šedá) */
+        .hl-logic { color: #dc2626; font-weight: bold; } /* Logika (Červená) */
+        .hl-sub { color: #9333ea; font-weight: bold; } /* L podprogramy (Fialová) */
 
         .warning-box { background-color: #fff7ed; border-left: 4px solid #f97316; color: #9a3412; padding: 0.75rem; font-size: 0.875rem; margin-top: 0.5rem; border-radius: 0.25rem; }
 
@@ -40,28 +61,9 @@
         .modal.show { display: flex; }
 
         /* Dropdown Menu Styles */
-        .dropdown-menu {
-            display: none;
-            position: absolute;
-            right: 0;
-            top: 100%;
-            background-color: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.375rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            z-index: 50;
-            min-width: 120px;
-        }
+        .dropdown-menu { display: none; position: absolute; right: 0; top: 100%; background-color: white; border: 1px solid #e5e7eb; border-radius: 0.375rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); z-index: 50; min-width: 120px; }
         .dropdown-menu.show { display: block; }
-        .dropdown-item {
-            display: block;
-            width: 100%;
-            text-align: left;
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-            color: #374151;
-            cursor: pointer;
-        }
+        .dropdown-item { display: block; width: 100%; text-align: left; padding: 0.5rem 1rem; font-size: 0.875rem; color: #374151; cursor: pointer; }
         .dropdown-item:hover { background-color: #f3f4f6; }
         .dropdown-item.danger { color: #dc2626; }
         .dropdown-item.danger:hover { background-color: #fef2f2; }
@@ -212,30 +214,59 @@
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
+        // --- CHYTRÉ OBARVOVÁNÍ S OCHRANOU MSG() ---
         function applySyntaxHighlighting() {
             let text = editor.value;
             let lines = text.split('\n');
             let styledLines = lines.map(line => {
-                if (line.trim().startsWith(';')) {
-                    return `<span class="hl-comment">${escapeHtml(line)}</span>`;
-                }
                 let commentPart = "";
                 let codePart = line;
+                
+                // 1. Oddělení komentáře (za středníkem)
                 let commentIndex = line.indexOf(';');
                 if (commentIndex !== -1) {
                     codePart = line.substring(0, commentIndex);
                     commentPart = `<span class="hl-comment">${escapeHtml(line.substring(commentIndex))}</span>`;
                 }
+
+                // 2. OCHRANA MSG PŘÍKAZŮ
+                // Najdeme text uvnitř MSG("...") a nahradíme ho zástupným znakem.
+                // Tím zajistíme, že "1.OP." uvnitř MSG nebude zničeno barvením parametrů.
+                let placeholders = [];
+                codePart = codePart.replace(/(MSG\s*\(\s*")(.*?)("\s*\))/gi, (match, start, content, end) => {
+                    placeholders.push(`<span class="hl-msg">${escapeHtml(start + content + end)}</span>`);
+                    return `__MSG_PH_${placeholders.length - 1}__`;
+                });
+                
+                // Záložní ochrana pro MSG bez uvozovek (i když by tam měly být)
+                if (placeholders.length === 0) {
+                     codePart = codePart.replace(/(MSG\s*\()(.*?)(\))/gi, (match, start, content, end) => {
+                        if(!content.includes('"') && !content.includes('__MSG_PH')) {
+                             placeholders.push(`<span class="hl-msg">${escapeHtml(start + content + end)}</span>`);
+                             return `__MSG_PH_${placeholders.length - 1}__`;
+                        }
+                        return match;
+                    });
+                }
+
+                // Text musíme escapovat, aby HTML znaky (<, >) nerozbily stránku
                 codePart = escapeHtml(codePart);
+
+                // 3. Aplikace standardního barvení (pouze na bezpečný text mimo MSG)
                 codePart = codePart
                     .replace(/\b(N\d+)\b/g, '<span class="hl-block">$1</span>')
                     .replace(/\b(G\d+)\b/g, '<span class="hl-g">$1</span>')
                     .replace(/\b(M\d+)\b/g, '<span class="hl-m">$1</span>')
-                    .replace(/([XZIKCRAP])(\s*=?\s*-?\d*\.?\d+)/g, '<span class="hl-coord">$1</span><span class="hl-val">$2</span>')
-                    .replace(/\b([FSTD])(\s*=?\s*-?\d*\.?\d+)/g, '<span class="hl-feed">$1</span><span class="hl-val">$2</span>')
+                    .replace(/\b(L\d+)\b/g, '<span class="hl-sub">$1</span>') 
+                    // Vylepšený regex pro parametry a osy
+                    .replace(/([XZIKCRAP])(\s*=?\s*(?:[R0-9\.\+\-\*\/\(\)]+))/g, '<span class="hl-coord">$1</span><span class="hl-val">$2</span>') 
+                    .replace(/\b([FSTD])(\s*=?\s*(?:[R0-9\.\+\-\*\/\(\)]+))/g, '<span class="hl-feed">$1</span><span class="hl-val">$2</span>')
                     .replace(/\b(R\d+)/g, '<span class="hl-param">$1</span>')
-                    .replace(/\b(GOTOF|GOTOB|IF|ELSE|ENDIF|STOPRE|LOOP|ENDLOOP)\b/g, '<span class="hl-logic">$1</span>')
-                    .replace(/(MSG\s*\(.*?\))/g, '<span class="hl-msg">$1</span>');
+                    .replace(/\b(GOTOF|GOTOB|IF|ELSE|ENDIF|STOPRE|LOOP|ENDLOOP)\b/g, '<span class="hl-logic">$1</span>');
+                
+                // 4. Vrácení MSG zpráv zpět na svá místa
+                codePart = codePart.replace(/__MSG_PH_(\d+)__/g, (match, idx) => placeholders[idx]);
+
                 return codePart + commentPart;
             });
             highlights.innerHTML = styledLines.join('<br>') + '<br>';
@@ -420,7 +451,8 @@
                     fromX: this.currentX, fromZ: this.currentZ, toX: this.currentX, toZ: this.currentZ,
                     rapid: this.modalMotionCommand === 'G0', type: this.modalMotionCommand,
                     feedRate: this.modalFeedRate, spindleSpeed: this.modalSpindleSpeed, feedMode: this.modalFeedMode,
-                    blockNumber: line.match(/^N(\d+)/i)?.[0] || null
+                    blockNumber: line.match(/^N(\d+)/i)?.[0] || null,
+                    extras: []
                 };
 
                 let hasMove = false;
@@ -434,11 +466,19 @@
                             else if (g===90) this.absoluteMode = true; else if (g===91) this.absoluteMode = false;
                             else if (g===94) this.modalFeedMode = 'G94'; else if (g===95) this.modalFeedMode = 'G95';
                             else if (g===96) this.modalSpindleMode = 'G96'; else if (g===97) this.modalSpindleMode = 'G97';
+                            else {
+                                // Collect other G codes like G54
+                                if (![0,1,2,3,90,91,94,95,96,97].includes(g)) m.extras.push(w);
+                            }
                             break;
                         case 'X': m.toX = this.parseCoordinate(val, this.currentX); this.currentX = m.toX; hasMove = true; break;
                         case 'Z': m.toZ = this.parseCoordinate(val, this.currentZ); this.currentZ = m.toZ; hasMove = true; break;
                         case 'F': const f = this.parseParameterValue(val); if(f>0) { this.modalFeedRate=f; m.feedRate=f; } break;
                         case 'S': const s = this.parseParameterValue(val); if(s>0) { this.modalSpindleSpeed=s; m.spindleSpeed=s; } break;
+                        case 'M': m.extras.push(w); break;
+                        case 'T': m.extras.push(w); break;
+                        case 'D': m.extras.push(w); break;
+                        case 'H': m.extras.push(w); break;
                     }
                 }
                 return hasMove ? m : null;
@@ -1040,6 +1080,11 @@
                         }
 
                         if(!m.rapid && m.feedRate) l += ` F${m.feedRate}`;
+                        
+                        if (m.extras && m.extras.length > 0) {
+                            l += ` ${m.extras.join(' ')}`;
+                        }
+                        
                         lineText = l;
                     } else if (e.type === 'logic') {
                         lineText = e.text;
