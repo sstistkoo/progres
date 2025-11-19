@@ -49,7 +49,17 @@
                     <button id="convert-to-absolute-btn" class="w-full px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-200 shadow-sm flex items-center justify-center gap-2">
                         <i class="fas fa-exchange-alt"></i> Převést na Absolutní
                     </button>
-                    <p class="text-xs text-gray-500 leading-relaxed">Vygeneruje lineární G-kód (G90). Dopočítá a skryje vzorce, zachová volání podprogramů.</p>
+                    <p class="text-xs text-gray-500 leading-relaxed mb-4">Vygeneruje lineární G-kód (G90). Dopočítá a skryje vzorce, zachová volání podprogramů.</p>
+                    
+                    <hr class="border-gray-200">
+                    
+                    <button id="renumber-btn" class="w-full px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none transition-colors duration-200 shadow-sm flex items-center justify-center gap-2">
+                        <i class="fas fa-list-ol text-blue-500"></i> Přečíslovat řádky
+                    </button>
+                    
+                    <button id="download-btn" class="w-full px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none transition-colors duration-200 shadow-sm flex items-center justify-center gap-2">
+                        <i class="fas fa-download"></i> Stáhnout soubor
+                    </button>
                 </div>
             </div>
             <div class="p-4 flex-1">
@@ -113,6 +123,8 @@
         let loadedData = { mainProgramName: "", parameters: new Map(), movements: [], loadedPrograms: {} };
         let originalCodeStore = "";
         let isShowingAbsoluteCode = false;
+        let codeBeforeRenumbering = "";
+        let isRenumbered = false;
 
         const editor = document.getElementById('main-editor');
         const backdrop = document.getElementById('editor-backdrop');
@@ -167,31 +179,21 @@
             document.getElementById('char-count').textContent = txt.length;
         }
         
-        // --- UPDATED ANALYSIS LOGIC ---
         function analyzeProgramData(filename, content, allPrograms) {
             const result = { description: "", tools: [] };
-            
-            // 1. Identifikace podprogramu (L číslo)
             let subNum = null;
             const matchNum = filename.match(/L(\d+)/i);
             if (matchNum) subNum = matchNum[1];
 
-            // 2. Hledání popisu v HLAVNÍM PROGRAMU (MPF)
-            // Prohledáme všechny MPF soubory, zda neobsahují volání tohoto podprogramu
-            // a vezmeme komentář z řádku volání.
             if (subNum) {
                 for (const [otherName, otherContent] of Object.entries(allPrograms)) {
-                    // Hledáme jen v MPF
                     if (otherName.toUpperCase().endsWith('.MPF')) {
                         const otherLines = otherContent.split('\n');
                         for (const line of otherLines) {
-                            // Hledá "L<cislo>"
                             const regex = new RegExp(`(^|\\s)L${subNum}(\\s|;|$)`);
-                            // Kontrola části před středníkem (samotný kód)
                             if (regex.test(line.split(';')[0])) {
                                  const commentParts = line.split(';');
                                  if (commentParts.length > 1) {
-                                     // Našli jsme komentář za voláním podprogramu
                                      result.description = commentParts.slice(1).join(';').trim();
                                      break;
                                  }
@@ -202,7 +204,6 @@
                 }
             }
             
-            // Záložní řešení: Pokud se nenašlo v MPF, zkusíme MSG uvnitř souboru
             if (!result.description) {
                 const lines = content.split('\n');
                 for (const line of lines) {
@@ -214,7 +215,6 @@
                 }
             }
 
-            // 3. Hledání nástrojů a jejich sloučení do jednoho řádku
             const lines = content.split('\n');
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i].trim();
@@ -224,14 +224,12 @@
                     let tPart = cleanLine.split(';')[0].trim();
                     let fullToolStr = tPart;
                     
-                    // Zkontrolujeme, zda D není na stejném řádku
                     if (/(^|\s)D\d+/.test(cleanLine)) {
                         const commentIdx = line.indexOf(';');
                         if (commentIdx !== -1) {
                             fullToolStr += " " + line.substring(commentIdx);
                         }
                     } else {
-                        // Podíváme se na další řádek, zda tam není D
                         if (i + 1 < lines.length) {
                             let nextLine = lines[i+1].trim();
                             let nextClean = nextLine.replace(/^N\d+\s*/, '');
@@ -239,18 +237,15 @@
                                 let dPart = nextClean.split(';')[0].trim();
                                 const dCommIdx = nextLine.indexOf(';');
                                 let dComment = (dCommIdx !== -1) ? nextLine.substring(dCommIdx) : "";
-                                
-                                // Sloučení: T... D... ;komentář
                                 fullToolStr += " " + dPart;
                                 if (dComment) fullToolStr += " " + dComment;
-                                i++; // Přeskočíme další řádek, protože jsme ho zpracovali
+                                i++;
                             }
                         }
                     }
                     result.tools.push(fullToolStr);
                 }
             }
-            
             return result;
         }
 
@@ -399,10 +394,8 @@
                             const subRes = await this.processLines(subContent.split('\n'), depth + 1);
                             if (subRes.movements.length > 0) {
                                 let desc = "";
-                                // 1. Zkusit najít MSG v podprogramu
                                 const msgMatch = subContent.match(/MSG\s*\(\s*"(.*?)"\s*\)/);
                                 if (msgMatch) desc = msgMatch[1];
-                                // 2. Pokud není, zkusit najít komentář na řádku volání (rekonstrukce z kontextu volání)
                                 if (!desc) { 
                                     const cIdx = line.indexOf(';');
                                     if (cIdx !== -1) desc = line.substring(cIdx + 1).trim();
@@ -624,8 +617,83 @@
         }
         function closeTab() { window.close(); }
         function resetConvertBtn() {
-            els.convertBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> Převést na Absolutní';
-            els.convertBtn.classList.replace('bg-gray-500','bg-indigo-600');
+            const btn = document.getElementById('convert-to-absolute-btn');
+            btn.innerHTML = '<i class="fas fa-exchange-alt"></i> Převést na Absolutní';
+            btn.classList.replace('bg-gray-500','bg-indigo-600');
+        }
+        
+        function renumberLines() {
+            const btn = document.getElementById('renumber-btn');
+
+            if (isRenumbered) {
+                // Undo Logic
+                editor.value = codeBeforeRenumbering;
+                isRenumbered = false;
+                
+                btn.innerHTML = '<i class="fas fa-list-ol text-blue-500"></i> Přečíslovat řádky';
+                applySyntaxHighlighting();
+                updateStats();
+                return;
+            }
+
+            // Save state
+            codeBeforeRenumbering = editor.value;
+
+            let text = editor.value;
+            let lines = text.split('\n');
+            let newLines = [];
+            let n = 10;
+            
+            for (let line of lines) {
+                let trimmed = line.trim();
+                
+                if (!trimmed) {
+                    newLines.push(line);
+                    continue;
+                }
+                
+                // Remove old N only at start
+                let content = trimmed.replace(/^N\d+\s*/, '');
+                
+                newLines.push(`N${n} ${content}`);
+                n += 10;
+            }
+            
+            editor.value = newLines.join('\n');
+            
+            // Set undo state
+            isRenumbered = true;
+            btn.innerHTML = '<i class="fas fa-undo text-gray-600"></i> Vrátit číslování';
+
+            applySyntaxHighlighting();
+            updateStats();
+        }
+        
+        function downloadFile() {
+            const text = editor.value;
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            let fname = "program.mpf";
+            const act = document.querySelector('.file-item.active');
+            if (act) {
+                fname = act.dataset.name;
+                if (isShowingAbsoluteCode) {
+                    const parts = fname.split('.');
+                    if (parts.length > 1) {
+                        const ext = parts.pop();
+                        fname = parts.join('.') + "_G90." + ext;
+                    } else {
+                        fname += "_G90";
+                    }
+                }
+            }
+            
+            a.href = url;
+            a.download = fname;
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
         document.getElementById('tools-open-btn').onclick = () => { els.toolsPanel.classList.remove('-translate-x-full'); els.overlay.classList.remove('hidden'); };
@@ -633,6 +701,9 @@
         document.getElementById('details-open-btn').onclick = () => { document.getElementById('details-panel').classList.remove('translate-x-full'); els.overlay.classList.remove('hidden'); };
         document.getElementById('details-close-btn').onclick = () => { document.getElementById('details-panel').classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
         els.overlay.onclick = () => { els.toolsPanel.classList.add('-translate-x-full'); document.getElementById('details-panel').classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
+
+        document.getElementById('renumber-btn').onclick = renumberLines;
+        document.getElementById('download-btn').onclick = downloadFile;
 
         els.convertBtn.onclick = async () => {
             if (isShowingAbsoluteCode) {
@@ -642,6 +713,10 @@
                 }
                 isShowingAbsoluteCode = false;
                 resetConvertBtn();
+                // Reset renumber state when switching view
+                isRenumbered = false;
+                document.getElementById('renumber-btn').innerHTML = '<i class="fas fa-list-ol text-blue-500"></i> Přečíslovat řádky';
+                
                 const act = document.querySelector('.file-item.active');
                 if(act) displayFile(act.dataset.name);
             } else {
@@ -711,6 +786,11 @@
                 els.editor.value = out;
                 applySyntaxHighlighting();
                 isShowingAbsoluteCode = true;
+                
+                // Reset renumber state
+                isRenumbered = false;
+                document.getElementById('renumber-btn').innerHTML = '<i class="fas fa-list-ol text-blue-500"></i> Přečíslovat řádky';
+
                 els.convertBtn.innerHTML = '<i class="fas fa-undo"></i> Zpět na originál';
                 els.convertBtn.classList.replace('bg-indigo-600','bg-gray-500');
                 if(window.innerWidth < 1024) { els.toolsPanel.classList.add('-translate-x-full'); els.overlay.classList.add('hidden'); }
