@@ -942,16 +942,24 @@
         
         function createNewProgram() {
             const defaultCode = "G54 T1 D1 G95 M41\nG97 S60 M4\nG91 G1 X-300 F1\nM30";
-            const fileName = "NovyProgram.SPF";
+            
+            let newFileName = "NovyProgram.SPF";
+            let counter = 1;
+            
+            // Ensure unique filename
+            while (loadedData.loadedPrograms[newFileName]) {
+                newFileName = `NovyProgram_${counter}.SPF`;
+                counter++;
+            }
             
             // Add to loaded data
-            loadedData.loadedPrograms[fileName] = defaultCode;
+            loadedData.loadedPrograms[newFileName] = defaultCode;
             
             // Update list
             renderProgs();
             
             // Display it
-            displayFile(fileName);
+            displayFile(newFileName);
             
             // On mobile close menu
             if (window.innerWidth < 1024) {
