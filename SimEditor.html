@@ -33,6 +33,38 @@
         .hl-logic { color: #dc2626; font-weight: bold; } 
 
         .warning-box { background-color: #fff7ed; border-left: 4px solid #f97316; color: #9a3412; padding: 0.75rem; font-size: 0.875rem; margin-top: 0.5rem; border-radius: 0.25rem; }
+
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 350px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .modal.show { display: flex; }
+
+        /* Dropdown Menu Styles */
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            z-index: 50;
+            min-width: 120px;
+        }
+        .dropdown-menu.show { display: block; }
+        .dropdown-item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            color: #374151;
+            cursor: pointer;
+        }
+        .dropdown-item:hover { background-color: #f3f4f6; }
+        .dropdown-item.danger { color: #dc2626; }
+        .dropdown-item.danger:hover { background-color: #fef2f2; }
     </style>
 </head>
 <body class="h-full flex flex-col overflow-hidden">
@@ -44,20 +76,39 @@
                 <button id="tools-close-btn" class="p-1 text-gray-500 hover:text-gray-700"><i class="fas fa-times fa-lg"></i></button>
             </div>
             <div class="p-4 border-b">
-                <h2 class="text-lg font-semibold text-gray-800 mb-3">Funkce</h2>
-                <div class="space-y-3">
-                    <button id="convert-to-absolute-btn" class="w-full px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-200 shadow-sm flex items-center justify-center gap-2">
+                <h2 class="text-lg font-semibold text-gray-800 mb-3">Hlavní Funkce</h2>
+                
+                <!-- New Program Button -->
+                <button id="new-program-btn" class="w-full px-3 py-2.5 mb-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none transition-colors duration-200 shadow-sm flex items-center justify-center gap-2">
+                    <i class="fas fa-plus"></i> Nový program
+                </button>
+
+                <div class="space-y-3 mb-6">
+                    <button id="convert-to-absolute-btn" class="w-full px-3 py-2.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-200 shadow-sm flex items-center justify-center gap-2">
                         <i class="fas fa-exchange-alt"></i> Převést na Absolutní
                     </button>
-                    <p class="text-xs text-gray-500 leading-relaxed mb-4">Vygeneruje lineární G-kód (G90). Dopočítá a skryje vzorce, zachová volání podprogramů.</p>
-                    
-                    <hr class="border-gray-200">
-                    
-                    <button id="renumber-btn" class="w-full px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none transition-colors duration-200 shadow-sm flex items-center justify-center gap-2">
-                        <i class="fas fa-list-ol text-blue-500"></i> Přečíslovat řádky
+                    <p class="text-xs text-gray-500 leading-relaxed">Vygeneruje lineární G-kód (G90). Dopočítá a skryje vzorce, zachová volání podprogramů.</p>
+                </div>
+
+                <div class="border-t border-gray-200 pt-4 mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <i class="fas fa-sort-numeric-down text-blue-500"></i> Přečíslování řádků
+                    </h3>
+                    <div class="flex gap-2 mb-2">
+                        <button id="renumber-all-btn" class="flex-1 px-2 py-2.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none transition-colors duration-200 shadow-sm" title="Přečíslovat celý soubor">
+                            Vše
+                        </button>
+                        <button id="renumber-custom-btn" class="flex-1 px-2 py-2.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none transition-colors duration-200 shadow-sm" title="Vlastní nastavení">
+                            <i class="fas fa-cog mr-1"></i> Vlastní
+                        </button>
+                    </div>
+                    <button id="undo-renumber-btn" class="w-full px-3 py-2 bg-gray-100 text-gray-600 text-xs font-medium rounded-md hover:bg-gray-200 focus:outline-none transition-colors duration-200 hidden border border-gray-200">
+                        <i class="fas fa-undo mr-1"></i> Vrátit zpět
                     </button>
-                    
-                    <button id="download-btn" class="w-full px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none transition-colors duration-200 shadow-sm flex items-center justify-center gap-2">
+                </div>
+
+                <div class="border-t border-gray-200 pt-4">
+                    <button id="download-btn" class="w-full px-3 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none transition-colors duration-200 shadow-sm flex items-center justify-center gap-2">
                         <i class="fas fa-download"></i> Stáhnout soubor
                     </button>
                 </div>
@@ -100,6 +151,33 @@
         </aside>
 
         <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
+
+        <!-- Renumber Modal -->
+        <div id="renumber-modal" class="modal">
+            <div class="modal-content">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">Přečíslování bloků</h3>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Start (N):</label>
+                        <input type="number" id="renumber-start" value="10" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Krok (+):</label>
+                        <input type="number" id="renumber-step" value="10" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="mb-6 p-3 bg-gray-50 rounded-md border border-gray-200">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="renumber-selection-only" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300">
+                        <span class="ml-2 text-sm text-gray-700 font-medium">Pouze označený text</span>
+                    </label>
+                </div>
+                <div class="flex justify-end gap-3 pt-2 border-t border-gray-100">
+                    <button id="modal-cancel" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors font-medium">Zrušit</button>
+                    <button id="modal-confirm" class="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md transition-colors font-medium shadow-sm">Použít</button>
+                </div>
+            </div>
+        </div>
 
         <main class="flex-1 flex flex-col overflow-hidden min-w-0">
             <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center shadow-sm z-10">
@@ -420,7 +498,16 @@
                         } else {
                             if (isMath) { allEvts.push({ type: 'math', text: line }); }
                             else if (isMsg) {
-                                // MSG se v podprogramech ignoruje
+                                let msgText = isMsg[1];
+                                let commentSuffix = "";
+                                if (i + 1 < lines.length) {
+                                    let nextLine = lines[i+1].trim();
+                                    if (nextLine.startsWith(';')) {
+                                        commentSuffix = " - " + nextLine.substring(1).trim();
+                                        i++; 
+                                    }
+                                }
+                                allEvts.push({ type: 'comment', text: `; ${msgText}${commentSuffix}` });
                             }
                             else if (isLogic || line.startsWith('N') || /^[M]/.test(line)) {
                                 if (depth === 0) {
@@ -457,7 +544,17 @@
             fileDetail: document.getElementById('file-time-details'),
             convertBtn: document.getElementById('convert-to-absolute-btn'),
             toolsPanel: document.getElementById('tools-panel'),
-            overlay: document.getElementById('overlay')
+            overlay: document.getElementById('overlay'),
+            modal: document.getElementById('renumber-modal'),
+            modalStart: document.getElementById('renumber-start'),
+            modalStep: document.getElementById('renumber-step'),
+            modalSelection: document.getElementById('renumber-selection-only'),
+            modalConfirm: document.getElementById('modal-confirm'),
+            modalCancel: document.getElementById('modal-cancel'),
+            renumberAllBtn: document.getElementById('renumber-all-btn'),
+            renumberCustomBtn: document.getElementById('renumber-custom-btn'),
+            undoRenumberBtn: document.getElementById('undo-renumber-btn'),
+            newProgramBtn: document.getElementById('new-program-btn')
         };
 
         async function loadData() {
@@ -521,7 +618,8 @@
                 
                 const info = analyzeProgramData(f, loadedData.loadedPrograms[f], loadedData.loadedPrograms);
                 
-                div.className = "file-item p-2 cursor-pointer text-gray-700 border-b border-gray-100 last:border-0 hover:bg-gray-50"; 
+                // Container relative for dropdown
+                div.className = "file-item p-2 cursor-pointer text-gray-700 border-b border-gray-100 last:border-0 hover:bg-gray-50 relative group"; 
                 
                 let infoHtml = '';
                 if (info.description || info.tools.length > 0) {
@@ -532,17 +630,114 @@
                 }
 
                 div.innerHTML = `
-                <div class="flex justify-between w-full items-center">
-                    <span class="truncate font-medium"><i class="${isMpf ? 'fas fa-star text-yellow-500' : 'far fa-file-code text-gray-400'} mr-2"></i> ${f}</span>
-                    <span class="text-xs font-mono text-gray-400 ml-2 whitespace-nowrap" data-time-for="${f}">...</span>
+                <div class="flex justify-between w-full items-start">
+                    <div class="flex-1 overflow-hidden" onclick="displayFile('${f}')">
+                        <span class="truncate font-medium block"><i class="${isMpf ? 'fas fa-star text-yellow-500' : 'far fa-file-code text-gray-400'} mr-2"></i> ${f}</span>
+                        <span class="text-xs font-mono text-gray-400 ml-6 block" data-time-for="${f}">...</span>
+                    </div>
+                    <button class="p-1 text-gray-400 hover:text-gray-600 focus:outline-none ml-2 file-menu-btn">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    
+                    <!-- Dropdown Menu -->
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" onclick="renameFile('${f}')">
+                            <i class="fas fa-edit w-4 mr-2 text-blue-500"></i> Přejmenovat
+                        </a>
+                        <a class="dropdown-item danger" onclick="deleteFile('${f}')">
+                            <i class="fas fa-trash-alt w-4 mr-2"></i> Smazat
+                        </a>
+                    </div>
                 </div>
-                ${infoHtml}`;
+                <div onclick="displayFile('${f}')">
+                    ${infoHtml}
+                </div>`;
                 
                 div.dataset.name = f;
-                div.onclick = () => displayFile(f);
                 els.progList.appendChild(div);
             });
+
+            // Add listeners for menus
+            document.querySelectorAll('.file-menu-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Close others
+                    document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+                    // Toggle current
+                    const menu = btn.nextElementSibling;
+                    menu.classList.toggle('show');
+                });
+            });
         }
+
+        // Global helper to close menus on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.file-menu-btn') && !e.target.closest('.dropdown-menu')) {
+                document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+            }
+        });
+
+        // Global functions for onclick in HTML string
+        window.displayFile = displayFile;
+        
+        window.renameFile = function(oldName) {
+            // Close menu
+            document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+            
+            const newName = prompt(`Zadejte nový název pro ${oldName}:`, oldName);
+            if (newName && newName !== oldName) {
+                if (loadedData.loadedPrograms[newName]) {
+                    alert("Soubor s tímto názvem již existuje!");
+                    return;
+                }
+                
+                // Rename
+                loadedData.loadedPrograms[newName] = loadedData.loadedPrograms[oldName];
+                delete loadedData.loadedPrograms[oldName];
+                
+                // Update Main Program Name reference if needed
+                if (loadedData.mainProgramName === oldName) {
+                    loadedData.mainProgramName = newName;
+                }
+                
+                renderProgs();
+                
+                // If active, reload
+                const activeEl = document.querySelector('.file-item.active');
+                if (activeEl && activeEl.dataset.name === oldName) {
+                    displayFile(newName);
+                }
+            }
+        };
+        
+        window.deleteFile = function(name) {
+            // Close menu
+            document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+            
+            if (confirm(`Opravdu chcete smazat soubor ${name}?`)) {
+                delete loadedData.loadedPrograms[name];
+                
+                if (loadedData.mainProgramName === name) {
+                    // Reset or pick another
+                    const keys = Object.keys(loadedData.loadedPrograms);
+                    loadedData.mainProgramName = keys.length > 0 ? keys[0] : "";
+                    alert("Smazali jste hlavní program. Byl automaticky vybrán jiný (pokud existuje).");
+                }
+                
+                renderProgs();
+                
+                // If deleted active file, clear editor or show another
+                const activeEl = document.querySelector('.file-item.active');
+                if (activeEl && activeEl.dataset.name === name) {
+                     if (loadedData.mainProgramName) displayFile(loadedData.mainProgramName);
+                     else {
+                         editor.value = "";
+                         applySyntaxHighlighting();
+                         els.fileName.innerHTML = "<span>Žádný soubor</span>";
+                     }
+                }
+            }
+        };
 
         async function displayFile(name) {
             if (!loadedData.loadedPrograms[name]) return;
@@ -561,6 +756,9 @@
 
             isShowingAbsoluteCode = false;
             resetConvertBtn();
+            // Reset renumber state when switching files
+            isRenumbered = false;
+            els.undoRenumberBtn.classList.add('hidden');
 
             try {
                 els.fileTime.textContent = "...";
@@ -622,51 +820,91 @@
             btn.classList.replace('bg-gray-500','bg-indigo-600');
         }
         
-        function renumberLines() {
-            const btn = document.getElementById('renumber-btn');
-
-            if (isRenumbered) {
-                // Undo Logic
-                editor.value = codeBeforeRenumbering;
-                isRenumbered = false;
-                
-                btn.innerHTML = '<i class="fas fa-list-ol text-blue-500"></i> Přečíslovat řádky';
-                applySyntaxHighlighting();
-                updateStats();
-                return;
+        function openRenumberModal(isSelection) {
+            els.modalSelection.checked = isSelection;
+            if (isSelection) els.modalSelection.disabled = false; // User can uncheck
+            else els.modalSelection.disabled = true;
+            
+            els.modal.classList.add('show');
+            
+            // Auto-close menu on mobile
+            if (window.innerWidth < 1024) {
+                 els.toolsPanel.classList.add('-translate-x-full');
+                 // Overlay stays because modal is open
+            }
+        }
+        
+        function closeRenumberModal() {
+            els.modal.classList.remove('show');
+             // Overlay hide if tools panel is hidden
+             if (els.toolsPanel.classList.contains('-translate-x-full')) {
+                 els.overlay.classList.add('hidden');
+             }
+        }
+        
+        function performRenumbering() {
+            if (!isRenumbered) {
+                codeBeforeRenumbering = editor.value;
+                isRenumbered = true;
+                els.undoRenumberBtn.classList.remove('hidden');
             }
 
-            // Save state
-            codeBeforeRenumbering = editor.value;
+            const start = parseInt(els.modalStart.value) || 10;
+            const step = parseInt(els.modalStep.value) || 10;
+            const selectionOnly = els.modalSelection.checked;
 
             let text = editor.value;
             let lines = text.split('\n');
-            let newLines = [];
-            let n = 10;
-            
-            for (let line of lines) {
+            let startIdx = 0;
+            let endIdx = lines.length;
+
+            // If selection only
+            if (selectionOnly) {
+                const selStart = editor.selectionStart;
+                const selEnd = editor.selectionEnd;
+                // Convert char pos to line index
+                startIdx = text.substring(0, selStart).split('\n').length - 1;
+                endIdx = text.substring(0, selEnd).split('\n').length;
+            }
+
+            let currentN = start;
+            let newLines = [...lines];
+
+            for (let i = startIdx; i < endIdx; i++) {
+                let line = newLines[i];
                 let trimmed = line.trim();
                 
-                if (!trimmed) {
-                    newLines.push(line);
+                if (!trimmed || trimmed.startsWith(';')) {
                     continue;
                 }
                 
-                // Remove old N only at start
+                // Remove old N
                 let content = trimmed.replace(/^N\d+\s*/, '');
-                
-                newLines.push(`N${n} ${content}`);
-                n += 10;
+                // Add new N
+                newLines[i] = `N${currentN} ${content}`;
+                currentN += step;
             }
             
             editor.value = newLines.join('\n');
-            
-            // Set undo state
-            isRenumbered = true;
-            btn.innerHTML = '<i class="fas fa-undo text-gray-600"></i> Vrátit číslování';
-
             applySyntaxHighlighting();
             updateStats();
+            closeRenumberModal();
+        }
+        
+        function undoRenumbering() {
+            if (isRenumbered) {
+                editor.value = codeBeforeRenumbering;
+                isRenumbered = false;
+                els.undoRenumberBtn.classList.add('hidden');
+                applySyntaxHighlighting();
+                updateStats();
+                
+                // On mobile close menu after action
+                if (window.innerWidth < 1024) {
+                     els.toolsPanel.classList.add('-translate-x-full');
+                     els.overlay.classList.add('hidden');
+                }
+            }
         }
         
         function downloadFile() {
@@ -694,16 +932,57 @@
             a.download = fname;
             a.click();
             URL.revokeObjectURL(url);
+            
+            // On mobile close menu after action
+            if (window.innerWidth < 1024) {
+                 els.toolsPanel.classList.add('-translate-x-full');
+                 els.overlay.classList.add('hidden');
+            }
+        }
+        
+        function createNewProgram() {
+            const defaultCode = "G54 T1 D1 G95 M41\nG97 S60 M4\nG91 G1 X-300 F1\nM30";
+            const fileName = "NovyProgram.SPF";
+            
+            // Add to loaded data
+            loadedData.loadedPrograms[fileName] = defaultCode;
+            
+            // Update list
+            renderProgs();
+            
+            // Display it
+            displayFile(fileName);
+            
+            // On mobile close menu
+            if (window.innerWidth < 1024) {
+                 els.toolsPanel.classList.add('-translate-x-full');
+                 els.overlay.classList.add('hidden');
+            }
         }
 
         document.getElementById('tools-open-btn').onclick = () => { els.toolsPanel.classList.remove('-translate-x-full'); els.overlay.classList.remove('hidden'); };
         document.getElementById('tools-close-btn').onclick = () => { els.toolsPanel.classList.add('-translate-x-full'); els.overlay.classList.add('hidden'); };
         document.getElementById('details-open-btn').onclick = () => { document.getElementById('details-panel').classList.remove('translate-x-full'); els.overlay.classList.remove('hidden'); };
         document.getElementById('details-close-btn').onclick = () => { document.getElementById('details-panel').classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
-        els.overlay.onclick = () => { els.toolsPanel.classList.add('-translate-x-full'); document.getElementById('details-panel').classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
+        els.overlay.onclick = () => { 
+            els.toolsPanel.classList.add('-translate-x-full'); 
+            document.getElementById('details-panel').classList.add('translate-x-full'); 
+            
+            // Close modal if open (overlay handles both)
+            if (els.modal.classList.contains('show')) {
+                closeRenumberModal();
+            } else {
+                els.overlay.classList.add('hidden'); 
+            }
+        };
 
-        document.getElementById('renumber-btn').onclick = renumberLines;
+        els.renumberAllBtn.onclick = () => openRenumberModal(false);
+        els.renumberCustomBtn.onclick = () => openRenumberModal(true);
+        els.modalConfirm.onclick = performRenumbering;
+        els.modalCancel.onclick = closeRenumberModal;
+        els.undoRenumberBtn.onclick = undoRenumbering;
         document.getElementById('download-btn').onclick = downloadFile;
+        els.newProgramBtn.onclick = createNewProgram;
 
         els.convertBtn.onclick = async () => {
             if (isShowingAbsoluteCode) {
@@ -713,9 +992,8 @@
                 }
                 isShowingAbsoluteCode = false;
                 resetConvertBtn();
-                // Reset renumber state when switching view
                 isRenumbered = false;
-                document.getElementById('renumber-btn').innerHTML = '<i class="fas fa-list-ol text-blue-500"></i> Přečíslovat řádky';
+                els.undoRenumberBtn.classList.add('hidden');
                 
                 const act = document.querySelector('.file-item.active');
                 if(act) displayFile(act.dataset.name);
@@ -787,9 +1065,8 @@
                 applySyntaxHighlighting();
                 isShowingAbsoluteCode = true;
                 
-                // Reset renumber state
                 isRenumbered = false;
-                document.getElementById('renumber-btn').innerHTML = '<i class="fas fa-list-ol text-blue-500"></i> Přečíslovat řádky';
+                els.undoRenumberBtn.classList.add('hidden');
 
                 els.convertBtn.innerHTML = '<i class="fas fa-undo"></i> Zpět na originál';
                 els.convertBtn.classList.replace('bg-indigo-600','bg-gray-500');
