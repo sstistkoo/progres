@@ -3,1344 +3,721 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CNC Hlavní Editor</title>
-    <!-- Načtení Tailwind CSS -->
+    <title>CNC Hlavní Editor (Sinumerik)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Načtení Font Awesome pro ikony -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     
     <style>
-        .file-item:hover {
-            background-color: #e5e7eb; /* gray-200 */
-        }
-        .file-item.active {
-            background-color: #dbeafe; /* blue-100 */
-            font-weight: 600;
-            color: #1d4ed8; /* blue-700 */
-        }
+        .file-item:hover { background-color: #e5e7eb; }
+        .file-item.active { background-color: #dbeafe; border-left: 4px solid #1d4ed8; }
+        .file-item.active .truncate { color: #1e40af; font-weight: 600; }
         
-        #parameter-list::-webkit-scrollbar,
-        #program-list::-webkit-scrollbar {
-            width: 6px;
-        }
-        #parameter-list::-webkit-scrollbar-thumb,
-        #program-list::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1; /* cool-gray-300 */
-            border-radius: 3px;
-        }
+        #parameter-list::-webkit-scrollbar, #program-list::-webkit-scrollbar { width: 6px; }
+        #parameter-list::-webkit-scrollbar-thumb, #program-list::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
         
-        /* Styl pro obyčejnou textarea */
-        #main-editor {
-            flex: 1; 
-            width: 100%;
-            height: 100%;
-            font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
-            font-size: 14px; 
-            line-height: 1.6;
-            background: #ffffff;
-            color: #333;
-            padding: 0.5rem;
-            resize: none;
-            border: none;
-            outline: none;
-        }
-        
+        .editor-wrapper { position: relative; width: 100%; height: 100%; background-color: #ffffff; overflow: hidden; }
+        .editor-common { position: absolute; top: 0; left: 0; width: 100%; height: 100%; margin: 0; padding: 1rem; border: none; font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace; font-size: 15px; line-height: 1.6; white-space: pre; overflow: auto; box-sizing: border-box; tab-size: 4; }
+        #editor-backdrop { z-index: 1; pointer-events: none; background-color: #fff; color: transparent; }
+        #main-editor { z-index: 2; color: transparent; background-color: transparent; caret-color: #000; resize: none; outline: none; }
+        #main-editor::selection { background-color: rgba(0, 120, 215, 0.3); color: transparent; }
+
+        .hl-g { color: #2563eb; font-weight: bold; } 
+        .hl-m { color: #db2777; font-weight: bold; } 
+        .hl-coord { color: #059669; } 
+        .hl-val { color: #d97706; } 
+        .hl-feed { color: #0891b2; font-weight: bold; } 
+        .hl-param { color: #7c3aed; } 
+        .hl-comment { color: #9ca3af; font-style: italic; } 
+        .hl-msg { color: #ca8a04; } 
+        .hl-block { color: #6b7280; font-size: 0.9em; } 
+        .hl-logic { color: #dc2626; font-weight: bold; } 
+
+        .warning-box { background-color: #fff7ed; border-left: 4px solid #f97316; color: #9a3412; padding: 0.75rem; font-size: 0.875rem; margin-top: 0.5rem; border-radius: 0.25rem; }
     </style>
 </head>
-<body class="h-full flex flex-col">
+<body class="h-full flex flex-col overflow-hidden">
 
     <div class="flex-1 flex relative overflow-hidden">
-
-        <!-- Levý postranní panel (Nástroje) -->
         <nav id="tools-panel" class="fixed lg:relative inset-y-0 left-0 w-80 h-full bg-white border-r border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
-            
             <div class="flex justify-between items-center p-4 border-b lg:hidden">
                 <h2 class="text-lg font-semibold text-gray-800">Nástroje</h2>
-                <button id="tools-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times fa-lg"></i>
-                </button>
+                <button id="tools-close-btn" class="p-1 text-gray-500 hover:text-gray-700"><i class="fas fa-times fa-lg"></i></button>
             </div>
-            
             <div class="p-4 border-b">
-                <h2 class="text-lg font-semibold text-gray-800">Nástroje</h2>
-                <div class="mt-2 space-y-2">
-                    <button id="convert-to-absolute-btn" class="w-full px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-200">
-                        Převést na Absolutní G-kód
+                <h2 class="text-lg font-semibold text-gray-800 mb-3">Funkce</h2>
+                <div class="space-y-3">
+                    <button id="convert-to-absolute-btn" class="w-full px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-200 shadow-sm flex items-center justify-center gap-2">
+                        <i class="fas fa-exchange-alt"></i> Převést na Absolutní
                     </button>
-                    <p class="text-xs text-gray-500">
-                        Vygeneruje G-kód ze všech pohybů (G0, G1, G2, G3) načtených ze simulátoru.
-                    </p>
+                    <p class="text-xs text-gray-500 leading-relaxed">Vygeneruje lineární G-kód (G90). Dopočítá a skryje vzorce, zachová volání podprogramů.</p>
                 </div>
             </div>
-            
+            <div class="p-4 flex-1">
+                 <h2 class="text-lg font-semibold text-gray-800 mb-2">Info o souboru</h2>
+                 <div id="file-stats" class="text-sm text-gray-600 space-y-1">
+                     <p>Řádků: <span id="line-count" class="font-mono font-bold">0</span></p>
+                     <p>Velikost: <span id="char-count" class="font-mono font-bold">0</span> znaků</p>
+                 </div>
+            </div>
         </nav>
 
-        <!-- Pravý postranní panel (Detaily a Programy) -->
         <aside id="details-panel" class="fixed lg:relative inset-y-0 right-0 w-80 h-full bg-white border-l border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
             <div class="flex justify-between items-center p-4 border-b lg:hidden">
-                <h2 class="text-lg font-semibold text-gray-800">Detaily a Programy</h2>
-                <button id="details-close-btn" class="p-1 text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times fa-lg"></i>
-                </button>
+                <h2 class="text-lg font-semibold text-gray-800">Programy</h2>
+                <button id="details-close-btn" class="p-1 text-gray-500 hover:text-gray-700"><i class="fas fa-times fa-lg"></i></button>
             </div>
-
+            <div class="p-4 border-b bg-gray-50">
+                <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Načtené soubory</h2>
+                <div id="program-list" class="h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg text-sm"><p class="text-gray-400 text-center p-4 italic">Načítání dat...</p></div>
+            </div>
             <div class="p-4 border-b">
-                <h2 class="text-lg font-semibold text-gray-800">Načtené programy</h2>
-                <div id="program-list" class="mt-2 h-64 overflow-y-auto bg-gray-50 rounded-lg p-2 text-sm space-y-1">
-                    <p class="text-gray-500 text-sm">Načítání dat...</p>
+                <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2"><i class="far fa-clock text-blue-600"></i> Strojní čas</h2>
+                <div class="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <p class="text-xs text-gray-500 uppercase mb-1">Celkový čas (MPF)</p>
+                    <p id="total-time" class="text-3xl font-bold text-blue-700">0:00</p>
+                    <p id="time-details" class="text-xs text-blue-600 mt-1"></p>
+                </div>
+                <div class="mt-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                    <p class="text-xs text-gray-500 uppercase mb-1">Aktuální soubor</p>
+                    <p id="file-time" class="text-2xl font-semibold text-green-700">0:00</p>
+                    <p id="file-time-details" class="text-xs text-green-600 mt-1"></p>
                 </div>
             </div>
-
-            <div class="p-4 border-b">
-                <h2 class="text-lg font-semibold text-gray-800">Strojní čas</h2>
-                <div id="time-summary" class="mt-2 p-3 bg-gray-50 rounded-lg">
-                    <!-- Text upraven na součet všech podprogramů (.SPF) -->
-                    <p class="text-sm text-gray-600">Celkový čas (součet všech SPF podprogramů):</p>
-                    <p id="total-time" class="text-2xl font-bold text-blue-600">Výpočet...</p>
-                    <p id="time-details" class="text-xs text-gray-500"></p>
-                    
-                    <p class="text-sm text-gray-600 mt-3 border-t pt-2">Čas pro vybraný soubor:</p>
-                    <p id="file-time" class="text-xl font-semibold text-green-600">Vyberte soubor</p>
-                    <p id="file-time-details" class="text-xs text-gray-500"></p>
-                </div>
-            </div>
-
             <div class="p-4 flex-1">
-                <h2 class="text-lg font-semibold text-gray-800">R-Parametry</h2>
-                <div id="parameter-list" class="mt-2 h-64 overflow-y-auto bg-gray-50 rounded-lg p-2 text-sm font-mono space-y-1">
-                    <!-- Sem se dynamicky vloží parametry -->
-                </div>
+                <h2 class="text-lg font-semibold text-gray-800 mb-2">R-Parametry</h2>
+                <div id="parameter-list" class="h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg p-2 text-sm font-mono space-y-1"></div>
             </div>
         </aside>
 
-        <!-- Overlay pro ztmavení pozadí na mobilu -->
         <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
 
-        <!-- Hlavní obsah (Editor) -->
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <!-- Záhlaví editoru -->
-            <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center">
-                
-                <div class="flex items-center gap-2">
-                    <button id="tools-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 lg:hidden">
-                        <i class="fas fa-bars fa-lg"></i>
-                    </button>
-                </div>
-                
-                <h1 id="current-file-name" class="text-xl font-semibold text-gray-900 truncate mx-2">
-                    Editor
-                </h1>
-                
+        <main class="flex-1 flex flex-col overflow-hidden min-w-0">
+            <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center shadow-sm z-10">
+                <div class="flex items-center gap-2"><button id="tools-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 lg:hidden"><i class="fas fa-bars fa-lg"></i></button></div>
+                <h1 id="current-file-name" class="text-lg font-bold text-gray-800 truncate mx-4 flex items-center gap-2"><i class="far fa-file-alt text-gray-400"></i> <span>Bez názvu</span></h1>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <button id="save-btn" onclick="copyToClipboard()" class="ml-0 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors duration-200">
-                        Uložit
-                    </button>
-                    <button id="close-btn" onclick="closeTab()" title="Zavřít záložku" class="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    
-                    <button id="details-open-btn" class="p-2 ml-1 text-gray-600 hover:text-gray-800 lg:hidden">
-                        <i class="fas fa-list-ul fa-lg"></i>
-                    </button>
+                    <button id="save-btn" onclick="copyToClipboard()" class="ml-0 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 shadow-sm"><i class="far fa-copy mr-1"></i> Kopírovat</button>
+                    <button id="close-btn" onclick="closeTab()" title="Zavřít záložku" class="px-3 py-1.5 bg-red-100 text-red-600 hover:bg-red-200 rounded transition-colors duration-200"><i class="fas fa-times"></i></button>
+                    <button id="details-open-btn" class="p-2 ml-1 text-gray-600 hover:text-gray-800 lg:hidden"><i class="fas fa-list-ul fa-lg"></i></button>
                 </div>
             </div>
             
-            <textarea id="main-editor" spellcheck="false" placeholder="Načtěte data ze simulátoru..."></textarea>
+            <div class="relative flex-1 editor-wrapper">
+                <div id="editor-backdrop" class="editor-common"><div id="editor-highlights"></div></div>
+                <textarea id="main-editor" class="editor-common" spellcheck="false" placeholder="Načtěte data ze simulátoru..."></textarea>
+            </div>
         </main>
     </div>
 
     <script>
-        // Globální úložiště pro načtená data
-        let loadedData = {
-            mainProgramName: "", 
-            parameters: new Map(),
-            movements: [], // Toto jsou pohyby POUZE pro mainProgramName
-            loadedPrograms: {}
-        };
-        
+        let loadedData = { mainProgramName: "", parameters: new Map(), movements: [], loadedPrograms: {} };
         let originalCodeStore = "";
         let isShowingAbsoluteCode = false;
-        
-        function debug(message) {
-            console.log(`[Editor] ${message}`);
+
+        const editor = document.getElementById('main-editor');
+        const backdrop = document.getElementById('editor-backdrop');
+        const highlights = document.getElementById('editor-highlights');
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
-        // --- PLNÁ TŘÍDA CNCParser ---
+        function applySyntaxHighlighting() {
+            let text = editor.value;
+            let lines = text.split('\n');
+            let styledLines = lines.map(line => {
+                if (line.trim().startsWith(';')) {
+                    return `<span class="hl-comment">${escapeHtml(line)}</span>`;
+                }
+                let commentPart = "";
+                let codePart = line;
+                let commentIndex = line.indexOf(';');
+                if (commentIndex !== -1) {
+                    codePart = line.substring(0, commentIndex);
+                    commentPart = `<span class="hl-comment">${escapeHtml(line.substring(commentIndex))}</span>`;
+                }
+                codePart = escapeHtml(codePart);
+                codePart = codePart
+                    .replace(/\b(N\d+)\b/g, '<span class="hl-block">$1</span>')
+                    .replace(/\b(G\d+)\b/g, '<span class="hl-g">$1</span>')
+                    .replace(/\b(M\d+)\b/g, '<span class="hl-m">$1</span>')
+                    .replace(/([XZIKCRAP])(\s*=?\s*-?\d*\.?\d+)/g, '<span class="hl-coord">$1</span><span class="hl-val">$2</span>')
+                    .replace(/\b([FSTD])(\s*=?\s*-?\d*\.?\d+)/g, '<span class="hl-feed">$1</span><span class="hl-val">$2</span>')
+                    .replace(/\b(R\d+)/g, '<span class="hl-param">$1</span>')
+                    .replace(/\b(GOTOF|GOTOB|IF|ELSE|ENDIF|STOPRE|LOOP|ENDLOOP)\b/g, '<span class="hl-logic">$1</span>')
+                    .replace(/(MSG\s*\(.*?\))/g, '<span class="hl-msg">$1</span>');
+                return codePart + commentPart;
+            });
+            highlights.innerHTML = styledLines.join('<br>') + '<br>';
+        }
+
+        editor.addEventListener('scroll', () => {
+            backdrop.scrollTop = editor.scrollTop;
+            backdrop.scrollLeft = editor.scrollLeft;
+        });
+
+        editor.addEventListener('input', () => {
+            applySyntaxHighlighting();
+            updateStats();
+        });
+        
+        function updateStats() {
+            const txt = editor.value;
+            document.getElementById('line-count').textContent = txt.split('\n').length;
+            document.getElementById('char-count').textContent = txt.length;
+        }
+        
+        // --- UPDATED ANALYSIS LOGIC ---
+        function analyzeProgramData(filename, content, allPrograms) {
+            const result = { description: "", tools: [] };
+            
+            // 1. Identifikace podprogramu (L číslo)
+            let subNum = null;
+            const matchNum = filename.match(/L(\d+)/i);
+            if (matchNum) subNum = matchNum[1];
+
+            // 2. Hledání popisu v HLAVNÍM PROGRAMU (MPF)
+            // Prohledáme všechny MPF soubory, zda neobsahují volání tohoto podprogramu
+            // a vezmeme komentář z řádku volání.
+            if (subNum) {
+                for (const [otherName, otherContent] of Object.entries(allPrograms)) {
+                    // Hledáme jen v MPF
+                    if (otherName.toUpperCase().endsWith('.MPF')) {
+                        const otherLines = otherContent.split('\n');
+                        for (const line of otherLines) {
+                            // Hledá "L<cislo>"
+                            const regex = new RegExp(`(^|\\s)L${subNum}(\\s|;|$)`);
+                            // Kontrola části před středníkem (samotný kód)
+                            if (regex.test(line.split(';')[0])) {
+                                 const commentParts = line.split(';');
+                                 if (commentParts.length > 1) {
+                                     // Našli jsme komentář za voláním podprogramu
+                                     result.description = commentParts.slice(1).join(';').trim();
+                                     break;
+                                 }
+                            }
+                        }
+                        if (result.description) break;
+                    }
+                }
+            }
+            
+            // Záložní řešení: Pokud se nenašlo v MPF, zkusíme MSG uvnitř souboru
+            if (!result.description) {
+                const lines = content.split('\n');
+                for (const line of lines) {
+                    const msgMatch = line.match(/MSG\s*\(\s*"(.*?)"\s*\)/);
+                    if (msgMatch) {
+                        result.description = msgMatch[1];
+                        break;
+                    }
+                }
+            }
+
+            // 3. Hledání nástrojů a jejich sloučení do jednoho řádku
+            const lines = content.split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                let cleanLine = line.replace(/^N\d+\s*/, '');
+                
+                if (/(^|\s)T\d+/.test(cleanLine)) {
+                    let tPart = cleanLine.split(';')[0].trim();
+                    let fullToolStr = tPart;
+                    
+                    // Zkontrolujeme, zda D není na stejném řádku
+                    if (/(^|\s)D\d+/.test(cleanLine)) {
+                        const commentIdx = line.indexOf(';');
+                        if (commentIdx !== -1) {
+                            fullToolStr += " " + line.substring(commentIdx);
+                        }
+                    } else {
+                        // Podíváme se na další řádek, zda tam není D
+                        if (i + 1 < lines.length) {
+                            let nextLine = lines[i+1].trim();
+                            let nextClean = nextLine.replace(/^N\d+\s*/, '');
+                            if (/(^|\s)D\d+/.test(nextClean)) {
+                                let dPart = nextClean.split(';')[0].trim();
+                                const dCommIdx = nextLine.indexOf(';');
+                                let dComment = (dCommIdx !== -1) ? nextLine.substring(dCommIdx) : "";
+                                
+                                // Sloučení: T... D... ;komentář
+                                fullToolStr += " " + dPart;
+                                if (dComment) fullToolStr += " " + dComment;
+                                i++; // Přeskočíme další řádek, protože jsme ho zpracovali
+                            }
+                        }
+                    }
+                    result.tools.push(fullToolStr);
+                }
+            }
+            
+            return result;
+        }
+
         class CNCParser {
             constructor() {
                 this.parameters = new Map();
-                this.loadedSubprograms = new Map(); 
-                this.subprogramFiles = new Map(); 
-                this.loadedPrograms = new Map(); 
-
-                for (let i = 0; i <= 99; i++) {
-                    this.parameters.set(`R${i}`, 0);
-                }
-
-                this.modalFeedRate = 1; 
-                this.modalSpindleSpeed = 1000; 
-                this.modalFeedMode = 'G95'; 
-                this.modalSpindleMode = 'G97'; 
-
+                this.loadedSubprograms = new Map();
+                for (let i = 0; i <= 200; i++) this.parameters.set(`R${i}`, 0);
                 this.reset();
             }
 
             reset() {
-                this.currentX = 0;
-                this.currentZ = 0;
-                this.absoluteMode = true;
-                this.isFirstMove = true;
-                this.modalMotionCommand = 'G0'; 
-
-                if (this.parameters && this.parameters.size > 0) {
-                     this.parameters.clear();
-                     for (let i = 0; i <= 99; i++) {
-                        this.parameters.set(`R${i}`, 0);
-                    }
-                }
-
-                this.modalFeedRate = 1;
-                this.modalSpindleSpeed = 1000;
-                this.modalFeedMode = 'G95';
-                this.modalSpindleMode = 'G97';
+                this.currentX = 0; this.currentZ = 0; this.absoluteMode = true;
+                this.modalMotionCommand = 'G0'; this.modalFeedRate = 0.1;
+                this.modalSpindleSpeed = 0; this.modalFeedMode = 'G95'; this.modalSpindleMode = 'G97';
             }
 
-            // Načtení parametrů z globálního úložiště
-            loadParameters(parametersMap) {
-                 if (parametersMap instanceof Map) {
-                    this.parameters = new Map(parametersMap);
-                } else if (Array.isArray(parametersMap)) {
-                    this.parameters = new Map(parametersMap);
-                }
-                 for (let i = 0; i <= 99; i++) {
-                    if (!this.parameters.has(`R${i}`)) {
-                        this.parameters.set(`R${i}`, 0);
-                    }
-                }
+            loadParameters(params) {
+                if (params instanceof Map) this.parameters = new Map(params);
+                else if (Array.isArray(params)) this.parameters = new Map(params);
             }
 
-            // Načtení podprogramů z globálního úložiště
-            loadSubprograms(loadedProgramsData) {
+            loadSubprograms(progs) {
                 this.loadedSubprograms.clear();
-                for (const filename in loadedProgramsData) {
-                    if (filename.toUpperCase().startsWith('L') && filename.toUpperCase().endsWith('.SPF')) {
-                        const baseName = filename.toUpperCase().replace(/\.SPF$/, '');
-                        this.loadedSubprograms.set(baseName, loadedProgramsData[filename]);
+                for (const f in progs) {
+                    if (f.toUpperCase().endsWith('.SPF')) {
+                        const base = f.toUpperCase().replace(/\.SPF$/, '');
+                        this.loadedSubprograms.set(base, progs[f]);
+                        this.loadedSubprograms.set(f.toUpperCase(), progs[f]);
                     }
                 }
-                debug(`Parser v editoru načetl ${this.loadedSubprograms.size} podprogramů.`);
             }
 
             evaluateParameters(expression) {
                 try {
-                    const fullLine = expression.split(';')[0].trim();
-                    const cleanLine = fullLine.replace(/^N\d+\s*/, '');
-                    const rAssignment = cleanLine.match(/R(\d+)\s*=\s*(.+)/);
-
-                    if (rAssignment) {
-                        const [, paramNum, expression] = rAssignment;
+                    const cleanLine = expression.split(';')[0].replace(/^N\d+\s*/, '');
+                    const paramRegex = /R(\d+)\s*=\s*([^\s;]+)/g;
+                    let match;
+                    while ((match = paramRegex.exec(cleanLine)) !== null) {
+                        const num = match[1], valExpr = match[2];
                         try {
-                            const expandedExpr = expression.replace(/R(\d+)/g, (match, num) => {
-                                const value = this.parameters.get(`R${num}`);
-                                return value !== undefined ? value : '0';
-                            });
-                            const result = Function(`return ${expandedExpr}`)();
-                            const numResult = Number(result);
-                            if (!isNaN(numResult)) {
-                                this.parameters.set(`R${paramNum}`, numResult);
-                                return numResult;
-                            } else {
-                                console.warn(`✗ Neplatný výsledek pro R${paramNum}: ${result}`);
+                            const exp = valExpr.replace(/R(\d+)/g, (m, n) => { const v = this.parameters.get(`R${n}`); return v !== undefined ? v : 0; });
+                            if (/^[0-9.\-+*/() ]+$/.test(exp)) {
+                                const res = Function(`return ${exp}`)();
+                                if (!isNaN(res)) this.parameters.set(`R${num}`, Number(res));
                             }
-                        } catch (e) {
-                            console.warn(`✗ Chyba při vyhodnocení R${paramNum} = ${expression}:`, e);
-                        }
+                        } catch (e) {}
                     }
-                    return 0;
-                } catch (e) {
-                    console.warn('Chyba při zpracování parametrů:', expression, e);
-                    return 0;
-                }
+                } catch (e) {}
             }
 
-            parseParameterValue(value) {
+            parseParameterValue(val) {
                 try {
-                    let expression = value;
-                    if (value.includes('=')) {
-                        expression = value.split('=')[1].trim();
-                    }
-                    const evaluatedExp = expression.replace(/R(\d+)/g, (match, number) => {
-                        const paramValue = this.parameters.get(`R${number}`);
-                        return paramValue !== undefined ? paramValue : '0';
-                    });
-                    if (!/^[0-9\.\-\+\*\/\s\(\)]+$/.test(evaluatedExp) && !/^[0-9\.]+$/.test(evaluatedExp)) {
-                        return 0; 
-                    }
-                    const result = Function(`return ${evaluatedExp}`)();
-                    const numResult = Number(result);
-                    if (isNaN(numResult)) return 0;
-                    return numResult;
-                } catch (e) {
-                    return 0;
-                }
+                    if (val.includes('=')) val = val.split('=')[1].trim();
+                    const exp = val.replace(/R(\d+)/g, (m, n) => { const v = this.parameters.get(`R${n}`); return v !== undefined ? v : 0; });
+                    if (!/^[0-9\.\-\+\*\/\s\(\)]+$/.test(exp)) return 0;
+                    return Number(Function(`return ${exp}`)()) || 0;
+                } catch (e) { return 0; }
             }
 
-            parseCoordinate(value, current) {
+            parseCoordinate(val, current) {
                 try {
-                    let numericalValue;
-                    if (value.includes('=')) {
-                        const expression = value.split('=')[1].trim();
-                        const evaluatedExp = expression.replace(/R(\d+)/g, (match, number) => {
-                            const paramValue = this.parameters.get(`R${number}`);
-                            return paramValue !== undefined ? paramValue : '0';
-                        });
-                        const result = Function(`return ${evaluatedExp}`)();
-                        numericalValue = Number(result);
-                    } else {
-                        numericalValue = parseFloat(value);
-                    }
-                    if (isNaN(numericalValue)) return current;
-                    const rounded = Number(numericalValue.toFixed(3));
-                    if (this.absoluteMode) {
-                        return rounded;
-                    } else {
-                        return Number((current + rounded).toFixed(3));
-                    }
-                } catch (e) {
-                    console.warn('Chyba při parsování souřadnice:', value, e);
-                    return current;
-                }
+                    let num;
+                    if (val.includes('=')) {
+                        const exp = val.split('=')[1].trim().replace(/R(\d+)/g, (m, n) => { const v = this.parameters.get(`R${n}`); return v !== undefined ? v : '0'; });
+                        num = Number(Function(`return ${exp}`)());
+                    } else num = parseFloat(val);
+                    if (isNaN(num)) return current;
+                    return this.absoluteMode ? num : current + num;
+                } catch (e) { return current; }
             }
 
-            calculateArcPoints(start, end, center, isClockwise, resolution = 50) {
-                const startAngle = Math.atan2(start.x - center.x, start.z - center.z);
-                const endAngle = Math.atan2(end.x - center.x, end.z - center.z);
-                let radius = Math.hypot(start.x - center.x, start.z - center.z);
-                let angleStep;
-                let points = [];
-                let totalAngle = endAngle - startAngle;
-                if (isClockwise) {
-                    if (totalAngle >= 0) totalAngle -= 2 * Math.PI;
-                } else {
-                    if (totalAngle <= 0) totalAngle += 2 * Math.PI;
+            substituteS(text) {
+                const sMatch = text.match(/S\s*=\s*([^\s;]+)/);
+                if (sMatch && this.modalSpindleSpeed > 0) {
+                    return text.replace(sMatch[0], `S${this.modalSpindleSpeed}`);
                 }
-                angleStep = totalAngle / resolution;
-                for (let i = 0; i <= resolution; i++) {
-                    const angle = startAngle + angleStep * i;
-                    const x = center.x + radius * Math.sin(angle);
-                    const z = center.z + radius * Math.cos(angle);
-                    points.push({ x: Number(x.toFixed(3)), z: Number(z.toFixed(3)) });
-                }
-                return points;
-            }
-
-            parseArcMovement(words, movement) {
-                let hasCR = false;
-                let hasAR = false;
-                let arcRadius = 0;
-                const params = { CR: null, AR: null, I: null, K: null, I1: null, K1: null, CT: null, TURN: 0 };
-
-                for (let word of words) {
-                    if (word.includes('=')) {
-                        const [param, expression] = word.split('=');
-                        let evaluatedValue;
-                        try {
-                            const expandedExpr = expression.replace(/R(\d+)/g, (match, num) => {
-                                const rVal = this.parameters.get(`R${num}`);
-                                return rVal !== undefined ? rVal : '0';
-                            });
-                            evaluatedValue = Function(`return ${expandedExpr}`)();
-                        } catch (e) {
-                            console.warn(`Chyba při vyhodnocení parametru ${param}=${expression}`, e);
-                            evaluatedValue = NaN;
-                        }
-                        const numValue = parseFloat(evaluatedValue); 
-                        switch (param.toUpperCase()) {
-                            case 'CR': params.CR = Math.abs(numValue); hasCR = true; break;
-                            case 'AR': params.AR = numValue; break;
-                            case 'TURN': params.TURN = parseInt(numValue); break;
-                        }
-                        continue; 
-                    }
-                    const command = word[0];
-                    const value = parseFloat(word.slice(1));
-                    if (isNaN(value)) continue;
-                    switch (command) {
-                        case 'I': params.I = movement.fromX + value; break;
-                        case 'K': params.K = movement.fromZ + value; break;
-                        case 'I1': params.I1 = movement.fromX + value; break;
-                        case 'K1': params.K1 = movement.fromZ + value; break;
-                    }
-                }
-
-                const startPoint = { x: movement.fromX, z: movement.fromZ };
-                const endPoint = { x: movement.toX, z: movement.toZ };
-                let centerPoint = { x: 0, z: 0 };
-
-                if (params.I !== null && params.K !== null) {
-                    centerPoint = { x: params.I, z: params.K };
-                } else if (params.I1 !== null && params.K1 !== null) {
-                    centerPoint = { x: params.I1, z: params.K1 };
-                } else if (hasCR) {
-                    if (isNaN(params.CR)) {
-                         console.error('Chybná hodnota CR, oblouk nelze vypočítat.', words);
-                         return { points: [], center: null };
-                    }
-                    const chord = Math.hypot(endPoint.x - startPoint.x, endPoint.z - startPoint.z);
-                    if (params.CR < chord / 2) {
-                        console.warn('CR je příliš malý, použije se minimální možný poloměr');
-                        params.CR = chord / 2;
-                    }
-                    const h = Math.sqrt(params.CR * params.CR - (chord * chord / 4));
-                    const midX = (startPoint.x + endPoint.x) / 2;
-                    const midZ = (startPoint.z + endPoint.z) / 2;
-                    const dirX = (startPoint.z - endPoint.z) / chord;
-                    const dirZ = (endPoint.x - startPoint.x) / chord;
-                    const center1 = { x: midX + h * dirX, z: midZ + h * dirZ };
-                    const center2 = { x: midX - h * dirX, z: midZ - h * dirZ };
-                    const angle1 = this.calculateTotalAngle(startPoint, endPoint, center1, movement.type === 'G2');
-                    const angle2 = this.calculateTotalAngle(startPoint, endPoint, center2, movement.type === 'G2');
-                    centerPoint = Math.abs(angle1) <= Math.abs(angle2) ? center1 : center2;
-                }
-
-                const radius = Math.hypot(startPoint.x - centerPoint.x, startPoint.z - centerPoint.z);
-                const startAngle = Math.atan2(startPoint.x - centerPoint.x, startPoint.z - centerPoint.z);
-                let endAngle = Math.atan2(endPoint.x - centerPoint.x, endPoint.z - centerPoint.z);
-
-                if (movement.type === 'G2') { 
-                    if (endAngle >= startAngle) endAngle -= 2 * Math.PI;
-                    endAngle -= 2 * Math.PI * (params.TURN || 0);
-                } else { 
-                    if (endAngle <= startAngle) endAngle += 2 * Math.PI;
-                    endAngle += 2 * Math.PI * (params.TURN || 0);
-                }
-
-                const points = [];
-                const steps = Math.max(50, Math.abs(endAngle - startAngle) * 20);
-                const angleStep = (endAngle - startAngle) / steps;
-
-                for (let i = 0; i <= steps; i++) {
-                    const angle = startAngle + angleStep * i;
-                    const x = centerPoint.x + radius * Math.sin(angle);
-                    const z = centerPoint.z + radius * Math.cos(angle);
-                    points.push({ x: Number(x.toFixed(3)), z: Number(z.toFixed(3)) });
-                }
-                return { points: points, center: centerPoint };
-            }
-
-            calculateTotalAngle(start, end, center, isClockwise) {
-                const startAngle = Math.atan2(start.x - center.x, start.z - center.z);
-                let endAngle = Math.atan2(end.x - center.x, end.z - center.z);
-                let totalAngle = endAngle - startAngle;
-                if (isClockwise) {
-                    if (totalAngle > 0) totalAngle -= 2 * Math.PI;
-                } else {
-                    if (totalAngle < 0) totalAngle += 2 * Math.PI;
-                }
-                return totalAngle;
+                return text;
             }
 
             async parseLine(line) {
-                // Tato funkce je nyní "čistá" - neřeší L-volání ani řízení toku (GOTOF, STOPRE)
-                // Tyto příkazy se filtrují o úroveň výš, aby se zajistilo, že se dostaneme ke VŠEM L-voláním.
+                const content = line.split(';')[0];
+                if (!content || !content.trim()) return null;
+                
+                const cl = content.trim().toUpperCase()
+                    .replace(/G0(?=[XZ])/g, 'G0 ').replace(/G1(?=[XZ])/g, 'G1 ').replace(/G2(?=[XZ])/g, 'G2 ').replace(/G3(?=[XZ])/g, 'G3 ')
+                    .replace(/G90(?=[XZ])/g, 'G90 ').replace(/G91(?=[XZ])/g, 'G91 ').replace(/G94/g, ' G94 ').replace(/G95/g, ' G95 ');
+                
+                const words = cl.split(/\s+/);
+                if (!words.length) return null;
+                this.evaluateParameters(cl);
 
-                const cleanedLine = line.trim().toUpperCase().replace(/G0(?=[XZ])/g, 'G0 ').replace(/G1(?=[XZ])/g, 'G1 ').replace(/G91(?=[XZ])/g, 'G91 ').replace(/G90(?=[XZ])/g, 'G90 '); 
-
-                if (cleanedLine.includes('=')) {
-                    const parts = cleanedLine.split(/\s+/);
-                    let hasParameterAssignment = false;
-                    for (const part of parts) {
-                         if (part.match(/R(\d+)\s*=\s*(.+)/) && !part.startsWith('CR=')) { 
-                             this.evaluateParameters(part);
-                             hasParameterAssignment = true;
-                         }
-                    }
-                    if (hasParameterAssignment && !parts.some(p => p.startsWith('X') || p.startsWith('Z') || p.startsWith('G'))) {
-                         return null;
-                    }
-                }
-
-                const words = cleanedLine.split(/\s+/);
-                if (words.length === 0) return null;
-
-                const movement = {
-                    fromX: this.currentX, fromZ: this.currentZ,
-                    toX: this.currentX, toZ: this.currentZ, 
-                    rapid: this.modalMotionCommand === 'G0', 
-                    center: null, arcPoints: null,
-                    isArc: (this.modalMotionCommand === 'G2' || this.modalMotionCommand === 'G3'),
-                    type: this.modalMotionCommand,
-                    feedRate: this.modalFeedRate,
-                    spindleSpeed: this.modalSpindleSpeed,
-                    feedMode: this.modalFeedMode, 
-                    spindleMode: this.modalSpindleMode,
-                    
-                    // Uložíme původní blokové číslo, pokud existuje
-                    blockNumber: line.trim().match(/^N(\d+)/i)?.[0] || null
+                const m = {
+                    fromX: this.currentX, fromZ: this.currentZ, toX: this.currentX, toZ: this.currentZ,
+                    rapid: this.modalMotionCommand === 'G0', type: this.modalMotionCommand,
+                    feedRate: this.modalFeedRate, spindleSpeed: this.modalSpindleSpeed, feedMode: this.modalFeedMode,
+                    blockNumber: line.match(/^N(\d+)/i)?.[0] || null
                 };
 
                 let hasMove = false;
-                let hasGCommand = false; 
-                let nextX = this.currentX; 
-                let nextZ = this.currentZ; 
-
-                for (let word of words) {
-                    if (!word) continue;
-                    if (word.startsWith('CR=') || word.startsWith('AR=') || word.startsWith('TURN=')) continue;
-                    if (word.startsWith('I') || word.startsWith('K')) {
-                         if (!word.startsWith('I1') && !word.startsWith('K1')) continue;
-                    }
-                    const command = word[0];
-                    let value = word.slice(1);
-                    if (command === 'X' || command === 'Z') {
-                        if (value.includes('=')) value = '=' + value.split('=')[1];  
-                    }
-                    switch (command) {
+                for (let w of words) {
+                    if (!w || w.startsWith('CR=') || w.startsWith('AR=') || w.startsWith('TURN=')) continue;
+                    const cmd = w[0], val = w.slice(1);
+                    switch (cmd) {
                         case 'G':
-                            hasGCommand = true;
-                            const gValue = parseInt(value);
-                            switch (gValue) {
-                                case 0: movement.rapid = true; this.modalMotionCommand = 'G0'; movement.type = 'G0'; movement.isArc = false; break;
-                                case 1: movement.rapid = false; this.modalMotionCommand = 'G1'; movement.type = 'G1'; movement.isArc = false; break;
-                                case 90: this.absoluteMode = true; break;
-                                case 91: this.absoluteMode = false; break;
-                                case 2: movement.rapid = false; this.modalMotionCommand = 'G2'; movement.type = 'G2'; movement.isArc = true; break;
-                                case 3: movement.rapid = false; this.modalMotionCommand = 'G3'; movement.type = 'G3'; movement.isArc = true; break;
-                                case 94: this.modalFeedMode = 'G94'; movement.feedMode = 'G94'; break;
-                                case 95: this.modalFeedMode = 'G95'; movement.feedMode = 'G95'; break;
-                                case 96: this.modalSpindleMode = 'G96'; movement.spindleMode = 'G96'; break;
-                                case 97: this.modalSpindleMode = 'G97'; movement.spindleMode = 'G97'; break;
-                            }
+                            const g = parseInt(val);
+                            if ([0,1,2,3].includes(g)) { this.modalMotionCommand = `G${g}`; m.type = `G${g}`; m.rapid = (g===0); }
+                            else if (g===90) this.absoluteMode = true; else if (g===91) this.absoluteMode = false;
+                            else if (g===94) this.modalFeedMode = 'G94'; else if (g===95) this.modalFeedMode = 'G95';
+                            else if (g===96) this.modalSpindleMode = 'G96'; else if (g===97) this.modalSpindleMode = 'G97';
                             break;
-                        case 'X': nextX = this.parseCoordinate(value, this.currentX); hasMove = true; break;
-                        case 'Z': nextZ = this.parseCoordinate(value, this.currentZ); hasMove = true; break;
-                        case 'F':
-                            if (value.startsWith('=') || /^[0-9\.\-]+$/.test(value)) {
-                                this.modalFeedRate = this.parseParameterValue(value);
-                                movement.feedRate = this.modalFeedRate;
-                            }
-                            break;
-                        case 'S':
-                            if (value.startsWith('=') || /^[0-9\.\-]+$/.test(value) || /S=R\d+/.test(word)) {
-                                this.modalSpindleSpeed = this.parseParameterValue(value);
-                                movement.spindleSpeed = this.modalSpindleSpeed;
-                            }
-                            break;
+                        case 'X': m.toX = this.parseCoordinate(val, this.currentX); this.currentX = m.toX; hasMove = true; break;
+                        case 'Z': m.toZ = this.parseCoordinate(val, this.currentZ); this.currentZ = m.toZ; hasMove = true; break;
+                        case 'F': const f = this.parseParameterValue(val); if(f>0) { this.modalFeedRate=f; m.feedRate=f; } break;
+                        case 'S': const s = this.parseParameterValue(val); if(s>0) { this.modalSpindleSpeed=s; m.spindleSpeed=s; } break;
                     }
                 }
-
-                if(hasMove) {
-                    movement.toX = nextX;
-                    movement.toZ = nextZ;
-                    this.currentX = nextX;
-                    this.currentZ = nextZ;
-                }
-                if (!hasGCommand && words.some(w => w.startsWith('CR='))) {
-                    movement.isArc = true; 
-                    movement.type = this.modalMotionCommand; 
-                    movement.rapid = false; 
-                }
-                if (hasMove && movement.isArc) { 
-                    if (movement.type === 'G0' || movement.type === 'G1') {
-                        console.warn('CR=... byl volán s aktivním G0/G1. Chybí G2/G3. Použije se G3 (default).');
-                        movement.type = 'G3'; 
-                        this.modalMotionCommand = 'G3'; 
-                    }
-                    const arcResult = this.parseArcMovement(words, movement);
-                    movement.arcPoints = arcResult.points;
-                    movement.center = arcResult.center; 
-                }
-                if (hasMove) {
-                    if (movement.arcPoints && movement.arcPoints.length > 0) {
-                        movement.points = [...movement.arcPoints];
-                    } else {
-                        movement.points = [{ x: movement.toX, z: movement.toZ }];
-                    }
-                }
-                return hasMove ? movement : null;
+                return hasMove ? m : null;
             }
 
-            // Načítá podprogramy z this.loadedSubprograms
-            async loadSubprogram(number) {
-                const baseName = `L${number}`;
-                
-                if (this.loadedSubprograms.has(baseName)) {
-                    return this.loadedSubprograms.get(baseName);
-                }
-                
-                console.warn(`Podprogram ${baseName} nenalezen v 'loadedSubprograms'.`);
+            async loadSubprogram(num) {
+                let key = `L${num}`;
+                if (this.loadedSubprograms.has(key)) return this.loadedSubprograms.get(key);
+                if (this.loadedSubprograms.has(key+'.SPF')) return this.loadedSubprograms.get(key+'.SPF');
                 return null;
             }
 
-            // TATO FUNKCE SE JIŽ NEPOUŽÍVÁ, ale necháme ji pro případnou budoucí potřebu
-            async processSubprogramParameters(subprogramNumber) {
-                const content = await this.loadSubprogram(subprogramNumber);
-                if (!content) return;
-                // ... (zbytek funkce je v pořádku, ale je teď součástí `parseLine`) ...
-            }
-            
-            // --- OPRAVENÁ REKURZIVNÍ FUNKCE (filtrování řízení toku) ---
-            /**
-             * Rekurzivně parsuje řádky, "rozbaluje" L-volání a IGNORUJE řízení toku.
-             */
             async processLines(lines, depth) {
-                if (depth > 10) { // Ochrana proti nekonečné rekurzi
-                    console.warn("Překročena hloubka rekurze podprogramů");
-                    return { movements: [], lineIndexes: [] };
-                }
-
-                const allMovements = [];
-                const allLineIndexes = []; 
-
-                // Regulární výraz pro ignorování řízení toku a konce programu
-                // Zahrnuje: GOTOF, GOTOB, STOPRE, M30, M17 (konec SPF) a návěští s dvojtečkou (PROGR:, SKOK50:, KONEC:)
-                const flowControlRegex = /\b(GOTOF|GOTOB|STOPRE|M30|M17|M80|M00|M5|M9|G53|T\d+|D\d+|R\d+==?R\d+|IF|ELSIF|ELSE)\b|:/i;
-                // Speciální manipulace s LIMS se provádí v parseProgram/convertGCodeToAbsolute
+                if (depth > 20) return { movements: [], events: [] };
+                const allMovs = [], allEvts = [];
 
                 for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    const trimmedLine = line.trim().toUpperCase();
+                    let line = lines[i].trim();
+                    if (!line || line.startsWith(';')) continue;
 
-                    if (trimmedLine === '' || trimmedLine.startsWith(';')) continue;
-                    
-                    // --- NOVÁ KONTROLA: IGNOROVAT VĚTŠINU PŘÍKAZŮ ŘÍZENÍ TOKU A NÁVĚŠTÍ ---
-                    if (flowControlRegex.test(trimmedLine) && !trimmedLine.match(/R(\d+)\s*=\s*(.+)/)) {
+                    const lMatch = line.match(/(^|\s)L(\d+)(\s|;|$)/);
+                    const isLogic = line.match(/:\s*$/) || line.match(/\b(GOTOF|GOTOB|IF|ELSE|ENDIF|STOPRE|M00|M01|RET)\b/i); 
+                    const isMsg = line.match(/MSG\s*\(\s*"(.*?)"\s*\)/);
+                    const isMath = line.match(/R\d+\s*=/); 
+
+                    if (lMatch && !line.includes(':')) {
+                        const subNum = parseInt(lMatch[2]);
+                        const subContent = await this.loadSubprogram(subNum);
                         
-                        // Speciální kontrola pro R-přiřazení, aby se neignorovala
-                        if (trimmedLine.includes('R') && trimmedLine.includes('=')) {
-                            // Je to R-přiřazení: Zpracujeme jej pro jeho vedlejší efekt (aktualizace R-parametrů), ale nepřidáme pohyb
-                            await this.parseLine(line); 
-                            continue;
+                        if (subContent) {
+                            const subRes = await this.processLines(subContent.split('\n'), depth + 1);
+                            if (subRes.movements.length > 0) {
+                                let desc = "";
+                                // 1. Zkusit najít MSG v podprogramu
+                                const msgMatch = subContent.match(/MSG\s*\(\s*"(.*?)"\s*\)/);
+                                if (msgMatch) desc = msgMatch[1];
+                                // 2. Pokud není, zkusit najít komentář na řádku volání (rekonstrukce z kontextu volání)
+                                if (!desc) { 
+                                    const cIdx = line.indexOf(';');
+                                    if (cIdx !== -1) desc = line.substring(cIdx + 1).trim();
+                                }
+                                const headerText = desc ? `; ${desc} (L${subNum})` : `; --- VOLÁNÍ L${subNum} ---`;
+                                
+                                allMovs.push(...subRes.movements);
+                                allEvts.push({ type: 'comment', text: headerText });
+                                subRes.events.forEach(e => { if (e.type === 'move') allEvts.push(e); });
+                            } else {
+                                allEvts.push({ type: 'logic', text: line });
+                            }
+                        } else {
+                            allEvts.push({ type: 'logic', text: line });
                         }
-                        
-                        // Ostatní příkazy řízení toku ignorujeme
-                        continue;
-                    }
-                    
-                    // Kontrola L-volání (zavoláme POUZE čisté L-volání bez jiné G-kódu)
-                    const lMatch = trimmedLine.match(/^L(\d+)\s*(\;|$)/);
-                    if (lMatch) {
-                        const subprogramNumber = parseInt(lMatch[1]);
-                        const subprogramContent = await this.loadSubprogram(subprogramNumber);
-                        
-                        if (subprogramContent) {
-                            const subLines = subprogramContent.split('\n');
-                            // REKURZE:
-                            const subResult = await this.processLines(subLines, depth + 1);
-                            allMovements.push(...subResult.movements);
-                        }
+
                     } else {
-                        // Není to L-volání ani řízení toku, parsujeme řádek pro G/X/Z/R=
-                        const movement = await this.parseLine(line); 
-                        
-                        if (movement) {
-                            allMovements.push(movement);
-                            if (depth === 0) {
-                                allLineIndexes.push(i);
+                        const move = await this.parseLine(line);
+                        if (move) {
+                            allMovs.push(move);
+                            allEvts.push({ type: 'move', data: move });
+                        } else {
+                            if (isMath) { allEvts.push({ type: 'math', text: line }); }
+                            else if (isMsg) {
+                                // MSG se v podprogramech ignoruje
+                            }
+                            else if (isLogic || line.startsWith('N') || /^[M]/.test(line)) {
+                                if (depth === 0) {
+                                    let processedLine = line;
+                                    if (processedLine.includes('S=')) {
+                                        processedLine = this.substituteS(processedLine);
+                                    }
+                                    allEvts.push({ type: 'logic', text: processedLine });
+                                }
                             }
                         }
                     }
                 }
-                
-                return { movements: allMovements, lineIndexes: allLineIndexes };
+                return { movements: allMovs, events: allEvts };
             }
-            
-            // --- UPRAVENÁ FUNKCE ---
-            async parseProgram(program) {
-                // Tady resetujeme, aby parsování vždy začalo na 0,0 a G90 pro každé MPF
+
+            async parseProgram(prog) {
                 this.reset();
                 this.loadParameters(loadedData.parameters);
                 this.loadSubprograms(loadedData.loadedPrograms);
-                
-                const lines = program.split('\n');
-                
-                // Ponecháme globální reset jen pro vizualizaci/krokování, ne pro čisté parsování času
-                // this.currentX = 0;
-                // this.currentZ = 0;
-                // this.absoluteMode = true; 
-                // this.modalMotionCommand = 'G0'; 
-
-                // Zavoláme opravenou rekurzivní funkci
-                const result = await this.processLines(lines, 0);
-
-                debug(`Naparsováno ${result.movements.length} pohybů pro tento soubor (včetně podprogramů).`);
-                
-                // Vracíme všechny nalezené pohyby
-                return { movements: result.movements, lineIndexes: result.lineIndexes, program }; 
+                const res = await this.processLines(prog.split('\n'), 0);
+                return { movements: res.movements, events: res.events };
             }
         }
-        // --- KONEC TŘÍDY CNCParser ---
 
+        const els = {
+            editor: document.getElementById('main-editor'),
+            progList: document.getElementById('program-list'),
+            paramList: document.getElementById('parameter-list'),
+            fileName: document.getElementById('current-file-name'),
+            totalTime: document.getElementById('total-time'),
+            timeDetail: document.getElementById('time-details'),
+            fileTime: document.getElementById('file-time'),
+            fileDetail: document.getElementById('file-time-details'),
+            convertBtn: document.getElementById('convert-to-absolute-btn'),
+            toolsPanel: document.getElementById('tools-panel'),
+            overlay: document.getElementById('overlay')
+        };
 
-        // DOM Elementy
-        const mainEditor = document.getElementById('main-editor');
-        const programListEl = document.getElementById('program-list');
-        const parameterListEl = document.getElementById('parameter-list');
-        const totalTimeEl = document.getElementById('total-time');
-        const timeDetailsEl = document.getElementById('time-details');
-        const currentFileNameEl = document.getElementById('current-file-name');
-        
-        const toolsPanel = document.getElementById('tools-panel');
-        const overlay = document.getElementById('overlay');
-        const toolsOpenBtn = document.getElementById('tools-open-btn');
-        const toolsCloseBtn = document.getElementById('tools-close-btn');
-
-        const detailsPanel = document.getElementById('details-panel');
-        const detailsOpenBtn = document.getElementById('details-open-btn');
-        const detailsCloseBtn = document.getElementById('details-close-btn');
-        const convertToAbsoluteBtn = document.getElementById('convert-to-absolute-btn');
-
-        /**
-         * Načte data z localStorage a spustí naplnění UI
-         */
-        async function loadDataFromStorage() {
-            let dataString;
+        async function loadData() {
             try {
-                dataString = localStorage.getItem('cncExternalEditorData');
-                
-                if (!dataString) {
-                    const errorMsg = "CHYBA: V localStorage nebyla nalezena žádná data (cncExternalEditorData).\n\nZkuste se vrátit do simulátoru a znovu kliknout na tlačítko 'Upravit'.";
-                    console.warn(errorMsg); 
-                    mainEditor.value = errorMsg; 
-                    programListEl.innerHTML = '<p class="text-red-500 text-sm">Data nenalezena.</p>';
-                    totalTimeEl.textContent = "Chyba";
-                    return; 
-                }
-            
-                loadedData = JSON.parse(dataString);
-                
-                if (Array.isArray(loadedData.parameters)) {
-                    loadedData.parameters = new Map(loadedData.parameters);
-                } else {
-                    loadedData.parameters = new Map(Object.entries(loadedData.parameters || {}));
-                }
+                const raw = localStorage.getItem('cncExternalEditorData');
+                if (!raw) return;
+                loadedData = JSON.parse(raw);
+                if (Array.isArray(loadedData.parameters)) loadedData.parameters = new Map(loadedData.parameters);
+                else loadedData.parameters = new Map(Object.entries(loadedData.parameters || {}));
 
-
-                if (!loadedData.loadedPrograms || !loadedData.parameters || !loadedData.mainProgramName) {
-                    throw new Error("Data v localStorage jsou nekompletní nebo chybí 'mainProgramName'.");
-                }
-
-                populateProgramList(loadedData.loadedPrograms);
-                populateParameters(loadedData.parameters);
-                
-                // Tento výpočet by teď měl fungovat správně díky novému parseru
-                await calculateAndDisplayTotalTimeForAllPrograms();
-
-                displayFileContent(loadedData.mainProgramName); 
-
-            } catch (error) {
-                console.error("Chyba při parsování dat z localStorage:", error);
-                mainEditor.value = `CHYBA: Nepodařilo se zpracovat data z localStorage.\n\n${error.message}`; 
-                programListEl.innerHTML = '<p class="text-red-500 text-sm">Data nenalezena.</p>';
-                totalTimeEl.textContent = "Chyba";
-            }
+                renderProgs();
+                renderParams();
+                await calcTotalTime();
+                await calcAllFileTimes();
+                displayFile(loadedData.mainProgramName);
+            } catch (e) { console.error(e); els.editor.value = "Chyba načítání dat."; }
         }
-        
-        
-        // --- OPRAVENÁ FUNKCE (SČÍTÁ POUZE SPF) ---
-        /**
-         * Vypočítá a zobrazí celkový čas pro VŠECHNY PODPROGRAMY (.SPF).
-         * Tím se dostaneme k celkovému součtu operací, pokud je MPF pouze řídicí soubor.
-         */
-        async function calculateAndDisplayTotalTimeForAllPrograms() {
-            const totalTimeEl = document.getElementById('total-time');
-            const totalDetailsEl = document.getElementById('time-details');
-            
-            if (!totalTimeEl || !totalDetailsEl) return;
 
-            totalTimeEl.textContent = "Výpočet...";
-            totalDetailsEl.textContent = "(parsování všech SPF souborů...)";
+        async function calcTotalTime() {
+            els.totalTime.textContent = "...";
+            let mainName = loadedData.mainProgramName;
+            const mpf = Object.keys(loadedData.loadedPrograms).find(f => f.toUpperCase().endsWith('.MPF'));
+            if (mpf) mainName = mpf;
 
-            let grandTotalTimeMinutes = 0;
-            const programNames = Object.keys(loadedData.loadedPrograms);
-
-            for (const filename of programNames) {
-                // NOVÝ FILTR: Počítáme čas POUZE pro podprogramy (.SPF)
-                if (!filename.toUpperCase().endsWith('.SPF')) {
-                    continue; 
-                }
-                
+            if (mainName && loadedData.loadedPrograms[mainName]) {
                 try {
-                    // Použijeme čistý parser, který se resetuje pro každý soubor
-                    const localParser = new CNCParser();
-                    localParser.loadParameters(loadedData.parameters);
-                    localParser.loadSubprograms(loadedData.loadedPrograms);
-                    
-                    const programText = loadedData.loadedPrograms[filename];
-                    // Parsování SPF souboru (včetně rekurzivních volání uvnitř SPF, pokud existují)
-                    const parsedData = await localParser.parseProgram(programText); 
-                    
-                    // Vypočítáme čas pro tento podprogram
-                    const fileTimeMinutes = calculateMachiningTime(parsedData.movements, null, null);
-                    grandTotalTimeMinutes += fileTimeMinutes;
-
-                } catch (e) {
-                    console.error(`Chyba při parsování souboru ${filename} pro celkový čas:`, e);
-                }
-            }
-
-            // Aktualizujeme DOM s celkovým součtem
-            const time = formatTime(grandTotalTimeMinutes);
-            totalTimeEl.textContent = time.formatted;
-            totalDetailsEl.textContent = `(${grandTotalTimeMinutes.toFixed(2)} minut)`;
-        }
-        // --- KONEC OPRAVENÉ FUNKCE (SČÍTÁ POUZE SPF) ---
-
-
-        /**
-         * Nastaví listenery pro otevírání/zavírání menu
-         */
-        function setupPanelListeners() {
-            if (toolsOpenBtn && toolsCloseBtn && toolsPanel && overlay) {
-                toolsOpenBtn.addEventListener('click', openToolsPanel);
-                toolsCloseBtn.addEventListener('click', closeToolsPanel);
-            }
-            
-            if (detailsOpenBtn && detailsCloseBtn && detailsPanel) {
-                detailsOpenBtn.addEventListener('click', openDetailsPanel);
-                detailsCloseBtn.addEventListener('click', closeDetailsPanel);
-            }
-            
-            if (overlay) {
-                overlay.addEventListener('click', () => {
-                    closeToolsPanel();
-                    closeDetailsPanel(); 
-                });
-            }
-            
-            if (convertToAbsoluteBtn) {
-                convertToAbsoluteBtn.addEventListener('click', toggleAbsoluteCodeView);
-            }
-        }
-        
-        function openToolsPanel() {
-            closeDetailsPanel(); 
-            toolsPanel.classList.remove('-translate-x-full');
-            overlay.classList.remove('hidden');
+                    const p = new CNCParser();
+                    p.loadParameters(loadedData.parameters);
+                    p.loadSubprograms(loadedData.loadedPrograms);
+                    const res = await p.parseProgram(loadedData.loadedPrograms[mainName]);
+                    const mins = calcTime(res.movements);
+                    const t = fmtTime(mins);
+                    els.totalTime.textContent = t.fmt;
+                    els.timeDetail.textContent = `(${mins.toFixed(2)} min)`;
+                } catch (e) {}
+            } else { els.totalTime.textContent = "N/A"; }
         }
 
-        function closeToolsPanel() {
-            toolsPanel.classList.add('-translate-x-full');
-            if (detailsPanel && detailsPanel.classList.contains('translate-x-full')) {
-                overlay.classList.add('hidden');
-            }
-        }
-        
-        function openDetailsPanel() {
-            closeToolsPanel(); 
-            detailsPanel.classList.remove('translate-x-full');
-            overlay.classList.remove('hidden');
-        }
-
-        function closeDetailsPanel() {
-            detailsPanel.classList.add('translate-x-full');
-            if (toolsPanel && toolsPanel.classList.contains('-translate-x-full')) {
-                overlay.classList.add('hidden');
-            }
-        }
-        
-
-        /**
-         * Naplní seznam souborů v postranním panelu
-         */
-        function populateProgramList(programs) {
-            programListEl.innerHTML = ''; 
-
-            const subprogramNames = Object.keys(programs).sort();
-            
-            for (const filename of subprogramNames) {
-                const el = document.createElement('div');
-                el.textContent = filename;
-                el.dataset.filename = filename;
-                el.className = "file-item p-2 rounded-md cursor-pointer text-gray-700";
-                el.onclick = () => displayFileContent(filename);
-                programListEl.appendChild(el);
-            }
-        }
-
-        /**
-         * Zobrazí obsah vybraného souboru v editoru
-         */
-        async function displayFileContent(filename) {
-            if (loadedData.loadedPrograms[filename] !== undefined) {
-                mainEditor.value = loadedData.loadedPrograms[filename]; 
-                currentFileNameEl.textContent = filename; 
-
-                document.querySelectorAll('.file-item').forEach(item => {
-                    item.classList.remove('active');
-                    if (item.dataset.filename === filename) {
-                        item.classList.add('active');
-                    }
-                });
-
-                if (detailsOpenBtn.offsetParent !== null) {
-                    closeDetailsPanel();
-                }
-
-                if (isShowingAbsoluteCode) {
-                    const convertBtn = document.getElementById('convert-to-absolute-btn');
-                    convertBtn.textContent = "Převést na Absolutní G-kód";
-                    convertBtn.classList.remove('bg-gray-500', 'hover:bg-gray-600');
-                    convertBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                    isShowingAbsoluteCode = false;
-                    originalCodeStore = "";
-                }
-                
-                // --- PŘEPOČET ČASU PRO TENTO SOUBOR ---
-                const fileTimeEl = document.getElementById('file-time');
-                const fileTimeDetailsEl = document.getElementById('file-time-details');
-                
+        async function calcAllFileTimes() {
+            for (const fname in loadedData.loadedPrograms) {
                 try {
-                    fileTimeEl.textContent = "Výpočet...";
-                    fileTimeDetailsEl.textContent = "(parsování...)";
+                    const p = new CNCParser();
+                    p.loadParameters(loadedData.parameters);
+                    p.loadSubprograms(loadedData.loadedPrograms);
+                    const content = loadedData.loadedPrograms[fname];
+                    const res = await p.parseProgram(content);
+                    const mins = calcTime(res.movements);
+                    const t = fmtTime(mins);
                     
-                    const localParser = new CNCParser();
-                    localParser.loadParameters(loadedData.parameters);
-                    localParser.loadSubprograms(loadedData.loadedPrograms);
-                    
-                    const programText = loadedData.loadedPrograms[filename];
-                    
-                    // TATO FUNKCE TEĎ VRÁTÍ POHYBY VČETNĚ PODPROGRAMŮ
-                    const parsedData = await localParser.parseProgram(programText);
-                    
-                    calculateMachiningTime(parsedData.movements, 'file-time', 'file-time-details');
-                } catch (e) {
-                    console.error(`Chyba při parsování souboru ${filename} pro čas:`, e);
-                    fileTimeEl.textContent = "Chyba";
-                    fileTimeDetailsEl.textContent = e.message;
-                }
-
-            } else {
-                console.warn(`Soubor ${filename} nebyl nalezen v loadedData.`);
+                    const el = document.querySelector(`[data-time-for="${fname}"]`);
+                    if (el) el.textContent = t.fmt;
+                } catch(e) {}
             }
         }
 
-        /**
-         * Zobrazí R-Parametry v postranním panelu
-         */
-        function populateParameters(parameters) {
-            parameterListEl.innerHTML = ''; 
-            
-            const filteredParams = Array.from(parameters.entries())
-                .filter(([key, value]) => value !== 0);
+        function renderProgs() {
+            els.progList.innerHTML = '';
+            Object.keys(loadedData.loadedPrograms).sort().forEach(f => {
+                const div = document.createElement('div');
+                const isMpf = f.toUpperCase().endsWith('.MPF');
+                
+                const info = analyzeProgramData(f, loadedData.loadedPrograms[f], loadedData.loadedPrograms);
+                
+                div.className = "file-item p-2 cursor-pointer text-gray-700 border-b border-gray-100 last:border-0 hover:bg-gray-50"; 
+                
+                let infoHtml = '';
+                if (info.description || info.tools.length > 0) {
+                    infoHtml = `<div class="flex flex-col ml-6 mt-1 text-xs text-gray-500">
+                        ${info.description ? `<div class="font-bold text-green-700 italic mb-1">${info.description}</div>` : ''}
+                        ${info.tools.map(t => `<div class="font-mono text-gray-500 inline-block mb-0.5">${t}</div>`).join('')}
+                    </div>`;
+                }
 
-            filteredParams.sort((a, b) => {
-                const numA = parseInt(a[0].replace('R', ''));
-                const numB = parseInt(b[0].replace('R', ''));
-                return numA - numB;
+                div.innerHTML = `
+                <div class="flex justify-between w-full items-center">
+                    <span class="truncate font-medium"><i class="${isMpf ? 'fas fa-star text-yellow-500' : 'far fa-file-code text-gray-400'} mr-2"></i> ${f}</span>
+                    <span class="text-xs font-mono text-gray-400 ml-2 whitespace-nowrap" data-time-for="${f}">...</span>
+                </div>
+                ${infoHtml}`;
+                
+                div.dataset.name = f;
+                div.onclick = () => displayFile(f);
+                els.progList.appendChild(div);
+            });
+        }
+
+        async function displayFile(name) {
+            if (!loadedData.loadedPrograms[name]) return;
+            const txt = loadedData.loadedPrograms[name];
+            els.editor.value = txt;
+            applySyntaxHighlighting();
+            updateStats();
+
+            const isMpf = name.toUpperCase().endsWith('.MPF');
+            els.fileName.innerHTML = `<i class="${isMpf ? 'fas fa-star text-yellow-500' : 'far fa-file-code text-gray-400'} mr-2"></i> <span>${name}</span>`;
+            
+            document.querySelectorAll('.file-item').forEach(i => {
+                i.classList.remove('active');
+                if(i.dataset.name === name) i.classList.add('active');
             });
 
-            if (filteredParams.length === 0) {
-                parameterListEl.innerHTML = '<span class="text-gray-500">Žádné aktivní parametry.</span>';
-                return;
-            }
-
-            for (const [key, value] of filteredParams) {
-                const el = document.createElement('div');
-                el.className = "flex justify-between";
-                el.innerHTML = `<span class="text-gray-600">${key}:</span> <span class="font-semibold text-gray-800">${Number(value).toFixed(3)}</span>`;
-                parameterListEl.appendChild(el);
-            }
-        }
-
-        /**
-         * Vypočítá a zobrazí strojní čas.
-         */
-        function calculateMachiningTime(movements, targetTimeElementId = null, targetDetailsElementId = null) {
-            let totalTimeMinutes = 0;
-
-            if (!movements || movements.length === 0) {
-                 if (targetTimeElementId && targetDetailsElementId) {
-                    const timeEl = document.getElementById(targetTimeElementId);
-                    const detailsEl = document.getElementById(targetDetailsElementId);
-                    if(timeEl) timeEl.textContent = "0:00";
-                    if(detailsEl) detailsEl.textContent = "(0.00 minut)";
-                 }
-                return 0;
-            }
-
-            for (const move of movements) {
-                if (move.rapid) continue;
-
-                let distance = 0;
-                if (move.isArc && move.arcPoints && move.arcPoints.length > 1) {
-                    let lastPoint = { x: move.fromX, z: move.fromZ };
-                    for (const point of move.arcPoints) {
-                        distance += Math.hypot(point.x - lastPoint.x, point.z - lastPoint.z);
-                        lastPoint = point;
-                    }
-                } else if (!move.isArc) {
-                    distance = Math.hypot(move.toX - move.fromX, move.toZ - move.fromZ);
-                }
-
-                if (distance === 0) continue;
-
-                let timeForMove = 0;
-
-                if (move.feedMode === 'G95') { 
-                    const feedPerMinute = move.feedRate * move.spindleSpeed; 
-                    if (feedPerMinute > 0) {
-                        timeForMove = distance / feedPerMinute; 
-                    }
-                } else { 
-                    if (move.feedRate > 0) {
-                        timeForMove = distance / move.feedRate; 
-                    }
-                }
-                
-                totalTimeMinutes += timeForMove;
-            }
-
-            if (targetTimeElementId && targetDetailsElementId) {
-                const timeEl = document.getElementById(targetTimeElementId);
-                const detailsEl = document.getElementById(targetDetailsElementId);
-                
-                if (timeEl && detailsEl) {
-                    const time = formatTime(totalTimeMinutes);
-                    timeEl.textContent = time.formatted;
-                    detailsEl.textContent = `(${totalTimeMinutes.toFixed(2)} minut)`;
-                }
-            }
-            
-            return totalTimeMinutes;
-        }
-
-
-        /**
-         * Převede minuty na formát H:MM:SS
-         */
-        function formatTime(totalMinutes) {
-            const totalSeconds = Math.floor(totalMinutes * 60);
-            
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
-
-            const pad = (num) => num.toString().padStart(2, '0');
-
-            let formatted = "";
-            if (hours > 0) {
-                formatted = `${hours}:${pad(minutes)}:${pad(seconds)}`;
-            } else {
-                formatted = `${minutes}:${pad(seconds)}`;
-            }
-
-            return { formatted, hours, minutes, seconds };
-        }
-
-        /**
-         * Zkopíruje aktuální obsah editoru do schránky
-         */
-        async function copyToClipboard() {
-            const textToCopy = mainEditor.value; 
-            const saveBtn = document.getElementById('save-btn');
-            
-            if (!saveBtn) return;
-            const originalText = saveBtn.textContent;
+            isShowingAbsoluteCode = false;
+            resetConvertBtn();
 
             try {
-                await navigator.clipboard.writeText(textToCopy);
-                
-                saveBtn.textContent = 'Zkopírováno!';
-                saveBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-red-500');
-                saveBtn.classList.add('bg-green-500');
+                els.fileTime.textContent = "...";
+                const p = new CNCParser();
+                p.loadParameters(loadedData.parameters);
+                p.loadSubprograms(loadedData.loadedPrograms);
+                const res = await p.parseProgram(txt);
+                const mins = calcTime(res.movements);
+                const t = fmtTime(mins);
+                els.fileTime.textContent = t.fmt;
+                els.fileDetail.textContent = `(${mins.toFixed(2)} min)`;
+            } catch (e) {}
+        }
 
-                setTimeout(() => {
-                    saveBtn.textContent = originalText;
-                    saveBtn.classList.remove('bg-green-500');
-                    saveBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-                }, 2000);
+        function renderParams() {
+            els.paramList.innerHTML = '';
+            const arr = Array.from(loadedData.parameters.entries()).filter(([k,v])=>v!==0)
+                .sort((a,b)=>parseInt(a[0].substring(1))-parseInt(b[0].substring(1)));
+            if(!arr.length) els.paramList.innerHTML = '<div class="text-center text-gray-400 p-4">Žádné parametry</div>';
+            else arr.forEach(([k,v]) => {
+                const d = document.createElement('div');
+                d.className = "flex justify-between border-b border-gray-100 py-1 last:border-0";
+                d.innerHTML = `<span class="text-blue-600 font-bold">${k}</span> <span class="font-mono text-gray-800">${Number(v).toFixed(3)}</span>`;
+                els.paramList.appendChild(d);
+            });
+        }
 
-            } catch (err) {
-                console.error('Chyba při kopírování do schránky: ', err);
-
-                saveBtn.textContent = 'Chyba!';
-                saveBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-green-500');
-                saveBtn.classList.add('bg-red-500');
-
-                setTimeout(() => {
-                    saveBtn.textContent = originalText;
-                    saveBtn.classList.remove('bg-red-500');
-                    saveBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-                }, 3000);
+        function calcTime(moves) {
+            let t = 0;
+            if (!moves) return 0;
+            for (let m of moves) {
+                if (m.rapid) continue;
+                const d = Math.hypot(m.toX - m.fromX, m.toZ - m.fromZ);
+                let f = m.feedRate, s = m.spindleSpeed;
+                if (m.feedMode === 'G95' && s <= 1) s = 1000; 
+                if (m.feedMode === 'G95') f *= s;
+                if (f > 0) t += d/f;
             }
-        }
-        
-        /**
-         * Zavře aktuální záložku prohlížeče
-         */
-        function closeTab() {
-            window.close();
+            return t;
         }
 
-
-
-        /**
-         * Pomocná funkce pro formátování čísel do G-kódu
-         */
-        function formatNum(num) {
-            let s = Number(num).toFixed(3);
-            if (s.indexOf('.') > -1) {
-                 s = s.replace(/\.?0+$/, '');
-            }
-            if (s === "") return "0"; 
-            return s;
+        function fmtTime(m) {
+            const sec = Math.floor(m*60), h = Math.floor(sec/3600), min = Math.floor((sec%3600)/60), s = sec%60;
+            const p = n => n.toString().padStart(2,'0');
+            return { fmt: h>0 ? `${h}:${p(min)}:${p(s)}` : `${min}:${p(s)}` };
         }
 
-        /**
-         * Spravuje přepínání mezi původním a absolutním kódem
-         */
-        function toggleAbsoluteCodeView() {
-            const convertBtn = document.getElementById('convert-to-absolute-btn');
+        function copyToClipboard() {
+            navigator.clipboard.writeText(els.editor.value).then(() => {
+                const b = document.getElementById('save-btn'), org = b.innerHTML;
+                b.innerHTML = '<i class="fas fa-check"></i> Zkopírováno'; b.classList.replace('bg-blue-600','bg-green-600');
+                setTimeout(() => { b.innerHTML = org; b.classList.replace('bg-green-600','bg-blue-600'); }, 2000);
+            });
+        }
+        function closeTab() { window.close(); }
+        function resetConvertBtn() {
+            els.convertBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> Převést na Absolutní';
+            els.convertBtn.classList.replace('bg-gray-500','bg-indigo-600');
+        }
+
+        document.getElementById('tools-open-btn').onclick = () => { els.toolsPanel.classList.remove('-translate-x-full'); els.overlay.classList.remove('hidden'); };
+        document.getElementById('tools-close-btn').onclick = () => { els.toolsPanel.classList.add('-translate-x-full'); els.overlay.classList.add('hidden'); };
+        document.getElementById('details-open-btn').onclick = () => { document.getElementById('details-panel').classList.remove('translate-x-full'); els.overlay.classList.remove('hidden'); };
+        document.getElementById('details-close-btn').onclick = () => { document.getElementById('details-panel').classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
+        els.overlay.onclick = () => { els.toolsPanel.classList.add('-translate-x-full'); document.getElementById('details-panel').classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
+
+        els.convertBtn.onclick = async () => {
             if (isShowingAbsoluteCode) {
-                // Vrátit zpět
-                mainEditor.value = originalCodeStore; 
-                originalCodeStore = "";
-                
-                convertBtn.textContent = "Převést na Absolutní G-kód";
-                convertBtn.classList.remove('bg-gray-500', 'hover:bg-gray-600');
-                convertBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                
+                if (originalCodeStore) {
+                    els.editor.value = originalCodeStore;
+                    applySyntaxHighlighting();
+                }
                 isShowingAbsoluteCode = false;
-                
-                const activeItem = document.querySelector('.file-item.active');
-                if (activeItem) {
-                    currentFileNameEl.textContent = activeItem.dataset.filename;
-                } else {
-                    currentFileNameEl.textContent = loadedData.mainProgramName;
-                }
-
+                resetConvertBtn();
+                const act = document.querySelector('.file-item.active');
+                if(act) displayFile(act.dataset.name);
             } else {
-                // Provést konverzi
-                originalCodeStore = mainEditor.value; 
+                originalCodeStore = els.editor.value;
+                const act = document.querySelector('.file-item.active');
+                const fname = act ? act.dataset.name : loadedData.mainProgramName;
                 
-                // --- LEPŠÍ ZPŮSOB ---
-                // Použijeme nový parser, abychom dostali VŠECHNY pohyby
+                const p = new CNCParser();
+                p.loadParameters(loadedData.parameters);
+                p.loadSubprograms(loadedData.loadedPrograms);
+                const res = await p.parseProgram(els.editor.value);
+
+                let out = `; PŘEVOD NA ABSOLUTNÍ SOUŘADNICE: ${fname}\n; Logika (GOTO/IF) zachována, vzorce (R=...) dopočítány a skryty.\nN10 G90 G54\n`;
                 
-                (async () => {
-                    try {
-                        const localParser = new CNCParser();
-                        localParser.loadParameters(loadedData.parameters);
-                        localParser.loadSubprograms(loadedData.loadedPrograms);
+                let maxBlockNum = 10;
+                let lastS = -1; 
+
+                res.events.forEach(e => {
+                    let lineText = "";
+                    if (e.type === 'move') {
+                        const m = e.data;
                         
-                        // Získáme jméno aktuálně aktivního souboru
-                        const activeItem = document.querySelector('.file-item.active');
-                        let filenameToParse = loadedData.mainProgramName;
-                        if (activeItem) {
-                            filenameToParse = activeItem.dataset.filename;
+                        let prefix = "";
+                        if (m.blockNumber) {
+                            prefix = m.blockNumber + " ";
+                            const val = parseInt(m.blockNumber.replace(/[^0-9]/g, ''));
+                            if (!isNaN(val) && val > maxBlockNum) maxBlockNum = val;
                         }
+
+                        let l = `${prefix}${m.rapid?'G0':'G1'} X${m.toX.toFixed(3)} Z${m.toZ.toFixed(3)}`;
                         
-                        const programText = loadedData.loadedPrograms[filenameToParse];
-                        const parsedData = await localParser.parseProgram(programText);
-                        
-                        // A teď převedeme VŠECHNY pohyby (včetně podprogramů)
-                        const success = convertGCodeToAbsolute(parsedData.movements, filenameToParse);
-                        
-                        if (success) {
-                            convertBtn.textContent = "Vrátit zpět na původní kód";
-                            convertBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-                            convertBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
-                            
-                            isShowingAbsoluteCode = true;
-                        } else {
-                            originalCodeStore = ""; 
+                        if (m.spindleSpeed > 0 && m.spindleSpeed !== lastS) {
+                            l += ` S${m.spindleSpeed}`;
+                            lastS = m.spindleSpeed;
                         }
-                    } catch (e) {
-                        console.error("Chyba při konverzi na absolutní G-kód:", e);
-                        alert("Chyba při konverzi na absolutní G-kód.");
-                        originalCodeStore = "";
+
+                        if(!m.rapid && m.feedRate) l += ` F${m.feedRate}`;
+                        lineText = l;
+                    } else if (e.type === 'logic') {
+                        lineText = e.text;
+                        const match = lineText.match(/^N(\d+)/i);
+                        if (match) {
+                            const val = parseInt(match[1]);
+                            if (!isNaN(val) && val > maxBlockNum) maxBlockNum = val;
+                        }
+                        const sMatch = lineText.match(/S(\d+(\.\d+)?)/);
+                        if (sMatch) { lastS = parseFloat(sMatch[1]); }
+
+                    } else if (e.type === 'comment') {
+                        lineText = e.text;
                     }
-                })();
-            }
-        }
-        
-        // Funkce pro získání hodnoty LIMS z celého programu
-        function getLIMSValue(loadedPrograms) {
-            let limsValue = null;
-            const programNames = Object.keys(loadedPrograms);
-            const limsRegex = /LIMS\s*=\s*(\d+(\.\d+)?)/i;
-
-            for (const filename of programNames) {
-                const programText = loadedPrograms[filename];
-                const match = programText.match(limsRegex);
-                if (match) {
-                    // Převezmeme pouze poslední platnou hodnotu LIMS nalezenou v programu
-                    limsValue = parseFloat(match[1]);
-                }
-            }
-            return limsValue !== null ? formatNum(limsValue) : null;
-        }
-
-
-        /**
-         * Převede 'movements' z localStorage na absolutní G-kód
-         * * @param {Array} movements Pole parsovaných pohybů.
-         * @param {string} originalFileName Původní název souboru pro určení ukončovacího příkazu.
-         * @returns {boolean} True, pokud byla konverze úspěšná.
-         */
-        function convertGCodeToAbsolute(movements, originalFileName) {
-            if (!movements || movements.length === 0) {
-                alert("CHYBA: Nejsou načtena žádná data o pohybech ze simulátoru.");
-                return false; 
-            }
-            
-            // Souřadnice pro bezpečnou polohu karuselu (X=průměr, Z=délka/hloubka)
-            const SAFE_X = 600;
-            const SAFE_Z = 400;
-
-            // Určení ukončovacího kódu (M30 pro MPF, M17 pro SPF)
-            const upperFileName = originalFileName.toUpperCase();
-            const terminationCode = upperFileName.endsWith('.MPF') ? 'M30' : 'M17';
-            
-            // Najdeme první reálnou otáčku v pohybech pro G97
-            let initialSpindleSpeed = 0;
-            for(const move of movements) {
-                if (move.spindleSpeed > 0 && move.spindleMode === 'G97') {
-                     initialSpindleSpeed = move.spindleSpeed;
-                     break;
-                }
-            }
-            
-            const limsValue = getLIMSValue(loadedData.loadedPrograms);
-
-
-            let newCode = [];
-            // --- HLAVIČKA ---
-            newCode.push(`; --- PŘEVEDENO NA ABSOLUTNÍ G-KÓD (${originalFileName}) ---`);
-            newCode.push(`; Všechny pohyby jsou převedeny na G90 absolutní souřadnice.`);
-            newCode.push(`; Bezpečná poloha pro karusel: X${SAFE_X} Z${SAFE_Z}`);
-            newCode.push('');
-            
-            // Inicializační blok
-            newCode.push(`N1 G90 G54 D0`);
-            
-            // Přidání LIMS, pokud existuje
-            if (limsValue !== null) {
-                newCode.push(`N2 LIMS=${limsValue} ; Nastaveni limitnich otacek G96 (z originalniho kodu)`);
-                newCode.push(`; POZNÁMKA: Kalkulátor času nepočítá dynamické otáčky G96, ale používá S z G-kódu.`);
-            } else {
-                 newCode.push(`N2 ; LIMS neni definovan v originalnich souborech.`);
-            }
-            
-            // M4 / M3 (nastavujeme M4 jako standard)
-            if (initialSpindleSpeed > 0) {
-                newCode.push(`N3 M4 S${formatNum(initialSpindleSpeed)} G97`);
-            } else {
-                newCode.push(`N3 M4 G97 S1000 ; Otáčky G97/M4 jsou nutné. S1000 je default.`);
-            }
-            
-            // UPRAVENO: Použití bezpečné vzdálenosti pro karusel X600 Z400
-            newCode.push(`N4 G0 X${SAFE_X} Z${SAFE_Z} ; Najeti na bezpecnou pozici (Karusel)`);
-            newCode.push(`N5 G90`);
-            newCode.push('');
-
-
-            let currentLineNum = 10;
-            let lastFeed = -1;
-            let lastSpindleSpeed = initialSpindleSpeed;
-            let lastMoveType = ""; 
-            let lastFeedMode = "G95";
-            let lastSpindleMode = "G97";
-
-            for (const move of movements) {
-                if (!move.points || move.points.length === 0) continue; 
-                
-                let lineParts = [];
-                
-                // 1. Řádkové číslo (blok) - Použije původní, nebo vygeneruje nové
-                const blockNum = move.blockNumber || `N${currentLineNum}`;
-                lineParts.push(blockNum);
-                
-                // 2. Modální stavy (G95/G94, G97/G96)
-                if (move.feedMode !== lastFeedMode) {
-                    lineParts.push(move.feedMode);
-                    lastFeedMode = move.feedMode;
-                }
-                if (move.spindleMode !== lastSpindleMode) {
-                    lineParts.push(move.spindleMode);
-                    lastSpindleMode = move.spindleMode;
-                }
-                
-                // 3. Otáčky (S) - Vždy doplnit, pokud se změní nebo pokud se nejedná o rychloposuv
-                const currentSpindleSpeed = move.spindleSpeed > 0 ? move.spindleSpeed : lastSpindleSpeed;
-                if (currentSpindleSpeed !== lastSpindleSpeed || (!move.rapid && lastSpindleSpeed <= 0) || (move.spindleMode === 'G97' && !move.rapid)) {
-                     // Zajišťujeme, že se S vypíše, pokud:
-                     // 1. se změnilo
-                     // 2. je to první posuvný pohyb bez předchozích S (lastSpindleSpeed <= 0)
-                     // 3. dojde k přepnutí na G97
-                    lineParts.push(`S${formatNum(currentSpindleSpeed)}`);
-                    lastSpindleSpeed = currentSpindleSpeed;
-                }
-                
-                // 4. Pohyb (G0/G1/G2/G3)
-                if (move.type !== lastMoveType) {
-                    lineParts.push(move.type);
-                    lastMoveType = move.type;
-                }
-
-                // 5. Souřadnice
-                const x = formatNum(move.toX);
-                const z = formatNum(move.toZ);
-                lineParts.push(`X${x}`);
-                lineParts.push(`Z${z}`);
-                
-                // 6. Kruhové interpolace (I/K)
-                if (move.isArc && move.center) {
-                    // I a K jsou přírůstkové od STARTOVNÍHO bodu segmentu
-                    const i = formatNum(move.center.x - move.fromX);
-                    const k = formatNum(move.center.z - move.fromZ);
-                    lineParts.push(`I${i}`);
-                    lineParts.push(`K${k}`);
-                }
-
-                // 7. Posuv (F)
-                if (!move.rapid) {
-                    const f = formatNum(move.feedRate);
-                    if (move.feedRate !== lastFeed) {
-                        lineParts.push(`F${f}`);
-                        lastFeed = move.feedRate;
+                    
+                    if (lineText) {
+                        out += lineText + '\n';
                     }
-                } else {
-                    lastFeed = -1; // Reset posuvu po G0
+                });
+
+                const trailingContent = out.trim().toUpperCase();
+                const endsWithTerminator = /M(02|17|30)(\s*;.*)?$/.test(trailingContent);
+
+                if (!endsWithTerminator) {
+                    let footerStart = Math.ceil((maxBlockNum + 10)/10)*10;
+                    if (footerStart < 250) footerStart = 250;
+                    out += `N${footerStart} M80 ; Bezpecna poloha\nN${footerStart+10} M30`;
                 }
-                
-                newCode.push(lineParts.join(' '));
-                currentLineNum += 10;
+
+                els.editor.value = out;
+                applySyntaxHighlighting();
+                isShowingAbsoluteCode = true;
+                els.convertBtn.innerHTML = '<i class="fas fa-undo"></i> Zpět na originál';
+                els.convertBtn.classList.replace('bg-indigo-600','bg-gray-500');
+                if(window.innerWidth < 1024) { els.toolsPanel.classList.add('-translate-x-full'); els.overlay.classList.add('hidden'); }
             }
+        };
 
-            // --- PATIČKA ---
-            newCode.push('');
-            // UPRAVENO: Použití bezpečné vzdálenosti pro karusel
-            newCode.push(`N${currentLineNum} G0 G53 X${SAFE_X} Z${SAFE_Z} ; Odjezd do bezpecne polohy (Karusel)`);
-            newCode.push(`N${currentLineNum + 10} M5 ; Zastaveni vřetena`);
-            newCode.push(`N${currentLineNum + 20} ${terminationCode} ; Konec programu`);
-
-
-            mainEditor.value = newCode.join('\n'); 
-            
-            const activeItem = document.querySelector('.file-item.active');
-            let baseName = loadedData.mainProgramName;
-            if (activeItem) {
-                baseName = activeItem.dataset.filename;
-            }
-            currentFileNameEl.textContent = `${baseName} (Absolutní)`;
-
-            document.querySelectorAll('.file-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            
-            return true;
-        }
-
-        /**
-         * Spuštění aplikace po načtení DOM
-         */
-        document.addEventListener('DOMContentLoaded', () => {
-            setupPanelListeners();
-            // Upraveno na async, aby počkalo na výpočet času
-            loadDataFromStorage();
-        });
-
+        document.addEventListener('DOMContentLoaded', loadData);
     </script>
 </body>
 </html>
