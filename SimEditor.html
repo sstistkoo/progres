@@ -41,8 +41,34 @@
         .file-item.active .truncate { color: #1e40af; font-weight: 600; }
         .dark .file-item.active .truncate { color: #bfdbfe; }
         
-        .editor-wrapper { position: relative; width: 100%; height: 100%; background-color: #ffffff; overflow: hidden; }
-        .editor-common { position: absolute; top: 0; left: 0; width: 100%; height: 100%; margin: 0; padding: 1rem; border: none; font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace; font-size: 15px; line-height: 1.6; white-space: pre; overflow: auto; box-sizing: border-box; tab-size: 4; }
+        .editor-wrapper { position: relative; width: 100%; height: 100%; background-color: #ffffff; overflow: hidden; display: flex; }
+        
+        /* Line Numbers Styles */
+        .line-numbers {
+            min-width: 40px;
+            text-align: right;
+            padding: 1rem 0.5rem 1rem 0;
+            background-color: #f3f4f6;
+            color: #9ca3af;
+            font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+            font-size: 16px; /* Bigger font for mobile */
+            line-height: 1.6;
+            border-right: 1px solid #e5e7eb;
+            user-select: none;
+            overflow: hidden;
+        }
+        .dark .line-numbers { background-color: #111827; color: #6b7280; border-right-color: #374151; }
+
+        .editor-container { position: relative; flex-grow: 1; height: 100%; overflow: hidden; }
+
+        .editor-common { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; margin: 0; 
+            padding: 1rem; border: none; 
+            font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace; 
+            font-size: 16px; /* Bigger font for mobile */
+            line-height: 1.6; 
+            white-space: pre; overflow: auto; box-sizing: border-box; tab-size: 4; 
+        }
         
         #editor-backdrop { z-index: 1; pointer-events: none; background-color: #fff; color: #374151 !important; }
         .dark #editor-backdrop { background-color: #1f2937; color: #d1d5db !important; }
@@ -51,6 +77,7 @@
         .dark #main-editor { caret-color: #fff; }
         #main-editor::selection { background-color: rgba(0, 120, 215, 0.3); color: transparent; }
 
+        /* Syntax Highlighting Colors */
         .hl-g { color: #2563eb; font-weight: bold; } .dark .hl-g { color: #60a5fa; }
         .hl-m { color: #db2777; font-weight: bold; } .dark .hl-m { color: #f472b6; }
         .hl-coord { color: #059669; } .dark .hl-coord { color: #34d399; }
@@ -63,6 +90,42 @@
         .hl-logic { color: #dc2626; font-weight: bold; } .dark .hl-logic { color: #ef4444; }
         .hl-sub { color: #9333ea; font-weight: bold; } .dark .hl-sub { color: #c084fc; }
         .hl-error { text-decoration: underline wavy red; cursor: help; }
+
+        /* Quick Bar Styles */
+        .quick-bar {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: #f3f4f6;
+            border-top: 1px solid #e5e7eb;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .dark .quick-bar { background: #1f2937; border-top-color: #374151; }
+        
+        .qb-btn {
+            flex: 0 0 auto;
+            min-width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            background: white;
+            color: #374151;
+            font-weight: bold;
+            font-family: monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            cursor: pointer;
+            user-select: none;
+            border: 1px solid #e5e7eb;
+        }
+        .qb-btn:active { background: #e5e7eb; transform: translateY(1px); }
+        .dark .qb-btn { background: #374151; color: #e5e7eb; border-color: #4b5563; }
+        .dark .qb-btn:active { background: #4b5563; }
+        .qb-btn.blue { color: #2563eb; background: #eff6ff; border-color: #bfdbfe; }
+        .dark .qb-btn.blue { color: #60a5fa; background: #1e3a8a; border-color: #1d4ed8; }
+        .qb-btn.red { color: #dc2626; } .dark .qb-btn.red { color: #f87171; }
 
         .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
         .modal.show { display: flex; }
@@ -238,7 +301,6 @@
                 <div class="flex items-center gap-2"><button id="tools-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 dark:text-gray-300 lg:hidden"><i class="fas fa-bars fa-lg"></i></button></div>
                 <h1 id="current-file-name" class="text-lg font-bold text-gray-800 dark:text-gray-200 truncate mx-4 flex items-center gap-2"><i class="far fa-file-alt text-gray-400"></i> <span>Bez názvu</span></h1>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <!-- NEW Status Button -->
                     <button id="status-btn" class="px-3 py-1.5 bg-gray-100 text-gray-500 text-sm font-medium rounded hover:bg-gray-200 shadow-sm flex items-center gap-1.5 transition-colors dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600" title="Stav programu">
                         <i class="fas fa-circle-notch fa-spin"></i>
                     </button>
@@ -250,9 +312,34 @@
             </div>
             
             <div class="relative flex-1 editor-wrapper">
-                <div id="editor-backdrop" class="editor-common"><div id="editor-highlights"></div></div>
-                <textarea id="main-editor" class="editor-common" spellcheck="false" placeholder="Zde pište CNC kód..."></textarea>
-                <div id="autocomplete-list"></div>
+                <!-- Line Numbers -->
+                <div id="line-numbers" class="line-numbers"></div>
+
+                <div class="editor-container">
+                    <div id="editor-backdrop" class="editor-common"><div id="editor-highlights"></div></div>
+                    <textarea id="main-editor" class="editor-common" spellcheck="false" placeholder="Zde pište CNC kód..."></textarea>
+                    <div id="autocomplete-list"></div>
+                </div>
+            </div>
+
+            <!-- Quick Bar -->
+            <div class="quick-bar">
+                <button class="qb-btn blue" onclick="insertAtCursor('G')">G</button>
+                <button class="qb-btn blue" onclick="insertAtCursor('M')">M</button>
+                <button class="qb-btn" onclick="insertAtCursor('X')">X</button>
+                <button class="qb-btn" onclick="insertAtCursor('Z')">Z</button>
+                <button class="qb-btn" onclick="insertAtCursor('F')">F</button>
+                <button class="qb-btn" onclick="insertAtCursor('S')">S</button>
+                <button class="qb-btn" onclick="insertAtCursor('T')">T</button>
+                <button class="qb-btn" onclick="insertAtCursor('D')">D</button>
+                <button class="qb-btn red" onclick="insertAtCursor('LIMS=')">LIMS</button>
+                <button class="qb-btn" onclick="insertAtCursor('=')">=</button>
+                <button class="qb-btn" onclick="insertAtCursor('+')">+</button>
+                <button class="qb-btn" onclick="insertAtCursor('-')">-</button>
+                <button class="qb-btn" onclick="insertAtCursor('R')">R</button>
+                <button class="qb-btn" onclick="insertAtCursor('(')">(</button>
+                <button class="qb-btn" onclick="insertAtCursor(')')">)</button>
+                <button class="qb-btn" onclick="insertAtCursor(';')">;</button>
             </div>
         </main>
     </div>
@@ -271,6 +358,7 @@
             editor: document.getElementById('main-editor'),
             backdrop: document.getElementById('editor-backdrop'),
             highlights: document.getElementById('editor-highlights'),
+            lineNumbers: document.getElementById('line-numbers'),
             progList: document.getElementById('program-list'),
             paramList: document.getElementById('parameter-list'),
             fileName: document.querySelector('#current-file-name span'),
@@ -310,6 +398,18 @@
                 loadedPrograms: loadedData.loadedPrograms
             };
             localStorage.setItem('cncExternalEditorData', JSON.stringify(dataToStore));
+        }
+
+        function insertAtCursor(text) {
+            const el = els.editor;
+            const start = el.selectionStart;
+            const end = el.selectionEnd;
+            const val = el.value;
+            el.value = val.substring(0, start) + text + val.substring(end);
+            el.selectionStart = el.selectionEnd = start + text.length;
+            el.focus();
+            applySyntaxHighlighting();
+            updateStats();
         }
 
         function copyToClipboard() {
@@ -393,7 +493,7 @@
         function performScroll(lineIndex) {
              if (lineIndex < 0) return;
              
-             const lineHeight = 24; 
+             const lineHeight = 25.6; // approx 16px * 1.6
              const targetScroll = (lineIndex * lineHeight) - (els.editor.clientHeight / 2);
              els.editor.scrollTop = Math.max(0, targetScroll);
              
@@ -410,6 +510,21 @@
 
         function escapeHtml(text) {
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function updateLineNumbers() {
+            const lines = els.editor.value.split('\n').length;
+            const currentLines = els.lineNumbers.childElementCount;
+            
+            if (lines !== currentLines) {
+                let html = '';
+                for (let i = 1; i <= lines; i++) {
+                    html += `${i}<br>`;
+                }
+                els.lineNumbers.innerHTML = html;
+            }
+            // Sync scroll
+            els.lineNumbers.scrollTop = els.editor.scrollTop;
         }
 
         function applySyntaxHighlighting() {
@@ -447,6 +562,7 @@
                 return code + comm;
             });
             els.highlights.innerHTML = styled.join('<br>') + '<br>';
+            updateLineNumbers();
         }
 
         class CNCParser {
@@ -790,7 +906,11 @@
                 document.documentElement.classList.toggle('dark');
                 localStorage.setItem('cnc-dark-mode', document.documentElement.classList.contains('dark'));
             };
-            els.editor.onscroll = () => { els.backdrop.scrollTop = els.editor.scrollTop; els.backdrop.scrollLeft = els.editor.scrollLeft; };
+            els.editor.onscroll = () => { 
+                els.backdrop.scrollTop = els.editor.scrollTop; 
+                els.backdrop.scrollLeft = els.editor.scrollLeft;
+                els.lineNumbers.scrollTop = els.editor.scrollTop; // Sync line numbers
+            };
             
             els.editor.oninput = () => { 
                 applySyntaxHighlighting(); 
