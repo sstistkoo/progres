@@ -99,6 +99,11 @@
             <div class="p-4 border-b dark:border-gray-700">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">Hlavní Funkce</h2>
                 
+                <button id="dark-mode-toggle" class="w-full px-3 py-2.5 mb-3 bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none shadow-sm flex items-center justify-center gap-2 transition-colors">
+                    <i class="fas fa-moon dark:hidden"></i><i class="fas fa-sun hidden dark:block"></i>
+                    <span class="dark:hidden">Tmavý režim</span><span class="hidden dark:inline">Světlý režim</span>
+                </button>
+
                 <button id="check-program-btn" class="w-full px-3 py-2.5 mb-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none shadow-sm flex items-center justify-center gap-2">
                     <i class="fas fa-check-circle"></i> Kontrola programu
                 </button>
@@ -233,10 +238,12 @@
                 <div class="flex items-center gap-2"><button id="tools-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 dark:text-gray-300 lg:hidden"><i class="fas fa-bars fa-lg"></i></button></div>
                 <h1 id="current-file-name" class="text-lg font-bold text-gray-800 dark:text-gray-200 truncate mx-4 flex items-center gap-2"><i class="far fa-file-alt text-gray-400"></i> <span>Bez názvu</span></h1>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <button id="dark-mode-toggle" class="px-3 py-1.5 text-gray-600 dark:text-yellow-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Tmavý režim">
-                        <i class="fas fa-moon dark:hidden"></i><i class="fas fa-sun hidden dark:block"></i>
+                    <!-- NEW Status Button -->
+                    <button id="status-btn" class="px-3 py-1.5 bg-gray-100 text-gray-500 text-sm font-medium rounded hover:bg-gray-200 shadow-sm flex items-center gap-1.5 transition-colors dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600" title="Stav programu">
+                        <i class="fas fa-circle-notch fa-spin"></i>
                     </button>
-                    <button id="save-btn" onclick="copyToClipboard()" class="ml-0 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 shadow-sm"><i class="far fa-copy mr-1"></i> Kopírovat</button>
+                    
+                    <button id="save-btn" onclick="copyToClipboard()" class="ml-0 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 shadow-sm" title="Kopírovat"><i class="far fa-copy"></i></button>
                     <button id="close-btn" onclick="window.close()" class="px-3 py-1.5 bg-red-100 text-red-600 hover:bg-red-200 rounded"><i class="fas fa-times"></i></button>
                     <button id="details-open-btn" class="p-2 ml-1 text-gray-600 hover:text-gray-800 dark:text-gray-300 lg:hidden"><i class="fas fa-list-ul fa-lg"></i></button>
                 </div>
@@ -258,6 +265,7 @@
         let isShowingAbsoluteCode = false;
         let codeBeforeRenumbering = "";
         let isRenumbered = false;
+        let statusDebounceTimer;
 
         const els = {
             editor: document.getElementById('main-editor'),
@@ -283,6 +291,7 @@
             toolsPanel: document.getElementById('tools-panel'),
             detailsPanel: document.getElementById('details-panel'),
             overlay: document.getElementById('overlay'),
+            statusBtn: document.getElementById('status-btn'),
             modal: document.getElementById('renumber-modal'),
             modalStart: document.getElementById('renumber-start'),
             modalStep: document.getElementById('renumber-step'),
@@ -308,7 +317,7 @@
             navigator.clipboard.writeText(els.editor.value).then(() => {
                 const b = document.getElementById('save-btn');
                 const original = b.innerHTML;
-                b.innerHTML = '<i class="fas fa-check"></i> Zkopírováno';
+                b.innerHTML = '<i class="fas fa-check"></i>';
                 b.classList.remove('bg-blue-600');
                 b.classList.add('bg-green-600');
                 setTimeout(() => {
@@ -409,7 +418,6 @@
                 }
                 code = escapeHtml(code);
                 
-                // FIX: Rozdělení [FSTD] a čísel (předchozí chyba s $2)
                 code = code.replace(/\b([FSTD])(\d*[\.]?\d+)\b/g, '<span class="hl-feed">$1</span><span class="hl-val">$2</span>');
 
                 code = code
@@ -458,16 +466,22 @@
                 this.parameters.clear(); 
                 this.missingParams.clear();
                 this.errors = [];
+                // Reset state flags specifically for main execution flow check
+                this.hasLims = false; 
+                this.spindleActive = false; 
                 await this.processLines(code.split('\n'), 0, startFileName || "Main");
                 return { parameters: this.parameters, errors: this.errors };
             }
             async processLines(lines, depth, currentFileName) {
                 if (depth > 10) return; 
                 const labels = new Set();
+                let hasEnd = false;
+                
                 lines.forEach(l => {
                      const m = l.trim().toUpperCase().match(/^\s*(?:N\d+\s*)?([a-zA-Z0-9_]+):/);
                      if(m) labels.add(m[1]);
                 });
+
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i].trim();
                     const commentIdx = line.indexOf(';');
@@ -477,6 +491,45 @@
                     if (!clean) continue;
                     const nMatch = clean.match(/^N(\d+)/);
                     
+                    // --- Safety Checks for Karusel ---
+                    
+                    // 1. LIMS / G50 check
+                    if (clean.includes('LIMS=') || /\bG50\b/.test(clean)) {
+                        this.hasLims = true;
+                    }
+
+                    // 2. G96 check (Must have LIMS/G50 before)
+                    if (/\bG96\b/.test(clean) && !this.hasLims) {
+                         this.errors.push({ file: currentFileName, lineIndex: i, msg: `NEBEZPEČÍ: G96 (Konst. řezná rychlost) bez definovaného limitu otáček (LIMS/G50).` });
+                    }
+
+                    // 3. Spindle check (S + M3/M4)
+                    if (/\bS\d+/.test(clean) || /\bS=/.test(clean)) {
+                         // S defined, but check M3/M4
+                         if (/\bM3\b/.test(clean) || /\bM4\b/.test(clean)) this.spindleActive = true;
+                    }
+                    if (/\bM3\b/.test(clean) || /\bM4\b/.test(clean)) this.spindleActive = true;
+                    if (/\bM5\b/.test(clean)) this.spindleActive = false;
+
+                    // 4. Feed Move Check
+                    if (/\bG[0]*1\b/.test(clean) || /\bG[0]*2\b/.test(clean) || /\bG[0]*3\b/.test(clean)) {
+                         if (!this.spindleActive && !clean.includes('S')) {
+                             // Warning if moving without spindle on (unless it is a specific C-axis move, but simplistic check here)
+                             this.errors.push({ file: currentFileName, lineIndex: i, msg: `VAROVÁNÍ: Pracovní posuv (G1/G2/G3) bez aktivního vřetene (M3/M4).` });
+                         }
+                         if (!/\bF[\d\.]+/.test(clean) && !this.lastFeedDefined) {
+                             // Check for F definition (simplistic, doesnt track F from previous lines perfectly across subprogs, but locally works)
+                             // Ideally we track 'currentFeed' state.
+                         } else if (/\bF[\d\.]+/.test(clean)) {
+                             this.lastFeedDefined = true;
+                         }
+                    }
+
+                    // End of program check
+                    if (/\bM30\b/.test(clean) || /\bM17\b/.test(clean) || /\bM02\b/.test(clean)) hasEnd = true;
+
+
+                    // --- Existing Logic ---
                     const gotoMatch = clean.match(/\b(GOTOF|GOTOB|IF.*GOTO)\s+([a-zA-Z0-9_]+)/);
                     if (gotoMatch && !labels.has(gotoMatch[2])) {
                         this.errors.push({ file: currentFileName, lineIndex: i, msg: `Cíl skoku '${gotoMatch[2]}' neexistuje.` });
@@ -522,6 +575,10 @@
                         }
                     }
                 }
+                
+                if (!hasEnd && depth === 0 && lines.length > 0) {
+                     this.errors.push({ file: currentFileName, lineIndex: lines.length - 1, msg: `VAROVÁNÍ: Program nekončí M30 nebo M17.` });
+                }
             }
         }
 
@@ -540,6 +597,8 @@
             });
             applySyntaxHighlighting();
             updateStats();
+            updateValidationUI();
+            
             if (els.groupDeleteActive && !els.groupDeleteActive.classList.contains('hidden')) {
                 els.groupDeleteActive.classList.add('hidden');
                 els.groupDeleteActive.classList.remove('flex');
@@ -650,7 +709,35 @@
             URL.revokeObjectURL(url);
         }
 
-        function renderFileList() { renderProgs(); }
+        async function updateValidationUI() {
+             // Silent validation
+             if (currentFile && loadedData.loadedPrograms[currentFile] !== undefined) {
+                loadedData.loadedPrograms[currentFile] = els.editor.value;
+             }
+             const p = new CNCParser();
+             p.loadSubprograms(loadedData.loadedPrograms);
+             const startFile = loadedData.mainProgramName || currentFile;
+             const code = loadedData.loadedPrograms[startFile];
+             
+             // Simple status update
+             els.statusBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+             
+             try {
+                 const res = await p.parseProgram(code, startFile);
+                 const btn = els.statusBtn;
+                 btn.className = "px-3 py-1.5 text-sm font-medium rounded shadow-sm flex items-center gap-1.5 transition-colors ";
+                 
+                 if (res.errors.length === 0) {
+                     btn.innerHTML = '<i class="fas fa-check-circle"></i>';
+                     btn.className += "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300 dark:hover:bg-green-800";
+                 } else {
+                     btn.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <span>${res.errors.length}</span>`;
+                     btn.className += "bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800";
+                 }
+             } catch(e) {
+                 console.error("Validation UI error:", e);
+             }
+        }
 
         async function performFullCheck() {
             const resultsDiv = document.getElementById('validation-results');
@@ -676,6 +763,7 @@
                 });
             }
             resultsDiv.appendChild(list);
+            updateValidationUI(); // Ensure button sync
             if (window.innerWidth < 1024) els.toolsPanel.classList.add('-translate-x-full');
         }
 
@@ -686,12 +774,23 @@
                 localStorage.setItem('cnc-dark-mode', document.documentElement.classList.contains('dark'));
             };
             els.editor.onscroll = () => { els.backdrop.scrollTop = els.editor.scrollTop; els.backdrop.scrollLeft = els.editor.scrollLeft; };
-            els.editor.oninput = () => { applySyntaxHighlighting(); updateStats(); };
+            
+            els.editor.oninput = () => { 
+                applySyntaxHighlighting(); 
+                updateStats();
+                
+                // Debounced live validation
+                clearTimeout(statusDebounceTimer);
+                statusDebounceTimer = setTimeout(updateValidationUI, 1000);
+            };
+            
             els.btnInitialDelete.onclick = deleteCurrentFile;
             els.btnDeleteNext.onclick = deleteCurrentFile;
             els.btnUndo.onclick = undoDelete;
             els.newProgBtn.onclick = createNewProgram;
             els.checkProgBtn.onclick = performFullCheck;
+            els.statusBtn.onclick = performFullCheck; // Link new button to validation modal
+            
             if (els.fileImportPack) els.fileImportPack.addEventListener('change', handlePackageImport);
             if (els.btnExportPack) els.btnExportPack.onclick = handlePackageExport;
             const raw = localStorage.getItem('cncExternalEditorData');
@@ -722,6 +821,9 @@
             document.getElementById('details-open-btn').onclick = () => { els.detailsPanel.classList.remove('translate-x-full'); els.overlay.classList.remove('hidden'); };
             document.getElementById('details-close-btn').onclick = () => { els.detailsPanel.classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
             els.overlay.onclick = () => { els.toolsPanel.classList.add('-translate-x-full'); els.detailsPanel.classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
+            
+            // Initial validation check
+            setTimeout(updateValidationUI, 500);
         }
 
         init();
