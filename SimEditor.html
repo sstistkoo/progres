@@ -51,7 +51,7 @@
             background-color: #f3f4f6;
             color: #9ca3af;
             font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
-            font-size: 16px; /* Bigger font for mobile */
+            font-size: 16px;
             line-height: 1.6;
             border-right: 1px solid #e5e7eb;
             user-select: none;
@@ -65,7 +65,7 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; margin: 0; 
             padding: 1rem; border: none; 
             font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace; 
-            font-size: 16px; /* Bigger font for mobile */
+            font-size: 16px;
             line-height: 1.6; 
             white-space: pre; overflow: auto; box-sizing: border-box; tab-size: 4; 
         }
@@ -129,8 +129,61 @@
 
         .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
         .modal.show { display: flex; }
-        .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 350px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 80vh; overflow-y: auto; }
+        .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 95%; max-width: 380px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
         html.dark .modal-content { background-color: #1f2937; color: white; border: 1px solid #374151; }
+
+        /* Helper List Styles */
+        #helper-list {
+            max-height: 120px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: none;
+            background: #f9fafb;
+        }
+        .dark #helper-list { background: #111827; border-color: #374151; }
+        .helper-item {
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 14px;
+            border-bottom: 1px solid #e5e7eb;
+            cursor: pointer;
+            color: #374151;
+        }
+        .dark .helper-item { border-bottom-color: #374151; color: #e5e7eb; }
+        .helper-item:last-child { border-bottom: none; }
+        .helper-item:hover { background-color: #e0f2fe; }
+        .dark .helper-item:hover { background-color: #1e3a8a; }
+        .helper-code { font-weight: bold; color: #2563eb; margin-right: 8px; }
+        .dark .helper-code { color: #60a5fa; }
+
+        /* Numpad Styles */
+        .numpad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 1rem;
+        }
+        .num-btn {
+            height: 50px;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .num-btn:active { background: #e5e7eb; }
+        .dark .num-btn { background: #374151; border-color: #4b5563; color: #e5e7eb; }
+        .dark .num-btn:active { background: #4b5563; }
+        .num-btn.sign { background: #dbeafe; color: #1e40af; }
+        .dark .num-btn.sign { background: #1e3a8a; color: #93c5fd; }
 
         #autocomplete-list { display: none; position: absolute; background: white; border: 1px solid #ccc; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100; max-height: 150px; overflow-y: auto; width: 150px; border-radius: 4px; }
         html.dark #autocomplete-list { background: #1f2937; border-color: #4b5563; }
@@ -258,6 +311,46 @@
 
         <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
 
+        <!-- Nové Input Modal s klávesnicí a nápovědou -->
+        <div id="input-modal" class="modal">
+            <div class="modal-content">
+                <h3 id="input-modal-title" class="text-xl font-bold mb-3 text-center text-gray-800 dark:text-white font-mono"></h3>
+                
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="modal-input-value" class="flex-1 h-12 border border-gray-300 rounded-md px-3 text-lg font-mono dark:bg-gray-800 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-right font-bold" placeholder="0" readonly>
+                </div>
+
+                <!-- Helper List Container -->
+                <div id="helper-list"></div>
+
+                <!-- Numeric Keypad -->
+                <div class="numpad-grid">
+                    <button class="num-btn" onclick="handleNumPad('7')">7</button>
+                    <button class="num-btn" onclick="handleNumPad('8')">8</button>
+                    <button class="num-btn" onclick="handleNumPad('9')">9</button>
+                    <button class="num-btn" onclick="handleNumPad('4')">4</button>
+                    <button class="num-btn" onclick="handleNumPad('5')">5</button>
+                    <button class="num-btn" onclick="handleNumPad('6')">6</button>
+                    <button class="num-btn" onclick="handleNumPad('1')">1</button>
+                    <button class="num-btn" onclick="handleNumPad('2')">2</button>
+                    <button class="num-btn" onclick="handleNumPad('3')">3</button>
+                    
+                    <button id="btn-sign-toggle" class="num-btn sign hidden" onclick="toggleSign()">+/-</button>
+                    <button class="num-btn" onclick="handleNumPad('0')">0</button>
+                    <button class="num-btn" onclick="handleNumPad('.')">.</button>
+                </div>
+                
+                <div class="flex gap-2 mb-2">
+                     <button class="num-btn flex-1 bg-red-100 text-red-600 hover:bg-red-200 border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800" onclick="handleNumPad('BS')"><i class="fas fa-backspace"></i></button>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+                    <button onclick="closeInputModal()" class="flex-1 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors font-medium dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Zrušit</button>
+                    <button id="btn-input-confirm" class="flex-[2] py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-md shadow-sm font-bold text-lg">Vložit</button>
+                </div>
+            </div>
+        </div>
+
         <div id="renumber-modal" class="modal">
             <div class="modal-content">
                 <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Přečíslování bloků</h3>
@@ -324,22 +417,20 @@
 
             <!-- Quick Bar -->
             <div class="quick-bar">
-                <button class="qb-btn blue" onclick="insertAtCursor('G')">G</button>
-                <button class="qb-btn blue" onclick="insertAtCursor('M')">M</button>
-                <button class="qb-btn" onclick="insertAtCursor('X')">X</button>
-                <button class="qb-btn" onclick="insertAtCursor('Z')">Z</button>
-                <button class="qb-btn" onclick="insertAtCursor('F')">F</button>
-                <button class="qb-btn" onclick="insertAtCursor('S')">S</button>
-                <button class="qb-btn" onclick="insertAtCursor('T')">T</button>
-                <button class="qb-btn" onclick="insertAtCursor('D')">D</button>
-                <button class="qb-btn red" onclick="insertAtCursor('LIMS=')">LIMS</button>
+                <button class="qb-btn blue" onclick="openInputModal('G')">G</button>
+                <button class="qb-btn blue" onclick="openInputModal('M')">M</button>
+                <button class="qb-btn" onclick="openInputModal('X')">X</button>
+                <button class="qb-btn" onclick="openInputModal('Z')">Z</button>
+                <button class="qb-btn" onclick="openInputModal('F')">F</button>
+                <button class="qb-btn" onclick="openInputModal('S')">S</button>
+                <button class="qb-btn" onclick="insertAtCursor(';')">;</button> 
+                <button class="qb-btn" onclick="openInputModal('T')">T</button>
+                <button class="qb-btn" onclick="openInputModal('D')">D</button>
+                <button class="qb-btn red" onclick="openInputModal('LIMS=')">LIMS</button>
                 <button class="qb-btn" onclick="insertAtCursor('=')">=</button>
-                <button class="qb-btn" onclick="insertAtCursor('+')">+</button>
-                <button class="qb-btn" onclick="insertAtCursor('-')">-</button>
-                <button class="qb-btn" onclick="insertAtCursor('R')">R</button>
+                <button class="qb-btn" onclick="openInputModal('R')">R</button>
                 <button class="qb-btn" onclick="insertAtCursor('(')">(</button>
                 <button class="qb-btn" onclick="insertAtCursor(')')">)</button>
-                <button class="qb-btn" onclick="insertAtCursor(';')">;</button>
             </div>
         </main>
     </div>
@@ -353,6 +444,48 @@
         let codeBeforeRenumbering = "";
         let isRenumbered = false;
         let statusDebounceTimer;
+        
+        // New Modal Vars
+        let currentInputPrefix = '';
+
+        // G/M Code Dictionaries
+        const gCodes = {
+            '0': 'Rychloposuv',
+            '1': 'Lineární interpolace',
+            '2': 'Kruhová int. (CW)',
+            '3': 'Kruhová int. (CCW)',
+            '4': 'Časová prodleva',
+            '17': 'Rovina XY',
+            '18': 'Rovina ZX',
+            '19': 'Rovina YZ',
+            '40': 'Zrušení kompenzace',
+            '41': 'Komp. vlevo',
+            '42': 'Komp. vpravo',
+            '53': 'Strojní souřadnice',
+            '54': 'Nulový bod 1',
+            '55': 'Nulový bod 2',
+            '56': 'Nulový bod 3',
+            '57': 'Nulový bod 4',
+            '90': 'Absolutní',
+            '91': 'Přírůstkové',
+            '94': 'Posuv mm/min',
+            '95': 'Posuv mm/ot',
+            '96': 'Konst. řezná rychlost',
+            '97': 'Konst. otáčky'
+        };
+
+        const mCodes = {
+            '0': 'Stop programu',
+            '1': 'Volitelný stop',
+            '3': 'Vřeteno CW',
+            '4': 'Vřeteno CCW',
+            '5': 'Stop vřetena',
+            '6': 'Výměna nástroje',
+            '8': 'Chlazení ZAP',
+            '9': 'Chlazení VYP',
+            '17': 'Konec podprogramu',
+            '30': 'Konec programu'
+        };
 
         const els = {
             editor: document.getElementById('main-editor'),
@@ -385,7 +518,15 @@
             modalStep: document.getElementById('renumber-step'),
             modalSelection: document.getElementById('renumber-selection-only'),
             modalConfirm: document.getElementById('modal-confirm'),
-            modalCancel: document.getElementById('modal-cancel')
+            modalCancel: document.getElementById('modal-cancel'),
+            
+            // Input Modal
+            inputModal: document.getElementById('input-modal'),
+            inputModalTitle: document.getElementById('input-modal-title'),
+            modalInputValue: document.getElementById('modal-input-value'),
+            btnSignToggle: document.getElementById('btn-sign-toggle'),
+            btnInputConfirm: document.getElementById('btn-input-confirm'),
+            helperList: document.getElementById('helper-list')
         };
 
         function saveToStorage() {
@@ -410,6 +551,81 @@
             el.focus();
             applySyntaxHighlighting();
             updateStats();
+        }
+        
+        // --- Input Modal Functions ---
+        function openInputModal(prefix) {
+            currentInputPrefix = prefix;
+            els.inputModalTitle.textContent = `Zadat: ${prefix}`;
+            els.modalInputValue.value = '';
+            
+            const cleanPrefix = prefix.replace('=', '').trim();
+            const allowNegative = ['G', 'M', 'X', 'Z', 'R'].includes(cleanPrefix); 
+            
+            if (allowNegative) {
+                els.btnSignToggle.classList.remove('hidden');
+                // Move toggle to the grid if possible or keep visible
+                // We are using a custom numpad now, so we toggle visibility there
+            } else {
+                els.btnSignToggle.classList.add('hidden');
+            }
+
+            renderHelperList(cleanPrefix);
+            els.inputModal.classList.add('show');
+            // Don't focus the native input to avoid system keyboard
+            // els.modalInputValue.focus(); 
+        }
+
+        function renderHelperList(prefix) {
+            let codes = null;
+            if (prefix === 'G') codes = gCodes;
+            if (prefix === 'M') codes = mCodes;
+
+            if (!codes) {
+                els.helperList.style.display = 'none';
+                els.helperList.innerHTML = '';
+                return;
+            }
+
+            els.helperList.style.display = 'block';
+            let html = '';
+            for (const [key, desc] of Object.entries(codes)) {
+                html += `<div class="helper-item" onclick="setFromHelper('${key}')"><span class="helper-code">${prefix}${key}</span> ${desc}</div>`;
+            }
+            els.helperList.innerHTML = html;
+        }
+
+        function setFromHelper(val) {
+            els.modalInputValue.value = val;
+        }
+
+        function handleNumPad(key) {
+            if (key === 'BS') {
+                els.modalInputValue.value = els.modalInputValue.value.slice(0, -1);
+            } else {
+                els.modalInputValue.value += key;
+            }
+        }
+
+        function closeInputModal() {
+            els.inputModal.classList.remove('show');
+            els.editor.focus();
+        }
+
+        function confirmInput() {
+            const val = els.modalInputValue.value;
+            // Zde přidána mezera ' ' na konec řetězce
+            insertAtCursor(currentInputPrefix + val + ' ');
+            closeInputModal();
+        }
+
+        function toggleSign() {
+            let val = els.modalInputValue.value;
+            if (val.startsWith('-')) {
+                els.modalInputValue.value = val.substring(1);
+            } else {
+                els.modalInputValue.value = '-' + val;
+            }
         }
 
         function copyToClipboard() {
@@ -928,6 +1144,16 @@
             els.checkProgBtn.onclick = performFullCheck;
             els.statusBtn.onclick = performFullCheck; // Link new button to validation modal
             
+            // els.btnSignToggle.onclick = toggleSign; // Sign toggle moved to numpad
+            els.btnInputConfirm.onclick = confirmInput; // Modal confirm
+            
+            // Add ENTER key support to input
+            els.modalInputValue.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    confirmInput();
+                }
+            });
+
             if (els.fileImportPack) els.fileImportPack.addEventListener('change', handlePackageImport);
             if (els.btnExportPack) els.btnExportPack.onclick = handlePackageExport;
             const raw = localStorage.getItem('cncExternalEditorData');
