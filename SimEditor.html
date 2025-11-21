@@ -66,7 +66,7 @@
 
         .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
         .modal.show { display: flex; }
-        .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 80vh; overflow-y: auto; }
+        .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 350px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 80vh; overflow-y: auto; }
         html.dark .modal-content { background-color: #1f2937; color: white; border: 1px solid #374151; }
 
         #autocomplete-list { display: none; position: absolute; background: white; border: 1px solid #ccc; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100; max-height: 150px; overflow-y: auto; width: 150px; border-radius: 4px; }
@@ -77,18 +77,15 @@
         html.dark .autocomplete-item:hover, html.dark .autocomplete-item.selected { background-color: #1e3a8a; }
         
         .validation-list { list-style: none; padding: 0; margin: 0; }
-        .validation-item { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; display: flex; align-items: flex-start; gap: 12px; cursor: pointer; transition: background-color 0.2s; }
+        .validation-item { padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; display: flex; align-items: flex-start; gap: 10px; cursor: pointer; transition: background-color 0.2s; }
         html.dark .validation-item { border-bottom-color: #374151; }
         .validation-item:hover { background-color: #f3f4f6; }
         html.dark .validation-item:hover { background-color: #374151; }
-        .v-icon { flex-shrink: 0; margin-top: 3px; font-size: 1.1em; }
         .v-error { color: #dc2626; } html.dark .v-error { color: #f87171; }
         .v-warn { color: #d97706; } html.dark .v-warn { color: #fbbf24; }
         .v-success { color: #059669; } html.dark .v-success { color: #34d399; }
         .file-tag { font-family: monospace; font-weight: bold; background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; white-space: nowrap; }
         html.dark .file-tag { background: #312e81; color: #c7d2fe; }
-        .line-tag { font-family: monospace; color: #6b7280; margin-right: 5px; }
-        html.dark .line-tag { color: #9ca3af; }
     </style>
 </head>
 <body class="h-full flex flex-col overflow-hidden">
@@ -269,13 +266,11 @@
             progList: document.getElementById('program-list'),
             paramList: document.getElementById('parameter-list'),
             fileName: document.querySelector('#current-file-name span'),
-            
             btnInitialDelete: document.getElementById('btn-initial-delete'),
             groupDeleteActive: document.getElementById('group-delete-active'),
             btnDeleteNext: document.getElementById('btn-delete-next'),
             btnUndo: document.getElementById('btn-undo'),
             undoCount: document.getElementById('undo-count'),
-
             checkProgBtn: document.getElementById('check-program-btn'),
             newProgBtn: document.getElementById('new-program-btn'),
             convertBtn: document.getElementById('convert-to-absolute-btn'),
@@ -283,7 +278,6 @@
             renumberCustomBtn: document.getElementById('renumber-custom-btn'),
             undoRenumberBtn: document.getElementById('undo-renumber-btn'),
             downloadBtn: document.getElementById('download-btn'),
-            
             fileImportPack: document.getElementById('file-import-pack'),
             btnExportPack: document.getElementById('btn-export-pack'),
             toolsPanel: document.getElementById('tools-panel'),
@@ -369,16 +363,12 @@
             }
         }
 
-        // --- JUMP TO ERROR FUNCTION ---
         function jumpToError(fileName, lineIndex) {
-             // 1. Close modal
              document.getElementById('validation-modal').classList.remove('show');
              
-             // 2. Switch file if needed
              if (fileName && fileName !== currentFile) {
                  displayFile(fileName);
-                 // Wait for content to load into textarea
-                 setTimeout(() => performScroll(lineIndex), 50);
+                 setTimeout(() => performScroll(lineIndex), 100);
              } else {
                  performScroll(lineIndex);
              }
@@ -387,11 +377,10 @@
         function performScroll(lineIndex) {
              if (lineIndex < 0) return;
              
-             const lineHeight = 24; // approx font size
+             const lineHeight = 24; 
              const targetScroll = (lineIndex * lineHeight) - (els.editor.clientHeight / 2);
              els.editor.scrollTop = Math.max(0, targetScroll);
              
-             // Select the line
              const lines = els.editor.value.split('\n');
              if (lineIndex >= lines.length) return;
 
@@ -419,16 +408,27 @@
                     comm = `<span class="hl-comment">${escapeHtml(line.substring(cIdx))}</span>`;
                 }
                 code = escapeHtml(code);
+                
+                // FIX: Rozdělení [FSTD] a čísel (předchozí chyba s $2)
+                code = code.replace(/\b([FSTD])(\d*[\.]?\d+)\b/g, '<span class="hl-feed">$1</span><span class="hl-val">$2</span>');
+
                 code = code
                     .replace(/\b(N\d+)\b/g, '<span class="hl-block">$1</span>')
                     .replace(/\b(G[0-3]|G0[0-3])\b/g, '<span class="hl-g text-red-500">$1</span>')
                     .replace(/\b(G\d+)\b/g, '<span class="hl-g">$1</span>')
                     .replace(/\b(M\d+)\b/g, '<span class="hl-m">$1</span>')
                     .replace(/([XZIKCR])(\s*=?\s*[\-\d\.]+)/g, '<span class="hl-coord">$1</span><span class="hl-val">$2</span>')
-                    .replace(/\b([FSTD]\d*[\.]?\d+)\b/g, '<span class="hl-feed">$1</span><span class="hl-val">$2</span>')
                     .replace(/\b(R\d+)/g, '<span class="hl-param">$1</span>')
                     .replace(/\b(GOTOF|GOTOB|IF|ELSE|ENDIF|STOPRE)\b/g, '<span class="hl-logic">$1</span>')
                     .replace(/\b(L\d+)\b/g, '<span class="hl-sub">$1</span>');
+
+                let placeholders = [];
+                code = code.replace(/(MSG\s*\()(.*?)(\))/gi, (match) => {
+                    placeholders.push(`<span class="hl-msg">${escapeHtml(match)}</span>`);
+                    return `__MSG_${placeholders.length-1}__`;
+                });
+                code = code.replace(/__MSG_(\d+)__/g, (m, i) => placeholders[i]);
+
                 return code + comm;
             });
             els.highlights.innerHTML = styled.join('<br>') + '<br>';
@@ -439,7 +439,7 @@
                 this.parameters = new Map();
                 this.loadedSubprograms = new Map(); 
                 this.missingParams = new Set();
-                this.errors = []; // {file, lineIndex, msg}
+                this.errors = []; 
             }
             loadSubprograms(progs) {
                 this.loadedSubprograms = new Map(Object.entries(progs));
@@ -463,40 +463,25 @@
             }
             async processLines(lines, depth, currentFileName) {
                 if (depth > 10) return; 
-                
-                // 1. Scan Labels locally
                 const labels = new Set();
                 lines.forEach(l => {
                      const m = l.trim().toUpperCase().match(/^\s*(?:N\d+\s*)?([a-zA-Z0-9_]+):/);
                      if(m) labels.add(m[1]);
                 });
-
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i].trim();
                     const commentIdx = line.indexOf(';');
                     let clean = line;
-                    if (commentIdx !== -1) {
-                        clean = line.substring(0, commentIdx);
-                    }
+                    if (commentIdx !== -1) clean = line.substring(0, commentIdx);
                     clean = clean.trim().toUpperCase();
-                    
                     if (!clean) continue;
-                    
-                    // N-block extract for display
                     const nMatch = clean.match(/^N(\d+)/);
-                    const blk = nMatch ? `N${nMatch[1]}` : '';
-
-                    // 2. Check GOTO (Local context)
+                    
                     const gotoMatch = clean.match(/\b(GOTOF|GOTOB|IF.*GOTO)\s+([a-zA-Z0-9_]+)/);
                     if (gotoMatch && !labels.has(gotoMatch[2])) {
-                        this.errors.push({ 
-                            file: currentFileName, 
-                            lineIndex: i, 
-                            msg: `Cíl skoku '${gotoMatch[2]}' neexistuje.` 
-                        });
+                        this.errors.push({ file: currentFileName, lineIndex: i, msg: `Cíl skoku '${gotoMatch[2]}' neexistuje.` });
                     }
 
-                    // 3. Check Parameters
                     const assignRegex = /R(\d+)\s*=\s*(.*?)(?=\s+R\d+\s*=|;|$)/g;
                     let match;
                     while ((match = assignRegex.exec(clean)) !== null) {
@@ -508,16 +493,11 @@
                             usages.forEach(u => {
                                 const usedNum = parseInt(u.replace('R', ''));
                                 if (!this.parameters.has(`R${usedNum}`)) {
-                                    this.errors.push({
-                                        file: currentFileName,
-                                        lineIndex: i,
-                                        msg: `Parametr R${usedNum} použit bez definice.`
-                                    });
+                                    this.errors.push({ file: currentFileName, lineIndex: i, msg: `Parametr R${usedNum} použit bez definice.` });
                                 }
                             });
                         }
                         
-                        // Evaluate and Store
                         let cleanExpr = pValStr.replace(/R(\d+)/g, (m, n) => {
                              const existing = this.parameters.get(`R${n}`);
                              return existing ? existing.value : 0;
@@ -525,14 +505,12 @@
                         cleanExpr = cleanExpr.replace(/[^0-9\.\+\-\*\/\(\)]/g, '');
                         let val = 0;
                         try { val = Function('"use strict";return (' + cleanExpr + ')')(); } catch (e) { val = 0; }
-                        
                         this.parameters.set(`R${pNum}`, {
                             value: val,
-                            source: `${currentFileName}: ${blk || (i+1)}`
+                            source: `${currentFileName}: ${nMatch ? 'N'+nMatch[1] : 'L'+(i+1)}`
                         });
                     }
 
-                    // 4. Check Subprograms & Recurse
                     const subMatch = clean.match(/(^|\s)L(\d+)(\s|;|$)/);
                     if (subMatch) {
                         const subNum = subMatch[2];
@@ -540,11 +518,7 @@
                         if (found) {
                             await this.processLines(found.content.split('\n'), depth + 1, found.name);
                         } else {
-                            this.errors.push({
-                                file: currentFileName,
-                                lineIndex: i,
-                                msg: `Podprogram L${subNum} nebyl nalezen.`
-                            });
+                            this.errors.push({ file: currentFileName, lineIndex: i, msg: `Podprogram L${subNum} nebyl nalezen.` });
                         }
                     }
                 }
@@ -566,24 +540,17 @@
             });
             applySyntaxHighlighting();
             updateStats();
-            
             if (els.groupDeleteActive && !els.groupDeleteActive.classList.contains('hidden')) {
                 els.groupDeleteActive.classList.add('hidden');
                 els.groupDeleteActive.classList.remove('flex');
                 els.btnInitialDelete.classList.remove('hidden');
             }
-
             setTimeout(async () => {
                 try {
                     const p = new CNCParser();
                     p.loadSubprograms(loadedData.loadedPrograms);
-                    // Start parsing from current file if it's main, or just current
-                    // To check params globally we usually start from Main
-                    // But if user is just viewing a file, maybe just show its params? 
-                    // Let's assume Main context for params.
                     const startFile = loadedData.mainProgramName || currentFile;
                     const code = loadedData.loadedPrograms[startFile];
-                    
                     await p.parseProgram(code, startFile);
                     loadedData.parameters = new Map(p.parameters);
                     renderParams(p.parameters); 
@@ -630,13 +597,7 @@
                 const valStr = Number(val).toFixed(4).replace(/\.?0+$/, "");
                 const div = document.createElement('div');
                 div.className = "flex flex-col border-b border-gray-100 dark:border-gray-700 py-2 px-2 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors";
-                div.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <span class="font-bold text-purple-600 dark:text-purple-400">${k}</span>
-                        <span class="font-mono text-gray-900 dark:text-gray-100 font-medium">${valStr}</span>
-                    </div>
-                    ${src ? `<div class="text-[10px] text-gray-400 text-right mt-0.5 truncate w-full">${src}</div>` : ''}
-                `;
+                div.innerHTML = `<div class="flex justify-between items-center"><span class="font-bold text-purple-600 dark:text-purple-400">${k}</span><span class="font-mono text-gray-900 dark:text-gray-100 font-medium">${valStr}</span></div>${src ? `<div class="text-[10px] text-gray-400 text-right mt-0.5 truncate w-full">${src}</div>` : ''}`;
                 els.paramList.appendChild(div);
             });
         }
@@ -695,34 +656,21 @@
             const resultsDiv = document.getElementById('validation-results');
             resultsDiv.innerHTML = '<div class="text-center p-4 text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Analyzuji projekt...</div>';
             document.getElementById('validation-modal').classList.add('show');
-
             const p = new CNCParser();
             p.loadSubprograms(loadedData.loadedPrograms);
-            
-            // Start full check from Main program if possible to get context right
             const startFile = loadedData.mainProgramName || currentFile;
             const code = loadedData.loadedPrograms[startFile];
-            
             const res = await p.parseProgram(code, startFile);
-            
             const list = document.createElement('ul');
             list.className = 'validation-list';
             resultsDiv.innerHTML = ''; 
-            
             if (res.errors.length === 0) {
                 list.innerHTML = `<li class="validation-item"><i class="fas fa-check-circle text-green-500 v-icon"></i> <span>Vše OK (Start: ${startFile}).</span></li>`;
             } else {
                 res.errors.forEach(e => {
                     const li = document.createElement('li');
                     li.className = 'validation-item clickable';
-                    li.innerHTML = `
-                        <i class="fas fa-times-circle v-error v-icon"></i> 
-                        <div class="flex flex-col">
-                            <span class="font-bold text-gray-800 dark:text-gray-200">
-                                <span class="file-tag">${e.file}</span> Řádek ${e.lineIndex+1}
-                            </span>
-                            <span>${e.msg}</span>
-                        </div>`;
+                    li.innerHTML = `<i class="fas fa-times-circle v-error v-icon"></i> <div class="flex flex-col"><span class="font-bold text-gray-800 dark:text-gray-200"><span class="file-tag">${e.file}</span> Řádek ${e.lineIndex+1}</span><span>${e.msg}</span></div>`;
                     li.onclick = () => jumpToError(e.file, e.lineIndex);
                     list.appendChild(li);
                 });
@@ -746,7 +694,6 @@
             els.checkProgBtn.onclick = performFullCheck;
             if (els.fileImportPack) els.fileImportPack.addEventListener('change', handlePackageImport);
             if (els.btnExportPack) els.btnExportPack.onclick = handlePackageExport;
-
             const raw = localStorage.getItem('cncExternalEditorData');
             if (raw) {
                 loadedData = JSON.parse(raw);
@@ -770,7 +717,6 @@
                 } else createNewProgram();
                 renderProgs();
             } else createNewProgram();
-            
             document.getElementById('tools-open-btn').onclick = () => { els.toolsPanel.classList.remove('-translate-x-full'); els.overlay.classList.remove('hidden'); };
             document.getElementById('tools-close-btn').onclick = () => { els.toolsPanel.classList.add('-translate-x-full'); els.overlay.classList.add('hidden'); };
             document.getElementById('details-open-btn').onclick = () => { els.detailsPanel.classList.remove('translate-x-full'); els.overlay.classList.remove('hidden'); };
