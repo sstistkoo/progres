@@ -215,19 +215,25 @@
             <div class="p-4 border-b dark:border-gray-700">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">Hlavní Funkce</h2>
                 
-                <button id="dark-mode-toggle" class="w-full px-3 py-2.5 mb-3 bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none shadow-sm flex items-center justify-center gap-2 transition-colors">
-                    <i class="fas fa-moon dark:hidden"></i><i class="fas fa-sun hidden dark:block"></i>
-                    <span class="dark:hidden">Tmavý režim</span><span class="hidden dark:inline">Světlý režim</span>
-                </button>
+                <!-- 1. Převést na absolutní -->
+                <div class="space-y-1 mb-3">
+                    <button id="convert-to-absolute-btn" class="w-full px-3 py-2.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none shadow-sm flex items-center justify-center gap-2">
+                        <i class="fas fa-exchange-alt"></i> Převést na Absolutní
+                    </button>
+                    <p class="text-xs text-center text-gray-500 dark:text-gray-400 leading-relaxed">Vygeneruje lineární G-kód (G90).</p>
+                </div>
 
-                <button id="check-program-btn" class="w-full px-3 py-2.5 mb-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none shadow-sm flex items-center justify-center gap-2">
-                    <i class="fas fa-check-circle"></i> Kontrola programu
-                </button>
-
-                <button id="new-program-btn" class="w-full px-3 py-2.5 mb-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none shadow-sm flex items-center justify-center gap-2">
+                <!-- 2. Nový program -->
+                <button id="new-program-btn" class="w-full px-3 py-2.5 mb-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none shadow-sm flex items-center justify-center gap-2">
                     <i class="fas fa-plus"></i> Nový program
                 </button>
 
+                <!-- 3. Stáhnout soubor -->
+                <button id="download-btn" class="w-full px-3 py-2.5 mb-3 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none shadow-sm flex items-center justify-center gap-2">
+                    <i class="fas fa-download"></i> Stáhnout soubor
+                </button>
+
+                <!-- 4. Smazat program -->
                 <div class="mb-6">
                     <button id="btn-initial-delete" class="w-full px-3 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none shadow-sm flex items-center justify-center gap-2 transition-all">
                         <i class="fas fa-trash-alt"></i> Smazat program
@@ -240,13 +246,6 @@
                             <i class="fas fa-undo"></i> Zpět <span id="undo-count" class="text-xs bg-gray-700 px-1.5 py-0.5 rounded-full ml-1">0</span>
                         </button>
                     </div>
-                </div>
-
-                <div class="space-y-3 mb-6">
-                    <button id="convert-to-absolute-btn" class="w-full px-3 py-2.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none shadow-sm flex items-center justify-center gap-2">
-                        <i class="fas fa-exchange-alt"></i> Převést na Absolutní
-                    </button>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Vygeneruje lineární G-kód (G90).</p>
                 </div>
 
                 <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-6">
@@ -277,9 +276,11 @@
                     </button>
                 </div>
 
+                <!-- 5. Tmavý režim - Úplně dole -->
                 <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <button id="download-btn" class="w-full px-3 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none shadow-sm flex items-center justify-center gap-2">
-                        <i class="fas fa-download"></i> Stáhnout soubor
+                    <button id="dark-mode-toggle" class="w-full px-3 py-2.5 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none shadow-sm flex items-center justify-center gap-2 transition-colors">
+                        <i class="fas fa-moon dark:hidden"></i><i class="fas fa-sun hidden dark:block"></i>
+                        <span class="dark:hidden">Tmavý režim</span><span class="hidden dark:inline">Světlý režim</span>
                     </button>
                 </div>
             </div>
@@ -500,7 +501,7 @@
             btnDeleteNext: document.getElementById('btn-delete-next'),
             btnUndo: document.getElementById('btn-undo'),
             undoCount: document.getElementById('undo-count'),
-            checkProgBtn: document.getElementById('check-program-btn'),
+            // checkProgBtn has been removed
             newProgBtn: document.getElementById('new-program-btn'),
             convertBtn: document.getElementById('convert-to-absolute-btn'),
             renumberAllBtn: document.getElementById('renumber-all-btn'),
@@ -564,16 +565,12 @@
             
             if (allowNegative) {
                 els.btnSignToggle.classList.remove('hidden');
-                // Move toggle to the grid if possible or keep visible
-                // We are using a custom numpad now, so we toggle visibility there
             } else {
                 els.btnSignToggle.classList.add('hidden');
             }
 
             renderHelperList(cleanPrefix);
             els.inputModal.classList.add('show');
-            // Don't focus the native input to avoid system keyboard
-            // els.modalInputValue.focus(); 
         }
 
         function renderHelperList(prefix) {
@@ -614,7 +611,6 @@
 
         function confirmInput() {
             const val = els.modalInputValue.value;
-            // Zde přidána mezera ' ' na konec řetězce
             insertAtCursor(currentInputPrefix + val + ' ');
             closeInputModal();
         }
@@ -698,7 +694,6 @@
                  performScroll(lineIndex);
              }
              
-             // Auto-close mobile panels on jump
              if (window.innerWidth < 1024) {
                  document.getElementById('details-panel').classList.add('translate-x-full');
                  document.getElementById('tools-panel').classList.add('-translate-x-full');
@@ -709,7 +704,7 @@
         function performScroll(lineIndex) {
              if (lineIndex < 0) return;
              
-             const lineHeight = 25.6; // approx 16px * 1.6
+             const lineHeight = 25.6; 
              const targetScroll = (lineIndex * lineHeight) - (els.editor.clientHeight / 2);
              els.editor.scrollTop = Math.max(0, targetScroll);
              
@@ -739,7 +734,6 @@
                 }
                 els.lineNumbers.innerHTML = html;
             }
-            // Sync scroll
             els.lineNumbers.scrollTop = els.editor.scrollTop;
         }
 
@@ -805,7 +799,6 @@
                 this.parameters.clear(); 
                 this.missingParams.clear();
                 this.errors = [];
-                // Reset state flags specifically for main execution flow check
                 this.hasLims = false; 
                 this.spindleActive = false; 
                 await this.processLines(code.split('\n'), 0, startFileName || "Main");
@@ -830,45 +823,32 @@
                     if (!clean) continue;
                     const nMatch = clean.match(/^N(\d+)/);
                     
-                    // --- Safety Checks for Karusel ---
-                    
-                    // 1. LIMS / G50 check
                     if (clean.includes('LIMS=') || /\bG50\b/.test(clean)) {
                         this.hasLims = true;
                     }
 
-                    // 2. G96 check (Must have LIMS/G50 before)
                     if (/\bG96\b/.test(clean) && !this.hasLims) {
                          this.errors.push({ file: currentFileName, lineIndex: i, msg: `NEBEZPEČÍ: G96 (Konst. řezná rychlost) bez definovaného limitu otáček (LIMS/G50).` });
                     }
 
-                    // 3. Spindle check (S + M3/M4)
                     if (/\bS\d+/.test(clean) || /\bS=/.test(clean)) {
-                         // S defined, but check M3/M4
                          if (/\bM3\b/.test(clean) || /\bM4\b/.test(clean)) this.spindleActive = true;
                     }
                     if (/\bM3\b/.test(clean) || /\bM4\b/.test(clean)) this.spindleActive = true;
                     if (/\bM5\b/.test(clean)) this.spindleActive = false;
 
-                    // 4. Feed Move Check
                     if (/\bG[0]*1\b/.test(clean) || /\bG[0]*2\b/.test(clean) || /\bG[0]*3\b/.test(clean)) {
                          if (!this.spindleActive && !clean.includes('S')) {
-                             // Warning if moving without spindle on (unless it is a specific C-axis move, but simplistic check here)
                              this.errors.push({ file: currentFileName, lineIndex: i, msg: `VAROVÁNÍ: Pracovní posuv (G1/G2/G3) bez aktivního vřetene (M3/M4).` });
                          }
                          if (!/\bF[\d\.]+/.test(clean) && !this.lastFeedDefined) {
-                             // Check for F definition (simplistic, doesnt track F from previous lines perfectly across subprogs, but locally works)
-                             // Ideally we track 'currentFeed' state.
                          } else if (/\bF[\d\.]+/.test(clean)) {
                              this.lastFeedDefined = true;
                          }
                     }
 
-                    // End of program check
                     if (/\bM30\b/.test(clean) || /\bM17\b/.test(clean) || /\bM02\b/.test(clean)) hasEnd = true;
 
-
-                    // --- Existing Logic ---
                     const gotoMatch = clean.match(/\b(GOTOF|GOTOB|IF.*GOTO)\s+([a-zA-Z0-9_]+)/);
                     if (gotoMatch && !labels.has(gotoMatch[2])) {
                         this.errors.push({ file: currentFileName, lineIndex: i, msg: `Cíl skoku '${gotoMatch[2]}' neexistuje.` });
@@ -974,7 +954,7 @@
 
         function createNewProgram() {
             const name = `PROG_${Object.keys(loadedData.loadedPrograms).length + 1}.SPF`;
-            loadedData.loadedPrograms[name] = "; Nový program\nN10 G90 G54\nM17";
+            loadedData.loadedPrograms[name] = "G54 T1 D1 G95 M41\nG97 S60 M4\nG91 G1 X-300 F1\nM30";
             displayFile(name);
             renderProgs();
             saveToStorage();
@@ -998,7 +978,6 @@
                 const div = document.createElement('div');
                 div.className = "flex flex-col border-b border-gray-100 dark:border-gray-700 py-2 px-2 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors";
                 
-                // Make parameter clickable if info exists
                 if (data.file && data.line !== undefined) {
                     div.classList.add('cursor-pointer');
                     div.onclick = () => jumpToError(data.file, data.line);
@@ -1059,7 +1038,6 @@
         }
 
         async function updateValidationUI() {
-             // Silent validation
              if (currentFile && loadedData.loadedPrograms[currentFile] !== undefined) {
                 loadedData.loadedPrograms[currentFile] = els.editor.value;
              }
@@ -1068,7 +1046,6 @@
              const startFile = loadedData.mainProgramName || currentFile;
              const code = loadedData.loadedPrograms[startFile];
              
-             // Simple status update
              els.statusBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
              
              try {
@@ -1112,7 +1089,7 @@
                 });
             }
             resultsDiv.appendChild(list);
-            updateValidationUI(); // Ensure button sync
+            updateValidationUI();
             if (window.innerWidth < 1024) els.toolsPanel.classList.add('-translate-x-full');
         }
 
@@ -1125,14 +1102,12 @@
             els.editor.onscroll = () => { 
                 els.backdrop.scrollTop = els.editor.scrollTop; 
                 els.backdrop.scrollLeft = els.editor.scrollLeft;
-                els.lineNumbers.scrollTop = els.editor.scrollTop; // Sync line numbers
+                els.lineNumbers.scrollTop = els.editor.scrollTop; 
             };
             
             els.editor.oninput = () => { 
                 applySyntaxHighlighting(); 
                 updateStats();
-                
-                // Debounced live validation
                 clearTimeout(statusDebounceTimer);
                 statusDebounceTimer = setTimeout(updateValidationUI, 1000);
             };
@@ -1141,13 +1116,10 @@
             els.btnDeleteNext.onclick = deleteCurrentFile;
             els.btnUndo.onclick = undoDelete;
             els.newProgBtn.onclick = createNewProgram;
-            els.checkProgBtn.onclick = performFullCheck;
-            els.statusBtn.onclick = performFullCheck; // Link new button to validation modal
+            els.statusBtn.onclick = performFullCheck; 
             
-            // els.btnSignToggle.onclick = toggleSign; // Sign toggle moved to numpad
-            els.btnInputConfirm.onclick = confirmInput; // Modal confirm
+            els.btnInputConfirm.onclick = confirmInput; 
             
-            // Add ENTER key support to input
             els.modalInputValue.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     confirmInput();
@@ -1185,7 +1157,6 @@
             document.getElementById('details-close-btn').onclick = () => { els.detailsPanel.classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
             els.overlay.onclick = () => { els.toolsPanel.classList.add('-translate-x-full'); els.detailsPanel.classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
             
-            // Initial validation check
             setTimeout(updateValidationUI, 500);
         }
 
