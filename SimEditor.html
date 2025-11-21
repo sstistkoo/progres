@@ -381,6 +381,13 @@
              } else {
                  performScroll(lineIndex);
              }
+             
+             // Auto-close mobile panels on jump
+             if (window.innerWidth < 1024) {
+                 document.getElementById('details-panel').classList.add('translate-x-full');
+                 document.getElementById('tools-panel').classList.add('-translate-x-full');
+                 document.getElementById('overlay').classList.add('hidden');
+             }
         }
 
         function performScroll(lineIndex) {
@@ -560,7 +567,9 @@
                         try { val = Function('"use strict";return (' + cleanExpr + ')')(); } catch (e) { val = 0; }
                         this.parameters.set(`R${pNum}`, {
                             value: val,
-                            source: `${currentFileName}: ${nMatch ? 'N'+nMatch[1] : 'L'+(i+1)}`
+                            source: `${currentFileName}: ${nMatch ? 'N'+nMatch[1] : 'L'+(i+1)}`,
+                            file: currentFileName,
+                            line: i
                         });
                     }
 
@@ -656,6 +665,14 @@
                 const valStr = Number(val).toFixed(4).replace(/\.?0+$/, "");
                 const div = document.createElement('div');
                 div.className = "flex flex-col border-b border-gray-100 dark:border-gray-700 py-2 px-2 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors";
+                
+                // Make parameter clickable if info exists
+                if (data.file && data.line !== undefined) {
+                    div.classList.add('cursor-pointer');
+                    div.onclick = () => jumpToError(data.file, data.line);
+                    div.title = "Přejít na definici";
+                }
+
                 div.innerHTML = `<div class="flex justify-between items-center"><span class="font-bold text-purple-600 dark:text-purple-400">${k}</span><span class="font-mono text-gray-900 dark:text-gray-100 font-medium">${valStr}</span></div>${src ? `<div class="text-[10px] text-gray-400 text-right mt-0.5 truncate w-full">${src}</div>` : ''}`;
                 els.paramList.appendChild(div);
             });
