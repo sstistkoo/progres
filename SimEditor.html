@@ -230,6 +230,7 @@
             <div class="p-4 border-b dark:border-gray-700">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">Hlavní Funkce</h2>
                 
+                <!-- Sekce převodu -->
                 <div class="space-y-2 mb-4">
                     <div>
                         <button id="convert-to-absolute-btn" class="w-full px-3 py-2.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none shadow-sm flex items-center justify-center gap-2 transition-colors">
@@ -245,14 +246,17 @@
                     </div>
                 </div>
 
+                <!-- 2. Nový program -->
                 <button id="new-program-btn" class="w-full px-3 py-2.5 mb-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none shadow-sm flex items-center justify-center gap-2">
                     <i class="fas fa-plus"></i> Nový program
                 </button>
 
+                <!-- 3. Stáhnout soubor -->
                 <button id="download-btn" class="w-full px-3 py-2.5 mb-3 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none shadow-sm flex items-center justify-center gap-2">
                     <i class="fas fa-download"></i> Stáhnout soubor
                 </button>
 
+                <!-- 4. Smazat program -->
                 <div class="mb-6">
                     <button id="btn-initial-delete" class="w-full px-3 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none shadow-sm flex items-center justify-center gap-2 transition-all">
                         <i class="fas fa-trash-alt"></i> Smazat program
@@ -444,32 +448,32 @@
                 <button class="qb-btn gray" onclick="insertAtCursor(' ')">␣</button>
                 <button class="qb-btn gray" onclick="openInputModal('')">123</button>
 
-                <!-- Col 3: G/T -->
+                <!-- Col 3: G/F -->
                 <button class="qb-btn blue" onclick="openInputModal('G')">G</button>
-                <button class="qb-btn" onclick="openInputModal('T')">T</button>
+                <button class="qb-btn" onclick="openInputModal('F')">F</button>
                 
-                <!-- Col 4: M/D -->
+                <!-- Col 4: M/S -->
                 <button class="qb-btn blue" onclick="openInputModal('M')">M</button>
-                <button class="qb-btn" onclick="openInputModal('D')">D</button>
+                <button class="qb-btn" onclick="openInputModal('S')">S</button>
                 
-                <!-- Col 5: X/LIMS -->
+                <!-- Col 5: X/; -->
                 <button class="qb-btn" onclick="openInputModal('X')">X</button>
-                <button class="qb-btn red" onclick="openInputModal('LIMS=')">LIMS</button>
+                <button class="qb-btn" onclick="insertAtCursor(';')">;</button>
 
                 <!-- Col 6: Z/= -->
                 <button class="qb-btn" onclick="openInputModal('Z')">Z</button>
                 <button class="qb-btn" onclick="insertAtCursor('=')">=</button>
 
-                <!-- Col 7: F/R -->
-                <button class="qb-btn" onclick="openInputModal('F')">F</button>
+                <!-- Col 7: T/R -->
+                <button class="qb-btn" onclick="openInputModal('T')">T</button>
                 <button class="qb-btn" onclick="openInputModal('R')">R</button>
 
-                <!-- Col 8: S/( -->
-                <button class="qb-btn" onclick="openInputModal('S')">S</button>
+                <!-- Col 8: D/( -->
+                <button class="qb-btn" onclick="openInputModal('D')">D</button>
                 <button class="qb-btn" onclick="insertAtCursor('(')">(</button>
 
-                <!-- Col 9: ;/) -->
-                <button class="qb-btn" onclick="insertAtCursor(';')">;</button> 
+                <!-- Col 9: LIMS/) -->
+                <button class="qb-btn red" onclick="openInputModal('LIMS=')">LIMS</button>
                 <button class="qb-btn" onclick="insertAtCursor(')')">)</button>
             </div>
         </main>
@@ -576,7 +580,6 @@
         function openInputModal(prefix) {
             currentInputPrefix = prefix;
             
-            // Handle empty prefix display for raw number input
             if (prefix === '') {
                 els.inputModalTitle.textContent = 'Vložit číslo';
             } else {
@@ -586,7 +589,6 @@
             els.modalInputValue.value = '';
             
             const cleanPrefix = prefix.replace('=', '').trim();
-            // Allow negative for G, M, X, Z, R and empty prefix (raw numbers)
             const allowNegative = ['G', 'M', 'X', 'Z', 'R', ''].includes(cleanPrefix); 
             
             if (allowNegative) {
@@ -706,13 +708,13 @@
         };
 
         function convertToAbsolute() {
-            if (activeConversion === 'ABS') { // Revert
+            if (activeConversion === 'ABS') { 
                 els.editor.value = originalCodeStore;
                 activeConversion = null;
                 els.convertBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> Převést na Absolutní';
                 els.convertBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
                 els.convertBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                els.convertIncBtn.disabled = false; // Enable other button
+                els.convertIncBtn.disabled = false; 
                 els.convertIncBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 applySyntaxHighlighting();
                 updateStats();
@@ -720,7 +722,7 @@
                 return;
             }
 
-            if (activeConversion) return; // Safety
+            if (activeConversion) return; 
 
             originalCodeStore = els.editor.value;
             const lines = els.editor.value.split('\n');
@@ -789,13 +791,13 @@
         }
 
         function convertToIncremental() {
-            if (activeConversion === 'INC') { // Revert
+            if (activeConversion === 'INC') { 
                 els.editor.value = originalCodeStore;
                 activeConversion = null;
                 els.convertIncBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> Převést na Přírůstkové';
                 els.convertIncBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
                 els.convertIncBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                els.convertBtn.disabled = false; // Enable other button
+                els.convertBtn.disabled = false; 
                 els.convertBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 applySyntaxHighlighting();
                 updateStats();
@@ -846,20 +848,17 @@
                          if (mode === 91) {
                             if (axis === 'X') absVal = x + val;
                             if (axis === 'Z') absVal = z + val;
-                        } else { absVal = val; } // G90
+                        } else { absVal = val; } 
                         
                         let outputVal = absVal;
                         
                         if (firstMoveProcessed) {
-                            // Incremental from here on
                             if (axis === 'X') outputVal = absVal - x;
                             if (axis === 'Z') outputVal = absVal - z;
                         } else {
-                           // First move keeps absolute value
                            outputVal = absVal;
                         }
 
-                        // Update state to new absolute pos
                         if (axis === 'X') x = absVal;
                         if (axis === 'Z') z = absVal;
                         
@@ -867,16 +866,13 @@
                     });
                 }
                 
-                // G-code logic injection with correct N number placement
                 if (hasMove) {
                     if (!firstMoveProcessed) {
-                        // First Move Line -> Ensure G90
                         if (modifiedLine.includes('G91')) modifiedLine = modifiedLine.replace('G91', 'G90');
                         else if (!modifiedLine.includes('G90')) {
                              if (/(G[0123])/.test(modifiedLine)) {
                                  modifiedLine = modifiedLine.replace(/(G[0123])/, 'G90 $1');
                              } else {
-                                 // Check for N number at start and insert after it
                                  if (/^\s*N\d+/i.test(modifiedLine)) {
                                      modifiedLine = modifiedLine.replace(/^(N\d+)\s*/i, '$1 G90 ');
                                  } else {
@@ -886,13 +882,11 @@
                         }
                         firstMoveProcessed = true;
                     } else {
-                        // Subsequent Moves -> Ensure G91
                         if (modifiedLine.includes('G90')) modifiedLine = modifiedLine.replace('G90', 'G91');
                         else if (!modifiedLine.includes('G91')) {
                              if (/(G[0123])/.test(modifiedLine)) {
                                  modifiedLine = modifiedLine.replace(/(G[0123])/, 'G91 $1');
                              } else {
-                                 // Check for N number at start and insert after it
                                  if (/^\s*N\d+/i.test(modifiedLine)) {
                                      modifiedLine = modifiedLine.replace(/^(N\d+)\s*/i, '$1 G91 ');
                                  } else {
@@ -912,7 +906,6 @@
             els.convertIncBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
             els.convertIncBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
 
-            // Disable Abs button
             els.convertBtn.disabled = true;
             els.convertBtn.classList.add('opacity-50', 'cursor-not-allowed');
             
@@ -1057,6 +1050,29 @@
                     let clean = line;
                     if (commentIdx !== -1) clean = line.substring(0, commentIdx);
                     clean = clean.trim().toUpperCase();
+                    
+                    // ---------- Syntax Checks (New Block) ----------
+                    const parts = clean.split(/\s+/);
+                    for (let part of parts) {
+                        if (!part) continue;
+                        // Check for lonely letters (G, M, X, etc.) without value
+                        if (/^[A-Z]$/.test(part)) {
+                            this.errors.push({ file: currentFileName, lineIndex: i, msg: `Syntaxe: Nalezeno samotné '${part}' bez hodnoty.` });
+                        } 
+                        // Check for letter followed by invalid number format (excluding assignments with '=')
+                        else if (/^[A-Z]/.test(part) && !part.includes('=')) {
+                             const valStr = part.substring(1);
+                             if (valStr === '' || isNaN(Number(valStr))) {
+                                  // Some control systems allow 'X-.5', but 'X-' is definitely wrong.
+                                  // If Number() returns NaN, it's invalid.
+                                  // However, Number('.') is 0 in JS? No, it's NaN. Number('.5') is 0.5.
+                                  // So this check catches 'G', 'X-', 'X..5' etc.
+                                  this.errors.push({ file: currentFileName, lineIndex: i, msg: `Syntaxe: '${part}' má neplatný formát čísla.` });
+                             }
+                        }
+                    }
+                    // ------------------------------------------------
+
                     if (!clean) continue;
                     const nMatch = clean.match(/^N(\d+)/);
                     if (clean.includes('LIMS=') || /\bG50\b/.test(clean)) this.hasLims = true;
