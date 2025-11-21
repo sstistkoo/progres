@@ -14,6 +14,13 @@
                 extend: {
                     animation: {
                         'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'fade-in': 'fadeIn 0.2s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(5px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
                     }
                 }
             }
@@ -21,13 +28,11 @@
     </script>
 
     <style>
-        /* Styl scrollbarů */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         .dark ::-webkit-scrollbar-thumb { background: #475569; }
 
-        /* Editor a UI styly */
         .file-item { transition: all 0.2s; border-left: 4px solid transparent; }
         .file-item:hover { background-color: #e5e7eb; }
         .dark .file-item:hover { background-color: #374151; }
@@ -46,7 +51,6 @@
         .dark #main-editor { caret-color: #fff; }
         #main-editor::selection { background-color: rgba(0, 120, 215, 0.3); color: transparent; }
 
-        /* Syntax Highlighting */
         .hl-g { color: #2563eb; font-weight: bold; } .dark .hl-g { color: #60a5fa; }
         .hl-m { color: #db2777; font-weight: bold; } .dark .hl-m { color: #f472b6; }
         .hl-coord { color: #059669; } .dark .hl-coord { color: #34d399; }
@@ -60,10 +64,9 @@
         .hl-sub { color: #9333ea; font-weight: bold; } .dark .hl-sub { color: #c084fc; }
         .hl-error { text-decoration: underline wavy red; cursor: help; }
 
-        /* Modal & Autocomplete */
         .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
         .modal.show { display: flex; }
-        .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 350px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 80vh; overflow-y: auto; }
+        .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 80vh; overflow-y: auto; }
         html.dark .modal-content { background-color: #1f2937; color: white; border: 1px solid #374151; }
 
         #autocomplete-list { display: none; position: absolute; background: white; border: 1px solid #ccc; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100; max-height: 150px; overflow-y: auto; width: 150px; border-radius: 4px; }
@@ -73,19 +76,24 @@
         .autocomplete-item:hover, .autocomplete-item.selected { background-color: #e0f2fe; }
         html.dark .autocomplete-item:hover, html.dark .autocomplete-item.selected { background-color: #1e3a8a; }
         
-        /* Validation Results */
         .validation-list { list-style: none; padding: 0; margin: 0; }
-        .validation-item { padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; display: flex; align-items: flex-start; gap: 10px; }
+        .validation-item { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; display: flex; align-items: flex-start; gap: 12px; cursor: pointer; transition: background-color 0.2s; }
         html.dark .validation-item { border-bottom-color: #374151; }
+        .validation-item:hover { background-color: #f3f4f6; }
+        html.dark .validation-item:hover { background-color: #374151; }
+        .v-icon { flex-shrink: 0; margin-top: 3px; font-size: 1.1em; }
         .v-error { color: #dc2626; } html.dark .v-error { color: #f87171; }
         .v-warn { color: #d97706; } html.dark .v-warn { color: #fbbf24; }
         .v-success { color: #059669; } html.dark .v-success { color: #34d399; }
+        .file-tag { font-family: monospace; font-weight: bold; background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; white-space: nowrap; }
+        html.dark .file-tag { background: #312e81; color: #c7d2fe; }
+        .line-tag { font-family: monospace; color: #6b7280; margin-right: 5px; }
+        html.dark .line-tag { color: #9ca3af; }
     </style>
 </head>
 <body class="h-full flex flex-col overflow-hidden">
 
     <div class="flex-1 flex relative overflow-hidden">
-        <!-- PANEL NÁSTROJŮ (LEVÝ) -->
         <nav id="tools-panel" class="fixed lg:relative inset-y-0 left-0 w-80 h-full bg-white border-r border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out dark:bg-gray-800 dark:border-gray-700">
             <div class="flex justify-between items-center p-4 border-b lg:hidden dark:border-gray-700">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-white">Nástroje</h2>
@@ -102,14 +110,10 @@
                     <i class="fas fa-plus"></i> Nový program
                 </button>
 
-                <!-- SEKCE MAZÁNÍ (DYNAMICKÁ) -->
                 <div class="mb-6">
-                    <!-- Tlačítko 1: Výchozí Smazat -->
                     <button id="btn-initial-delete" class="w-full px-3 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none shadow-sm flex items-center justify-center gap-2 transition-all">
                         <i class="fas fa-trash-alt"></i> Smazat program
                     </button>
-                    
-                    <!-- Skupina 2: Smazat další / Zpět (Výchozí skryté) -->
                     <div id="group-delete-active" class="hidden flex gap-2 animate-fade-in">
                         <button id="btn-delete-next" class="flex-[2] px-3 py-2.5 bg-red-700 text-white rounded-md hover:bg-red-800 focus:outline-none shadow-sm font-bold transition-colors flex items-center justify-center gap-1" title="Smazat aktuální soubor a zobrazit další">
                             <i class="fas fa-trash"></i> Smazat další
@@ -125,6 +129,21 @@
                         <i class="fas fa-exchange-alt"></i> Převést na Absolutní
                     </button>
                     <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Vygeneruje lineární G-kód (G90).</p>
+                </div>
+
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                        <i class="fas fa-file-archive text-blue-500"></i> Balíček
+                    </h3>
+                    <div class="flex gap-2">
+                         <button onclick="document.getElementById('file-import-pack').click()" class="flex-1 px-2 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-md shadow-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                            Importovat
+                        </button>
+                        <button id="btn-export-pack" class="flex-1 px-2 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-md shadow-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                            Exportovat
+                        </button>
+                    </div>
+                    <input type="file" id="file-import-pack" class="hidden" accept=".txt,.mpf,.spf">
                 </div>
 
                 <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-6">
@@ -155,7 +174,6 @@
             </div>
         </nav>
 
-        <!-- PRAVÝ PANEL (Seznam souborů) -->
         <aside id="details-panel" class="fixed lg:relative inset-y-0 right-0 w-80 h-full bg-white border-l border-gray-200 overflow-y-auto flex flex-col shadow-lg z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out dark:bg-gray-800 dark:border-gray-700">
             <div class="flex justify-between items-center p-4 border-b lg:hidden dark:border-gray-700">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-white">Programy</h2>
@@ -167,16 +185,14 @@
                     <p class="text-gray-400 text-center p-4 italic">Žádné soubory</p>
                 </div>
             </div>
-            <div class="p-4 flex-1">
+            <div class="p-4 flex-1 flex flex-col h-full">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">R-Parametry</h2>
-                <div id="parameter-list" class="h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg p-2 text-sm font-mono space-y-1 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300"></div>
+                <div id="parameter-list" class="flex-1 overflow-y-auto bg-white border border-gray-200 rounded-lg p-2 text-sm font-mono space-y-1 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300"></div>
             </div>
         </aside>
 
-        <!-- Overlay -->
         <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
 
-        <!-- Renumber Modal -->
         <div id="renumber-modal" class="modal">
             <div class="modal-content">
                 <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Přečíslování bloků</h3>
@@ -203,7 +219,6 @@
             </div>
         </div>
 
-        <!-- Validation Result Modal -->
         <div id="validation-modal" class="modal">
             <div class="modal-content">
                 <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white flex items-center gap-2">
@@ -216,7 +231,6 @@
             </div>
         </div>
 
-        <!-- HLAVNÍ EDITOR -->
         <main class="flex-1 flex flex-col overflow-hidden min-w-0 relative bg-white dark:bg-gray-900">
             <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center shadow-sm z-10 dark:bg-gray-800 dark:border-gray-700">
                 <div class="flex items-center gap-2"><button id="tools-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 dark:text-gray-300 lg:hidden"><i class="fas fa-bars fa-lg"></i></button></div>
@@ -240,16 +254,14 @@
     </div>
 
     <script>
-        // --- GLOBÁLNÍ PROMĚNNÉ ---
         let loadedData = { mainProgramName: "", parameters: new Map(), loadedPrograms: {} };
         let currentFile = "";
-        let deletedFilesStack = []; // Zásobník pro Zpět
+        let deletedFilesStack = []; 
         let originalCodeStore = "";
         let isShowingAbsoluteCode = false;
         let codeBeforeRenumbering = "";
         let isRenumbered = false;
 
-        // --- ELEMENTY ---
         const els = {
             editor: document.getElementById('main-editor'),
             backdrop: document.getElementById('editor-backdrop'),
@@ -258,14 +270,12 @@
             paramList: document.getElementById('parameter-list'),
             fileName: document.querySelector('#current-file-name span'),
             
-            // Tlačítka mazání
             btnInitialDelete: document.getElementById('btn-initial-delete'),
             groupDeleteActive: document.getElementById('group-delete-active'),
             btnDeleteNext: document.getElementById('btn-delete-next'),
             btnUndo: document.getElementById('btn-undo'),
             undoCount: document.getElementById('undo-count'),
 
-            // Nástroje
             checkProgBtn: document.getElementById('check-program-btn'),
             newProgBtn: document.getElementById('new-program-btn'),
             convertBtn: document.getElementById('convert-to-absolute-btn'),
@@ -274,12 +284,11 @@
             undoRenumberBtn: document.getElementById('undo-renumber-btn'),
             downloadBtn: document.getElementById('download-btn'),
             
-            // Panely
+            fileImportPack: document.getElementById('file-import-pack'),
+            btnExportPack: document.getElementById('btn-export-pack'),
             toolsPanel: document.getElementById('tools-panel'),
             detailsPanel: document.getElementById('details-panel'),
             overlay: document.getElementById('overlay'),
-            
-            // Modals
             modal: document.getElementById('renumber-modal'),
             modalStart: document.getElementById('renumber-start'),
             modalStep: document.getElementById('renumber-step'),
@@ -288,7 +297,6 @@
             modalCancel: document.getElementById('modal-cancel')
         };
 
-        // --- FUNKCE PRO UKLÁDÁNÍ (Musí být definována před použitím) ---
         function saveToStorage() {
             if (currentFile && loadedData.loadedPrograms[currentFile] !== undefined) {
                 loadedData.loadedPrograms[currentFile] = els.editor.value;
@@ -317,33 +325,21 @@
             });
         }
 
-        // --- LOGIKA MAZÁNÍ (Zde je vaše nová logika) ---
         function deleteCurrentFile() {
             if (!currentFile || !loadedData.loadedPrograms[currentFile]) {
                 alert("Žádný soubor ke smazání.");
                 return;
             }
-
-            // 1. Uložit do zásobníku (Undo)
-            deletedFilesStack.push({
-                name: currentFile,
-                content: loadedData.loadedPrograms[currentFile]
-            });
-
-            // 2. Smazat
+            deletedFilesStack.push({ name: currentFile, content: loadedData.loadedPrograms[currentFile] });
             delete loadedData.loadedPrograms[currentFile];
-
-            // 3. Najít další soubor
             const keys = Object.keys(loadedData.loadedPrograms);
             if (keys.length > 0) {
-                // Inteligentní výběr: zkusit najít MPF, jinak první
                 const nextFile = keys.find(k => k.toUpperCase().endsWith('.MPF')) || keys[0];
                 loadedData.mainProgramName = nextFile;
                 displayFile(nextFile);
             } else {
-                createNewProgram(); // Pokud nic nezbylo
+                createNewProgram();
             }
-
             renderProgs();
             saveToStorage();
             updateDeleteUI();
@@ -351,17 +347,10 @@
 
         function undoDelete() {
             if (deletedFilesStack.length === 0) return;
-
-            // 1. Vytáhnout poslední
             const fileToRestore = deletedFilesStack.pop();
-
-            // 2. Obnovit
             loadedData.loadedPrograms[fileToRestore.name] = fileToRestore.content;
-            
-            // 3. Přepnout na něj
             loadedData.mainProgramName = fileToRestore.name;
             displayFile(fileToRestore.name);
-
             renderProgs();
             saveToStorage();
             updateDeleteUI();
@@ -369,20 +358,51 @@
 
         function updateDeleteUI() {
             if (deletedFilesStack.length > 0) {
-                // Máme co vracet -> Zobrazit skupinu "Další / Zpět"
                 els.btnInitialDelete.classList.add('hidden');
                 els.groupDeleteActive.classList.remove('hidden');
                 els.groupDeleteActive.classList.add('flex');
                 els.undoCount.textContent = deletedFilesStack.length;
             } else {
-                // Zásobník prázdný -> Zobrazit jen "Smazat"
                 els.groupDeleteActive.classList.add('hidden');
                 els.groupDeleteActive.classList.remove('flex');
                 els.btnInitialDelete.classList.remove('hidden');
             }
         }
 
-        // --- OSTATNÍ FUNKCE EDITORU ---
+        // --- JUMP TO ERROR FUNCTION ---
+        function jumpToError(fileName, lineIndex) {
+             // 1. Close modal
+             document.getElementById('validation-modal').classList.remove('show');
+             
+             // 2. Switch file if needed
+             if (fileName && fileName !== currentFile) {
+                 displayFile(fileName);
+                 // Wait for content to load into textarea
+                 setTimeout(() => performScroll(lineIndex), 50);
+             } else {
+                 performScroll(lineIndex);
+             }
+        }
+
+        function performScroll(lineIndex) {
+             if (lineIndex < 0) return;
+             
+             const lineHeight = 24; // approx font size
+             const targetScroll = (lineIndex * lineHeight) - (els.editor.clientHeight / 2);
+             els.editor.scrollTop = Math.max(0, targetScroll);
+             
+             // Select the line
+             const lines = els.editor.value.split('\n');
+             if (lineIndex >= lines.length) return;
+
+             let start = 0;
+             for(let i=0; i<lineIndex; i++) start += lines[i].length + 1; 
+             let end = start + lines[lineIndex].length;
+             
+             els.editor.setSelectionRange(start, end);
+             els.editor.focus();
+        }
+
         function escapeHtml(text) {
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
@@ -390,13 +410,6 @@
         function applySyntaxHighlighting() {
             let text = els.editor.value;
             let lines = text.split('\n');
-            let labels = new Set();
-            
-            lines.forEach(line => {
-                const match = line.match(/^\s*(?:N\d+\s*)?([a-zA-Z0-9_]+):/);
-                if (match) labels.add(match[1]);
-            });
-
             let styled = lines.map(line => {
                 let code = line;
                 let comm = "";
@@ -405,16 +418,7 @@
                     code = line.substring(0, cIdx);
                     comm = `<span class="hl-comment">${escapeHtml(line.substring(cIdx))}</span>`;
                 }
-                
-                // Ochrana MSG
-                let placeholders = [];
-                code = code.replace(/(MSG\s*\()(.*?)(\))/gi, (match) => {
-                    placeholders.push(`<span class="hl-msg">${escapeHtml(match)}</span>`);
-                    return `__MSG_${placeholders.length-1}__`;
-                });
-
                 code = escapeHtml(code);
-
                 code = code
                     .replace(/\b(N\d+)\b/g, '<span class="hl-block">$1</span>')
                     .replace(/\b(G[0-3]|G0[0-3])\b/g, '<span class="hl-g text-red-500">$1</span>')
@@ -425,11 +429,126 @@
                     .replace(/\b(R\d+)/g, '<span class="hl-param">$1</span>')
                     .replace(/\b(GOTOF|GOTOB|IF|ELSE|ENDIF|STOPRE)\b/g, '<span class="hl-logic">$1</span>')
                     .replace(/\b(L\d+)\b/g, '<span class="hl-sub">$1</span>');
-
-                code = code.replace(/__MSG_(\d+)__/g, (m, i) => placeholders[i]);
                 return code + comm;
             });
             els.highlights.innerHTML = styled.join('<br>') + '<br>';
+        }
+
+        class CNCParser {
+            constructor() {
+                this.parameters = new Map();
+                this.loadedSubprograms = new Map(); 
+                this.missingParams = new Set();
+                this.errors = []; // {file, lineIndex, msg}
+            }
+            loadSubprograms(progs) {
+                this.loadedSubprograms = new Map(Object.entries(progs));
+            }
+            findSubprogramContent(num) {
+                const target = `L${num}`.toUpperCase();
+                if (this.loadedSubprograms.has(target)) return { name: target, content: this.loadedSubprograms.get(target) };
+                if (this.loadedSubprograms.has(target + '.SPF')) return { name: target + '.SPF', content: this.loadedSubprograms.get(target + '.SPF') };
+                for (const [key, content] of this.loadedSubprograms.entries()) {
+                    const upper = key.toUpperCase();
+                    if (upper === target || upper === target + '.SPF' || upper === target + '.MPF') return { name: key, content: content };
+                }
+                return null;
+            }
+            async parseProgram(code, startFileName) {
+                this.parameters.clear(); 
+                this.missingParams.clear();
+                this.errors = [];
+                await this.processLines(code.split('\n'), 0, startFileName || "Main");
+                return { parameters: this.parameters, errors: this.errors };
+            }
+            async processLines(lines, depth, currentFileName) {
+                if (depth > 10) return; 
+                
+                // 1. Scan Labels locally
+                const labels = new Set();
+                lines.forEach(l => {
+                     const m = l.trim().toUpperCase().match(/^\s*(?:N\d+\s*)?([a-zA-Z0-9_]+):/);
+                     if(m) labels.add(m[1]);
+                });
+
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i].trim();
+                    const commentIdx = line.indexOf(';');
+                    let clean = line;
+                    if (commentIdx !== -1) {
+                        clean = line.substring(0, commentIdx);
+                    }
+                    clean = clean.trim().toUpperCase();
+                    
+                    if (!clean) continue;
+                    
+                    // N-block extract for display
+                    const nMatch = clean.match(/^N(\d+)/);
+                    const blk = nMatch ? `N${nMatch[1]}` : '';
+
+                    // 2. Check GOTO (Local context)
+                    const gotoMatch = clean.match(/\b(GOTOF|GOTOB|IF.*GOTO)\s+([a-zA-Z0-9_]+)/);
+                    if (gotoMatch && !labels.has(gotoMatch[2])) {
+                        this.errors.push({ 
+                            file: currentFileName, 
+                            lineIndex: i, 
+                            msg: `Cíl skoku '${gotoMatch[2]}' neexistuje.` 
+                        });
+                    }
+
+                    // 3. Check Parameters
+                    const assignRegex = /R(\d+)\s*=\s*(.*?)(?=\s+R\d+\s*=|;|$)/g;
+                    let match;
+                    while ((match = assignRegex.exec(clean)) !== null) {
+                        const pNum = parseInt(match[1]);
+                        let pValStr = match[2];
+                        
+                        const usages = pValStr.match(/R(\d+)/g);
+                        if (usages) {
+                            usages.forEach(u => {
+                                const usedNum = parseInt(u.replace('R', ''));
+                                if (!this.parameters.has(`R${usedNum}`)) {
+                                    this.errors.push({
+                                        file: currentFileName,
+                                        lineIndex: i,
+                                        msg: `Parametr R${usedNum} použit bez definice.`
+                                    });
+                                }
+                            });
+                        }
+                        
+                        // Evaluate and Store
+                        let cleanExpr = pValStr.replace(/R(\d+)/g, (m, n) => {
+                             const existing = this.parameters.get(`R${n}`);
+                             return existing ? existing.value : 0;
+                        });
+                        cleanExpr = cleanExpr.replace(/[^0-9\.\+\-\*\/\(\)]/g, '');
+                        let val = 0;
+                        try { val = Function('"use strict";return (' + cleanExpr + ')')(); } catch (e) { val = 0; }
+                        
+                        this.parameters.set(`R${pNum}`, {
+                            value: val,
+                            source: `${currentFileName}: ${blk || (i+1)}`
+                        });
+                    }
+
+                    // 4. Check Subprograms & Recurse
+                    const subMatch = clean.match(/(^|\s)L(\d+)(\s|;|$)/);
+                    if (subMatch) {
+                        const subNum = subMatch[2];
+                        const found = this.findSubprogramContent(subNum);
+                        if (found) {
+                            await this.processLines(found.content.split('\n'), depth + 1, found.name);
+                        } else {
+                            this.errors.push({
+                                file: currentFileName,
+                                lineIndex: i,
+                                msg: `Podprogram L${subNum} nebyl nalezen.`
+                            });
+                        }
+                    }
+                }
+            }
         }
 
         function displayFile(name) {
@@ -437,21 +556,39 @@
                 loadedData.loadedPrograms[currentFile] = els.editor.value;
             }
             if (!loadedData.loadedPrograms[name]) return;
-
             currentFile = name;
             loadedData.mainProgramName = name;
-            
             els.editor.value = loadedData.loadedPrograms[name];
             els.fileName.textContent = name;
-            
-            // Update active class in list
             document.querySelectorAll('.file-item').forEach(el => {
                 el.classList.remove('active');
                 if (el.dataset.name === name) el.classList.add('active');
             });
-
             applySyntaxHighlighting();
             updateStats();
+            
+            if (els.groupDeleteActive && !els.groupDeleteActive.classList.contains('hidden')) {
+                els.groupDeleteActive.classList.add('hidden');
+                els.groupDeleteActive.classList.remove('flex');
+                els.btnInitialDelete.classList.remove('hidden');
+            }
+
+            setTimeout(async () => {
+                try {
+                    const p = new CNCParser();
+                    p.loadSubprograms(loadedData.loadedPrograms);
+                    // Start parsing from current file if it's main, or just current
+                    // To check params globally we usually start from Main
+                    // But if user is just viewing a file, maybe just show its params? 
+                    // Let's assume Main context for params.
+                    const startFile = loadedData.mainProgramName || currentFile;
+                    const code = loadedData.loadedPrograms[startFile];
+                    
+                    await p.parseProgram(code, startFile);
+                    loadedData.parameters = new Map(p.parameters);
+                    renderParams(p.parameters); 
+                } catch(e) { console.error(e); }
+            }, 50);
         }
 
         function renderProgs() {
@@ -460,7 +597,6 @@
                 const div = document.createElement('div');
                 div.className = "file-item p-2 cursor-pointer text-sm border-b border-gray-100 dark:border-gray-700";
                 if (name === currentFile) div.classList.add('active');
-                
                 const isMpf = name.toUpperCase().endsWith('.MPF');
                 div.innerHTML = `<div class="truncate"><i class="${isMpf?'fas fa-star text-yellow-500':'fas fa-code text-gray-400'} mr-2"></i>${name}</div>`;
                 div.dataset.name = name;
@@ -483,75 +619,165 @@
             document.getElementById('char-count').textContent = text.length;
         }
 
-        // --- INIT ---
-        function init() {
-            // Load Dark Mode
-            if (localStorage.getItem('cnc-dark-mode') === 'true') document.documentElement.classList.add('dark');
+        function renderParams(paramsMap) {
+            if (!paramsMap) paramsMap = loadedData.parameters;
+            els.paramList.innerHTML = '';
+            const arr = Array.from(paramsMap.entries()).sort((a,b)=> parseInt(a[0].substring(1)) - parseInt(b[0].substring(1)));
+            if(!arr.length) els.paramList.innerHTML = '<div class="text-center text-gray-400 p-4">Žádné parametry</div>';
+            else arr.forEach(([k, data]) => {
+                let val = data.value !== undefined ? data.value : data;
+                let src = data.source || '';
+                const valStr = Number(val).toFixed(4).replace(/\.?0+$/, "");
+                const div = document.createElement('div');
+                div.className = "flex flex-col border-b border-gray-100 dark:border-gray-700 py-2 px-2 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors";
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-purple-600 dark:text-purple-400">${k}</span>
+                        <span class="font-mono text-gray-900 dark:text-gray-100 font-medium">${valStr}</span>
+                    </div>
+                    ${src ? `<div class="text-[10px] text-gray-400 text-right mt-0.5 truncate w-full">${src}</div>` : ''}
+                `;
+                els.paramList.appendChild(div);
+            });
+        }
+
+        function handlePackageImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                let currentName = null;
+                let buffer = [];
+                const lines = text.split('\n');
+                for (let line of lines) {
+                    const nameMatch = line.match(/:\s*([a-zA-Z0-9_]+\.(MPF|SPF))/i);
+                    if (nameMatch && (line.includes('PROGRAM') || line.includes('PODPROGRAM') || line.includes('===='))) {
+                        if (currentName && buffer.length > 0) loadedData.loadedPrograms[currentName] = buffer.join('\n').trim();
+                        currentName = nameMatch[1].trim();
+                        buffer = [];
+                        continue;
+                    }
+                    if (line.trim().startsWith('===')) continue;
+                    if (currentName) buffer.push(line);
+                }
+                if (currentName && buffer.length > 0) loadedData.loadedPrograms[currentName] = buffer.join('\n').trim();
+                else if (!currentName && buffer.length > 0) loadedData.loadedPrograms[file.name] = text;
+                renderFileList();
+                const mpf = Object.keys(loadedData.loadedPrograms).find(k => k.toUpperCase().endsWith('.MPF'));
+                if(mpf) displayFile(mpf);
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function handlePackageExport() {
+            if (currentFile) loadedData.loadedPrograms[currentFile] = els.editor.value;
+            let output = "";
+            const keys = Object.keys(loadedData.loadedPrograms).sort();
+            keys.forEach(name => {
+                const content = loadedData.loadedPrograms[name];
+                const type = name.toUpperCase().endsWith('.MPF') ? "HLAVNÍ PROGRAM" : "PODPROGRAM";
+                output += `==================================================\n${type} (G90): ${name}\n==================================================\n${content}\n\n\n`;
+            });
+            const blob = new Blob([output], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "simcnckod_export.txt";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function renderFileList() { renderProgs(); }
+
+        async function performFullCheck() {
+            const resultsDiv = document.getElementById('validation-results');
+            resultsDiv.innerHTML = '<div class="text-center p-4 text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Analyzuji projekt...</div>';
+            document.getElementById('validation-modal').classList.add('show');
+
+            const p = new CNCParser();
+            p.loadSubprograms(loadedData.loadedPrograms);
             
-            // Event Listeners
+            // Start full check from Main program if possible to get context right
+            const startFile = loadedData.mainProgramName || currentFile;
+            const code = loadedData.loadedPrograms[startFile];
+            
+            const res = await p.parseProgram(code, startFile);
+            
+            const list = document.createElement('ul');
+            list.className = 'validation-list';
+            resultsDiv.innerHTML = ''; 
+            
+            if (res.errors.length === 0) {
+                list.innerHTML = `<li class="validation-item"><i class="fas fa-check-circle text-green-500 v-icon"></i> <span>Vše OK (Start: ${startFile}).</span></li>`;
+            } else {
+                res.errors.forEach(e => {
+                    const li = document.createElement('li');
+                    li.className = 'validation-item clickable';
+                    li.innerHTML = `
+                        <i class="fas fa-times-circle v-error v-icon"></i> 
+                        <div class="flex flex-col">
+                            <span class="font-bold text-gray-800 dark:text-gray-200">
+                                <span class="file-tag">${e.file}</span> Řádek ${e.lineIndex+1}
+                            </span>
+                            <span>${e.msg}</span>
+                        </div>`;
+                    li.onclick = () => jumpToError(e.file, e.lineIndex);
+                    list.appendChild(li);
+                });
+            }
+            resultsDiv.appendChild(list);
+            if (window.innerWidth < 1024) els.toolsPanel.classList.add('-translate-x-full');
+        }
+
+        function init() {
+            if (localStorage.getItem('cnc-dark-mode') === 'true') document.documentElement.classList.add('dark');
             document.getElementById('dark-mode-toggle').onclick = () => {
                 document.documentElement.classList.toggle('dark');
                 localStorage.setItem('cnc-dark-mode', document.documentElement.classList.contains('dark'));
             };
-
-            // Scroll Sync
-            els.editor.onscroll = () => {
-                els.backdrop.scrollTop = els.editor.scrollTop;
-                els.backdrop.scrollLeft = els.editor.scrollLeft;
-            };
+            els.editor.onscroll = () => { els.backdrop.scrollTop = els.editor.scrollTop; els.backdrop.scrollLeft = els.editor.scrollLeft; };
             els.editor.oninput = () => { applySyntaxHighlighting(); updateStats(); };
-
-            // Bind Buttons
             els.btnInitialDelete.onclick = deleteCurrentFile;
             els.btnDeleteNext.onclick = deleteCurrentFile;
             els.btnUndo.onclick = undoDelete;
             els.newProgBtn.onclick = createNewProgram;
-            
-            // Load Data
+            els.checkProgBtn.onclick = performFullCheck;
+            if (els.fileImportPack) els.fileImportPack.addEventListener('change', handlePackageImport);
+            if (els.btnExportPack) els.btnExportPack.onclick = handlePackageExport;
+
             const raw = localStorage.getItem('cncExternalEditorData');
             if (raw) {
                 loadedData = JSON.parse(raw);
-                if (Array.isArray(loadedData.parameters)) loadedData.parameters = new Map(loadedData.parameters);
-                else loadedData.parameters = new Map(Object.entries(loadedData.parameters || {}));
-                
+                if (Array.isArray(loadedData.parameters)) {
+                     if (loadedData.parameters.length > 0 && typeof loadedData.parameters[0][1] === 'object') {
+                         loadedData.parameters = new Map(loadedData.parameters);
+                     } else {
+                         const tempMap = new Map(loadedData.parameters);
+                         const newMap = new Map();
+                         tempMap.forEach((val, key) => newMap.set(key, { value: val, source: 'Legacy' }));
+                         loadedData.parameters = newMap;
+                     }
+                } else {
+                    loadedData.parameters = new Map();
+                }
                 const keys = Object.keys(loadedData.loadedPrograms);
                 if (keys.length > 0) {
                     let startFile = loadedData.mainProgramName;
                     if (!loadedData.loadedPrograms[startFile]) startFile = keys[0];
                     displayFile(startFile);
-                } else {
-                    createNewProgram();
-                }
+                } else createNewProgram();
                 renderProgs();
-            } else {
-                createNewProgram();
-            }
+            } else createNewProgram();
             
-            // Mobile Menu Logic
-            document.getElementById('tools-open-btn').onclick = () => {
-                els.toolsPanel.classList.remove('-translate-x-full');
-                els.overlay.classList.remove('hidden');
-            };
-            document.getElementById('tools-close-btn').onclick = () => {
-                els.toolsPanel.classList.add('-translate-x-full');
-                els.overlay.classList.add('hidden');
-            };
-            document.getElementById('details-open-btn').onclick = () => {
-                els.detailsPanel.classList.remove('translate-x-full');
-                els.overlay.classList.remove('hidden');
-            };
-            document.getElementById('details-close-btn').onclick = () => {
-                els.detailsPanel.classList.add('translate-x-full');
-                els.overlay.classList.add('hidden');
-            };
-            els.overlay.onclick = () => {
-                els.toolsPanel.classList.add('-translate-x-full');
-                els.detailsPanel.classList.add('translate-x-full');
-                els.overlay.classList.add('hidden');
-            };
+            document.getElementById('tools-open-btn').onclick = () => { els.toolsPanel.classList.remove('-translate-x-full'); els.overlay.classList.remove('hidden'); };
+            document.getElementById('tools-close-btn').onclick = () => { els.toolsPanel.classList.add('-translate-x-full'); els.overlay.classList.add('hidden'); };
+            document.getElementById('details-open-btn').onclick = () => { els.detailsPanel.classList.remove('translate-x-full'); els.overlay.classList.remove('hidden'); };
+            document.getElementById('details-close-btn').onclick = () => { els.detailsPanel.classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
+            els.overlay.onclick = () => { els.toolsPanel.classList.add('-translate-x-full'); els.detailsPanel.classList.add('translate-x-full'); els.overlay.classList.add('hidden'); };
         }
 
-        // Spustit
         init();
     </script>
 </body>
