@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Karusel CNC SmartGrid Pro</title>
+    <style>
+        /* SVĚTLÝ MOTIV (Light Theme) */
+        :root { 
+            --bg-color: #ffffff;           
+            --grid-color: #e0e0e0;         
+            --grid-strong: #bbb;           
+            --axis-color: #444;            
+            --accent-color: #ff6f00;       
+            --text-color: #333;            
+            --panel-bg: rgba(255, 255, 255, 0.90);
+            --modal-bg: #f9f9f9;
+            --input-bg: #fff;
+            --input-border: #ccc;
+        }
+
+        body { margin: 0; padding: 0; background: var(--bg-color); color: var(--text-color); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; height: 100vh; width: 100vw; user-select: none; }
+        
+        /* CANVAS */
+        #canvas-container { width: 100%; height: 100%; position: absolute; touch-action: none; cursor: crosshair; }
+        svg { width: 100%; height: 100%; display: block; }
+        
+        /* Grafika */
+        .grid-line { stroke: var(--grid-color); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+        .path-line { stroke: #00c853; stroke-width: 2.5px; fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+        .phantom-line { stroke: #999; stroke-width: 1px; stroke-dasharray: 5,5; vector-effect: non-scaling-stroke; }
+        .point-marker { fill: #fff; stroke: var(--accent-color); stroke-width: 2px; vector-effect: non-scaling-stroke; r: 4px; }
+        .point-current { fill: var(--accent-color); r: 6px; }
+
+        /* UI ELEMENTS */
+        #coords-hud {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: var(--panel-bg); padding: 8px 16px;
+            border-radius: 20px; border: 1px solid #ddd;
+            pointer-events: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            backdrop-filter: blur(4px);
+            z-index: 5;
+            display: flex; gap: 20px;
+        }
+        .hud-item { text-align: center; }
+        .hud-val { font-size: 1.1rem; font-weight: bold; color: #000; font-family: 'Consolas', monospace; display: block; }
+        .hud-label { font-size: 0.65rem; color: #666; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+
+        #fab {
+            position: absolute; bottom: 30px; right: 30px;
+            width: 64px; height: 64px;
+            background: var(--accent-color); color: #fff;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 32px; box-shadow: 0 4px 15px rgba(255, 111, 0, 0.4);
+            cursor: pointer; transition: transform 0.1s; z-index: 10;
+        }
+        #fab:active { transform: scale(0.9); }
+
+        /* MODALS */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 20; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
+        .modal-content { background: var(--modal-bg); padding: 25px; border-radius: 16px; width: 90%; max-width: 380px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 1px solid #eee; }
+        
+        h3 { color: #333; margin-top: 0; text-align: center; font-size: 1.2rem; }
+
+        .joypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .joy-btn { aspect-ratio: 1; background: #fff; border: 1px solid #ddd; border-radius: 12px; font-size: 24px; color: #444; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: background 0.1s; }
+        .joy-btn:active { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+        .joy-desc { font-size: 10px; margin-top: 2px; color: #888; font-weight: bold; }
+        .joy-btn:active .joy-desc { color: rgba(255,255,255,0.8); }
+
+        input { width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: #000; padding: 12px; font-size: 18px; text-align: right; border-radius: 8px; box-sizing: border-box; margin-bottom: 15px; font-weight: bold; }
+        input:focus { border-color: var(--accent-color); outline: none; box-shadow: 0 0 0 2px rgba(255, 111, 0, 0.1); }
+        label { display: block; color: #666; font-size: 13px; margin-bottom: 6px; font-weight: 600; }
+        
+        .btn-row { display: flex; gap: 10px; margin-top: 10px; }
+        button { flex: 1; padding: 14px; border: none; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; transition: opacity 0.2s; }
+        .btn-ok { background: var(--accent-color); color: #fff; }
+        .btn-cancel { background: #e0e0e0; color: #333; }
+        button:active { opacity: 0.8; }
+
+    </style>
+</head>
+<body>
+
+<div id="canvas-container">
+    <svg id="svgCanvas" preserveAspectRatio="xMidYMid slice">
+        <!-- World Group: Y jde nahoru (Scale 1, -1) -->
+        <g id="worldGroup" transform="scale(1, -1)">
+            <g id="gridLines"></g> 
+            <g id="axisGroup"></g> 
+            <g id="pathGroup"></g> 
+        </g>
+        <!-- Screen Group: Y jde dolů (Normal) - pro texty -->
+        <g id="textGroup"></g>
+    </svg>
+</div>
+
+<div id="coords-hud">
+    <div class="hud-item"><span class="hud-val" id="hud-x">0.00</span><span class="hud-label">Ø (X)</span></div>
+    <div style="width:1px; background:#ddd;"></div>
+    <div class="hud-item"><span class="hud-val" id="hud-z">0.00</span><span class="hud-label">Z</span></div>
+</div>
+
+<div id="fab" onclick="openJoypad()">+</div>
+
+<!-- JOYPAD MODAL -->
+<div id="modal-joypad" class="modal">
+    <div class="modal-content">
+        <h3>Ovládání</h3>
+        <div class="joypad-grid">
+            <div class="joy-btn" onclick="prepMove('UL')">↖<span class="joy-desc">Kužel</span></div>
+            <div class="joy-btn" onclick="prepMove('U')">⬆<span class="joy-desc">Z+</span></div>
+            <div class="joy-btn" onclick="prepMove('UR')">↗<span class="joy-desc">Kužel</span></div>
+            <div class="joy-btn" onclick="prepMove('L')">⬅<span class="joy-desc">X-</span></div>
+            <div class="joy-btn" onclick="openMenu()" style="background:#f0f0f0; border-color:#ccc;">MENU</div>
+            <div class="joy-btn" onclick="prepMove('R')">➡<span class="joy-desc">X+</span></div>
+            <div class="joy-btn" onclick="prepMove('DL')">↙<span class="joy-desc">Kužel</span></div>
+            <div class="joy-btn" onclick="prepMove('D')">⬇<span class="joy-desc">Z-</span></div>
+            <div class="joy-btn" onclick="prepMove('DR')">↘<span class="joy-desc">Kužel</span></div>
+        </div>
+        <button class="btn-cancel" onclick="closeModals()">Zavřít</button>
+    </div>
+</div>
+
+<!-- INPUT MODAL (Universal) -->
+<div id="modal-input" class="modal">
+    <div class="modal-content">
+        <h3 id="input-title">Zadat hodnoty</h3>
+        
+        <div id="input-linear" style="display:none;">
+            <label>Délka pohybu (mm):</label>
+            <input type="number" id="inp-len" placeholder="0" inputmode="decimal">
+        </div>
+
+        <div id="input-complex" style="display:none;">
+            <label>Cílový Průměr X (mm):</label>
+            <input type="number" id="inp-x" placeholder="Nevím" inputmode="decimal">
+            <label>Cílová Výška Z (mm):</label>
+            <input type="number" id="inp-z" placeholder="Nevím" inputmode="decimal">
+            <label>Úhel (°):</label>
+            <input type="number" id="inp-a" placeholder="45" inputmode="decimal">
+            <div style="font-size:11px; color:#999; margin-bottom:15px; text-align:center;">0=Vpravo, 90=Nahoru, 180=Vlevo...</div>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn-cancel" onclick="openJoypad()">Zpět</button>
+            <button class="btn-ok" onclick="commitMove()">Vypočítat</button>
+        </div>
+    </div>
+</div>
+
+<!-- MENU MODAL -->
+<div id="modal-menu" class="modal">
+    <div class="modal-content">
+        <h3>Menu</h3>
+        <button class="btn-ok" style="width:100%; margin-bottom:10px;" onclick="fitToScreen()">Centrovat pohled</button>
+        <button class="btn-cancel" style="width:100%; margin-bottom:10px;" onclick="resetOrigin()">Nový startovní bod</button>
+        <button class="btn-cancel" style="width:100%; background:#e53935; color:white;" onclick="clearAll()">Smazat vše</button>
+        <button class="btn-cancel" style="width:100%; margin-top:10px;" onclick="openJoypad()">Zpět</button>
+    </div>
+</div>
+
+<script>
+    // --- STAV APLIKACE ---
+    let points = [{x: 0, z: 0, break: false}]; 
+    let currentDir = ''; 
+    
+    // --- CANVAS & VIEWPORT ---
+    const svg = document.getElementById('svgCanvas');
+    const gridLines = document.getElementById('gridLines');
+    const textGroup = document.getElementById('textGroup');
+    const pathGroup = document.getElementById('pathGroup');
+    const axisGroup = document.getElementById('axisGroup');
+
+    let vb = { x: -150, y: -150, w: 300, h: 300 };
+
+    // --- INIT ---
+    window.addEventListener('resize', () => { requestAnimationFrame(drawDynamicGrid); });
+    drawDynamicGrid();
+    updatePath();
+
+    // --- DRAG & ZOOM LOGIC ---
+    let isDragging = false;
+    let lastPos = { x: 0, y: 0 };
+
+    function getEvtPos(e) {
+        if(e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    svg.addEventListener('mousedown', startDrag);
+    svg.addEventListener('touchstart', startDrag, {passive: false});
+
+    function startDrag(e) {
+        isDragging = true;
+        lastPos = getEvtPos(e);
+    }
+
+    window.addEventListener('mousemove', doDrag);
+    window.addEventListener('touchmove', doDrag, {passive: false});
+
+    function doDrag(e) {
+        if (!isDragging) return;
+        if(e.touches && e.touches.length > 1) return; 
+        e.preventDefault(); 
+
+        const curr = getEvtPos(e);
+        const dxPx = curr.x - lastPos.x;
+        const dyPx = curr.y - lastPos.y;
+        lastPos = curr;
+
+        const scaleX = vb.w / svg.clientWidth;
+        const scaleY = vb.h / svg.clientHeight;
+
+        vb.x -= dxPx * scaleX;
+        vb.y -= dyPx * scaleY;
+
+        updateViewBox();
+        requestAnimationFrame(drawDynamicGrid); 
+    }
+
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('touchend', () => isDragging = false);
+
+    svg.addEventListener('wheel', e => {
+        e.preventDefault();
+        const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+        
+        const oldW = vb.w;
+        const oldH = vb.h;
+        
+        vb.w *= zoomFactor;
+        vb.h *= zoomFactor;
+        
+        vb.x -= (vb.w - oldW) / 2;
+        vb.y -= (vb.h - oldH) / 2;
+
+        updateViewBox();
+        drawDynamicGrid();
+    }, {passive: false});
+
+    function updateViewBox() {
+        svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+    }
+
+    // --- ADAPTIVE GRID & STICKY AXIS (FINAL FIX) ---
+    function drawDynamicGrid() {
+        gridLines.innerHTML = ''; 
+        textGroup.innerHTML = '';
+        axisGroup.innerHTML = '';
+
+        // Step Calculation
+        const roughStep = vb.w / 6;
+        const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+        const residual = roughStep / magnitude;
+        
+        let step;
+        if (residual < 2) step = 1 * magnitude;
+        else if (residual < 5) step = 2 * magnitude;
+        else step = 5 * magnitude;
+
+        let decimals = 0;
+        if (step < 1) decimals = 1;
+        if (step < 0.1) decimals = 2; 
+
+        const fontSize = Math.max(vb.w / 40, step/3.5); 
+        // Zvýšený padding, aby se text nelepil úplně na okraj obrazovky
+        const padding = fontSize * 3.0; 
+
+        // World Bounds
+        const zMin = -(vb.y + vb.h);
+        const zMax = -vb.y;
+        const xMin = vb.x;
+        const xMax = vb.x + vb.w;
+
+        const startX = Math.floor(xMin / step) * step;
+        const startZ = Math.floor(zMin / step) * step;
+
+        createLine(axisGroup, -100000, 0, 100000, 0, '#444', 2);
+        createLine(axisGroup, 0, -100000, 0, 100000, '#444', 2);
+
+        // --- ROBUSTNÍ STICKY LOGIKA (Clamp) ---
+        // Vypočteme souřadnice, kde se mají texty zobrazit, s omezením na viditelnou oblast.
+        
+        // 1. Horizontální čára s X hodnotami (Průměry)
+        // Musí být mezi Top (vb.y) a Bottom (vb.y + vb.h)
+        // Použijeme Clamp: Math.max(min, Math.min(max, val))
+        
+        const safeTop = vb.y + padding;
+        const safeBottom = vb.y + vb.h - padding;
+        
+        // 0 je pozice osy X. Pokud je 0 mimo obrazovku, clampne se to k okraji.
+        let stickyY = Math.max(safeTop, Math.min(safeBottom, 0));
+        
+        // Určení baseline (aby text neutekl z obrazovky)
+        let baseline = "hanging";
+        if (Math.abs(stickyY - safeBottom) < 0.001) {
+            baseline = "auto"; // Jsme dole -> text nad čáru
+        } else if (Math.abs(stickyY - safeTop) < 0.001) {
+            baseline = "hanging"; // Jsme nahoře -> text pod čáru
+        } else {
+            // Jsme uvnitř (pravděpodobně na nule)
+            stickyY += fontSize * 0.5; // Malý posun od osy
+            baseline = "hanging";
+        }
+
+        // 2. Vertikální čára se Z hodnotami (Výšky)
+        const safeLeft = vb.x + padding;
+        const safeRight = vb.x + vb.w - padding;
+        
+        let stickyX = Math.max(safeLeft, Math.min(safeRight, 0));
+        
+        let anchor = "end";
+        if (Math.abs(stickyX - safeRight) < 0.001) {
+            anchor = "end"; // Jsme vpravo -> text vlevo od čáry
+        } else if (Math.abs(stickyX - safeLeft) < 0.001) {
+            anchor = "start"; // Jsme vlevo -> text vpravo od čáry
+        } else {
+            // Jsme uvnitř
+            stickyX -= fontSize * 0.5;
+            anchor = "end";
+        }
+
+        // Vykreslování X gridu (Svislé čáry, popisky X)
+        for (let x = startX; x < xMax; x += step) {
+            createLine(gridLines, x, zMin, x, zMax, '#e0e0e0', 1);
+            if (Math.abs(x) > step/100) { 
+                addText(textGroup, x, stickyY, (x * 2).toFixed(decimals), fontSize, "middle", baseline);
+            }
+        }
+
+        // Vykreslování Z gridu (Vodorovné čáry, popisky Z)
+        for (let z = startZ; z < zMax; z += step) {
+            createLine(gridLines, xMin, z, xMax, z, '#e0e0e0', 1);
+            if (Math.abs(z) > step/100) {
+                // Screen Y = -z
+                addText(textGroup, stickyX, -z + (fontSize/3), z.toFixed(decimals), fontSize, anchor, "auto");
+            }
+        }
+    }
+    
+    function createLine(parent, x1, z1, x2, z2, color, width) {
+        const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        l.setAttribute("x1", x1); l.setAttribute("y1", z1);
+        l.setAttribute("x2", x2); l.setAttribute("y2", z2);
+        l.setAttribute("stroke", color);
+        l.setAttribute("stroke-width", width);
+        l.setAttribute("vector-effect", "non-scaling-stroke");
+        parent.appendChild(l);
+    }
+
+    function addText(parent, screenX, screenY, textStr, size, anchor, baseline) {
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("x", screenX);
+        t.setAttribute("y", screenY);
+        t.textContent = textStr;
+        t.setAttribute("fill", "#666");
+        t.setAttribute("font-size", size);
+        t.setAttribute("font-family", "Consolas, monospace");
+        t.setAttribute("font-weight", "bold");
+        t.setAttribute("text-anchor", anchor || "middle");
+        if(baseline) t.setAttribute("dominant-baseline", baseline);
+        
+        t.setAttribute("stroke", "rgba(255,255,255,0.85)");
+        t.setAttribute("stroke-width", size/4);
+        t.setAttribute("paint-order", "stroke");
+        parent.appendChild(t);
+    }
+
+    // --- GAMEPLAY ---
+    function updatePath() {
+        pathGroup.innerHTML = '';
+        if(points.length === 0) return;
+
+        const last = points[points.length-1];
+        document.getElementById('hud-x').innerText = (last.x * 2).toFixed(2);
+        document.getElementById('hud-z').innerText = last.z.toFixed(2);
+
+        points.forEach((p, i) => {
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", p.x); circle.setAttribute("cy", p.z);
+            circle.setAttribute("class", i === points.length-1 ? "point-marker point-current" : "point-marker");
+            circle.setAttribute("r", vb.w / 80); 
+            pathGroup.appendChild(circle);
+
+            if (i > 0 && !p.break) {
+                const prev = points[i-1];
+                const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                l.setAttribute("x1", prev.x); l.setAttribute("y1", prev.z);
+                l.setAttribute("x2", p.x); l.setAttribute("y2", p.z);
+                l.setAttribute("class", "path-line");
+                pathGroup.appendChild(l);
+            }
+        });
+    }
+
+    function fitToScreen() {
+        if (points.length < 2) {
+             vb = {x: -50, y: -150, w: 100, h: 200}; 
+        } else {
+            let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+            points.forEach(p => {
+                if(p.x < minX) minX = p.x;
+                if(p.x > maxX) maxX = p.x;
+                if(p.z < minZ) minZ = p.z;
+                if(p.z > maxZ) maxZ = p.z;
+            });
+            const pad = (maxX - minX) * 0.2 + 10;
+            vb.x = minX - pad;
+            vb.y = -maxZ - pad;
+            vb.w = (maxX - minX) + pad*2;
+            vb.h = (maxZ - minZ) + pad*2;
+            if(vb.w < 10) vb.w = 50;
+            if(vb.h < 10) vb.h = 50;
+        }
+        updateViewBox();
+        drawDynamicGrid();
+        closeModals();
+    }
+
+    // --- INPUT & LOGIC ---
+    function prepMove(dir) {
+        currentDir = dir;
+        closeModals();
+        const m = document.getElementById('modal-input');
+        const lin = document.getElementById('input-linear');
+        const cpx = document.getElementById('input-complex');
+        const tit = document.getElementById('input-title');
+
+        document.getElementById('inp-len').value = '';
+        document.getElementById('inp-x').value = '';
+        document.getElementById('inp-z').value = '';
+        document.getElementById('inp-a').value = '';
+
+        m.style.display = 'flex';
+        
+        const isDiagonal = dir.length === 2; 
+        
+        if (isDiagonal) {
+            lin.style.display = 'none';
+            cpx.style.display = 'block';
+            tit.innerText = "Kužel / Úkos";
+            let angle = '';
+            if(dir === 'UR') angle = 45;
+            if(dir === 'UL') angle = 135;
+            if(dir === 'DL') angle = 225;
+            if(dir === 'DR') angle = 315;
+            document.getElementById('inp-a').value = angle;
+        } else {
+            lin.style.display = 'block';
+            cpx.style.display = 'none';
+            let txt = "Posun ";
+            if(dir === 'U') txt += "Nahoru (Z+)";
+            if(dir === 'D') txt += "Dolů (Z-)";
+            if(dir === 'L') txt += "Doleva (X-)";
+            if(dir === 'R') txt += "Doprava (X+)";
+            tit.innerText = txt;
+            document.getElementById('inp-len').focus();
+        }
+    }
+
+    function commitMove() {
+        const last = points[points.length - 1];
+        let next = { x: last.x, z: last.z };
+        const isDiagonal = currentDir.length === 2;
+        
+        if (!isDiagonal) {
+            const valStr = document.getElementById('inp-len').value.replace(',', '.');
+            const len = parseFloat(valStr);
+            if(isNaN(len)) return;
+            if(currentDir === 'U') next.z += len;
+            if(currentDir === 'D') next.z -= len;
+            if(currentDir === 'R') next.x += len; 
+            if(currentDir === 'L') next.x -= len;
+        } else {
+            const txStr = document.getElementById('inp-x').value.replace(',', '.');
+            const tzStr = document.getElementById('inp-z').value.replace(',', '.');
+            const taStr = document.getElementById('inp-a').value.replace(',', '.');
+            const targetX_D = txStr; const targetZ = tzStr;
+            const angleDeg = parseFloat(taStr);
+            
+            if(isNaN(angleDeg)) { alert("Zadejte úhel!"); return; }
+            const rad = angleDeg * (Math.PI / 180);
+            
+            if(targetZ !== "" && targetX_D === "") {
+                next.z = parseFloat(targetZ);
+                if(Math.abs(Math.abs(angleDeg)-90) > 0.1 && Math.abs(Math.abs(angleDeg)-270) > 0.1) {
+                     next.x = last.x + (next.z - last.z) / Math.tan(rad);
+                }
+            } else if(targetX_D !== "") {
+                next.x = parseFloat(targetX_D) / 2; 
+                next.z = last.z + (next.x - last.x) * Math.tan(rad);
+            } else {
+                alert("Zadejte alespoň cílové X nebo Z!"); return;
+            }
+        }
+        points.push(next);
+        updatePath();
+        closeModals();
+    }
+
+    function openJoypad() { closeModals(); document.getElementById('modal-joypad').style.display = 'flex'; }
+    function openMenu() { closeModals(); document.getElementById('modal-menu').style.display = 'flex'; }
+    function closeModals() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
+    function resetOrigin() { points = [{x: 0, z: 0, break: true}]; updatePath(); closeModals(); }
+    function clearAll() { points = [{x: 0, z: 0, break: false}]; updatePath(); closeModals(); }
+
+</script>
+</body>
+</html>
