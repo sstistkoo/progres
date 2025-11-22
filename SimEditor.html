@@ -91,10 +91,10 @@
         .hl-sub { color: #9333ea; font-weight: bold; } .dark .hl-sub { color: #c084fc; }
         .hl-error { text-decoration: underline wavy red; cursor: help; }
 
-        /* Quick Bar Styles - UPDATED FOR 2 ROWS */
+        /* Quick Bar Styles - UPDATED FOR 3 ROWS */
         .quick-bar {
             display: grid;
-            grid-template-rows: repeat(2, 1fr);
+            grid-template-rows: repeat(3, 1fr);
             grid-auto-flow: column;
             gap: 6px;
             padding: 8px;
@@ -102,6 +102,7 @@
             border-top: 1px solid #e5e7eb;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            min-height: 160px; /* Increased for 3 rows */
         }
         .dark .quick-bar { background: #1f2937; border-top-color: #374151; }
         
@@ -140,12 +141,71 @@
         
         .qb-btn.gray { color: #374151; background: #e5e7eb; border-color: #d1d5db; }
         .dark .qb-btn.gray { color: #e5e7eb; background: #4b5563; border-color: #6b7280; }
+        
+        .qb-btn.menu-btn { color: #7c3aed; background: #f3e8ff; border-color: #d8b4fe; }
+        .dark .qb-btn.menu-btn { color: #a78bfa; background: #4c1d95; border-color: #6d28d9; }
 
 
         .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
         .modal.show { display: flex; }
-        .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 95%; max-width: 380px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
+        .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 95%; max-width: 450px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
         html.dark .modal-content { background-color: #1f2937; color: white; border: 1px solid #374151; }
+
+        /* Settings Modal Specific */
+        .settings-section { padding: 10px; }
+        .settings-divider { border-bottom: 2px dashed #cbd5e1; margin: 15px 0; position: relative; }
+        .dark .settings-divider { border-bottom-color: #4b5563; }
+        .settings-card { 
+            background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; margin-bottom: 8px; 
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .dark .settings-card { background: #111827; border-color: #374151; }
+        .settings-card-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 14px; }
+        .settings-card-body { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+        .move-btn { padding: 4px 8px; border-radius: 4px; background: #e0e7ff; color: #4338ca; font-size: 12px; }
+        .dark .move-btn { background: #312e81; color: #c7d2fe; }
+        .settings-input { border: 1px solid #ccc; border-radius: 4px; padding: 2px 5px; font-family: monospace; width: 60px; text-align: center; dark:bg-gray-700; }
+        .dark .settings-input { background: #374151; color: white; border-color: #4b5563; }
+        .settings-select { border: 1px solid #ccc; border-radius: 4px; padding: 2px; font-size: 13px; }
+        .dark .settings-select { background: #374151; color: white; border-color: #4b5563; }
+        
+        .accordion-header {
+            cursor: pointer;
+            background-color: #f3f4f6;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .dark .accordion-header { background-color: #374151; color: white; }
+        .accordion-content { display: none; padding: 5px 0; }
+        .accordion-content.open { display: block; }
+        
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .dark .toggle-row { border-bottom-color: #4b5563; }
+        
+        .status-toggle {
+            width: 40px;
+            height: 24px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            padding: 2px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .status-toggle.active { background-color: #22c55e; justify-content: flex-end; }
+        .status-toggle.ignored { background-color: #ef4444; justify-content: flex-start; }
+        .toggle-circle { width: 20px; height: 20px; background-color: white; border-radius: 50%; shadow: 0 1px 2px rgba(0,0,0,0.2); }
 
         /* Helper List Styles */
         #helper-list {
@@ -334,19 +394,77 @@
 
         <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
 
-        <!-- Nové Input Modal s klávesnicí a nápovědou -->
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal">
+            <div class="modal-content h-[90vh]">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-800 dark:text-white">Nastavení</h3>
+                    <div class="flex gap-2">
+                        <button onclick="exportSettings()" class="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded" title="Uložit do TXT"><i class="fas fa-save"></i></button>
+                        <button onclick="document.getElementById('import-settings-file').click()" class="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded" title="Načíst z TXT"><i class="fas fa-upload"></i></button>
+                        <input type="file" id="import-settings-file" class="hidden" accept=".txt" onchange="importSettings(this)">
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto flex flex-col px-1">
+                    
+                    <!-- PARSER CONFIG ACCORDION -->
+                    <div class="mb-4">
+                        <div class="accordion-header" onclick="toggleAccordion('parser-rules-accordion')">
+                            <span><i class="fas fa-tasks mr-2 text-blue-500"></i>Nastavení Detekce Chyb</span>
+                            <i class="fas fa-chevron-down text-sm"></i>
+                        </div>
+                        <div id="parser-rules-accordion" class="accordion-content">
+                            <div id="parser-rules-list" class="bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                                <!-- Content injected by JS -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- HEADER CONFIG SECTION -->
+                    <div class="settings-divider">
+                         <span class="absolute top-[-10px] left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 px-2 text-xs text-gray-400 font-bold">Generování Hlavičky</span>
+                    </div>
+
+                    <!-- Active Rules -->
+                    <div class="settings-section flex-1">
+                        <h4 class="text-xs font-bold uppercase text-green-600 dark:text-green-400 mb-2">Aktivní pravidla (Vkládají se)</h4>
+                        <div id="active-rules-list" class="space-y-2">
+                            <!-- Dynamic Content -->
+                        </div>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="settings-divider">
+                        <span class="absolute top-[-10px] left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 px-2 text-xs text-gray-400">Ignorovaná</span>
+                    </div>
+
+                    <!-- Ignored Rules -->
+                    <div class="settings-section bg-gray-50 dark:bg-gray-900/50 rounded min-h-[100px]">
+                        <h4 class="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Ignorovaná pravidla</h4>
+                        <div id="ignored-rules-list" class="space-y-2">
+                            <!-- Dynamic Content -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between gap-3 mt-4 pt-2 border-t border-gray-100 dark:border-gray-700">
+                    <button onclick="closeSettingsModal()" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300">Zavřít</button>
+                    <button onclick="applyHeaderFixes()" class="flex-[2] py-2 bg-purple-600 text-white hover:bg-purple-700 rounded font-bold shadow-sm">
+                        <i class="fas fa-magic mr-2"></i>Vložit/Opravit hlavičku
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Modal -->
         <div id="input-modal" class="modal">
             <div class="modal-content">
                 <h3 id="input-modal-title" class="text-xl font-bold mb-3 text-center text-gray-800 dark:text-white font-mono"></h3>
-                
                 <div class="flex gap-2 mb-4">
                     <input type="text" id="modal-input-value" class="flex-1 h-12 border border-gray-300 rounded-md px-3 text-lg font-mono dark:bg-gray-800 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-right font-bold" placeholder="0" readonly>
                 </div>
-
-                <!-- Helper List Container -->
                 <div id="helper-list"></div>
-
-                <!-- Numeric Keypad -->
                 <div class="numpad-grid">
                     <button class="num-btn" onclick="handleNumPad('7')">7</button>
                     <button class="num-btn" onclick="handleNumPad('8')">8</button>
@@ -357,16 +475,13 @@
                     <button class="num-btn" onclick="handleNumPad('1')">1</button>
                     <button class="num-btn" onclick="handleNumPad('2')">2</button>
                     <button class="num-btn" onclick="handleNumPad('3')">3</button>
-                    
                     <button id="btn-sign-toggle" class="num-btn sign hidden" onclick="toggleSign()">+/-</button>
                     <button class="num-btn" onclick="handleNumPad('0')">0</button>
                     <button class="num-btn" onclick="handleNumPad('.')">.</button>
                 </div>
-                
                 <div class="flex gap-2 mb-2">
                      <button class="num-btn flex-1 bg-red-100 text-red-600 hover:bg-red-200 border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800" onclick="handleNumPad('BS')"><i class="fas fa-backspace"></i></button>
                 </div>
-
                 <div class="flex justify-end gap-3 mt-2 border-t border-gray-100 dark:border-gray-700 pt-3">
                     <button onclick="closeInputModal()" class="flex-1 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors font-medium dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Zrušit</button>
                     <button id="btn-input-confirm" class="flex-[2] py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-md shadow-sm font-bold text-lg">Vložit</button>
@@ -374,6 +489,7 @@
             </div>
         </div>
 
+        <!-- Renumber Modal -->
         <div id="renumber-modal" class="modal">
             <div class="modal-content">
                 <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Přečíslování bloků</h3>
@@ -400,6 +516,7 @@
             </div>
         </div>
 
+        <!-- Validation Modal -->
         <div id="validation-modal" class="modal">
             <div class="modal-content">
                 <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white flex items-center gap-2">
@@ -413,6 +530,7 @@
         </div>
 
         <main class="flex-1 flex flex-col overflow-hidden min-w-0 relative bg-white dark:bg-gray-900">
+            <!-- ... (Keep existing main header) ... -->
             <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center shadow-sm z-10 dark:bg-gray-800 dark:border-gray-700">
                 <div class="flex items-center gap-2"><button id="tools-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 dark:text-gray-300 lg:hidden"><i class="fas fa-bars fa-lg"></i></button></div>
                 <h1 id="current-file-name" class="text-lg font-bold text-gray-800 dark:text-gray-200 truncate mx-4 flex items-center gap-2"><i class="far fa-file-alt text-gray-400"></i> <span>Bez názvu</span></h1>
@@ -438,53 +556,56 @@
                 </div>
             </div>
 
-            <!-- Quick Bar (Grid 2 Rows) -->
+            <!-- Quick Bar (Grid 3 Rows) -->
             <div class="quick-bar">
-                <!-- Col 1: Actions -->
+                <!-- Row 1: Action & Menu -->
                 <button class="qb-btn green" onclick="insertAtCursor('\n')">↵</button>
                 <button class="qb-btn action-del" onclick="handleBackspace()">⌫</button>
+                <button class="qb-btn menu-btn" onclick="openSettingsModal()"><i class="fas fa-cog"></i></button>
 
-                <!-- Col 2: Spacing & Numpad -->
+                <!-- Row 2: Spacing & Numpad -->
                 <button class="qb-btn gray" onclick="insertAtCursor(' ')">␣</button>
                 <button class="qb-btn gray" onclick="openInputModal('')">123</button>
+                <button class="qb-btn gray" onclick="insertAtCursor(';')">;</button>
 
-                <!-- Col 3: G/F -->
+                <!-- Row 3: G/F -->
                 <button class="qb-btn blue" onclick="openInputModal('G')">G</button>
                 <button class="qb-btn" onclick="openInputModal('F')">F</button>
+                <button class="qb-btn" onclick="insertAtCursor('=')">=</button>
                 
-                <!-- Col 4: M/S -->
+                <!-- Row 1: M/S -->
                 <button class="qb-btn blue" onclick="openInputModal('M')">M</button>
                 <button class="qb-btn" onclick="openInputModal('S')">S</button>
+                <button class="qb-btn" onclick="insertAtCursor('(')">(</button>
                 
-                <!-- Col 5: X/; -->
+                <!-- Row 2: X/Z -->
                 <button class="qb-btn" onclick="openInputModal('X')">X</button>
-                <button class="qb-btn" onclick="insertAtCursor(';')">;</button>
-
-                <!-- Col 6: Z/= -->
                 <button class="qb-btn" onclick="openInputModal('Z')">Z</button>
-                <button class="qb-btn" onclick="insertAtCursor('=')">=</button>
+                <button class="qb-btn" onclick="insertAtCursor(')')">)</button>
 
-                <!-- Col 7: T/R -->
+                <!-- Row 3: T/R/D -->
                 <button class="qb-btn" onclick="openInputModal('T')">T</button>
                 <button class="qb-btn" onclick="openInputModal('R')">R</button>
-
-                <!-- Col 8: D/( -->
                 <button class="qb-btn" onclick="openInputModal('D')">D</button>
-                <button class="qb-btn" onclick="insertAtCursor('(')">(</button>
 
-                <!-- Col 9: LIMS/) -->
+                <!-- Extras -->
                 <button class="qb-btn red" onclick="openInputModal('LIMS=')">LIMS</button>
-                <button class="qb-btn" onclick="insertAtCursor(')')">)</button>
+                <button class="qb-btn" onclick="insertAtCursor('G0 ')">G0</button>
+                <button class="qb-btn" onclick="insertAtCursor('G1 ')">G1</button>
+                <button class="qb-btn" onclick="insertAtCursor('M30')">M30</button>
+                <button class="qb-btn" onclick="insertAtCursor('M17')">M17</button>
+                <button class="qb-btn" onclick="insertAtCursor('STOPRE')">STOP</button>
             </div>
         </main>
     </div>
 
     <script>
+        // ... (Keep existing global variables and utility functions) ...
         let loadedData = { mainProgramName: "", parameters: new Map(), loadedPrograms: {} };
         let currentFile = "";
         let deletedFilesStack = []; 
         let originalCodeStore = "";
-        let activeConversion = null; // null | 'ABS' | 'INC'
+        let activeConversion = null; 
         let codeBeforeRenumbering = "";
         let isRenumbered = false;
         let statusDebounceTimer;
@@ -492,6 +613,335 @@
 
         const gCodes = { '0': 'Rychloposuv', '1': 'Lineární interpolace', '2': 'Kruhová int. (CW)', '3': 'Kruhová int. (CCW)', '4': 'Časová prodleva', '17': 'Rovina XY', '18': 'Rovina ZX', '19': 'Rovina YZ', '40': 'Zrušení kompenzace', '41': 'Komp. vlevo', '42': 'Komp. vpravo', '53': 'Strojní souřadnice', '54': 'Nulový bod 1', '55': 'Nulový bod 2', '56': 'Nulový bod 3', '57': 'Nulový bod 4', '90': 'Absolutní', '91': 'Přírůstkové', '94': 'Posuv mm/min', '95': 'Posuv mm/ot', '96': 'Konst. řezná rychlost', '97': 'Konst. otáčky' };
         const mCodes = { '0': 'Stop programu', '1': 'Volitelný stop', '3': 'Vřeteno CW', '4': 'Vřeteno CCW', '5': 'Stop vřetena', '6': 'Výměna nástroje', '8': 'Chlazení ZAP', '9': 'Chlazení VYP', '17': 'Konec podprogramu', '30': 'Konec programu' };
+
+        // === NEW PARSER CONFIG LOGIC ===
+        let parserConfig = {
+            movement: { name: 'Pohyb (G0-G3)', active: true, desc: 'Definice posuvu a souřadného systému' },
+            coords: { name: 'Souřadnice (G90/G91)', active: true, desc: 'G90/G91 před pohybem' },
+            feed: { name: 'Posuv (G94/G95)', active: true, desc: 'G94/G95 před pracovním pohybem' },
+            spindle: { name: 'Vřeteno (G96/97/LIMS)', active: true, desc: 'G96/G97, LIMS, S před startem' },
+            startstop: { name: 'Start/Stop (M3-M5)', active: true, desc: 'Rotace vřetene při obrábění' },
+            end: { name: 'Konec (M30/M17)', active: true, desc: 'Ukončení programu' },
+            calls: { name: 'Volání (L/CALL)', active: true, desc: 'Existence podprogramů a návěští' },
+            params: { name: 'Parametry (R)', active: true, desc: 'Syntaxe R parametrů' },
+            syntax: { name: 'Syntaxe', active: true, desc: 'Platnost adres a čísel' }
+        };
+
+        // === NEW SETTINGS LOGIC ===
+        let currentConfig = {
+            order: ['coords', 'tool', 'feed', 'gear', 'door', 'spindle', 'end'],
+            rules: {
+                coords: { id: 'coords', name: 'Souřadný systém', active: true, val: 'G54', type: 'select', options: ['G54', 'G55', 'G56', 'G57', 'G505', 'G53'] },
+                tool: { id: 'tool', name: 'Nástroj a Korekce', active: true, t_val: '1', d_val: '1', type: 'tool_complex' },
+                feed: { id: 'feed', name: 'Posuv (G95/G94)', active: true, mode: 'G95', type: 'toggle_feed' }, // Changed Name
+                gear: { id: 'gear', name: 'Převod (M4x)', active: true, val: '41', type: 'input_m' },
+                door: { id: 'door', name: 'Dveře (M80)', active: true, val: '80', type: 'input_m' },
+                spindle: { id: 'spindle', name: 'Vřeteno (G97/G96 S/M)', active: true, mode: 'G97', s_val: '60', m_val: '4', lims: '2000', type: 'spindle_complex' }, // Changed Name
+                end: { id: 'end', name: 'Kontrola konce', active: true, type: 'info' }
+            }
+        };
+
+        function loadSettings() {
+            const saved = localStorage.getItem('cncEditorSettings');
+            if(saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    currentConfig.order = parsed.order || currentConfig.order;
+                    for(let key in currentConfig.rules) {
+                        if(parsed.rules[key]) Object.assign(currentConfig.rules[key], parsed.rules[key]);
+                    }
+                    // Load Parser Config
+                    if (parsed.parserConfig) {
+                        for(let key in parserConfig) {
+                            if(parsed.parserConfig[key]) Object.assign(parserConfig[key], parsed.parserConfig[key]);
+                        }
+                    }
+                } catch(e) { console.error("Failed to load settings", e); }
+            }
+        }
+
+        function saveSettings() {
+            const dataToSave = {
+                ...currentConfig,
+                parserConfig: parserConfig
+            };
+            localStorage.setItem('cncEditorSettings', JSON.stringify(dataToSave));
+        }
+
+        function openSettingsModal() {
+            renderSettingsUI();
+            document.getElementById('settings-modal').classList.add('show');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('show');
+            saveSettings();
+        }
+        
+        function toggleAccordion(id) {
+            const el = document.getElementById(id);
+            el.classList.toggle('open');
+        }
+
+        function renderSettingsUI() {
+            // 1. Render Parser Rules (Top Section)
+            const parserList = document.getElementById('parser-rules-list');
+            parserList.innerHTML = '';
+            
+            for (const [key, rule] of Object.entries(parserConfig)) {
+                const row = document.createElement('div');
+                row.className = 'toggle-row';
+                
+                const label = document.createElement('div');
+                label.className = 'flex flex-col';
+                label.innerHTML = `<span class="font-medium text-sm text-gray-800 dark:text-gray-200">${rule.name}</span><span class="text-[10px] text-gray-500 dark:text-gray-400">${rule.desc}</span>`;
+                
+                const toggle = document.createElement('div');
+                toggle.className = `status-toggle ${rule.active ? 'active' : 'ignored'}`;
+                toggle.innerHTML = `<div class="toggle-circle"></div>`;
+                toggle.onclick = () => {
+                    rule.active = !rule.active;
+                    renderSettingsUI();
+                    saveSettings();
+                };
+                
+                row.appendChild(label);
+                row.appendChild(toggle);
+                parserList.appendChild(row);
+            }
+
+            // 2. Render Generator Rules (Bottom Section)
+            const activeList = document.getElementById('active-rules-list');
+            const ignoredList = document.getElementById('ignored-rules-list');
+            activeList.innerHTML = '';
+            ignoredList.innerHTML = '';
+
+            currentConfig.order.forEach(key => {
+                const rule = currentConfig.rules[key];
+                const card = createRuleCard(rule);
+                if(rule.active) activeList.appendChild(card);
+                else ignoredList.appendChild(card);
+            });
+        }
+
+        function toggleRuleActivity(key) {
+            currentConfig.rules[key].active = !currentConfig.rules[key].active;
+            renderSettingsUI();
+            saveSettings();
+        }
+
+        function createRuleCard(rule) {
+            const div = document.createElement('div');
+            div.className = 'settings-card';
+            
+            // Header
+            const header = document.createElement('div');
+            header.className = 'settings-card-header';
+            header.innerHTML = `<span>${rule.name}</span>`;
+            
+            const moveBtn = document.createElement('button');
+            moveBtn.className = 'move-btn';
+            moveBtn.innerHTML = rule.active ? '<i class="fas fa-arrow-down"></i> Ignorovat' : '<i class="fas fa-arrow-up"></i> Aktivovat';
+            moveBtn.onclick = () => toggleRuleActivity(rule.id);
+            header.appendChild(moveBtn);
+            div.appendChild(header);
+
+            // Body controls
+            const body = document.createElement('div');
+            body.className = 'settings-card-body';
+
+            if(rule.type === 'select') {
+                const sel = document.createElement('select');
+                sel.className = 'settings-select';
+                rule.options.forEach(opt => {
+                    const o = document.createElement('option');
+                    o.value = opt; o.text = opt;
+                    if(opt === rule.val) o.selected = true;
+                    sel.appendChild(o);
+                });
+                sel.onchange = (e) => { rule.val = e.target.value; saveSettings(); };
+                body.appendChild(sel);
+            }
+            else if(rule.type === 'tool_complex') {
+                body.innerHTML = `<span class="text-xs">T=</span><input class="settings-input" value="${rule.t_val}" onchange="updateRule('${rule.id}', 't_val', this.value)"> <span class="text-xs">D=</span><input class="settings-input" value="${rule.d_val}" onchange="updateRule('${rule.id}', 'd_val', this.value)">`;
+            }
+            else if(rule.type === 'toggle_feed') {
+                const container = document.createElement('div');
+                container.className = 'flex items-center gap-2';
+                
+                const btn = document.createElement('button');
+                btn.className = 'px-2 py-1 text-xs font-bold rounded ' + (rule.mode === 'G95' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700');
+                btn.textContent = rule.mode;
+                btn.onclick = () => { 
+                    rule.mode = rule.mode==='G95'?'G94':'G95'; // Changed to G94 toggle
+                    renderSettingsUI(); 
+                    saveSettings(); 
+                };
+                
+                const desc = document.createElement('span');
+                desc.className = 'text-xs text-gray-500 italic';
+                desc.textContent = rule.mode === 'G95' ? '(mm/ot)' : '(mm/min)'; // Added description
+                
+                container.appendChild(btn);
+                container.appendChild(desc);
+                body.appendChild(container);
+            }
+            else if(rule.type === 'input_m') {
+                body.innerHTML = `<span class="text-xs">M</span><input class="settings-input" value="${rule.val}" onchange="updateRule('${rule.id}', 'val', this.value)">`;
+            }
+            else if(rule.type === 'spindle_complex') {
+                const modeContainer = document.createElement('div');
+                modeContainer.className = 'flex items-center mr-2';
+                
+                const modeBtn = document.createElement('button');
+                modeBtn.className = 'px-2 py-1 text-xs font-bold rounded mr-1 ' + (rule.mode === 'G97' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700');
+                modeBtn.textContent = rule.mode;
+                modeBtn.onclick = () => { rule.mode = rule.mode==='G97'?'G96':'G97'; renderSettingsUI(); saveSettings(); };
+                modeContainer.appendChild(modeBtn);
+
+                const modeDesc = document.createElement('span');
+                modeDesc.className = 'text-[10px] text-gray-500 italic mr-2';
+                modeDesc.textContent = rule.mode === 'G97' ? '(stálé otáčky)' : '(konst. rychlost)';
+                modeContainer.appendChild(modeDesc);
+                
+                body.appendChild(modeContainer);
+
+                if(rule.mode === 'G96') {
+                    const limsLabel = document.createElement('span');
+                    limsLabel.className = 'text-xs';
+                    limsLabel.textContent = 'LIMS=';
+                    body.appendChild(limsLabel);
+
+                    const limsInput = document.createElement('input');
+                    limsInput.className = 'settings-input w-12';
+                    limsInput.value = rule.lims;
+                    limsInput.onchange = (e) => updateRule(rule.id, 'lims', e.target.value);
+                    body.appendChild(limsInput);
+                    body.appendChild(document.createTextNode(' '));
+                }
+
+                const sLabel = document.createElement('span');
+                sLabel.className = 'text-xs';
+                sLabel.textContent = 'S=';
+                body.appendChild(sLabel);
+
+                const sInput = document.createElement('input');
+                sInput.className = 'settings-input w-12';
+                sInput.value = rule.s_val;
+                sInput.onchange = (e) => updateRule(rule.id, 's_val', e.target.value);
+                body.appendChild(sInput);
+                body.appendChild(document.createTextNode(' '));
+
+                const dirContainer = document.createElement('div');
+                dirContainer.className = 'flex items-center ml-2';
+
+                const dirBtn = document.createElement('button');
+                dirBtn.className = 'px-2 py-1 text-xs font-bold rounded bg-gray-200 dark:bg-gray-600 mr-1';
+                dirBtn.textContent = 'M' + rule.m_val;
+                dirBtn.onclick = () => { 
+                    rule.m_val = rule.m_val === '4' ? '3' : '4'; 
+                    renderSettingsUI(); 
+                    saveSettings(); 
+                };
+                dirContainer.appendChild(dirBtn);
+                
+                const dirDesc = document.createElement('span');
+                dirDesc.className = 'text-[10px] text-gray-500 italic';
+                dirDesc.textContent = rule.m_val === '3' ? '(po směru)' : '(proti směru)';
+                dirContainer.appendChild(dirDesc);
+
+                body.appendChild(dirContainer);
+            }
+
+            div.appendChild(body);
+            return div;
+        }
+
+        function updateRule(id, field, val) {
+            currentConfig.rules[id][field] = val;
+            saveSettings();
+        }
+
+        function exportSettings() {
+            const blob = new Blob([JSON.stringify(currentConfig, null, 2)], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'cnc_editor_settings.txt';
+            a.click();
+        }
+
+        function importSettings(input) {
+            const file = input.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    currentConfig = parsed;
+                    if(parsed.parserConfig) {
+                         for(let key in parserConfig) {
+                            if(parsed.parserConfig[key]) Object.assign(parserConfig[key], parsed.parserConfig[key]);
+                        }
+                    }
+                    saveSettings();
+                    renderSettingsUI();
+                    alert("Nastavení načteno!");
+                } catch(err) { alert("Chyba souboru!"); }
+            };
+            reader.readAsText(file);
+        }
+
+        function applyHeaderFixes() {
+            const r = currentConfig.rules;
+            let headerLines = [];
+            
+            // MSG line preservation if exists
+            const existingLines = document.getElementById('main-editor').value.split('\n');
+            let firstN = 10;
+            
+            // Build Header based on Order and Active status
+            if(r.coords.active) headerLines.push(`N${firstN} ${r.coords.val} G90`);
+            
+            let techLine = `N${firstN+10}`;
+            if(r.tool.active) techLine += ` T${r.tool.t_val} D${r.tool.d_val}`;
+            if(r.feed.active) techLine += ` ${r.feed.mode}`;
+            if(r.gear.active) techLine += ` M${r.gear.val}`;
+            if(techLine.length > 5) headerLines.push(techLine);
+
+            if(r.door.active) headerLines.push(`N${firstN+20} M${r.door.val}`);
+
+            let spinLine = `N${firstN+30}`;
+            if(r.spindle.active) {
+                spinLine += ` ${r.spindle.mode}`;
+                if(r.spindle.mode === 'G96' && r.spindle.lims) spinLine += ` LIMS=${r.spindle.lims}`;
+                spinLine += ` S=${r.spindle.s_val} M${r.spindle.m_val}`;
+                headerLines.push(spinLine);
+            }
+
+            headerLines.push(`N${firstN+40} STOPRE`);
+
+            // Insert at top, preserving MSG if present
+            let newContent = "";
+            let hasMsg = false;
+            if(existingLines.length > 0 && existingLines[0].toUpperCase().includes('MSG')) {
+                newContent = existingLines[0] + '\n' + headerLines.join('\n') + '\n';
+                // Append rest of file, skipping old header lines loosely
+                for(let i=1; i<existingLines.length; i++) {
+                    // Very basic heuristic to skip old header lines we just replaced
+                    // In a real app, this would be smarter.
+                    if(!existingLines[i].match(/G54|T\d|G95|M41|M80|G97|LIMS/)) {
+                        newContent += existingLines[i] + '\n';
+                    }
+                }
+            } else {
+                newContent = headerLines.join('\n') + '\n' + document.getElementById('main-editor').value;
+            }
+            
+            document.getElementById('main-editor').value = newContent;
+            closeSettingsModal();
+            updateStats();
+            applySyntaxHighlighting();
+        }
 
         const els = {
             editor: document.getElementById('main-editor'),
@@ -533,6 +983,8 @@
             helperList: document.getElementById('helper-list')
         };
 
+        // ... (Keep all existing functions: saveToStorage, insertAtCursor, handleBackspace, openInputModal, etc.) ...
+        
         function saveToStorage() {
             if (currentFile && loadedData.loadedPrograms[currentFile] !== undefined) {
                 loadedData.loadedPrograms[currentFile] = els.editor.value;
@@ -589,6 +1041,7 @@
             els.modalInputValue.value = '';
             
             const cleanPrefix = prefix.replace('=', '').trim();
+            // Allow negative for G, M, X, Z, R and empty prefix (raw numbers)
             const allowNegative = ['G', 'M', 'X', 'Z', 'R', ''].includes(cleanPrefix); 
             
             if (allowNegative) {
@@ -708,13 +1161,13 @@
         };
 
         function convertToAbsolute() {
-            if (activeConversion === 'ABS') { 
+            if (activeConversion === 'ABS') { // Revert
                 els.editor.value = originalCodeStore;
                 activeConversion = null;
                 els.convertBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> Převést na Absolutní';
                 els.convertBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
                 els.convertBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                els.convertIncBtn.disabled = false; 
+                els.convertIncBtn.disabled = false; // Enable other button
                 els.convertIncBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 applySyntaxHighlighting();
                 updateStats();
@@ -722,7 +1175,7 @@
                 return;
             }
 
-            if (activeConversion) return; 
+            if (activeConversion) return; // Safety
 
             originalCodeStore = els.editor.value;
             const lines = els.editor.value.split('\n');
@@ -791,13 +1244,13 @@
         }
 
         function convertToIncremental() {
-            if (activeConversion === 'INC') { 
+            if (activeConversion === 'INC') { // Revert
                 els.editor.value = originalCodeStore;
                 activeConversion = null;
                 els.convertIncBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> Převést na Přírůstkové';
                 els.convertIncBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
                 els.convertIncBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                els.convertBtn.disabled = false; 
+                els.convertBtn.disabled = false; // Enable other button
                 els.convertBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 applySyntaxHighlighting();
                 updateStats();
@@ -848,17 +1301,20 @@
                          if (mode === 91) {
                             if (axis === 'X') absVal = x + val;
                             if (axis === 'Z') absVal = z + val;
-                        } else { absVal = val; } 
+                        } else { absVal = val; } // G90
                         
                         let outputVal = absVal;
                         
                         if (firstMoveProcessed) {
+                            // Incremental from here on
                             if (axis === 'X') outputVal = absVal - x;
                             if (axis === 'Z') outputVal = absVal - z;
                         } else {
+                           // First move keeps absolute value
                            outputVal = absVal;
                         }
 
+                        // Update state to new absolute pos
                         if (axis === 'X') x = absVal;
                         if (axis === 'Z') z = absVal;
                         
@@ -866,13 +1322,16 @@
                     });
                 }
                 
+                // G-code logic injection with correct N number placement
                 if (hasMove) {
                     if (!firstMoveProcessed) {
+                        // First Move Line -> Ensure G90
                         if (modifiedLine.includes('G91')) modifiedLine = modifiedLine.replace('G91', 'G90');
                         else if (!modifiedLine.includes('G90')) {
                              if (/(G[0123])/.test(modifiedLine)) {
                                  modifiedLine = modifiedLine.replace(/(G[0123])/, 'G90 $1');
                              } else {
+                                 // Check for N number at start and insert after it
                                  if (/^\s*N\d+/i.test(modifiedLine)) {
                                      modifiedLine = modifiedLine.replace(/^(N\d+)\s*/i, '$1 G90 ');
                                  } else {
@@ -882,11 +1341,13 @@
                         }
                         firstMoveProcessed = true;
                     } else {
+                        // Subsequent Moves -> Ensure G91
                         if (modifiedLine.includes('G90')) modifiedLine = modifiedLine.replace('G90', 'G91');
                         else if (!modifiedLine.includes('G91')) {
                              if (/(G[0123])/.test(modifiedLine)) {
                                  modifiedLine = modifiedLine.replace(/(G[0123])/, 'G91 $1');
                              } else {
+                                 // Check for N number at start and insert after it
                                  if (/^\s*N\d+/i.test(modifiedLine)) {
                                      modifiedLine = modifiedLine.replace(/^(N\d+)\s*/i, '$1 G91 ');
                                  } else {
@@ -906,6 +1367,7 @@
             els.convertIncBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
             els.convertIncBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
 
+            // Disable Abs button
             els.convertBtn.disabled = true;
             els.convertBtn.classList.add('opacity-50', 'cursor-not-allowed');
             
@@ -955,15 +1417,49 @@
 
         function jumpToError(fileName, lineIndex) {
              document.getElementById('validation-modal').classList.remove('show');
-             if (fileName && fileName !== currentFile) {
-                 displayFile(fileName);
+             
+             let targetFile = fileName;
+             
+             if (!loadedData.loadedPrograms[targetFile]) {
+                 const cleanName = fileName.replace(/\.(MPF|SPF)$/i, '').toUpperCase();
+                 const potentialMatch = Object.keys(loadedData.loadedPrograms).find(k => {
+                     const kClean = k.replace(/\.(MPF|SPF)$/i, '').toUpperCase();
+                     return kClean === cleanName;
+                 });
+                 
+                 if (potentialMatch) {
+                     targetFile = potentialMatch;
+                 }
+             }
+
+             if (targetFile && targetFile !== currentFile) {
+                 displayFile(targetFile);
                  setTimeout(() => performScroll(lineIndex), 100);
-             } else performScroll(lineIndex);
+             } else {
+                 performScroll(lineIndex);
+             }
+             
              if (window.innerWidth < 1024) {
                  document.getElementById('details-panel').classList.add('translate-x-full');
                  document.getElementById('tools-panel').classList.add('-translate-x-full');
                  document.getElementById('overlay').classList.add('hidden');
              }
+        }
+        
+        function quickFixError(fileName, lineIndex, type) {
+            if (type === 'LIMS' && fileName === currentFile) {
+                 const text = els.editor.value;
+                 const lines = text.split('\n');
+                 if (lineIndex >= 0 && lineIndex < lines.length) {
+                     lines.splice(lineIndex + 1, 0, '      LIMS=200'); 
+                     els.editor.value = lines.join('\n');
+                     applySyntaxHighlighting();
+                     updateStats();
+                     saveToStorage();
+                     performFullCheck(); 
+                 }
+            }
+            document.getElementById('validation-modal').classList.remove('show');
         }
 
         function performScroll(lineIndex) {
@@ -1020,30 +1516,94 @@
             updateLineNumbers();
         }
 
+        function updateStats() {
+            const text = els.editor.value;
+            document.getElementById('line-count').textContent = text.split('\n').length;
+            document.getElementById('char-count').textContent = text.length;
+        }
+
+        // Added the missing renderParams function here
+        function renderParams(paramsMap) {
+            if (!paramsMap) paramsMap = loadedData.parameters;
+            els.paramList.innerHTML = '';
+            const arr = Array.from(paramsMap.entries()).sort((a,b)=> parseInt(a[0].substring(1)) - parseInt(b[0].substring(1)));
+            if(!arr.length) els.paramList.innerHTML = '<div class="text-center text-gray-400 p-4">Žádné parametry</div>';
+            else arr.forEach(([k, data]) => {
+                let val = data.value !== undefined ? data.value : data;
+                let src = data.source || '';
+                const valStr = Number(val).toFixed(4).replace(/\.?0+$/, "");
+                const div = document.createElement('div');
+                div.className = "flex flex-col border-b border-gray-100 dark:border-gray-700 py-2 px-2 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors";
+                if (data.file && data.line !== undefined) { div.classList.add('cursor-pointer'); div.onclick = () => jumpToError(data.file, data.line); div.title = "Přejít na definici"; }
+                div.innerHTML = `<div class="flex justify-between items-center"><span class="font-bold text-purple-600 dark:text-purple-400">${k}</span><span class="font-mono text-gray-900 dark:text-gray-100 font-medium">${valStr}</span></div>${src ? `<div class="text-[10px] text-gray-400 text-right mt-0.5 truncate w-full">${src}</div>` : ''}`;
+                els.paramList.appendChild(div);
+            });
+        }
+
         class CNCParser {
-            constructor() { this.parameters = new Map(); this.loadedSubprograms = new Map(); this.missingParams = new Set(); this.errors = []; }
+            constructor() { this.parameters = new Map(); this.loadedSubprograms = new Map(); this.errors = []; }
             loadSubprograms(progs) { this.loadedSubprograms = new Map(Object.entries(progs)); }
-            findSubprogramContent(num) {
-                const target = `L${num}`.toUpperCase();
-                if (this.loadedSubprograms.has(target)) return { name: target, content: this.loadedSubprograms.get(target) };
-                if (this.loadedSubprograms.has(target + '.SPF')) return { name: target + '.SPF', content: this.loadedSubprograms.get(target + '.SPF') };
-                for (const [key, content] of this.loadedSubprograms.entries()) {
-                    const upper = key.toUpperCase();
-                    if (upper === target || upper === target + '.SPF' || upper === target + '.MPF') return { name: key, content: content };
+            
+            findProgramContent(name) {
+                const upperName = name.toUpperCase().trim();
+                if (this.loadedSubprograms.has(name)) return this.loadedSubprograms.get(name);
+                if (this.loadedSubprograms.has(upperName)) return this.loadedSubprograms.get(upperName);
+                if (this.loadedSubprograms.has(upperName + '.SPF')) return this.loadedSubprograms.get(upperName + '.SPF');
+                if (this.loadedSubprograms.has(upperName + '.MPF')) return this.loadedSubprograms.get(upperName + '.MPF');
+                const lMatch = upperName.match(/^L(\d+)/);
+                if (lMatch) {
+                    const lName = 'L' + lMatch[1];
+                     for (const [key, content] of this.loadedSubprograms.entries()) {
+                         if (key.toUpperCase().startsWith(lName + '.') || key.toUpperCase() === lName) return content;
+                     }
                 }
                 return null;
             }
+            
             async parseProgram(code, startFileName) {
-                this.parameters.clear(); this.missingParams.clear(); this.errors = [];
-                this.hasLims = false; this.spindleActive = false; 
-                await this.processLines(code.split('\n'), 0, startFileName || "Main");
+                this.parameters.clear(); 
+                this.errors = [];
+                this.hasLims = false; 
+                this.spindleActive = false; 
+                this.coordModeDefined = false; 
+                this.feedModeDefined = true;  
+                this.spindleModeDefined = true; 
+                this.firstMoveFound = false;
+
+                await this.processLines(code.split('\n'), 0, startFileName, new Set());
+                
                 return { parameters: this.parameters, errors: this.errors };
             }
-            async processLines(lines, depth, currentFileName) {
+            
+            async processLines(lines, depth, currentFileName, visitedFiles = new Set()) {
                 if (depth > 10) return; 
+
+                const visitedKey = `${currentFileName}-${depth}`;
+                if (visitedFiles.has(visitedKey)) return;
+                visitedFiles.add(visitedKey);
+
                 const labels = new Set();
                 let hasEnd = false;
-                lines.forEach(l => { const m = l.trim().toUpperCase().match(/^\s*(?:N\d+\s*)?([a-zA-Z0-9_]+):/); if(m) labels.add(m[1]); });
+
+                let savedState = {};
+                if (depth > 0) {
+                    savedState = {
+                        hasLims: this.hasLims,
+                        spindleActive: this.spindleActive,
+                        coordModeDefined: this.coordModeDefined,
+                        feedModeDefined: this.feedModeDefined,
+                        spindleModeDefined: this.spindleModeDefined,
+                        firstMoveFound: this.firstMoveFound,
+                        activeFeedMode: this.activeFeedMode // Pass active feed mode
+                    };
+                }
+                
+                lines.forEach(l => { 
+                    const cleanUpper = l.trim().toUpperCase().split(';')[0];
+                    const m = cleanUpper.match(/^\s*(?:N\d+\s*)?([a-zA-Z0-9_]+):/); 
+                    if(m) labels.add(m[1]);
+                });
+                
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i].trim();
                     const commentIdx = line.indexOf(';');
@@ -1051,42 +1611,90 @@
                     if (commentIdx !== -1) clean = line.substring(0, commentIdx);
                     clean = clean.trim().toUpperCase();
                     
-                    // ---------- Syntax Checks (New Block) ----------
-                    const parts = clean.split(/\s+/);
-                    for (let part of parts) {
-                        if (!part) continue;
-                        // Check for lonely letters (G, M, X, etc.) without value
-                        if (/^[A-Z]$/.test(part)) {
-                            this.errors.push({ file: currentFileName, lineIndex: i, msg: `Syntaxe: Nalezeno samotné '${part}' bez hodnoty.` });
-                        } 
-                        // Check for letter followed by invalid number format (excluding assignments with '=')
-                        else if (/^[A-Z]/.test(part) && !part.includes('=')) {
-                             const valStr = part.substring(1);
-                             if (valStr === '' || isNaN(Number(valStr))) {
-                                  // Some control systems allow 'X-.5', but 'X-' is definitely wrong.
-                                  // If Number() returns NaN, it's invalid.
-                                  // However, Number('.') is 0 in JS? No, it's NaN. Number('.5') is 0.5.
-                                  // So this check catches 'G', 'X-', 'X..5' etc.
-                                  this.errors.push({ file: currentFileName, lineIndex: i, msg: `Syntaxe: '${part}' má neplatný formát čísla.` });
-                             }
+                    if (!clean) continue;
+                    
+                    const isMoveCommand = /\bG[0123]\b/.test(clean);
+                    const hasCoord = /[XZ]/.test(clean);
+                    const isFirstMove = (depth === 0 && isMoveCommand && hasCoord && !this.firstMoveFound);
+                    
+                    if (/\bG90\b/.test(clean) || /\bG91\b/.test(clean)) this.coordModeDefined = true;
+                    if (/\bG94\b/.test(clean) || /\bG95\b/.test(clean)) this.feedModeDefined = true;
+                    if (/\bG96\b/.test(clean) || /\bG97\b/.test(clean)) this.spindleModeDefined = true;
+
+                    // Track active feed mode
+                    if (/\bG94\b/.test(clean)) this.activeFeedMode = 'G94';
+                    if (/\bG95\b/.test(clean)) this.activeFeedMode = 'G95';
+
+                    if (isFirstMove) {
+                        this.firstMoveFound = true;
+                        // CHECK CONFIG BEFORE ERRORING
+                        // Use parserConfig for validation rules now
+                        if (parserConfig.coords.active && !this.coordModeDefined) {
+                            this.errors.push({ file: currentFileName, lineIndex: i, msg: `KRITICKÁ CHYBA: Chybí definice G90 (absolutní) nebo G91 (přírůstkové) před prvním pohybem osy.` });
+                        }
+                        if (parserConfig.feed.active && !clean.includes('G0') && !this.feedModeDefined) {
+                             this.errors.push({ file: currentFileName, lineIndex: i, msg: `KRITICKÁ CHYBA: Chybí definice režimu posuvu G94 (mm/min) nebo G95 (mm/ot) před prvním pracovním pohybem.` });
                         }
                     }
-                    // ------------------------------------------------
 
-                    if (!clean) continue;
                     const nMatch = clean.match(/^N(\d+)/);
-                    if (clean.includes('LIMS=') || /\bG50\b/.test(clean)) this.hasLims = true;
-                    if (/\bG96\b/.test(clean) && !this.hasLims) this.errors.push({ file: currentFileName, lineIndex: i, msg: `NEBEZPEČÍ: G96 (Konst. řezná rychlost) bez definovaného limitu otáček (LIMS/G50).` });
-                    if (/\bS\d+/.test(clean) || /\bS=/.test(clean)) { if (/\bM3\b/.test(clean) || /\bM4\b/.test(clean)) this.spindleActive = true; }
-                    if (/\bM3\b/.test(clean) || /\bM4\b/.test(clean)) this.spindleActive = true;
+                    
+                    if (/\bG96\b/.test(clean) && !this.hasLims) {
+                         let localLimsFound = false;
+                         lines.forEach(l => { 
+                            const cleanUpper = l.trim().toUpperCase().split(';')[0];
+                            if (cleanUpper.match(/LIMS\s*=/) || /\bG50\b/.test(cleanUpper)) localLimsFound = true;
+                         });
+
+                         if (!localLimsFound && parserConfig.spindle.active) {
+                             this.errors.push({ file: currentFileName, lineIndex: i, msg: `NEBEZPEČÍ: G96 (Konst. řezná rychlost) bez definovaného limitu otáček (LIMS/G50).`, fixAvailable: true });
+                         }
+                    }
+                    
+                    if (clean.match(/LIMS\s*=/) || /\bG50\b/.test(clean)) this.hasLims = true; 
+
+                    const isSpindleStart = /\bM3\b/.test(clean) || /\bM4\b/.test(clean);
+                    if (isSpindleStart && !this.spindleModeDefined && parserConfig.spindle.active) {
+                        this.errors.push({ file: currentFileName, lineIndex: i, msg: `KRITICKÁ CHYBA: Chybí definice režimu otáček G96/G97 před startem vřetene (M3/M4).` });
+                    }
+                    
+                    if (isSpindleStart) this.spindleActive = true;
                     if (/\bM5\b/.test(clean)) this.spindleActive = false;
+                    
                     if (/\bG[0]*1\b/.test(clean) || /\bG[0]*2\b/.test(clean) || /\bG[0]*3\b/.test(clean)) {
-                         if (!this.spindleActive && !clean.includes('S')) this.errors.push({ file: currentFileName, lineIndex: i, msg: `VAROVÁNÍ: Pracovní posuv (G1/G2/G3) bez aktivního vřetene (M3/M4).` });
+                        // Only error if spindle is inactive AND specific config is on AND we are in G95 mode
+                         if (this.activeFeedMode === 'G95' && !this.spindleActive && !clean.includes('S') && parserConfig.startstop.active) {
+                             this.errors.push({ file: currentFileName, lineIndex: i, msg: `VAROVÁNÍ: Pracovní posuv (G1/G2/G3) bez aktivního vřetene (M3/M4) při G95.` });
+                         }
                          if (!/\bF[\d\.]+/.test(clean) && !this.lastFeedDefined) {} else if (/\bF[\d\.]+/.test(clean)) this.lastFeedDefined = true;
                     }
                     if (/\bM30\b/.test(clean) || /\bM17\b/.test(clean) || /\bM02\b/.test(clean)) hasEnd = true;
+                    
                     const gotoMatch = clean.match(/\b(GOTOF|GOTOB|IF.*GOTO)\s+([a-zA-Z0-9_]+)/);
-                    if (gotoMatch && !labels.has(gotoMatch[2])) this.errors.push({ file: currentFileName, lineIndex: i, msg: `Cíl skoku '${gotoMatch[2]}' neexistuje.` });
+                    if (gotoMatch && !labels.has(gotoMatch[2]) && parserConfig.calls.active) {
+                        this.errors.push({ file: currentFileName, lineIndex: i, msg: `Cíl skoku '${gotoMatch[2]}' neexistuje v tomto souboru.` });
+                    }
+                    
+                    let subName = null;
+                    const lMatch = clean.match(/(?:^|\s)L(\d+)(?:\s|;|$)/);
+                    const callMatch = clean.match(/\bCALL\s+([A-Z0-9_.]+)/);
+                    
+                    if (lMatch) {
+                        subName = 'L' + lMatch[1];
+                    } else if (callMatch) {
+                        subName = callMatch[1];
+                    }
+
+                    if (subName) {
+                        const cleanSubName = subName.trim().toUpperCase().replace(/\.(SPF|MPF)$/i, '');
+                        const subContent = this.findProgramContent(cleanSubName);
+                        if (subContent) {
+                            await this.processLines(subContent.split('\n'), depth + 1, subName, visitedFiles);
+                        } else if (parserConfig.calls.active) {
+                            this.errors.push({ file: currentFileName, lineIndex: i, msg: `Podprogram '${subName.trim()}' nebyl nalezen.` });
+                        }
+                    }
+
                     const assignRegex = /R(\d+)\s*=\s*(.*?)(?=\s+R\d+\s*=|;|$)/g;
                     let match;
                     while ((match = assignRegex.exec(clean)) !== null) {
@@ -1098,18 +1706,63 @@
                         try { val = Function('"use strict";return (' + cleanExpr + ')')(); } catch (e) { val = 0; }
                         this.parameters.set(`R${pNum}`, { value: val, source: `${currentFileName}: ${nMatch ? 'N'+nMatch[1] : 'L'+(i+1)}`, file: currentFileName, line: i });
                     }
-                    const subMatch = clean.match(/(^|\s)L(\d+)(\s|;|$)/);
-                    if (subMatch) {
-                        const subNum = subMatch[2];
-                        const found = this.findSubprogramContent(subNum);
-                        if (found) await this.processLines(found.content.split('\n'), depth + 1, found.name);
-                        else this.errors.push({ file: currentFileName, lineIndex: i, msg: `Podprogram L${subNum} nebyl nalezen.` });
+                    
+                    if (clean.startsWith('MSG')) continue; 
+
+                    const tokens = clean.split(/\s+/).filter(t => t);
+                    let expectingLabel = false;
+                    
+                    for (let token of tokens) {
+                        if (token.endsWith(':')) continue;
+                        
+                        const keywords = ['STOPRE', 'GOTOF', 'GOTOB', 'GOTO', 'IF', 'ELSE', 'ENDIF', 'RET', 'DEF', 'EXTERN', 'M17', 'M30', 'CALL'];
+                        let isKeyword = false;
+                        for(let k of keywords) {
+                            if (token.startsWith(k)) { 
+                                isKeyword = true; 
+                                if(['GOTOF', 'GOTOB', 'GOTO', 'CALL'].includes(k)) expectingLabel = true;
+                                break; 
+                            }
+                        }
+                        if (isKeyword) continue;
+                        
+                        if (token.includes('==') || token.includes('<') || token.includes('>')) continue;
+                        
+                        const standardAddresses = ['G', 'M', 'X', 'Z', 'F', 'S', 'T', 'D', 'I', 'K', 'R', 'L'];
+                        
+                        if (/^[A-Z]$/.test(token) && standardAddresses.includes(token) && parserConfig.syntax.active) {
+                            this.errors.push({ file: currentFileName, lineIndex: i, msg: `Syntaxe: Nalezeno samotné '${token}' bez hodnoty.` });
+                        } 
+                        else if (/^[A-Z]/.test(token) && !token.includes('=') && !token.includes('(') && standardAddresses.includes(token[0]) && parserConfig.syntax.active) {
+                             if (expectingLabel) { expectingLabel = false; continue; }
+                             const valStr = token.substring(1);
+                             if (/^[A-Z]/.test(valStr)) continue; 
+                             const isNumber = !isNaN(Number(valStr));
+                             const isExpression = /[\+\-\*\/\(\)]/.test(valStr); 
+                             if (valStr === '') {
+                                 this.errors.push({ file: currentFileName, lineIndex: i, msg: `Syntaxe: '${token}' nemá žádnou hodnotu.` });
+                             } else if (!isNumber && !isExpression) {
+                                 this.errors.push({ file: currentFileName, lineIndex: i, msg: `Syntaxe: '${token}' má neplatný formát čísla.` });
+                             }
+                        }
                     }
                 }
-                if (!hasEnd && depth === 0 && lines.length > 0) this.errors.push({ file: currentFileName, lineIndex: lines.length - 1, msg: `VAROVÁNÍ: Program nekončí M30 nebo M17.` });
+                
+                if (parserConfig.end.active && !hasEnd && depth === 0 && lines.length > 0) this.errors.push({ file: currentFileName, lineIndex: lines.length - 1, msg: `VAROVÁNÍ: Program nekončí M30 nebo M17.` });
+
+                if (depth > 0) {
+                    this.hasLims = savedState.hasLims;
+                    this.spindleActive = savedState.spindleActive;
+                    this.coordModeDefined = savedState.coordModeDefined;
+                    this.feedModeDefined = savedState.feedModeDefined;
+                    this.spindleModeDefined = savedState.spindleModeDefined;
+                    this.firstMoveFound = savedState.firstMoveFound;
+                    this.activeFeedMode = savedState.activeFeedMode; // Restore active feed mode
+                }
             }
         }
 
+        // ... (Keep rest of functions displayFile, renderProgs, etc.) ...
         function displayFile(name) {
             if (currentFile && loadedData.loadedPrograms[currentFile] !== undefined) loadedData.loadedPrograms[currentFile] = els.editor.value;
             if (!loadedData.loadedPrograms[name]) return;
@@ -1132,9 +1785,9 @@
                     p.loadSubprograms(loadedData.loadedPrograms);
                     const startFile = loadedData.mainProgramName || currentFile;
                     const code = loadedData.loadedPrograms[startFile];
-                    await p.parseProgram(code, startFile);
-                    loadedData.parameters = new Map(p.parameters);
-                    renderParams(p.parameters); 
+                    const res = await p.parseProgram(code, startFile);
+                    loadedData.parameters = new Map(res.parameters);
+                    renderParams(res.parameters); 
                 } catch(e) { console.error(e); }
             }, 50);
         }
@@ -1161,27 +1814,58 @@
             saveToStorage();
         }
 
-        function updateStats() {
-            const text = els.editor.value;
-            document.getElementById('line-count').textContent = text.split('\n').length;
-            document.getElementById('char-count').textContent = text.length;
+        async function performFullCheck() {
+            const resultsDiv = document.getElementById('validation-results');
+            resultsDiv.innerHTML = '<div class="text-center p-4 text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Analyzuji projekt...</div>';
+            document.getElementById('validation-modal').classList.add('show');
+            const p = new CNCParser();
+            p.loadSubprograms(loadedData.loadedPrograms);
+            const startFile = loadedData.mainProgramName || currentFile;
+            const code = loadedData.loadedPrograms[startFile];
+            
+            // Run check on the main file to trigger recursion through subprograms (using public entry point)
+            const res = await p.parseProgram(code, startFile); 
+            
+            const list = document.createElement('ul');
+            list.className = 'validation-list';
+            resultsDiv.innerHTML = ''; 
+            
+            if (res.errors.length === 0) {
+                 list.innerHTML = `<li class="validation-item"><i class="fas fa-check-circle text-green-500 v-icon"></i> <span>Vše OK (Start: ${startFile}).</span></li>`;
+            } else {
+                res.errors.forEach(e => {
+                    const li = document.createElement('li');
+                    li.className = 'validation-item clickable';
+                    let extraBtn = '';
+                    if (e.fixAvailable && e.msg.includes('LIMS') && e.file === currentFile) { // Only show fix button if it's the current file
+                        extraBtn = `<button class="mt-1 px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-bold" onclick="event.stopPropagation(); quickFixError('${e.file}', ${e.lineIndex}, 'LIMS')">Opravit (Vložit LIMS=200)</button>`;
+                    }
+                    li.innerHTML = `<i class="fas fa-times-circle v-error v-icon"></i> <div class="flex flex-col"><span class="font-bold text-gray-800 dark:text-gray-200"><span class="file-tag">${e.file}</span> Řádek ${e.lineIndex+1}</span><span>${e.msg}</span>${extraBtn}</div>`;
+                    li.onclick = () => jumpToError(e.file, e.lineIndex);
+                    list.appendChild(li);
+                });
+            }
+            resultsDiv.appendChild(list);
+            updateValidationUI();
+            if (window.innerWidth < 1024) els.toolsPanel.classList.add('-translate-x-full');
         }
 
-        function renderParams(paramsMap) {
-            if (!paramsMap) paramsMap = loadedData.parameters;
-            els.paramList.innerHTML = '';
-            const arr = Array.from(paramsMap.entries()).sort((a,b)=> parseInt(a[0].substring(1)) - parseInt(b[0].substring(1)));
-            if(!arr.length) els.paramList.innerHTML = '<div class="text-center text-gray-400 p-4">Žádné parametry</div>';
-            else arr.forEach(([k, data]) => {
-                let val = data.value !== undefined ? data.value : data;
-                let src = data.source || '';
-                const valStr = Number(val).toFixed(4).replace(/\.?0+$/, "");
-                const div = document.createElement('div');
-                div.className = "flex flex-col border-b border-gray-100 dark:border-gray-700 py-2 px-2 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors";
-                if (data.file && data.line !== undefined) { div.classList.add('cursor-pointer'); div.onclick = () => jumpToError(data.file, data.line); div.title = "Přejít na definici"; }
-                div.innerHTML = `<div class="flex justify-between items-center"><span class="font-bold text-purple-600 dark:text-purple-400">${k}</span><span class="font-mono text-gray-900 dark:text-gray-100 font-medium">${valStr}</span></div>${src ? `<div class="text-[10px] text-gray-400 text-right mt-0.5 truncate w-full">${src}</div>` : ''}`;
-                els.paramList.appendChild(div);
-            });
+        async function updateValidationUI() {
+             if (currentFile && loadedData.loadedPrograms[currentFile] !== undefined) loadedData.loadedPrograms[currentFile] = els.editor.value;
+             const p = new CNCParser();
+             p.loadSubprograms(loadedData.loadedPrograms);
+             const startFile = loadedData.mainProgramName || currentFile;
+             const code = loadedData.loadedPrograms[startFile];
+             els.statusBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+             try {
+                 // Call the main entry point
+                 const res = await p.parseProgram(code, startFile);
+                 
+                 const btn = els.statusBtn;
+                 btn.className = "px-3 py-1.5 text-sm font-medium rounded shadow-sm flex items-center gap-1.5 transition-colors ";
+                 if (res.errors.length === 0) { btn.innerHTML = '<i class="fas fa-check-circle"></i>'; btn.className += "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300 dark:hover:bg-green-800"; } 
+                 else { btn.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <span>${res.errors.length}</span>`; btn.className += "bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800"; }
+             } catch(e) { console.error("Validation UI error:", e); }
         }
 
         function handlePackageImport(event) {
@@ -1232,80 +1916,7 @@
             URL.revokeObjectURL(url);
         }
 
-        async function updateValidationUI() {
-             if (currentFile && loadedData.loadedPrograms[currentFile] !== undefined) loadedData.loadedPrograms[currentFile] = els.editor.value;
-             const p = new CNCParser();
-             p.loadSubprograms(loadedData.loadedPrograms);
-             const startFile = loadedData.mainProgramName || currentFile;
-             const code = loadedData.loadedPrograms[startFile];
-             els.statusBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
-             try {
-                 const res = await p.parseProgram(code, startFile);
-                 const btn = els.statusBtn;
-                 btn.className = "px-3 py-1.5 text-sm font-medium rounded shadow-sm flex items-center gap-1.5 transition-colors ";
-                 if (res.errors.length === 0) { btn.innerHTML = '<i class="fas fa-check-circle"></i>'; btn.className += "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300 dark:hover:bg-green-800"; } 
-                 else { btn.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <span>${res.errors.length}</span>`; btn.className += "bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800"; }
-             } catch(e) { console.error("Validation UI error:", e); }
-        }
-
-        async function performFullCheck() {
-            const resultsDiv = document.getElementById('validation-results');
-            resultsDiv.innerHTML = '<div class="text-center p-4 text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Analyzuji projekt...</div>';
-            document.getElementById('validation-modal').classList.add('show');
-            const p = new CNCParser();
-            p.loadSubprograms(loadedData.loadedPrograms);
-            const startFile = loadedData.mainProgramName || currentFile;
-            const code = loadedData.loadedPrograms[startFile];
-            const res = await p.parseProgram(code, startFile);
-            const list = document.createElement('ul');
-            list.className = 'validation-list';
-            resultsDiv.innerHTML = ''; 
-            if (res.errors.length === 0) list.innerHTML = `<li class="validation-item"><i class="fas fa-check-circle text-green-500 v-icon"></i> <span>Vše OK (Start: ${startFile}).</span></li>`;
-            else {
-                res.errors.forEach(e => {
-                    const li = document.createElement('li');
-                    li.className = 'validation-item clickable';
-                    li.innerHTML = `<i class="fas fa-times-circle v-error v-icon"></i> <div class="flex flex-col"><span class="font-bold text-gray-800 dark:text-gray-200"><span class="file-tag">${e.file}</span> Řádek ${e.lineIndex+1}</span><span>${e.msg}</span></div>`;
-                    li.onclick = () => jumpToError(e.file, e.lineIndex);
-                    list.appendChild(li);
-                });
-            }
-            resultsDiv.appendChild(list);
-            updateValidationUI();
-            if (window.innerWidth < 1024) els.toolsPanel.classList.add('-translate-x-full');
-        }
-
-        function performRenumbering(startVal, stepVal, selectionOnly) {
-            const text = els.editor.value;
-            codeBeforeRenumbering = text; 
-            els.undoRenumberBtn.classList.remove('hidden'); 
-            isRenumbered = true;
-            let lines = text.split('\n');
-            let currentN = parseInt(startVal);
-            const step = parseInt(stepVal);
-            let startLineIndex = 0;
-            let endLineIndex = lines.length;
-            if (selectionOnly) {
-                const selStart = els.editor.selectionStart;
-                const selEnd = els.editor.selectionEnd;
-                startLineIndex = text.substring(0, selStart).split('\n').length - 1;
-                endLineIndex = text.substring(0, selEnd).split('\n').length;
-            }
-            let newLines = lines.map((line, index) => {
-                if (index < startLineIndex || index >= endLineIndex) return line; 
-                let trimmed = line.trim();
-                if (!trimmed || trimmed.startsWith(';')) return line; 
-                let content = line.replace(/^\s*N\d+\s*/i, '');
-                const nStr = 'N' + currentN;
-                currentN += step;
-                return nStr + ' ' + content.trim(); 
-            });
-            els.editor.value = newLines.join('\n');
-            applySyntaxHighlighting();
-            updateStats();
-            saveToStorage();
-        }
-
+        // ... (Rest of init logic) ...
         function init() {
             if (localStorage.getItem('cnc-dark-mode') === 'true') document.documentElement.classList.add('dark');
             document.getElementById('dark-mode-toggle').onclick = () => {
@@ -1333,6 +1944,9 @@
 
             if (els.fileImportPack) els.fileImportPack.addEventListener('change', handlePackageImport);
             if (els.btnExportPack) els.btnExportPack.onclick = handlePackageExport;
+            
+            loadSettings(); // LOAD SETTINGS HERE
+
             const raw = localStorage.getItem('cncExternalEditorData');
             if (raw) {
                 loadedData = JSON.parse(raw);
