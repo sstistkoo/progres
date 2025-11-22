@@ -282,6 +282,36 @@
         .v-success { color: #059669; } html.dark .v-success { color: #34d399; }
         .file-tag { font-family: monospace; font-weight: bold; background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; white-space: nowrap; }
         html.dark .file-tag { background: #312e81; color: #c7d2fe; }
+
+        /* Dropdown Styles */
+        .dropdown { position: relative; display: inline-block; }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: #fff;
+            min-width: 200px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 50;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            margin-top: 5px;
+        }
+        .dropdown-content.show { display: block; }
+        .dropdown-item {
+            color: #374151;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .dropdown-item:hover { background-color: #f3f4f6; }
+        .dark .dropdown-content { background-color: #1f2937; border-color: #374151; }
+        .dark .dropdown-item { color: #d1d5db; }
+        .dark .dropdown-item:hover { background-color: #374151; }
     </style>
 </head>
 <body class="h-full flex flex-col overflow-hidden">
@@ -309,7 +339,19 @@
                         </button>
                         <p class="text-xs text-center text-gray-500 dark:text-gray-400 leading-relaxed">První pohyb G90, dále G91.</p>
                     </div>
+                    <!-- Nové tlačítko Kreslení -->
+                    <div>
+                        <button onclick="window.open('simKresleni.html', '_blank')" class="w-full px-3 py-2.5 bg-teal-600 text-white rounded-md hover:bg-teal-700 focus:outline-none shadow-sm flex items-center justify-center gap-2 transition-colors">
+                            <i class="fas fa-pencil-alt"></i> Kreslení
+                        </button>
+                        <p class="text-xs text-center text-gray-500 dark:text-gray-400 leading-relaxed">Kreslení 2D</p>
+                    </div>
                 </div>
+
+                <!-- Tlačítko Přejmenovat (NOVÉ) -->
+                <button id="rename-program-btn" class="w-full px-3 py-2.5 mb-3 bg-orange-500 text-white rounded-md hover:bg-orange-600 focus:outline-none shadow-sm flex items-center justify-center gap-2 transition-colors">
+                    <i class="fas fa-pen"></i> Přejmenovat program
+                </button>
 
                 <!-- 2. Nový program -->
                 <button id="new-program-btn" class="w-full px-3 py-2.5 mb-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none shadow-sm flex items-center justify-center gap-2">
@@ -538,13 +580,27 @@
             <!-- ... (Keep existing main header) ... -->
             <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center shadow-sm z-10 dark:bg-gray-800 dark:border-gray-700">
                 <div class="flex items-center gap-2"><button id="tools-open-btn" class="p-2 mr-0 text-gray-600 hover:text-gray-800 dark:text-gray-300 lg:hidden"><i class="fas fa-bars fa-lg"></i></button></div>
-                <h1 id="current-file-name" class="text-lg font-bold text-gray-800 dark:text-gray-200 truncate mx-4 flex items-center gap-2"><i class="far fa-file-alt text-gray-400"></i> <span>Bez názvu</span></h1>
+                <h1 id="current-file-name" onclick="renameFile(currentFile)" class="text-lg font-bold text-gray-800 dark:text-gray-200 truncate mx-4 flex items-center gap-2 cursor-pointer active:text-blue-500"><i class="far fa-file-alt text-gray-400"></i> <span>Bez názvu</span></h1>
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <button id="status-btn" class="px-3 py-1.5 bg-gray-100 text-gray-500 text-sm font-medium rounded hover:bg-gray-200 shadow-sm flex items-center gap-1.5 transition-colors dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600" title="Stav programu">
                         <i class="fas fa-circle-notch fa-spin"></i>
                     </button>
                     
-                    <button id="save-btn" onclick="copyToClipboard()" class="ml-0 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 shadow-sm" title="Kopírovat"><i class="far fa-copy"></i></button>
+                    <!-- Dropdown pro ukládání -->
+                    <div class="dropdown">
+                        <button id="save-menu-btn" onclick="toggleSaveMenu()" class="ml-0 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 shadow-sm flex items-center gap-2" title="Možnosti uložení">
+                            <i class="far fa-copy"></i> <i class="fas fa-chevron-down text-xs"></i>
+                        </button>
+                        <div id="save-menu-content" class="dropdown-content">
+                            <div class="dropdown-item" onclick="handleMenuCopy()">
+                                <i class="far fa-copy"></i> Kopírovat do schránky
+                            </div>
+                            <div class="dropdown-item" onclick="handleSaveAndClose()">
+                                <i class="fas fa-file-export"></i> Uložit a Zavřít
+                            </div>
+                        </div>
+                    </div>
+
                     <button id="close-btn" onclick="window.close()" class="px-3 py-1.5 bg-red-100 text-red-600 hover:bg-red-200 rounded"><i class="fas fa-times"></i></button>
                     <button id="details-open-btn" class="p-2 ml-1 text-gray-600 hover:text-gray-800 dark:text-gray-300 lg:hidden"><i class="fas fa-list-ul fa-lg"></i></button>
                 </div>
@@ -1011,6 +1067,36 @@
             localStorage.setItem('cncExternalEditorData', JSON.stringify(dataToStore));
         }
 
+        // === MENU TOGGLE ===
+        function toggleSaveMenu() {
+            document.getElementById("save-menu-content").classList.toggle("show");
+        }
+
+        // Close dropdown if clicked outside
+        window.onclick = function(event) {
+            if (!event.target.closest('.dropdown')) {
+                var dropdowns = document.getElementsByClassName("dropdown-content");
+                for (var i = 0; i < dropdowns.length; i++) {
+                    var openDropdown = dropdowns[i];
+                    if (openDropdown.classList.contains('show')) {
+                        openDropdown.classList.remove('show');
+                    }
+                }
+            }
+        }
+
+        function handleMenuCopy() {
+            copyToClipboard(); 
+            document.getElementById("save-menu-content").classList.remove("show");
+            // Volitelně můžete změnit ikonu na chvíli na "check" v samotném menu, ale clipboard už má feedback na tlačítku
+        }
+
+        function handleSaveAndClose() {
+            saveToStorage();
+            window.close();
+        }
+        // ===================
+
         function insertAtCursor(text) {
             const el = els.editor;
             const start = el.selectionStart;
@@ -1122,16 +1208,8 @@
         function copyToClipboard() {
             saveToStorage();
             navigator.clipboard.writeText(els.editor.value).then(() => {
-                const b = document.getElementById('save-btn');
-                const original = b.innerHTML;
-                b.innerHTML = '<i class="fas fa-check"></i>';
-                b.classList.remove('bg-blue-600');
-                b.classList.add('bg-green-600');
-                setTimeout(() => {
-                    b.innerHTML = original;
-                    b.classList.add('bg-blue-600');
-                    b.classList.remove('bg-green-600');
-                }, 2000);
+                // Optional feedback logic if needed
+                // ...
             });
         }
 
@@ -1404,6 +1482,44 @@
             renderProgs();
             saveToStorage();
             updateDeleteUI();
+        }
+
+        function renameFile(oldName) {
+            if (!oldName) oldName = currentFile; 
+            if (!oldName) { alert("Není otevřen žádný soubor k přejmenování."); return; }
+
+            let newName = prompt(`Přejmenovat "${oldName}" na:`, oldName);
+            if (!newName) return; 
+            newName = newName.trim();
+            if (newName === oldName) return; 
+
+            const upperOld = oldName.toUpperCase();
+            const upperNew = newName.toUpperCase();
+            
+            if (!upperNew.endsWith('.MPF') && !upperNew.endsWith('.SPF')) {
+                const ext = upperOld.endsWith('.SPF') ? '.SPF' : '.MPF';
+                newName += ext;
+            }
+
+            if (loadedData.loadedPrograms[newName]) {
+                alert("Soubor s tímto názvem již existuje!");
+                return;
+            }
+
+            loadedData.loadedPrograms[newName] = loadedData.loadedPrograms[oldName];
+            delete loadedData.loadedPrograms[oldName];
+
+            if (currentFile === oldName) {
+                currentFile = newName;
+                loadedData.mainProgramName = newName;
+                const headerName = document.querySelector('#current-file-name span');
+                if(headerName) headerName.textContent = newName;
+            } else if (loadedData.mainProgramName === oldName) {
+                loadedData.mainProgramName = newName;
+            }
+
+            saveToStorage();
+            renderProgs();
         }
 
         function undoDelete() {
@@ -1829,7 +1945,7 @@
             currentFile = name;
             loadedData.mainProgramName = name;
             els.editor.value = loadedData.loadedPrograms[name];
-            els.fileName.textContent = name;
+            els.fileName.innerHTML = `<span>${name}</span>`; // Updated to support inner span
             document.querySelectorAll('.file-item').forEach(el => { el.classList.remove('active'); if (el.dataset.name === name) el.classList.add('active'); });
             requestAnimationFrame(applySyntaxHighlighting);
             updateStats();
@@ -1858,12 +1974,24 @@
             els.progList.innerHTML = '';
             Object.keys(loadedData.loadedPrograms).sort().forEach(name => {
                 const div = document.createElement('div');
-                div.className = "file-item p-2 cursor-pointer text-sm border-b border-gray-100 dark:border-gray-700";
+                div.className = "file-item p-3 flex justify-between items-center cursor-pointer text-sm border-b border-gray-100 dark:border-gray-700";
                 if (name === currentFile) div.classList.add('active');
                 const isMpf = name.toUpperCase().endsWith('.MPF');
-                div.innerHTML = `<div class="truncate"><i class="${isMpf?'fas fa-star text-yellow-500':'fas fa-code text-gray-400'} mr-2"></i>${name}</div>`;
+                
+                const nameSpan = document.createElement('div');
+                nameSpan.className = "truncate flex-1 flex items-center font-medium";
+                nameSpan.innerHTML = `<i class="${isMpf?'fas fa-star text-yellow-500':'fas fa-code text-gray-400'} mr-3"></i>${name}`;
+                nameSpan.onclick = () => displayFile(name);
+
+                const renameBtn = document.createElement('button');
+                renameBtn.className = "ml-2 p-2 text-gray-400 active:text-blue-600 transition-colors rounded hover:bg-gray-200 dark:hover:bg-gray-600";
+                renameBtn.innerHTML = '<i class="fas fa-pen"></i>';
+                renameBtn.title = "Přejmenovat";
+                renameBtn.onclick = (e) => { e.stopPropagation(); renameFile(name); };
+
+                div.appendChild(nameSpan);
+                div.appendChild(renameBtn);
                 div.dataset.name = name;
-                div.onclick = () => displayFile(name);
                 els.progList.appendChild(div);
             });
         }
@@ -2132,6 +2260,7 @@
             els.undoRenumberBtn.onclick = () => { if(codeBeforeRenumbering) { els.editor.value = codeBeforeRenumbering; requestAnimationFrame(applySyntaxHighlighting); updateStats(); saveToStorage(); els.undoRenumberBtn.classList.add('hidden'); } };
             els.btnInputConfirm.onclick = confirmInput; 
             els.modalInputValue.addEventListener('keydown', function(e) { if (e.key === 'Enter') { confirmInput(); } });
+            document.getElementById('rename-program-btn').onclick = () => renameFile(currentFile);
 
             if (els.fileImportPack) els.fileImportPack.addEventListener('change', handlePackageImport);
             if (els.btnExportPack) els.btnExportPack.onclick = handlePackageExport;
