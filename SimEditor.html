@@ -28,6 +28,11 @@
     </script>
 
     <style>
+        /* Optimalizace vykreslování */
+        .editor-common {
+            will-change: transform, scroll-position;
+        }
+
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -609,10 +614,12 @@
         let codeBeforeRenumbering = "";
         let isRenumbered = false;
         let statusDebounceTimer;
+        let saveDebounceTimer; // Added for save throttling
+        let highlightAnimationFrame; // Added for highlight throttling
         let currentInputPrefix = '';
 
         const gCodes = { '0': 'Rychloposuv', '1': 'Lineární interpolace', '2': 'Kruhová int. (CW)', '3': 'Kruhová int. (CCW)', '4': 'Časová prodleva', '17': 'Rovina XY', '18': 'Rovina ZX', '19': 'Rovina YZ', '40': 'Zrušení kompenzace', '41': 'Komp. vlevo', '42': 'Komp. vpravo', '53': 'Strojní souřadnice', '54': 'Nulový bod 1', '55': 'Nulový bod 2', '56': 'Nulový bod 3', '57': 'Nulový bod 4', '90': 'Absolutní', '91': 'Přírůstkové', '94': 'Posuv mm/min', '95': 'Posuv mm/ot', '96': 'Konst. řezná rychlost', '97': 'Konst. otáčky' };
-        const mCodes = { '0': 'Stop programu', '1': 'Volitelný stop', '3': 'Vřeteno CW', '4': 'Vřeteno CCW', '5': 'Stop vřetena', '6': 'Výměna nástroje', '8': 'Chlazení ZAP', '9': 'Chlazení VYP', '17': 'Konec podprogramu', '30': 'Konec programu' };
+        const mCodes = { '0': 'Stop programu', '1': 'Volitelný stop', '3': 'Vřeteno CW', '4': 'Vřeteno CCW', '5': 'Stop vřetena', '6': 'Výměna nástroje', '8': 'Chlazení ZAP', '9': 'Chlazení VYP', '17': 'Konec podprogramu', '30': 'Konec programu', '80': 'Odjezd do pozice výměny nástroje' };
 
         // === NEW PARSER CONFIG LOGIC ===
         let parserConfig = {
@@ -627,16 +634,16 @@
             syntax: { name: 'Syntaxe', active: true, desc: 'Platnost adres a čísel' }
         };
 
-        // === NEW SETTINGS LOGIC ===
+        // === NEW SETTINGS LOGIC (REORDERED DEFAULT) ===
         let currentConfig = {
-            order: ['coords', 'tool', 'feed', 'gear', 'door', 'spindle', 'end'],
+            order: ['gear', 'door', 'tool', 'coords', 'spindle', 'end'], // REORDERED: Tool before Coords
             rules: {
                 coords: { id: 'coords', name: 'Souřadný systém', active: true, val: 'G54', type: 'select', options: ['G54', 'G55', 'G56', 'G57', 'G505', 'G53'] },
                 tool: { id: 'tool', name: 'Nástroj a Korekce', active: true, t_val: '1', d_val: '1', type: 'tool_complex' },
-                feed: { id: 'feed', name: 'Posuv (G95/G94)', active: true, mode: 'G95', type: 'toggle_feed' }, // Changed Name
+                feed: { id: 'feed', name: 'Posuv (G95/G94)', active: true, mode: 'G95', type: 'toggle_feed' }, 
                 gear: { id: 'gear', name: 'Převod (M4x)', active: true, val: '41', type: 'input_m' },
-                door: { id: 'door', name: 'Dveře (M80)', active: true, val: '80', type: 'input_m' },
-                spindle: { id: 'spindle', name: 'Vřeteno (G97/G96 S/M)', active: true, mode: 'G97', s_val: '60', m_val: '4', lims: '2000', type: 'spindle_complex' }, // Changed Name
+                door: { id: 'door', name: 'Odjezd do výměny (M80)', active: true, val: '80', type: 'input_m' },
+                spindle: { id: 'spindle', name: 'Vřeteno (G97/G96 S/M)', active: true, mode: 'G97', s_val: '50', m_val: '4', lims: '2000', type: 'spindle_complex' }, 
                 end: { id: 'end', name: 'Kontrola konce', active: true, type: 'info' }
             }
         };
@@ -894,42 +901,49 @@
         function applyHeaderFixes() {
             const r = currentConfig.rules;
             let headerLines = [];
-            
-            // MSG line preservation if exists
-            const existingLines = document.getElementById('main-editor').value.split('\n');
             let firstN = 10;
             
-            // Build Header based on Order and Active status
-            if(r.coords.active) headerLines.push(`N${firstN} ${r.coords.val} G90`);
+            // NEW LOGIC MATCHING WORKPLACE PATTERN ORDER
+            // 1. Gear
+            if(r.gear.active) { headerLines.push(`N${firstN} M${r.gear.val}`); firstN+=10; }
             
-            let techLine = `N${firstN+10}`;
-            if(r.tool.active) techLine += ` T${r.tool.t_val} D${r.tool.d_val}`;
-            if(r.feed.active) techLine += ` ${r.feed.mode}`;
-            if(r.gear.active) techLine += ` M${r.gear.val}`;
-            if(techLine.length > 5) headerLines.push(techLine);
+            // 2. Stopre (Implicit in header generator based on request pattern)
+            headerLines.push(`N${firstN} STOPRE`); firstN+=10;
 
-            if(r.door.active) headerLines.push(`N${firstN+20} M${r.door.val}`);
+            // 3. Door
+            if(r.door.active) { headerLines.push(`N${firstN} M${r.door.val}`); firstN+=10; }
 
-            let spinLine = `N${firstN+30}`;
-            if(r.spindle.active) {
-                spinLine += ` ${r.spindle.mode}`;
-                if(r.spindle.mode === 'G96' && r.spindle.lims) spinLine += ` LIMS=${r.spindle.lims}`;
-                spinLine += ` S=${r.spindle.s_val} M${r.spindle.m_val}`;
-                headerLines.push(spinLine);
+            // 4. Tool (MOVED HERE to match user request)
+            if(r.tool.active) { 
+                headerLines.push(`N${firstN} T${r.tool.t_val}`);
+                headerLines.push(`      D${r.tool.d_val}`);
+                firstN+=10;
             }
 
-            headerLines.push(`N${firstN+40} STOPRE`);
+            // 5. Coords + Feed (MOVED DOWN)
+            let coordLine = `N${firstN}`;
+            if(r.coords.active) coordLine += ` ${r.coords.val}`;
+            if(r.feed.active) coordLine += ` ${r.feed.mode}`;
+            // Implicit G90
+            coordLine += ` G90`;
+            headerLines.push(coordLine); firstN+=10;
 
-            // Insert at top, preserving MSG if present
+            // 6. Spindle
+            if(r.spindle.active) {
+                let spinLine = `N${firstN} ${r.spindle.mode}`;
+                if(r.spindle.mode === 'G96' && r.spindle.lims) spinLine += ` LIMS=${r.spindle.lims}`;
+                spinLine += ` S=${r.spindle.s_val} M${r.spindle.m_val}`;
+                headerLines.push(spinLine); firstN+=10;
+            }
+
+            headerLines.push(`N${firstN} STOPRE`);
+
+            const existingLines = document.getElementById('main-editor').value.split('\n');
             let newContent = "";
-            let hasMsg = false;
             if(existingLines.length > 0 && existingLines[0].toUpperCase().includes('MSG')) {
                 newContent = existingLines[0] + '\n' + headerLines.join('\n') + '\n';
-                // Append rest of file, skipping old header lines loosely
                 for(let i=1; i<existingLines.length; i++) {
-                    // Very basic heuristic to skip old header lines we just replaced
-                    // In a real app, this would be smarter.
-                    if(!existingLines[i].match(/G54|T\d|G95|M41|M80|G97|LIMS/)) {
+                    if(!existingLines[i].match(/G54|T\d|G95|M41|M80|G97|LIMS|STOPRE/)) {
                         newContent += existingLines[i] + '\n';
                     }
                 }
@@ -940,7 +954,7 @@
             document.getElementById('main-editor').value = newContent;
             closeSettingsModal();
             updateStats();
-            applySyntaxHighlighting();
+            requestAnimationFrame(applySyntaxHighlighting);
         }
 
         const els = {
@@ -1005,7 +1019,7 @@
             el.value = val.substring(0, start) + text + val.substring(end);
             el.selectionStart = el.selectionEnd = start + text.length;
             el.focus();
-            applySyntaxHighlighting();
+            requestAnimationFrame(applySyntaxHighlighting);
             updateStats();
         }
 
@@ -1025,7 +1039,7 @@
                 el.selectionStart = el.selectionEnd = start;
             }
             el.focus();
-            applySyntaxHighlighting();
+            requestAnimationFrame(applySyntaxHighlighting);
             updateStats();
         }
         
@@ -1169,7 +1183,7 @@
                 els.convertBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
                 els.convertIncBtn.disabled = false; // Enable other button
                 els.convertIncBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                applySyntaxHighlighting();
+                requestAnimationFrame(applySyntaxHighlighting);
                 updateStats();
                 saveToStorage();
                 return;
@@ -1238,21 +1252,21 @@
             els.convertIncBtn.disabled = true;
             els.convertIncBtn.classList.add('opacity-50', 'cursor-not-allowed');
 
-            applySyntaxHighlighting();
+            requestAnimationFrame(applySyntaxHighlighting);
             updateStats();
             saveToStorage();
         }
 
         function convertToIncremental() {
-            if (activeConversion === 'INC') { // Revert
+            if (activeConversion === 'INC') { // Revert logic remains same
                 els.editor.value = originalCodeStore;
                 activeConversion = null;
                 els.convertIncBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> Převést na Přírůstkové';
                 els.convertIncBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
                 els.convertIncBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                els.convertBtn.disabled = false; // Enable other button
+                els.convertBtn.disabled = false; 
                 els.convertBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                applySyntaxHighlighting();
+                requestAnimationFrame(applySyntaxHighlighting);
                 updateStats();
                 saveToStorage();
                 return;
@@ -1263,10 +1277,13 @@
             originalCodeStore = els.editor.value;
             const lines = els.editor.value.split('\n');
             let newLines = [];
-            let x = 0, z = 0, mode = 90;
+            let x = 0, z = 0; // Current absolute tracking
+            let currentMode = 90; // Current reading mode
             const params = getEvalContext();
             
-            let firstMoveProcessed = false;
+            // State flags for initialization
+            let initX = false;
+            let initZ = false;
 
             for (let line of lines) {
                 const commentIndex = line.indexOf(';');
@@ -1274,6 +1291,7 @@
                 
                 if (!cleanLine) { newLines.push(line); continue; }
 
+                // Parse R params assignments
                 const assignMatches = cleanLine.match(/R(\d+)\s*=\s*([^=;]+?)(?=\s+[A-Z]|$)/g);
                 if (assignMatches) {
                     assignMatches.forEach(assign => {
@@ -1284,78 +1302,75 @@
                     });
                 }
 
-                if (cleanLine.includes('G90')) mode = 90;
-                if (cleanLine.includes('G91')) mode = 91;
+                // Detect mode input
+                if (cleanLine.includes('G90')) currentMode = 90;
+                if (cleanLine.includes('G91')) currentMode = 91;
+
+                // Detect axes present
+                const hasX = /[X]/.test(cleanLine);
+                const hasZ = /[Z]/.test(cleanLine);
+                
+                if (!hasX && !hasZ) {
+                    // No movement, just copy but maintain tracking if needed (unlikely without movement)
+                    newLines.push(line);
+                    continue;
+                }
+
+                // Determine output mode for this line
+                // If any axis on this line is NOT initialized, we force G90 for the whole line to establish position
+                let targetOutputMode = 91; // Default to incremental
+                if ((hasX && !initX) || (hasZ && !initZ)) {
+                    targetOutputMode = 90;
+                }
 
                 let modifiedLine = line;
-                let hasMove = false;
                 
-                if (/[XZ]/.test(cleanLine)) {
-                    hasMove = true;
-                    modifiedLine = modifiedLine.replace(/([XZ])\s*(=?)\s*([^\s;]+)/gi, (match, axis, eq, valStr) => {
-                        axis = axis.toUpperCase();
-                        let val = evalExpr(valStr, params);
-                        if (isNaN(val)) return match;
+                // Perform replacement and calculation
+                modifiedLine = modifiedLine.replace(/([XZ])\s*(=?)\s*([^\s;]+)/gi, (match, axis, eq, valStr) => {
+                    axis = axis.toUpperCase();
+                    let val = evalExpr(valStr, params);
+                    if (isNaN(val)) return match;
 
-                        let absVal = val;
-                         if (mode === 91) {
-                            if (axis === 'X') absVal = x + val;
-                            if (axis === 'Z') absVal = z + val;
-                        } else { absVal = val; } // G90
-                        
-                        let outputVal = absVal;
-                        
-                        if (firstMoveProcessed) {
-                            // Incremental from here on
-                            if (axis === 'X') outputVal = absVal - x;
-                            if (axis === 'Z') outputVal = absVal - z;
-                        } else {
-                           // First move keeps absolute value
-                           outputVal = absVal;
-                        }
-
-                        // Update state to new absolute pos
-                        if (axis === 'X') x = absVal;
-                        if (axis === 'Z') z = absVal;
-                        
-                        return `${axis}${Number(outputVal.toFixed(3))}`; 
-                    });
-                }
-                
-                // G-code logic injection with correct N number placement
-                if (hasMove) {
-                    if (!firstMoveProcessed) {
-                        // First Move Line -> Ensure G90
-                        if (modifiedLine.includes('G91')) modifiedLine = modifiedLine.replace('G91', 'G90');
-                        else if (!modifiedLine.includes('G90')) {
-                             if (/(G[0123])/.test(modifiedLine)) {
-                                 modifiedLine = modifiedLine.replace(/(G[0123])/, 'G90 $1');
-                             } else {
-                                 // Check for N number at start and insert after it
-                                 if (/^\s*N\d+/i.test(modifiedLine)) {
-                                     modifiedLine = modifiedLine.replace(/^(N\d+)\s*/i, '$1 G90 ');
-                                 } else {
-                                     modifiedLine = 'G90 ' + modifiedLine;
-                                 }
-                             }
-                        }
-                        firstMoveProcessed = true;
-                    } else {
-                        // Subsequent Moves -> Ensure G91
-                        if (modifiedLine.includes('G90')) modifiedLine = modifiedLine.replace('G90', 'G91');
-                        else if (!modifiedLine.includes('G91')) {
-                             if (/(G[0123])/.test(modifiedLine)) {
-                                 modifiedLine = modifiedLine.replace(/(G[0123])/, 'G91 $1');
-                             } else {
-                                 // Check for N number at start and insert after it
-                                 if (/^\s*N\d+/i.test(modifiedLine)) {
-                                     modifiedLine = modifiedLine.replace(/^(N\d+)\s*/i, '$1 G91 ');
-                                 } else {
-                                     modifiedLine = 'G91 ' + modifiedLine;
-                                 }
-                             }
-                        }
+                    // Calculate absolute target position based on input mode
+                    let absVal = val;
+                    if (currentMode === 91) {
+                        if (axis === 'X') absVal = x + val;
+                        if (axis === 'Z') absVal = z + val;
+                    } else { 
+                        absVal = val; 
+                    } 
+                    
+                    // Calculate output value based on target output mode
+                    let outputVal = absVal;
+                    if (targetOutputMode === 91) {
+                        if (axis === 'X') outputVal = absVal - x;
+                        if (axis === 'Z') outputVal = absVal - z;
                     }
+                    // For G90 target, outputVal is just absVal
+
+                    // Update tracking state
+                    if (axis === 'X') { x = absVal; if(targetOutputMode === 90) initX = true; }
+                    if (axis === 'Z') { z = absVal; if(targetOutputMode === 90) initZ = true; }
+                    
+                    return `${axis}${Number(outputVal.toFixed(3))}`; 
+                });
+
+                // Inject/Update G code
+                // Remove existing G90/G91
+                if (modifiedLine.includes('G90')) modifiedLine = modifiedLine.replace('G90', '');
+                if (modifiedLine.includes('G91')) modifiedLine = modifiedLine.replace('G91', '');
+                
+                // Clean up double spaces created by removal
+                modifiedLine = modifiedLine.replace(/\s+/g, ' ');
+
+                // Insert new G code
+                const newG = targetOutputMode === 90 ? 'G90' : 'G91';
+                
+                // Try to insert after N number or at start
+                if (/^\s*N\d+/i.test(modifiedLine)) {
+                    modifiedLine = modifiedLine.replace(/^(N\d+)\s*/i, `$1 ${newG} `);
+                } else {
+                    modifiedLine = `${newG} ` + modifiedLine.trim();
                 }
                 
                 newLines.push(modifiedLine);
@@ -1367,17 +1382,17 @@
             els.convertIncBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
             els.convertIncBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
 
-            // Disable Abs button
             els.convertBtn.disabled = true;
             els.convertBtn.classList.add('opacity-50', 'cursor-not-allowed');
             
-            applySyntaxHighlighting();
+            requestAnimationFrame(applySyntaxHighlighting);
             updateStats();
             saveToStorage();
         }
 
         function deleteCurrentFile() {
             if (!currentFile || !loadedData.loadedPrograms[currentFile]) { alert("Žádný soubor ke smazání."); return; }
+            if (deletedFilesStack.length > 9) deletedFilesStack.shift(); // Limit stack size to 10
             deletedFilesStack.push({ name: currentFile, content: loadedData.loadedPrograms[currentFile] });
             delete loadedData.loadedPrograms[currentFile];
             const keys = Object.keys(loadedData.loadedPrograms);
@@ -1453,7 +1468,7 @@
                  if (lineIndex >= 0 && lineIndex < lines.length) {
                      lines.splice(lineIndex + 1, 0, '      LIMS=200'); 
                      els.editor.value = lines.join('\n');
-                     applySyntaxHighlighting();
+                     requestAnimationFrame(applySyntaxHighlighting);
                      updateStats();
                      saveToStorage();
                      performFullCheck(); 
@@ -1481,37 +1496,79 @@
         function updateLineNumbers() {
             const lines = els.editor.value.split('\n').length;
             const currentLines = els.lineNumbers.childElementCount;
+            // Only update DOM if lines changed count significantly or it's empty
             if (lines !== currentLines) {
                 let html = '';
                 for (let i = 1; i <= lines; i++) html += `${i}<br>`;
                 els.lineNumbers.innerHTML = html;
             }
-            els.lineNumbers.scrollTop = els.editor.scrollTop;
+            // Scroll sync is handled by onscroll event, but here we ensure checks
+            if (els.lineNumbers.scrollTop !== els.editor.scrollTop) {
+                els.lineNumbers.scrollTop = els.editor.scrollTop;
+            }
         }
+
+        // PRE-COMPILED REGEX FOR PERFORMANCE
+        const RE_FEED = /\b([FSTD])(\d*[\.]?\d+)\b/g;
+        const RE_BLOCK = /\b(N\d+)\b/g;
+        const RE_G_RAPID = /\b(G0[0-3]?|G[0-3])\b/g;
+        const RE_G_GEN = /\b(G\d+)\b/g;
+        const RE_M_GEN = /\b(M\d+)\b/g;
+        const RE_COORD = /([XZIKCR])(\s*=?\s*[\-\d\.]+)/g;
+        const RE_PARAM = /\b(R\d+)/g;
+        const RE_LOGIC = /\b(GOTOF|GOTOB|IF|ELSE|ENDIF|STOPRE)\b/g;
+        const RE_SUB = /\b(L\d+)\b/g;
+        const RE_MSG = /(MSG\s*\()(.*?)(\))/gi;
+        const RE_MSG_PLACEHOLDER = /__MSG_(\d+)__/g;
 
         function applySyntaxHighlighting() {
             let text = els.editor.value;
+            // Avoid processing if text is too huge, basic cutoff for extreme cases
+            if (text.length > 1000000) {
+                els.highlights.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
+                return;
+            }
+
             let lines = text.split('\n');
+            
+            // Optimization: Use a loop or reduce instead of map if extremely performance critical, 
+            // but map is optimized enough in modern JS. The Regex is the bottleneck.
             let styled = lines.map(line => {
+                if (line.length === 0) return ''; // Skip empty processing
+
                 let code = line;
                 let comm = "";
                 let cIdx = line.indexOf(';');
-                if (cIdx !== -1) { code = line.substring(0, cIdx); comm = `<span class="hl-comment">${escapeHtml(line.substring(cIdx))}</span>`; }
+                
+                if (cIdx !== -1) { 
+                    code = line.substring(0, cIdx); 
+                    comm = `<span class="hl-comment">${escapeHtml(line.substring(cIdx))}</span>`; 
+                }
+                
                 code = escapeHtml(code);
-                code = code.replace(/\b([FSTD])(\d*[\.]?\d+)\b/g, '<span class="hl-feed">$1</span><span class="hl-val">$2</span>');
-                code = code.replace(/\b(N\d+)\b/g, '<span class="hl-block">$1</span>')
-                    .replace(/\b(G[0-3]|G0[0-3])\b/g, '<span class="hl-g text-red-500">$1</span>')
-                    .replace(/\b(G\d+)\b/g, '<span class="hl-g">$1</span>')
-                    .replace(/\b(M\d+)\b/g, '<span class="hl-m">$1</span>')
-                    .replace(/([XZIKCR])(\s*=?\s*[\-\d\.]+)/g, '<span class="hl-coord">$1</span><span class="hl-val">$2</span>')
-                    .replace(/\b(R\d+)/g, '<span class="hl-param">$1</span>')
-                    .replace(/\b(GOTOF|GOTOB|IF|ELSE|ENDIF|STOPRE)\b/g, '<span class="hl-logic">$1</span>')
-                    .replace(/\b(L\d+)\b/g, '<span class="hl-sub">$1</span>');
+
+                // Replace chain optimization - logic remains but ensuring efficient regex use
+                code = code.replace(RE_FEED, '<span class="hl-feed">$1</span><span class="hl-val">$2</span>');
+                code = code.replace(RE_BLOCK, '<span class="hl-block">$1</span>')
+                    .replace(RE_G_RAPID, '<span class="hl-g text-red-500">$1</span>')
+                    .replace(RE_G_GEN, '<span class="hl-g">$1</span>')
+                    .replace(RE_M_GEN, '<span class="hl-m">$1</span>')
+                    .replace(RE_COORD, '<span class="hl-coord">$1</span><span class="hl-val">$2</span>')
+                    .replace(RE_PARAM, '<span class="hl-param">$1</span>')
+                    .replace(RE_LOGIC, '<span class="hl-logic">$1</span>')
+                    .replace(RE_SUB, '<span class="hl-sub">$1</span>');
+                
+                // Handle MSG differently to prevent breaking HTML inside MSG
                 let placeholders = [];
-                code = code.replace(/(MSG\s*\()(.*?)(\))/gi, (match) => { placeholders.push(`<span class="hl-msg">${escapeHtml(match)}</span>`); return `__MSG_${placeholders.length-1}__`; });
-                code = code.replace(/__MSG_(\d+)__/g, (m, i) => placeholders[i]);
+                code = code.replace(RE_MSG, (match) => { 
+                    placeholders.push(`<span class="hl-msg">${escapeHtml(match)}</span>`); 
+                    return `__MSG_${placeholders.length-1}__`; 
+                });
+                code = code.replace(RE_MSG_PLACEHOLDER, (m, i) => placeholders[i]);
+                
                 return code + comm;
             });
+            
             els.highlights.innerHTML = styled.join('<br>') + '<br>';
             updateLineNumbers();
         }
@@ -1762,6 +1819,9 @@
             }
         }
 
+        // --- SHARED PARSER INSTANCE OPTIMIZATION ---
+        const sharedParser = new CNCParser();
+
         // ... (Keep rest of functions displayFile, renderProgs, etc.) ...
         function displayFile(name) {
             if (currentFile && loadedData.loadedPrograms[currentFile] !== undefined) loadedData.loadedPrograms[currentFile] = els.editor.value;
@@ -1771,9 +1831,12 @@
             els.editor.value = loadedData.loadedPrograms[name];
             els.fileName.textContent = name;
             document.querySelectorAll('.file-item').forEach(el => { el.classList.remove('active'); if (el.dataset.name === name) el.classList.add('active'); });
-            applySyntaxHighlighting();
+            requestAnimationFrame(applySyntaxHighlighting);
             updateStats();
-            updateValidationUI();
+            // Debounce validation on file switch
+            clearTimeout(statusDebounceTimer);
+            statusDebounceTimer = setTimeout(updateValidationUI, 100);
+            
             if (els.groupDeleteActive && !els.groupDeleteActive.classList.contains('hidden')) {
                 els.groupDeleteActive.classList.add('hidden');
                 els.groupDeleteActive.classList.remove('flex');
@@ -1781,11 +1844,10 @@
             }
             setTimeout(async () => {
                 try {
-                    const p = new CNCParser();
-                    p.loadSubprograms(loadedData.loadedPrograms);
+                    sharedParser.loadSubprograms(loadedData.loadedPrograms);
                     const startFile = loadedData.mainProgramName || currentFile;
                     const code = loadedData.loadedPrograms[startFile];
-                    const res = await p.parseProgram(code, startFile);
+                    const res = await sharedParser.parseProgram(code, startFile);
                     loadedData.parameters = new Map(res.parameters);
                     renderParams(res.parameters); 
                 } catch(e) { console.error(e); }
@@ -1808,7 +1870,62 @@
 
         function createNewProgram() {
             const name = `PROG_${Object.keys(loadedData.loadedPrograms).length + 1}.SPF`;
-            loadedData.loadedPrograms[name] = "G54 T1 D1 G95 M41\nG97 S60 M4\nG91 G1 X-300 F1\nM30";
+            
+            // Build content based on currentConfig BUT following user's pattern structure
+            const r = currentConfig.rules;
+            let lines = [];
+            let n = 10;
+
+            // 1. Gear (M41)
+            if(r.gear.active) { lines.push(`N${n} M${r.gear.val}`); n+=10; }
+
+            // 2. STOPRE (Always inserted as per request pattern)
+            lines.push(`N${n} STOPRE`); n+=10;
+
+            // 3. Door / Tool Change Pos (M80) - BEFORE TOOL
+            if(r.door.active) { lines.push(`N${n} M${r.door.val}`); n+=10; }
+
+            // 4. Tool (T1 D1) - MOVED HERE
+            if(r.tool.active) {
+                lines.push(`N${n} T${r.tool.t_val} D${r.tool.d_val}`); n+=10;
+            }
+
+            // 5. Coords + Feed (G54 G95) - MOVED DOWN
+            let setupLine = `N${n}`;
+            if(r.coords.active) setupLine += ` ${r.coords.val}`;
+            if(r.feed.active) setupLine += ` ${r.feed.mode}`;
+            setupLine += ` G90`; // Usually standard
+            lines.push(setupLine); n+=10;
+
+            // 6. Note: Approach
+            lines.push(`; NAJETI K MATERIALU`);
+
+            // 7. Placeholder for Rapid Move (User requested blank line)
+            lines.push(``); // Empty line for G0 move
+
+            // 8. Spindle (M4 S=... + M8)
+            if(r.spindle.active) {
+                let spinLine = `N${n}`;
+                spinLine += ` ${r.spindle.mode}`;
+                if(r.spindle.mode === 'G96' && r.spindle.lims) spinLine += ` LIMS=${r.spindle.lims}`;
+                spinLine += ` S=${r.spindle.s_val} M${r.spindle.m_val} M8`;
+                lines.push(spinLine); n+=10;
+            }
+            
+            // 9. Start of Code Note + Empty line
+            lines.push(`; CNC KOD`);
+            lines.push(``); // Empty line for actual code
+            
+            // 10. Stop Spindle/Coolant
+            lines.push(`N${n} M5 M9`); n+=10;
+
+            // 11. M80 (Door/Tool change pos) - BEFORE END
+            if(r.door.active) { lines.push(`N${n} M${r.door.val}`); n+=10; }
+
+            // 12. End
+            lines.push(`N${n} M30`);
+
+            loadedData.loadedPrograms[name] = lines.join('\n');
             displayFile(name);
             renderProgs();
             saveToStorage();
@@ -1818,13 +1935,13 @@
             const resultsDiv = document.getElementById('validation-results');
             resultsDiv.innerHTML = '<div class="text-center p-4 text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Analyzuji projekt...</div>';
             document.getElementById('validation-modal').classList.add('show');
-            const p = new CNCParser();
-            p.loadSubprograms(loadedData.loadedPrograms);
+            
+            sharedParser.loadSubprograms(loadedData.loadedPrograms);
             const startFile = loadedData.mainProgramName || currentFile;
             const code = loadedData.loadedPrograms[startFile];
             
-            // Run check on the main file to trigger recursion through subprograms (using public entry point)
-            const res = await p.parseProgram(code, startFile); 
+            // Run check using shared parser
+            const res = await sharedParser.parseProgram(code, startFile); 
             
             const list = document.createElement('ul');
             list.className = 'validation-list';
@@ -1852,14 +1969,15 @@
 
         async function updateValidationUI() {
              if (currentFile && loadedData.loadedPrograms[currentFile] !== undefined) loadedData.loadedPrograms[currentFile] = els.editor.value;
-             const p = new CNCParser();
-             p.loadSubprograms(loadedData.loadedPrograms);
+             
+             // Optimization: Reuse sharedParser
+             sharedParser.loadSubprograms(loadedData.loadedPrograms);
              const startFile = loadedData.mainProgramName || currentFile;
              const code = loadedData.loadedPrograms[startFile];
+             
              els.statusBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
              try {
-                 // Call the main entry point
-                 const res = await p.parseProgram(code, startFile);
+                 const res = await sharedParser.parseProgram(code, startFile);
                  
                  const btn = els.statusBtn;
                  btn.className = "px-3 py-1.5 text-sm font-medium rounded shadow-sm flex items-center gap-1.5 transition-colors ";
@@ -1916,6 +2034,54 @@
             URL.revokeObjectURL(url);
         }
 
+        // ADDED MISSING FUNCTION HERE
+        function performRenumbering(start, step, selectionOnly) {
+            codeBeforeRenumbering = els.editor.value;
+            els.undoRenumberBtn.classList.remove('hidden');
+            
+            let text = els.editor.value;
+            let lines = text.split('\n');
+            let currentN = start;
+            
+            let startLineIdx = 0;
+            let endLineIdx = lines.length - 1;
+            
+            if (selectionOnly) {
+                const selStart = els.editor.selectionStart;
+                const selEnd = els.editor.selectionEnd;
+                startLineIdx = text.substring(0, selStart).split('\n').length - 1;
+                endLineIdx = text.substring(0, selEnd).split('\n').length - 1;
+                if (selEnd > 0 && text[selEnd-1] === '\n' && selEnd > selStart) {
+                     endLineIdx--;
+                }
+            }
+
+            const newLines = lines.map((line, index) => {
+                if (index < startLineIdx || index > endLineIdx) return line; 
+                
+                const trimmed = line.trim();
+                if (!trimmed) return line;
+                
+                const hasNMatch = line.match(/^(\s*)(N\d+)/i);
+                
+                if (hasNMatch) {
+                    line = line.replace(/^(?:\s*)(N\d+)/i, hasNMatch[1] + 'N' + currentN);
+                    currentN += step;
+                } else {
+                    if (/^[A-Z0-9]/i.test(trimmed) && !trimmed.startsWith(';') && !trimmed.toUpperCase().startsWith('MSG')) {
+                        line = 'N' + currentN + ' ' + line;
+                        currentN += step;
+                    }
+                }
+                return line;
+            });
+            
+            els.editor.value = newLines.join('\n');
+            requestAnimationFrame(applySyntaxHighlighting);
+            updateStats();
+            saveToStorage();
+        }
+
         // ... (Rest of init logic) ...
         function init() {
             if (localStorage.getItem('cnc-dark-mode') === 'true') document.documentElement.classList.add('dark');
@@ -1923,8 +2089,33 @@
                 document.documentElement.classList.toggle('dark');
                 localStorage.setItem('cnc-dark-mode', document.documentElement.classList.contains('dark'));
             };
-            els.editor.onscroll = () => { els.backdrop.scrollTop = els.editor.scrollTop; els.backdrop.scrollLeft = els.editor.scrollLeft; els.lineNumbers.scrollTop = els.editor.scrollTop; };
-            els.editor.oninput = () => { applySyntaxHighlighting(); updateStats(); clearTimeout(statusDebounceTimer); statusDebounceTimer = setTimeout(updateValidationUI, 1000); };
+            
+            // OPTIMIZED SCROLL HANDLING
+            els.editor.onscroll = () => { 
+                requestAnimationFrame(() => {
+                    els.backdrop.scrollTop = els.editor.scrollTop; 
+                    els.backdrop.scrollLeft = els.editor.scrollLeft; 
+                    els.lineNumbers.scrollTop = els.editor.scrollTop; 
+                });
+            };
+            
+            // OPTIMIZED INPUT HANDLING
+            els.editor.oninput = () => { 
+                // 1. Visual Updates - Throttled with requestAnimationFrame
+                if (highlightAnimationFrame) cancelAnimationFrame(highlightAnimationFrame);
+                highlightAnimationFrame = requestAnimationFrame(() => {
+                    applySyntaxHighlighting();
+                    updateStats();
+                });
+                
+                // 2. Heavy Logic - Debounced by 1 second
+                clearTimeout(statusDebounceTimer);
+                statusDebounceTimer = setTimeout(updateValidationUI, 1000);
+
+                // 3. Storage Saving - Debounced by 2 seconds
+                clearTimeout(saveDebounceTimer);
+                saveDebounceTimer = setTimeout(saveToStorage, 2000);
+            };
             
             els.btnInitialDelete.onclick = deleteCurrentFile;
             els.btnDeleteNext.onclick = deleteCurrentFile;
@@ -1938,7 +2129,7 @@
             els.renumberCustomBtn.onclick = () => { els.modal.classList.add('show'); };
             els.modalConfirm.onclick = () => { const start = parseInt(els.modalStart.value) || 10; const step = parseInt(els.modalStep.value) || 10; const sel = els.modalSelection.checked; performRenumbering(start, step, sel); els.modal.classList.remove('show'); };
             els.modalCancel.onclick = () => { els.modal.classList.remove('show'); };
-            els.undoRenumberBtn.onclick = () => { if(codeBeforeRenumbering) { els.editor.value = codeBeforeRenumbering; applySyntaxHighlighting(); updateStats(); saveToStorage(); els.undoRenumberBtn.classList.add('hidden'); } };
+            els.undoRenumberBtn.onclick = () => { if(codeBeforeRenumbering) { els.editor.value = codeBeforeRenumbering; requestAnimationFrame(applySyntaxHighlighting); updateStats(); saveToStorage(); els.undoRenumberBtn.classList.add('hidden'); } };
             els.btnInputConfirm.onclick = confirmInput; 
             els.modalInputValue.addEventListener('keydown', function(e) { if (e.key === 'Enter') { confirmInput(); } });
 
