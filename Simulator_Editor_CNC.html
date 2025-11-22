@@ -2727,6 +2727,11 @@
                     fileInput.addEventListener('change', async function(event) {
                         if (!window.simulator || !window.simulator.parser) return;
 
+                        // OPRAVA ZDE: Vyčistíme localStorage a zablokujeme automatické načtení
+                        localStorage.removeItem('cncExternalEditorData');
+                        isLoadingExternalData = true;
+                        setTimeout(() => { isLoadingExternalData = false; }, 1000);
+
                         const files = Array.from(this.files);
                         programList.innerHTML = '';
                         window.simulator.parser.loadedPrograms.clear(); 
@@ -3046,6 +3051,118 @@
 
             isOpeningExternalEditor = false;
         }
+
+        // ==========================================
+        // INTEGRACE S EXTERNÍM EDITOREM (SimEditor)
+        // ==========================================
+
+        // Zámek pro zabránění souběžnému spuštění (Race Condition)
+        let isLoadingExternalData = false;
+
+        async function loadFromExternalEditor() {
+            if (isLoadingExternalData) {
+                console.log('Již probíhá načítání externích dat - přeskočeno.');
+                return;
+            }
+            
+            isLoadingExternalData = true;
+
+            try {
+                const rawData = localStorage.getItem('cncExternalEditorData');
+                if (!rawData) return;
+
+                const data = JSON.parse(rawData);
+                
+                if (!window.simulator || !window.simulator.parser) return;
+
+                if (data.parameters) {
+                    const paramsMap = new Map(data.parameters);
+                    paramsMap.forEach((val, key) => {
+                        const numVal = (typeof val === 'object' && val !== null) ? val.value : val;
+                        window.simulator.parser.parameters.set(key, Number(numVal));
+                    });
+                }
+
+                if (data.loadedPrograms) {
+                    window.simulator.parser.loadedPrograms.clear();
+                    window.simulator.parser.subprogramFiles.clear();
+                    
+                    const programList = document.getElementById('programList');
+                    if (programList) programList.innerHTML = '';
+
+                    const programNames = Object.keys(data.loadedPrograms);
+                    
+                    for (const name of programNames) {
+                        const content = data.loadedPrograms[name];
+                        const mockFile = { name: name };
+                        
+                        window.simulator.parser.loadedPrograms.set(name, {
+                            content: content,
+                            file: mockFile
+                        });
+
+                        if (name.toUpperCase().endsWith('.SPF')) {
+                            const baseName = name.toUpperCase().replace(/\.SPF$/, '');
+                            window.simulator.parser.loadedSubprograms.set(baseName, content);
+                        }
+
+                        createProgramListItem(mockFile);
+                    }
+
+                    if (data.mainProgramName && data.loadedPrograms[data.mainProgramName]) {
+                        const editor = document.getElementById('editor');
+                        const content = data.loadedPrograms[data.mainProgramName];
+                        
+                        // Zde je důležité zkontrolovat, zda se obsah skutečně změnil, ale
+                        // díky zámku nahoře už je to bezpečnější
+                        if (editor.value !== content) {
+                            editor.value = content;
+                            
+                            const items = document.querySelectorAll('.program-list-item');
+                            items.forEach(item => {
+                                if (item.dataset.filename === data.mainProgramName) {
+                                    item.classList.add('active');
+                                } else {
+                                    item.classList.remove('active');
+                                }
+                            });
+
+                            await simulateProgram();
+                            window.simulator.resetView();
+                            
+                            console.log(`[Simulator] Data načtena z externího editoru: ${data.mainProgramName}`);
+                        }
+                    }
+                }
+
+            } catch (e) {
+                console.error("Chyba při načítání dat z externího editoru:", e);
+            } finally {
+                // Vždy uvolníme zámek, i když dojde k chybě
+                isLoadingExternalData = false;
+            }
+        }
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'cncExternalEditorData') {
+                loadFromExternalEditor();
+            }
+        });
+
+        // Použití debouncingu pro focus události, aby se zabránilo vícenásobnému spuštění
+        // při rychlém přepínání nebo načítání
+        let focusLoadTimeout;
+        window.addEventListener('focus', () => {
+             clearTimeout(focusLoadTimeout);
+             focusLoadTimeout = setTimeout(loadFromExternalEditor, 200);
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                clearTimeout(focusLoadTimeout); // Sdílený timeout
+                focusLoadTimeout = setTimeout(loadFromExternalEditor, 200);
+            }
+        });
 
     </script>
 </body>
