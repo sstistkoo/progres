@@ -3,180 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Karusel CNC SmartGrid Pro v8.31 (Live Coords)</title>
+    <title>Karusel CNC SmartGrid Mobile v8.8</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
             --bg-canvas: #ffffff;           
-            --bg-panel: #2c2c2c;
+            --bg-panel: #1e1e1e;
+            --bg-btn: #333333;
             --grid-main: #999;       
-            --grid-sub: #bbb;     
+            --grid-sub: #e0e0e0;
             --axis: #444;            
             --accent: #ff6f00;       
-            --text-dark: #333;
             --text-light: #eee;
-            --btn-link-color: #4caf50;
-            --btn-arc-color: #2196f3;
-            --btn-measure-color: #ff9800;
-            --btn-mode-color: #00bcd4;
-            --btn-undo-color: #4a4a4a; 
-            --btn-redo-color: #6a6a6a; 
+            
+            /* Barvy funkcí - Sytější pro lepší čitelnost */
+            --c-draw: #2e7d32;    /* Tmavší zelená */
+            --c-arc: #1565c0;     /* Tmavší modrá */
+            --c-meas: #ef6c00;    /* Tmavší oranžová */
+            --c-util: #0097a7;    /* Tmavší tyrkysová */
+            --c-undo: #757575;    
+            --c-del: #d32f2f;     
         }
 
         body { margin: 0; padding: 0; background: var(--bg-panel); color: var(--text-light); font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; width: 100vw; overflow: hidden; user-select: none; }
 
-        #app-layout { display: flex; width: 100%; height: 100%; }
+        #app-layout { display: flex; flex-direction: column; width: 100%; height: 100%; }
 
+        /* CANVAS AREA */
         #canvas-area {
-            background: var(--bg-canvas); position: relative; flex-shrink: 0; 
+            flex-grow: 1; background: var(--bg-canvas); position: relative; 
             overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 1;
-            touch-action: none; /* Důležité pro prevenci scrollování */
+            touch-action: none;
         }
 
         svg { width: 100%; height: 100%; display: block; cursor: crosshair; }
 
+        /* PANEL AREA */
         #panel-area {
-            flex-grow: 1; background: var(--bg-panel); display: flex; flex-direction: column;
-            padding: 20px; box-sizing: border-box; overflow-y: auto; align-items: center;
+            flex-shrink: 0; background: var(--bg-panel); 
+            padding: 10px; box-sizing: border-box; 
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
+            z-index: 10; overflow-y: auto; max-height: 45vh; 
         }
 
+        .panel-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+            width: 100%; max-width: 600px; margin: 0 auto;
+        }
+
+        .icon-btn {
+            background: var(--bg-btn); border: none; border-radius: 12px;
+            aspect-ratio: 1 / 0.9; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; cursor: pointer;
+            color: #ccc; transition: all 0.1s; position: relative; padding: 5px;
+        }
+        .icon-btn:active { transform: scale(0.95); background: #444; }
+        .icon-btn i { font-size: 24px; margin-bottom: 6px; }
+        .icon-btn span { font-size: 10px; font-weight: 600; text-align: center; line-height: 1.1; }
+
+        .btn-draw i { color: #4caf50; }
+        .btn-arc i { color: #2196f3; }
+        .btn-meas i { color: #ff9800; }
+        .btn-util i { color: #00bcd4; }
+        .btn-del i { color: #f44336; }
+        .btn-disabled { opacity: 0.3; pointer-events: none; }
+
+        /* SVG Stylizace */
         .axis-line { stroke: var(--axis); stroke-width: 2px; vector-effect: non-scaling-stroke; }
         .grid-line { stroke: var(--grid-main); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
         .grid-sub-line { stroke: var(--grid-sub); stroke-width: 1px; vector-effect: non-scaling-stroke; }
-        
         .path-draw { stroke: #00c853; fill: none; stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
-        
         .point-marker { fill: #fff; stroke: var(--accent); vector-effect: non-scaling-stroke; }
         .point-current { fill: var(--accent); }
-        
         .measure-line { stroke: #ff9800; stroke-width: 2.5px; stroke-dasharray: 8, 4; vector-effect: non-scaling-stroke; }
         .measure-point { fill: #ff9800; vector-effect: non-scaling-stroke; }
-        
         .point-center { fill: yellow; stroke: #333; stroke-width: 1px; vector-effect: non-scaling-stroke; } 
         .point-center-clickable { cursor: pointer; fill: rgba(255,255,0,0.01); stroke: transparent; }
         .point-center-clickable:hover { stroke: #ff0; stroke-width: 2px; }
-
         .helper-full-circle { fill: none; stroke: rgba(0,0,0,0.4); stroke-width: 1px; stroke-dasharray: 4,4; vector-effect: non-scaling-stroke; }
         .helper-radius-line { stroke: rgba(33, 150, 243, 0.8); stroke-width: 1px; stroke-dasharray: 2,2; vector-effect: non-scaling-stroke; }
         .helper-target-tangent { stroke: #9c27b0; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
-
         .point-marker-clickable { cursor: pointer; fill: rgba(255,255,255,0.01); stroke: transparent; }
         .point-marker-clickable:hover { stroke: #2196f3; stroke-width: 2px; }
-
-        .tangent-normal { stroke: #2196f3; stroke-width: 1.5px; stroke-dasharray: 4, 2; vector-effect: non-scaling-stroke; }
-        .tangent-line { stroke: #ff0000; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
-        
         .intersection-marker { fill: none; stroke: #666; stroke-width: 2px; vector-effect: non-scaling-stroke; opacity: 0.7; }
         .snap-highlight { fill: none; stroke: #f00; stroke-width: 3px; vector-effect: non-scaling-stroke; }
-        
-        /* NOVÉ: Styl pro mobilní kurzor */
         .mobile-cursor-line { stroke: rgba(0,0,0,0.3); stroke-width: 1px; vector-effect: non-scaling-stroke; stroke-dasharray: 4,4; }
         .mobile-cursor-crosshair { stroke: #d32f2f; stroke-width: 2px; vector-effect: non-scaling-stroke; }
 
         #coords-hud {
             position: absolute; top: 10px; left: 10px;
-            background: rgba(255,255,255,0.95); padding: 8px 14px;
+            background: rgba(255,255,255,0.95); padding: 6px 10px;
             border-radius: 8px; border: 2px solid #444;
-            pointer-events: none; display: flex; gap: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            z-index: 20;
+            pointer-events: none; display: flex; gap: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 20;
         }
-        .hud-val { font-size: 1.2rem; font-weight: bold; color: #333; font-family: 'Consolas', monospace; min-width: 60px; display: inline-block; text-align: right; }
-        .hud-label { font-size: 0.7rem; color: #666; text-transform: uppercase; font-weight: 700; margin-left: 4px; }
-        .hud-snap-indicator { color: red; font-weight: bold; font-size: 0.8rem; display:none; margin-left: 10px;}
+        .hud-val { font-size: 1.1rem; font-weight: bold; color: #333; font-family: 'Consolas', monospace; min-width: 50px; display: inline-block; text-align: right; }
+        .hud-label { font-size: 0.7rem; color: #666; text-transform: uppercase; font-weight: 700; margin-left: 2px; }
+        .hud-snap-indicator { color: red; font-weight: bold; font-size: 0.7rem; display:none; margin-left: 5px;}
 
         #btn-home {
-            position: absolute; top: 15px; right: 15px; width: 45px; height: 45px;
-            background: #fff; color: #333; border-radius: 8px; border: 1px solid #ccc;
+            position: absolute; top: 10px; right: 10px; width: 40px; height: 40px;
+            background: #fff; color: #333; border-radius: 50%; border: 2px solid #888;
             display: flex; justify-content: center; align-items: center;
-            font-size: 24px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            z-index: 10; transition: background 0.2s;
+            font-size: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10;
         }
-        #btn-home:active { background: #eee; transform: scale(0.95); }
 
-        .panel-group { width: 100%; max-width: 400px; margin-bottom: 20px; }
-        .act-btn {
-            width: 100%; padding: 15px; border: none; border-radius: 8px; 
-            font-weight: bold; cursor: pointer; color: #fff; text-align: center; font-size: 14px;
-            background: #444; box-shadow: 0 4px 0 #222; margin-bottom: 10px;
-            transition: transform 0.1s, box-shadow 0.1s;
-        }
-        .act-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #222; }
-        
-        .btn-linka { background: var(--btn-link-color); font-size: 16px; padding: 15px; text-transform: uppercase; letter-spacing: 1px; }
-        .btn-arc { background: var(--btn-arc-color); font-size: 16px; padding: 15px; text-transform: uppercase; letter-spacing: 1px; }
-        .btn-measure { background: var(--btn-measure-color); font-size: 16px; padding: 15px; text-transform: uppercase; letter-spacing: 1px; }
-        .btn-toggle { background: var(--accent); color: #000; }
-        .btn-danger { background: #d32f2f; margin-top: 20px; }
-        
-        #undo-redo-group { display: flex; gap: 10px; margin-bottom: 10px; }
-        #undo-redo-group .act-btn { margin-bottom: 0; flex: 1; }
-        .btn-undo { background: var(--btn-undo-color); color: #fff; }
-        .btn-redo { background: var(--btn-redo-color); color: #fff; }
-        .btn-disabled { opacity: 0.5; pointer-events: none; }
-
-        @media (orientation: portrait) {
-            #app-layout { flex-direction: column; }
-            #canvas-area { width: 100%; aspect-ratio: 1 / 1; }
-        }
         @media (orientation: landscape) {
             #app-layout { flex-direction: row; }
-            #canvas-area { height: 100%; aspect-ratio: 1 / 1; }
+            #panel-area { width: 280px; max-height: 100%; overflow-y: auto; border-left: 1px solid #444; }
+            .panel-grid { grid-template-columns: repeat(3, 1fr); } 
         }
 
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
-        .modal-content { background: #fff; padding: 25px; border-radius: 16px; width: 90%; max-width: 350px; color: #333; border: 1px solid #ccc; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 90vh; overflow-y: auto; }
+        /* MODALS */
+        .modal { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.85); z-index: 100; 
+            justify-content: center; align-items: center; backdrop-filter: blur(5px); 
+        }
+        .modal-content { 
+            background: #fff; width: 90%; max-width: 350px; max-height: 90vh;
+            border-radius: 16px; border: 1px solid #999; color: #000;
+            display: flex; flex-direction: column; overflow: hidden; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .modal-header { padding: 15px 20px 10px 20px; border-bottom: 2px solid #eee; flex-shrink: 0; background: #fff; }
+        .modal-header h3 { margin: 0; font-size: 20px; color: #000; text-align: center; font-weight: 800; }
+        .modal-body { padding: 15px 20px; overflow-y: auto; flex-grow: 1; background: #fff; }
+        .modal-footer { padding: 15px 20px; border-top: 2px solid #eee; background: #f8f8f8; flex-shrink: 0; }
+
+        /* VYSOCE KONTRASTNÍ OVLÁDACÍ PRVKY */
+        .segmented-control { 
+            display: flex; width: 100%; margin-bottom: 15px; 
+            border: 2px solid #666; border-radius: 8px; overflow: hidden; background: #fff; 
+        }
+        .seg-opt { 
+            flex: 1; padding: 12px; text-align: center; cursor: pointer; 
+            background: #fff; color: #333; 
+            font-weight: bold; font-size: 15px; transition: all 0.1s; 
+            border-right: 1px solid #ccc;
+        }
+        .seg-opt:last-child { border-right: none; }
+        .seg-opt:hover { background: #eee; color: #000; } /* Hover efekt: jen ztmavne pozadí */
         
-        .joypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; aspect-ratio: 1/0.8; margin-top: 10px; }
+        /* Aktivní stavy s vysokým kontrastem */
+        .seg-opt.active { background: var(--c-arc); color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.5); }
+        .mode-toggle .seg-opt.active { background: var(--c-util); color: #fff; }
+        .tangent-target-toggle .seg-opt.active { background: var(--c-meas); color: #fff; }
+        
+        .joypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; aspect-ratio: 1/0.8; margin-top: 5px; }
         .joy-btn { 
-            background: #f0f0f0; border: 1px solid #ccc; border-radius: 8px; 
-            color: #333; display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            background: #f0f0f0; border: 2px solid #ccc; border-radius: 8px; 
+            color: #222; display: flex; flex-direction: column; justify-content: center; align-items: center; 
             cursor: pointer; transition: background 0.1s; box-shadow: 0 3px 0 #bbb; 
         }
+        .joy-btn:hover { background: #e0e0e0; }
         .joy-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #bbb; background: var(--accent); color: #fff; }
-        .joy-arrow { font-size: 24px; line-height: 1; }
-        .joy-desc { font-size: 9px; color: #666; font-weight: bold; margin-top: 2px; }
-        .joy-close { background: #e0e0e0; border-color: #999; color: #555; font-size: 12px; font-weight: bold; }
-        
-        #btn-tangent-line {
-            grid-column: 1 / -1; 
-            background: #e3f2fd; border-color: #2196f3; color: #0d47a1;
-            flex-direction: row; gap: 10px;
+        .joy-arrow { font-size: 28px; line-height: 1; font-weight: bold; }
+        .joy-desc { font-size: 10px; color: #444; font-weight: 800; margin-top: 2px; }
+        .joy-close { background: #ddd; border-color: #999; color: #000; font-weight: bold; }
+        #btn-tangent-line { grid-column: 1 / -1; background: #e3f2fd; border-color: #2196f3; color: #0d47a1; flex-direction: row; gap: 10px; font-weight: bold;}
+
+        /* INPUTY - Max čitelnost */
+        input { 
+            width: 100%; padding: 12px; font-size: 20px; text-align: right; font-weight: bold; font-family: 'Consolas', monospace;
+            border: 2px solid #777; border-radius: 6px; margin-bottom: 15px; box-sizing: border-box; 
+            background: #fff; color: #000; 
         }
-        #btn-tangent-line:active { background: #2196f3; color: white; }
+        input:focus { border-color: var(--c-arc); outline: none; background: #f0f8ff; }
+        ::placeholder { color: #888; opacity: 1; font-weight: normal; font-family: 'Segoe UI', sans-serif; font-size: 16px; }
 
-        h3 { margin-top: 0; text-align: center; color: #333; }
-        input { width: 100%; padding: 12px; font-size: 18px; text-align: right; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; box-sizing: border-box; background: #fff; color: #000; }
+        .modal-btn-row { display: flex; gap: 10px; width: 100%; }
+        .m-btn { flex: 1; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; text-transform: uppercase; }
+        .m-cancel { background: #ddd; color: #000; border: 1px solid #bbb; }
+        .m-cancel:hover { background: #ccc; }
         
-        .segmented-control { display: flex; width: 100%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
-        .seg-opt { flex: 1; padding: 12px; text-align: center; cursor: pointer; background: #f9f9f9; font-weight: bold; font-size: 14px; transition: background 0.2s; }
-        .seg-opt.active { background: var(--btn-arc-color); color: white; }
+        /* Tlačítka akcí - explicitní barvy */
+        .btn-primary-arc { background: var(--c-arc); color: #fff; box-shadow: 0 3px 0 #0d47a1; }
+        .btn-primary-arc:hover { background: #1976d2; } /* Tmavší modrá na hover */
+        .btn-primary-draw { background: var(--c-draw); color: #fff; box-shadow: 0 3px 0 #1b5e20; }
         
-        .modal-btn-row { display: flex; gap: 10px; }
-        .m-btn { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        .m-ok { background: var(--btn-link-color); color: #fff; }
-        .m-cancel { background: #ddd; color: #333; }
-
-        .chk-row { display: flex; align-items: center; margin-bottom: 15px; background: #f0f8ff; padding: 10px; border-radius: 6px; border: 1px solid #b3d7ff; }
-        .chk-row input { width: auto; margin: 0 10px 0 0; transform: scale(1.5); }
-        .chk-row label { font-weight: bold; color: #0056b3; cursor: pointer; font-size: 14px; width: 100%; }
+        /* Checkbox řádek */
+        .chk-row { 
+            display: flex; align-items: center; margin-bottom: 15px; 
+            background: #e3f2fd; padding: 12px; border-radius: 8px; border: 2px solid #90caf9; 
+            cursor: pointer; /* Celý řádek klikatelný */
+        }
+        .chk-row:hover { background: #bbdefb; } /* Hover efekt pro řádek */
+        .chk-row input { width: 24px; height: 24px; margin: 0 15px 0 0; transform: none; border: 2px solid #555; }
+        .chk-row label { font-weight: 800; color: #0d47a1; cursor: pointer; font-size: 15px; width: 100%; pointer-events: none; /* Klik jde skrz na row */ }
 
         #tangent-choices { display: none; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
         .choice-btn { 
             width: 100%; padding: 12px; margin-bottom: 8px; 
-            background: #fff3cd; border: 1px solid #ffeeba; border-radius: 6px;
-            text-align: left; cursor: pointer; font-family: monospace; font-size: 14px;
-            display: flex; justify-content: space-between; align-items: center;
+            background: #fff8e1; border: 2px solid #ffecb3; border-radius: 6px;
+            text-align: left; cursor: pointer; font-family: monospace; font-size: 14px; font-weight: bold;
+            display: flex; justify-content: space-between; align-items: center; color: #000;
         }
-        .choice-btn:hover { background: #ffe8a1; }
-        .choice-btn span { font-weight: bold; color: #856404; }
+        .choice-btn:hover { background: #ffecb3; }
 
-        .arc-tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 15px; }
-        .arc-tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: bold; color: #999; border-bottom: 2px solid transparent; }
-        .arc-tab.active { color: var(--btn-arc-color); border-bottom-color: var(--btn-arc-color); }
+        .arc-tabs { display: flex; border-bottom: 3px solid #eee; margin-bottom: 20px; }
+        .arc-tab { 
+            flex: 1; text-align: center; padding: 12px; cursor: pointer; 
+            font-weight: 800; font-size: 15px; color: #888; 
+            border-bottom: 3px solid transparent; margin-bottom: -3px;
+        }
+        .arc-tab.active { color: var(--c-arc); border-bottom-color: var(--c-arc); }
+        .arc-tab:hover { color: #555; }
+
+        .separator { width:100%; height:2px; background:#ddd; margin:15px 0; }
         
-        .mode-toggle .seg-opt.active { background: var(--btn-mode-color); }
-        .tangent-target-toggle .seg-opt.active { background: var(--btn-measure-color); color: white; }
-
+        /* Sekční nadpisy - ČERNÉ */
+        .section-label { 
+            font-size: 13px; color: #111; /* Téměř černá */
+            text-transform: uppercase; font-weight: 900; margin-bottom: 6px; display:block; 
+            letter-spacing: 0.5px;
+        }
     </style>
 </head>
 <body>
@@ -191,146 +232,169 @@
                 <g id="intersectionGroup"></g>
                 <g id="measureLayer"></g> 
                 <g id="snapCursorGroup"></g>
-                <g id="mobileCursorGroup"></g> <!-- VRSTVA PRO MOBILNÍ KURZOR -->
+                <g id="mobileCursorGroup"></g>
             </g>
             <g id="textGroup"></g>
         </svg>
         
         <div id="coords-hud">
             <div><span class="hud-val" id="hud-x">0.00</span><span class="hud-label">X</span></div>
-            <div style="width:1px; background:#ddd;"></div>
+            <div style="width:1px; background:#999;"></div>
             <div><span class="hud-val" id="hud-z">0.00</span><span class="hud-label">Z</span></div>
-            <div id="hud-snap-info" class="hud-snap-indicator">PRŮSEČÍK</div>
+            <div id="hud-snap-info" class="hud-snap-indicator">SNAP</div>
         </div>
 
-        <div id="btn-home" onclick="setHomeView()" title="Reset pohledu">⌂</div>
+        <div id="btn-home" onclick="setHomeView()" title="Reset pohledu"><i class="fas fa-home"></i></div>
     </div>
 
     <div id="panel-area">
-        <div class="panel-group">
-            <button class="act-btn btn-linka" onclick="openJoypad()">Linka / Kužel</button>
-            <button class="act-btn btn-arc" onclick="openArcModal()">Kružnice (G2/G3)</button>
-            <button class="act-btn btn-measure" onclick="openMeasureModal()">Měření</button>
-            
-            <button id="btn-toggle-dia" class="act-btn btn-toggle" onclick="toggleDiameterMode()">Průměr (Ø)</button>
-            <button class="act-btn" onclick="fitToScreen()">Centrovat Pohled</button>
-            <button class="act-btn" onclick="openStartModal()">Nový Startovní Bod</button>
-            
-            <div id="undo-redo-group">
-                <button id="btn-undo" class="act-btn btn-undo btn-disabled" onclick="undoLastMove()">Zpět (Undo)</button> 
-                <button id="btn-redo" class="act-btn btn-redo btn-disabled" onclick="redoLastMove()">Obnovit (Redo)</button>
-            </div>
-            
-            <button class="act-btn btn-danger" onclick="clearAll()">Smazat Vše</button>
+        <div class="panel-grid">
+            <button class="icon-btn btn-draw" onclick="openJoypad()"><i class="fas fa-pen-nib"></i><span>Linka</span></button>
+            <button class="icon-btn btn-arc" onclick="openArcModal()"><i class="fas fa-bezier-curve"></i><span>Rádius</span></button>
+            <button class="icon-btn btn-meas" onclick="openMeasureModal()"><i class="fas fa-ruler-combined"></i><span>Měřit</span></button>
+            <button class="icon-btn btn-del" onclick="clearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button>
+            <button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button>
+            <button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button>
+            <button class="icon-btn btn-util" onclick="openStartModal()"><i class="fas fa-map-marker-alt"></i><span>Start Bod</span></button>
+            <div style="width:100%"></div> 
+            <button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button>
+            <button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button>
         </div>
-
-        <div style="margin-top:auto; font-size:10px; color:#666;">
-            Karusel CNC Helper v8.31 (Live Coords)
-        </div>
+        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v8.8 Mobile SmartGrid</div>
     </div>
 </div>
 
 <!-- MODAL JOYPAD -->
 <div id="modal-joypad" class="modal">
     <div class="modal-content">
-        <h3>Vyberte směr</h3>
-        <div class="joypad-grid" id="joypad-grid-container">
-            <div class="joy-btn" onclick="prepMove('UL')"><span class="joy-arrow">↖</span><span class="joy-desc">Kužel</span></div>
-            <div class="joy-btn" onclick="prepMove('U')"><span class="joy-arrow">⬆</span><span class="joy-desc">Z+</span></div>
-            <div class="joy-btn" onclick="prepMove('UR')"><span class="joy-arrow">↗</span><span class="joy-desc">Kužel</span></div>
-            <div class="joy-btn" onclick="prepMove('L')"><span class="joy-arrow">⬅</span><span class="joy-desc">X-</span></div>
-            <div class="joy-btn joy-close" onclick="closeModals()">ZAVŘÍT</div>
-            <div class="joy-btn" onclick="prepMove('R')"><span class="joy-arrow">➡</span><span class="joy-desc">X+</span></div>
-            <div class="joy-btn" onclick="prepMove('DL')"><span class="joy-arrow">↙</span><span class="joy-desc">Kužel</span></div>
-            <div class="joy-btn" onclick="prepMove('D')"><span class="joy-arrow">⬇</span><span class="joy-desc">Z-</span></div>
-            <div class="joy-btn" onclick="prepMove('DR')"><span class="joy-arrow">↘</span><span class="joy-desc">Kužel</span></div>
-            
-            <div id="btn-tangent-line" class="joy-btn" style="display:none;" onclick="prepMove('TANGENT')">
-                <span class="joy-arrow" style="font-size:18px;">⤤</span>
-                <span class="joy-desc">TEČNA (Pokračovat v rádiusu)</span>
+        <div class="modal-header"><h3>Vyberte směr</h3></div>
+        <div class="modal-body">
+            <div class="joypad-grid">
+                <div class="joy-btn" onclick="prepMove('UL')"><span class="joy-arrow">↖</span><span class="joy-desc">Kužel</span></div>
+                <div class="joy-btn" onclick="prepMove('U')"><span class="joy-arrow">⬆</span><span class="joy-desc">Z+</span></div>
+                <div class="joy-btn" onclick="prepMove('UR')"><span class="joy-arrow">↗</span><span class="joy-desc">Kužel</span></div>
+                <div class="joy-btn" onclick="prepMove('L')"><span class="joy-arrow">⬅</span><span class="joy-desc">X-</span></div>
+                <div class="joy-btn joy-close" onclick="closeModals()">ZAVŘÍT</div>
+                <div class="joy-btn" onclick="prepMove('R')"><span class="joy-arrow">➡</span><span class="joy-desc">X+</span></div>
+                <div class="joy-btn" onclick="prepMove('DL')"><span class="joy-arrow">↙</span><span class="joy-desc">Kužel</span></div>
+                <div class="joy-btn" onclick="prepMove('D')"><span class="joy-arrow">⬇</span><span class="joy-desc">Z-</span></div>
+                <div class="joy-btn" onclick="prepMove('DR')"><span class="joy-arrow">↘</span><span class="joy-desc">Kužel</span></div>
+                <div id="btn-tangent-line" class="joy-btn" style="display:none;" onclick="prepMove('TANGENT')"><span class="joy-arrow" style="font-size:18px;">⤤</span><span class="joy-desc">TEČNA</span></div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- MODAL INPUT (Linka/Kužel) -->
+<!-- MODAL INPUT -->
 <div id="modal-input" class="modal">
     <div class="modal-content">
-        <h3 id="input-title">Zadat hodnoty</h3>
-        <div id="input-linear">
-            <label style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Délka pohybu (mm):</label>
+        <div class="modal-header"><h3 id="input-title">Zadat hodnoty</h3></div>
+        <div class="modal-body">
+            <label class="section-label">Délka pohybu (mm):</label>
             <input type="number" id="inp-len" placeholder="0" inputmode="decimal">
         </div>
-        <div class="modal-btn-row">
-            <button class="m-btn m-cancel" onclick="openJoypad()">Zpět</button>
-            <button class="m-btn m-ok" onclick="commitMove()">Vypočítat</button>
+        <div class="modal-footer">
+            <div class="modal-btn-row">
+                <button class="m-btn m-cancel" onclick="openJoypad()">Zpět</button>
+                <button class="m-btn btn-primary-draw" onclick="commitMove()">Vypočítat</button>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- MODAL ARC (Kružnice) -->
+<!-- MODAL ARC -->
 <div id="modal-arc" class="modal">
     <div class="modal-content">
-        <h3 style="margin-bottom:10px;">Kružnice (Radius)</h3>
-        <div class="arc-tabs">
-            <div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius (R)</div>
-            <div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed (I, K)</div>
-        </div>
-        <label style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Směr otáčení:</label>
-        <div class="segmented-control">
-            <div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2 (Po směru)</div>
-            <div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3 (Proti)</div>
-        </div>
-        <div id="method-r">
-            <div class="chk-row">
-                <input type="checkbox" id="chk-tangent" onchange="toggleTangentMode()">
-                <label for="chk-tangent">Tangenciální napojení</label>
+        <div class="modal-header">
+            <h3>Kružnice (Radius)</h3>
+            <div class="arc-tabs">
+                <div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius (R)</div>
+                <div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed (I, K)</div>
             </div>
-            <label style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Rádius (R):</label>
-            <input type="number" id="arc-r" placeholder="Poloměr" inputmode="decimal">
-        </div>
-        <div id="method-ik" style="display:none;">
-            <div class="segmented-control mode-toggle">
-                <div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div>
-                <div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div>
-            </div>
-            <p style="font-size:11px; color:#888; margin-bottom:10px;">Rádius se vypočítá automaticky ze středu.</p>
-            <label id="lbl-center-x" style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Střed I (Absolutní X):</label>
-            <input type="number" id="center-x" placeholder="Střed X" inputmode="decimal">
-            <label id="lbl-center-z" style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Střed K (Absolutní Z):</label>
-            <input type="number" id="center-z" placeholder="Střed Z" inputmode="decimal">
         </div>
         
-        <div id="arc-targets">
-            <div id="tangent-target-selector" style="margin-bottom: 15px; display: none;">
-                <label style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Definovat cíl přes:</label>
-                <div class="segmented-control tangent-target-toggle">
-                    <div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z Souřadnice</div>
-                    <div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel Rozevření (Delta)</div>
+        <div class="modal-body">
+            <label class="section-label">Směr otáčení:</label>
+            <div class="segmented-control">
+                <div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2 (Po směru)</div>
+                <div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3 (Proti)</div>
+            </div>
+
+            <!-- METHOD R -->
+            <div id="method-r">
+                <div class="chk-row" onclick="document.getElementById('chk-tangent').click();">
+                    <input type="checkbox" id="chk-tangent" onchange="toggleTangentMode()" onclick="event.stopPropagation()">
+                    <label for="chk-tangent">Tangenciální napojení</label>
+                </div>
+                <label class="section-label">Rádius (R):</label>
+                <input type="number" id="arc-r" placeholder="Zadejte poloměr" inputmode="decimal">
+            </div>
+
+            <!-- METHOD IK -->
+            <div id="method-ik" style="display:none;">
+                <div class="segmented-control mode-toggle">
+                    <div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div>
+                    <div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div>
+                </div>
+                
+                <label id="lbl-center-x" class="section-label">Střed I (Absolutní X):</label>
+                <input type="number" id="center-x" placeholder="Střed X" inputmode="decimal">
+                <label id="lbl-center-z" class="section-label">Střed K (Absolutní Z):</label>
+                <input type="number" id="center-z" placeholder="Střed Z" inputmode="decimal">
+
+                <div class="separator"></div>
+                
+                <label class="section-label" style="color:#007bff">Cíl kružnice (Volitelné):</label>
+                <p style="font-size:11px; color:#444; margin-top:-3px; margin-bottom:8px; font-weight:bold;">Zadejte alespoň jednu hodnotu.</p>
+                
+                <label class="section-label">Cílové X:</label>
+                <input type="number" id="ik-target-x" placeholder="Nechat prázdné" inputmode="decimal">
+                <label class="section-label">Cílové Z:</label>
+                <input type="number" id="ik-target-z" placeholder="Nechat prázdné" inputmode="decimal">
+                <label class="section-label">Nebo Úhel otevření (°):</label>
+                <input type="number" id="ik-target-angle" placeholder="např. 45" inputmode="decimal">
+
+                <div class="chk-row" style="margin-top:10px;" onclick="document.getElementById('chk-ik-long-arc').click();">
+                    <input type="checkbox" id="chk-ik-long-arc" onclick="event.stopPropagation()">
+                    <label for="chk-ik-long-arc">Použít delší oblouk</label>
                 </div>
             </div>
             
-            <div id="target-coord-inputs">
-                <label id="lbl-arc-x" style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Koncové X (Průměr):</label>
-                <input type="number" id="arc-x" placeholder="Průměr" inputmode="decimal">
-                <label style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Koncové Z:</label>
-                <input type="number" id="arc-z" placeholder="Délka" inputmode="decimal">
+            <!-- Target Inputs for R Method -->
+            <div id="arc-targets">
+                <div id="tangent-target-selector" style="margin-bottom: 15px; display: none;">
+                    <label class="section-label">Definovat cíl přes:</label>
+                    <div class="segmented-control tangent-target-toggle">
+                        <div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div>
+                        <div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div>
+                    </div>
+                </div>
+                
+                <div id="target-coord-inputs">
+                    <label id="lbl-arc-x" class="section-label">Koncové X (Průměr):</label>
+                    <input type="number" id="arc-x" placeholder="Průměr" inputmode="decimal">
+                    <label class="section-label">Koncové Z:</label>
+                    <input type="number" id="arc-z" placeholder="Délka" inputmode="decimal">
+                </div>
+                
+                <div id="target-cone-input" style="display: none;">
+                    <label id="lbl-arc-cone-angle" class="section-label">Úhel Rozevření (°):</label>
+                    <input type="text" id="arc-cone-angle" placeholder="např. 30" inputmode="text">
+                </div>
             </div>
             
-            <div id="target-cone-input" style="display: none;">
-                <label id="lbl-arc-cone-angle" style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Úhel Rozevření (Výseč) °:</label>
-                <input type="text" id="arc-cone-angle" placeholder="např. 30 nebo 90" inputmode="text">
-                <div style="font-size:11px; color:#999; margin-top:5px;">Kolik stupňů má oblouk opsat.</div>
+            <div id="tangent-choices">
+                <p style="font-size:12px; color:#000; text-align:center; margin:5px 0; font-weight:bold;">Nalezeny 2 možnosti:</p>
+                <div id="choices-container"></div>
             </div>
         </div>
-        
-        <div id="tangent-choices">
-            <p style="font-size:12px; color:#666; text-align:center; margin:5px 0;">Nalezeny 2 možnosti. Vyberte:</p>
-            <div id="choices-container"></div>
-        </div>
-        <div class="modal-btn-row" id="arc-main-btns">
-            <button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button>
-            <button id="btn-arc-ok" class="m-btn m-ok" style="background:var(--btn-arc-color);" onclick="commitArc()">Vykreslit</button>
+
+        <div class="modal-footer">
+            <div class="modal-btn-row" id="arc-main-btns">
+                <button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button>
+                <!-- Zde opravena barva -->
+                <button id="btn-arc-ok" class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button>
+            </div>
         </div>
     </div>
 </div>
@@ -338,15 +402,16 @@
 <!-- MODAL START -->
 <div id="modal-start" class="modal">
     <div class="modal-content">
-        <h3>Nový Startovní Bod</h3>
-        <p style="font-size:12px; color:#666; text-align:center;">Zadejte výchozí souřadnice.</p>
-        <label id="lbl-start-x" style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Start X (Průměr):</label>
-        <input type="number" id="start-x" placeholder="0" inputmode="decimal">
-        <label style="display:block; margin-bottom:5px; color:#666; font-size:12px;">Start Z:</label>
-        <input type="number" id="start-z" placeholder="0" inputmode="decimal">
-        <div class="modal-btn-row">
-            <button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button>
-            <button class="m-btn m-ok" onclick="confirmNewStart()">Nastavit</button>
+        <div class="modal-header"><h3>Nový Start</h3></div>
+        <div class="modal-body">
+            <label id="lbl-start-x" class="section-label">Start X:</label><input type="number" id="start-x">
+            <label class="section-label">Start Z:</label><input type="number" id="start-z">
+        </div>
+        <div class="modal-footer">
+            <div class="modal-btn-row">
+                <button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button>
+                <button class="m-btn btn-primary-draw" onclick="confirmNewStart()">Nastavit</button>
+            </div>
         </div>
     </div>
 </div>
@@ -354,45 +419,32 @@
 <!-- MODAL MEASURE -->
 <div id="modal-measure" class="modal">
     <div class="modal-content">
-        <h3>Měření</h3>
-        <p id="measure-info" style="font-size:12px; color:#666; margin-bottom:15px; text-align:center;">Vyberte typ měření.</p>
-        <div class="segmented-control" style="border-color: var(--btn-measure-color);">
-            <div class="seg-opt active" id="meas-dist-btn" onclick="startMeasure('distance')" style="background: var(--btn-measure-color); color: white;">Vzdálenost (L)</div>
-            <div class="seg-opt" id="meas-angle-btn" onclick="startMeasure('angle')">Úhel lomu (3 body)</div>
-            <div class="seg-opt" id="meas-cone-btn" onclick="startMeasure('cone_angle')">Úhel kuželu (1 bod)</div>
-            <div class="seg-opt" id="meas-coord-btn" onclick="startMeasure('coord')">Souřadnice bodu</div>
+        <div class="modal-header"><h3>Měření</h3></div>
+        <div class="modal-body">
+            <div class="segmented-control" style="border-color:var(--c-meas);">
+                <div class="seg-opt active" id="meas-dist-btn" onclick="startMeasure('distance')" style="background:var(--c-meas);color:white;">Délka</div>
+                <div class="seg-opt" id="meas-angle-btn" onclick="startMeasure('angle')">Úhel</div>
+                <div class="seg-opt" id="meas-coord-btn" onclick="startMeasure('coord')">Bod</div>
+            </div>
+            <p id="measure-instructions" style="text-align:center; font-weight:bold; color:#333;">Vyberte body.</p>
+            <div id="measure-result" style="display:none;padding:10px;background:#fff3e0;margin-top:10px;border-radius:4px;border:1px solid #ffb74d;color:#000;">
+                <div id="measure-output" style="font-family:monospace;font-size:14px;font-weight:bold;"></div>
+            </div>
         </div>
-        <p id="measure-instructions" style="font-size:14px; color:#333; font-weight:bold; text-align:center; margin-top:20px;">
-            <span style="color:var(--btn-measure-color);">Instrukce:</span> Klikněte na 2 body.
-        </p>
-        <div id="measure-result" style="margin-top:20px; padding:15px; background:#f0f0f0; border-radius:8px; display:none;">
-            <h4 style="margin-top:0;">Výsledek:</h4>
-            <div id="measure-output" style="font-family:monospace; font-size:16px; color:#000;"></div>
-        </div>
-        <div class="modal-btn-row" style="margin-top:20px;">
-            <button class="m-btn m-cancel" onclick="stopMeasure()">Zavřít</button>
+        <div class="modal-footer">
+            <div class="modal-btn-row"><button class="m-btn m-cancel" onclick="stopMeasure()">Zavřít</button></div>
         </div>
     </div>
 </div>
 
 <script>
     let points = [{x: 0, z: 0, break: false, type: 'line', id: 0}]; 
-    let historyStack = [];
-    let redoStack = [];
-    let pointIdCounter = 1;
-    let currentDir = ''; 
-    let isG2 = true; 
-    let arcMethod = 'R';
-    let isIncrementalIKMode = false;
-    let tangentTargetMode = 'cone'; 
-    let measureMode = null; 
-    let measurePoints = []; 
-    let activeIntersections = []; 
+    let historyStack = []; let redoStack = []; let pointIdCounter = 1;
+    let currentDir = ''; let isG2 = true; let arcMethod = 'R';
+    let isIncrementalIKMode = false; let tangentTargetMode = 'cone'; 
+    let measureMode = null; let measurePoints = []; let activeIntersections = []; 
+    let lastVirtualSnap = null; const TOUCH_OFFSET_Y = 100; 
     
-    // PRO MOBILNÍ OVLÁDÁNÍ
-    let lastVirtualSnap = null; // Poslední místo, kam mířil virtuální kříž
-    const TOUCH_OFFSET_Y = 100; // Kolik pixelů nad prstem bude kříž (cca 2.5cm)
-
     const savedMode = localStorage.getItem('cnc_diameter_mode');
     let isDiameterMode = savedMode !== null ? (savedMode === 'true') : true;
     
@@ -408,834 +460,171 @@
 
     let vb = { x: 0, y: 0, w: 600, h: 600 };
     
-    function saveHistory() {
-        if (points.length > 0) {
-            if (historyStack.length > 0 && JSON.stringify(historyStack[historyStack.length - 1]) === JSON.stringify(points)) return;
-            historyStack.push(JSON.parse(JSON.stringify(points)));
-            redoStack = []; 
-            updateUndoRedoButtons();
-        }
-    }
-
-    function updateUndoRedoButtons() {
-        const undoBtn = document.getElementById('btn-undo');
-        const redoBtn = document.getElementById('btn-redo');
-        if(undoBtn) undoBtn.classList.toggle('btn-disabled', historyStack.length === 0);
-        if(redoBtn) redoBtn.classList.toggle('btn-disabled', redoStack.length === 0);
-    }
-    
-    function undoLastMove() {
-        if (historyStack.length > 0) {
-            redoStack.push(JSON.parse(JSON.stringify(points)));
-            points = historyStack.pop();
-            const lastActiveIndex = points.length - 1;
-            centerViewOnPoint(points[lastActiveIndex]);
-            updatePath();
-        } else if (points.length > 1) { 
-            redoStack.push(JSON.parse(JSON.stringify(points)));
-            points = points.slice(0, 1);
-            setHomeView();
-            updatePath();
-        }
-        updateUndoRedoButtons();
-    }
-    
-    function redoLastMove() {
-        if (redoStack.length > 0) {
-            historyStack.push(JSON.parse(JSON.stringify(points)));
-            points = redoStack.pop();
-            const lastActiveIndex = points.length - 1;
-            centerViewOnPoint(points[lastActiveIndex]);
-            updatePath();
-        }
-        updateUndoRedoButtons();
-    }
-
+    function saveHistory() { if (points.length > 0) { if (historyStack.length > 0 && JSON.stringify(historyStack[historyStack.length - 1]) === JSON.stringify(points)) return; historyStack.push(JSON.parse(JSON.stringify(points))); redoStack = []; updateUndoRedoButtons(); } }
+    function updateUndoRedoButtons() { document.getElementById('btn-undo').classList.toggle('btn-disabled', historyStack.length === 0); document.getElementById('btn-redo').classList.toggle('btn-disabled', redoStack.length === 0); }
+    function undoLastMove() { if (historyStack.length > 0) { redoStack.push(JSON.parse(JSON.stringify(points))); points = historyStack.pop(); centerViewOnPoint(points[points.length - 1]); updatePath(); } else if (points.length > 1) { redoStack.push(JSON.parse(JSON.stringify(points))); points = points.slice(0, 1); setHomeView(); updatePath(); } updateUndoRedoButtons(); }
+    function redoLastMove() { if (redoStack.length > 0) { historyStack.push(JSON.parse(JSON.stringify(points))); points = redoStack.pop(); centerViewOnPoint(points[points.length - 1]); updatePath(); } updateUndoRedoButtons(); }
     updateDiameterButtonText();
+    points = [{x: 100, z: 100, break: true, type: 'line', id: pointIdCounter++}, {x: 300, z: 300, break: false, type: 'line', id: pointIdCounter++}];
     
-    // DEMO DATA - Start
-    points = [
-        {x: 100, z: 100, break: true, type: 'line', id: pointIdCounter++},
-        {x: 300, z: 300, break: false, type: 'line', id: pointIdCounter++},
-    ];
-    
-    function handleResize() {
-        const container = document.getElementById('canvas-area');
-        const wPx = container.clientWidth;
-        const hPx = container.clientHeight;
-        if (wPx === 0 || hPx === 0) return;
-        vb.h = vb.w; 
-        updateViewBox();
-        drawDynamicGrid();
-        updatePath();
-    }
-    
-    function setHomeView() {
-        vb.w = 600; vb.h = 600; vb.y = -580; vb.x = -20; 
-        updateViewBox();
-        drawDynamicGrid();
-        updatePath();
-    }
-
+    function handleResize() { const c = document.getElementById('canvas-area'); if(!c.clientWidth) return; vb.h = vb.w; updateViewBox(); drawDynamicGrid(); updatePath(); }
+    function setHomeView() { vb.w = 600; vb.h = 600; vb.y = -580; vb.x = -20; updateViewBox(); drawDynamicGrid(); updatePath(); }
     window.addEventListener('resize', handleResize);
-    
-    setTimeout(() => { 
-        handleResize(); 
-        setHomeView(); 
-        saveHistory();
-        setTimeout(drawDynamicGrid, 100); 
-    }, 50); 
+    setTimeout(() => { handleResize(); setHomeView(); saveHistory(); setTimeout(drawDynamicGrid, 100); }, 50);
 
-    // --- MOUSE EVENTS (PC) ---
     let isDragging = false;
     svg.addEventListener('mousedown', e => { isDragging = true; });
     window.addEventListener('mouseup', () => isDragging = false);
-    window.addEventListener('mousemove', e => {
-        const mousePos = getMousePos(e);
-        lastVirtualSnap = handleMouseSnap(mousePos); // Store snap
-
-        if (!isDragging) return;
-        const scale = vb.w / svg.clientWidth; 
-        vb.x -= e.movementX * scale; vb.y -= e.movementY * scale; 
-        updateViewBox(); requestAnimationFrame(drawDynamicGrid);
-    });
-
-    // --- TOUCH EVENTS (MOBILE - VIRTUAL CURSOR) ---
-    let lastTouchX=0, lastTouchY=0;
-    let isTouchActive = false;
-
-    svg.addEventListener('touchstart', e => {
-        isDragging = true; 
-        isTouchActive = true;
-        lastTouchX = e.touches[0].clientX; 
-        lastTouchY = e.touches[0].clientY;
-        
-        // Initial render of cursor
-        updateMobileCursor(e.touches[0]);
-    }, {passive:false});
-
-    window.addEventListener('touchend', e => {
-        isDragging = false;
-        isTouchActive = false;
-        mobileCursorGroup.innerHTML = ''; // Hide cursor
-        
-        // --- DETEKCE KLIKU PŘES VIRTUÁLNÍ KURZOR ---
-        // Pokud jsme na něco "zamířili" (snap), provedeme akci tam.
-        if (lastVirtualSnap) {
-            if (lastVirtualSnap.type === 'point') {
-                // Najdi index bodu
-                const idx = points.findIndex(p => Math.abs(p.x - lastVirtualSnap.x) < 0.001 && Math.abs(p.z - lastVirtualSnap.z) < 0.001);
-                if(idx !== -1) onPointClick(null, idx);
-            } 
-            else if (lastVirtualSnap.type === 'center') {
-                onCenterClick(lastVirtualSnap.x, lastVirtualSnap.z);
-            }
-            else if (lastVirtualSnap.type === 'intersection') {
-                // Pro průsečík (zatím se jen zobrazuje, ale můžeme přidat logiku pro "start z průsečíku")
-                // Pokud chcete, aby šlo začít čáru z průsečíku:
-                const newP = { x: lastVirtualSnap.x, z: lastVirtualSnap.z, break: true, type: 'line', id: pointIdCounter++ };
-                saveHistory(); points.push(newP); centerViewOnPoint(newP); updatePath();
-            }
-        }
-        lastVirtualSnap = null;
-        snapCursorGroup.innerHTML = '';
-        
-    });
-
-    svg.addEventListener('touchmove', e => {
-        if(!isDragging) return; 
-        e.preventDefault(); // Stop scrolling
-        
-        const tx = e.touches[0].clientX; 
-        const ty = e.touches[0].clientY;
-        const dx = tx - lastTouchX; 
-        const dy = ty - lastTouchY;
-        
-        // 1. Pan (posun mapy)
-        const scale = vb.w / svg.clientWidth;
-        vb.x -= dx * scale; 
-        vb.y -= dy * scale;
-        
-        lastTouchX = tx; lastTouchY = ty;
-        updateViewBox(); 
-        
-        // 2. Update Mobile Cursor & Snap
-        updateMobileCursor(e.touches[0]);
-        
-        requestAnimationFrame(drawDynamicGrid);
-    }, {passive:false});
+    window.addEventListener('mousemove', e => { const p = getMousePos(e); lastVirtualSnap = handleMouseSnap(p); if (isDragging) { const s = vb.w / svg.clientWidth; vb.x -= e.movementX * s; vb.y -= e.movementY * s; updateViewBox(); requestAnimationFrame(drawDynamicGrid); } });
+    
+    let lastTouchX=0, lastTouchY=0; let isTouchActive = false;
+    svg.addEventListener('touchstart', e => { isDragging = true; isTouchActive = true; lastTouchX = e.touches[0].clientX; lastTouchY = e.touches[0].clientY; updateMobileCursor(e.touches[0]); }, {passive:false});
+    window.addEventListener('touchend', e => { isDragging = false; isTouchActive = false; mobileCursorGroup.innerHTML = ''; if (lastVirtualSnap) { if (lastVirtualSnap.type === 'point') { const idx = points.findIndex(p => Math.abs(p.x - lastVirtualSnap.x) < 0.001 && Math.abs(p.z - lastVirtualSnap.z) < 0.001); if(idx !== -1) onPointClick(null, idx); } else if (lastVirtualSnap.type === 'center') { onCenterClick(lastVirtualSnap.x, lastVirtualSnap.z); } else if (lastVirtualSnap.type === 'intersection') { const newP = { x: lastVirtualSnap.x, z: lastVirtualSnap.z, break: true, type: 'line', id: pointIdCounter++ }; saveHistory(); points.push(newP); centerViewOnPoint(newP); updatePath(); } } lastVirtualSnap = null; snapCursorGroup.innerHTML = ''; });
+    svg.addEventListener('touchmove', e => { if(!isDragging) return; e.preventDefault(); const tx = e.touches[0].clientX; const ty = e.touches[0].clientY; const scale = vb.w / svg.clientWidth; vb.x -= (tx - lastTouchX) * scale; vb.y -= (ty - lastTouchY) * scale; lastTouchX = tx; lastTouchY = ty; updateViewBox(); updateMobileCursor(e.touches[0]); requestAnimationFrame(drawDynamicGrid); }, {passive:false});
 
     function updateMobileCursor(touch) {
-        const rect = svg.getBoundingClientRect();
-        
-        // Pozice prstu v pixelech (v rámci SVG elementu)
-        const fingerX = touch.clientX - rect.left;
-        const fingerY = touch.clientY - rect.top;
-        
-        // Pozice virtuálního kříže (offset nahoru)
-        const cursorX = fingerX;
-        const cursorY = fingerY - TOUCH_OFFSET_Y; 
-        
-        // Převod pixelů virtuálního kříže na souřadnice světa (World Coords)
-        const CTM = svg.getScreenCTM();
-        const worldX = (touch.clientX - CTM.e) / CTM.a;
-        // Pro Y musíme aplikovat offset v pixelech před převodem, nebo odečíst ve world units
-        // Jednodušší: (cursorY pixels) -> WorldY
-        // WorldY = (clientY - offset - f) / d
-        const worldY = ((touch.clientY - TOUCH_OFFSET_Y) - CTM.f) / CTM.d;
-        
-        // Zavoláme Snap logiku s touto "falešnou" pozicí myši
-        const virtualMousePos = { x: worldX, y: worldY };
-        lastVirtualSnap = handleMouseSnap(virtualMousePos);
-        
-        // Vykreslení vizuálu (čára od prstu ke kříži)
-        // Musíme to nakreslit ve světových souřadnicích, aby to sedělo do SVG
-        // Finger World Pos
-        const fingerWorldX = (touch.clientX - CTM.e) / CTM.a;
-        const fingerWorldY = (touch.clientY - CTM.f) / CTM.d;
-        
-        // Flip Y pro vykreslení (protože SVG group má scale 1, -1)
-        // Ale pozor, naše `handleMouseSnap` vrací Z (což je -Y). 
-        // Vykreslíme to přímo do `mobileCursorGroup` který je uvnitř `worldGroup` (scale 1, -1)
-        // Takže Y souřadnice je `worldY`.
-        
-        // Crosshair Size (v metrech, aby byla stálá na obrazovce)
+        const rect = svg.getBoundingClientRect(); const CTM = svg.getScreenCTM();
+        const worldX = (touch.clientX - CTM.e) / CTM.a; const worldY = ((touch.clientY - TOUCH_OFFSET_Y) - CTM.f) / CTM.d;
+        lastVirtualSnap = handleMouseSnap({ x: worldX, y: worldY });
+        const fingerWorldX = (touch.clientX - CTM.e) / CTM.a; const fingerWorldY = (touch.clientY - CTM.f) / CTM.d;
         const size = 20 * (vb.w / svg.clientWidth); 
-        
-        // Vykreslíme červený kříž na `virtualMousePos`
-        // A čáru dolů k `fingerWorldX, fingerWorldY`
-        
-        let d = `M ${fingerWorldX} ${fingerWorldY} L ${virtualMousePos.x} ${virtualMousePos.y}`; // Line finger->cursor
-        
-        // Crosshair shape
-        const cx = virtualMousePos.x;
-        const cy = virtualMousePos.y;
-        d += ` M ${cx - size} ${cy} L ${cx + size} ${cy}`;
-        d += ` M ${cx} ${cy - size} L ${cx} ${cy + size}`;
-        
+        let d = `M ${fingerWorldX} ${fingerWorldY} L ${lastVirtualSnap ? lastVirtualSnap.x : worldX} ${lastVirtualSnap ? -lastVirtualSnap.z : worldY}`; 
+        const cx = lastVirtualSnap ? lastVirtualSnap.x : worldX; const cy = lastVirtualSnap ? -lastVirtualSnap.z : worldY;
+        d += ` M ${cx - size} ${cy} L ${cx + size} ${cy} M ${cx} ${cy - size} L ${cx} ${cy + size}`;
         mobileCursorGroup.innerHTML = '';
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", d);
-        path.setAttribute("class", "mobile-cursor-crosshair");
-        // Přidáme čárkovanou čáru pro spojení
-        path.setAttribute("vector-effect", "non-scaling-stroke");
-        mobileCursorGroup.appendChild(path);
-        
-        // Spojnice
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", fingerWorldX); line.setAttribute("y1", fingerWorldY);
-        line.setAttribute("x2", cx); line.setAttribute("y2", cy);
-        line.setAttribute("class", "mobile-cursor-line");
-        mobileCursorGroup.appendChild(line);
+        const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); p.setAttribute("class", "mobile-cursor-crosshair"); p.setAttribute("vector-effect", "non-scaling-stroke"); mobileCursorGroup.appendChild(p);
     }
 
-
-    const MIN_ZOOM = 0.05; 
-    svg.addEventListener('wheel', e => {
-        e.preventDefault();
-        const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-        const oldW = vb.w; const oldH = vb.h;
-        let newW = vb.w * zoomFactor; let newH = vb.h * zoomFactor;
-        if (newW < MIN_ZOOM) {
-            if (zoomFactor < 1) { newW = MIN_ZOOM; newH = MIN_ZOOM; if (vb.w <= MIN_ZOOM + 0.0001) return; }
-        }
-        vb.w = newW; vb.h = newH;
-        vb.x -= (vb.w - oldW) / 2; vb.y -= (vb.h - oldH) / 2;
-        updateViewBox(); drawDynamicGrid(); updatePath();
-    }, {passive: false});
-
-    function updateViewBox() {
-        svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
-    }
-
-    function getMousePos(evt) {
-        const CTM = svg.getScreenCTM();
-        if (!CTM) return { x: 0, y: 0 };
-        return {
-            x: (evt.clientX - CTM.e) / CTM.a,
-            y: (evt.clientY - CTM.f) / CTM.d
-        };
-    }
-
+    svg.addEventListener('wheel', e => { e.preventDefault(); const zf = e.deltaY > 0 ? 1.1 : 0.9; vb.w *= zf; vb.h *= zf; updateViewBox(); drawDynamicGrid(); updatePath(); }, {passive: false});
+    function updateViewBox() { svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
+    function getMousePos(evt) { const CTM = svg.getScreenCTM(); return { x: (evt.clientX - CTM.e) / CTM.a, y: (evt.clientY - CTM.f) / CTM.d }; }
+    
     function handleMouseSnap(pos) {
-        if (isDragging && !isTouchActive) { // Don't clear if touching, we need visuals
-            snapCursorGroup.innerHTML = ''; 
-            return null; 
-        }
-
-        let closest = null;
-        let minDist = 15 * (vb.w / svg.clientWidth); 
-
-        activeIntersections.forEach(p => {
-            const dx = pos.x - p.x;
-            const dy = pos.y - (-p.z); 
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < minDist) {
-                minDist = dist;
-                closest = { x: p.x, z: p.z, type: 'intersection' };
-            }
+        if (isDragging && !isTouchActive) { snapCursorGroup.innerHTML = ''; return null; }
+        let closest = null; let minDist = 15 * (vb.w / svg.clientWidth); 
+        [...activeIntersections, ...points.filter(p=>p.type!=='arc'), ...points.filter(p=>p.type==='arc').map(p=>({x:p.cx, z:p.cz, type:'center'}))].forEach(p => {
+            const dx = pos.x - p.x; const dy = pos.y - (-p.z); const d = Math.sqrt(dx*dx + dy*dy);
+            if (d < minDist) { minDist = d; closest = { x: p.x, z: p.z, type: p.type || 'point' }; }
         });
-        
-        // Hledání středu kružnic
-        points.forEach(p => {
-             if (p.type === 'arc') {
-                const dx = pos.x - p.cx;
-                const dy = pos.y - (-p.cz);
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist < minDist) {
-                    minDist = dist;
-                    closest = { x: p.cx, z: p.cz, type: 'center' };
-                }
-             }
-        });
-
-        points.forEach(p => {
-            const dx = pos.x - p.x;
-            const dy = pos.y - (-p.z);
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < minDist) {
-                minDist = dist;
-                closest = { x: p.x, z: p.z, type: 'point' };
-            }
-        });
-
-        const hudX = document.getElementById('hud-x');
-        const hudZ = document.getElementById('hud-z');
-        const hudSnap = document.getElementById('hud-snap-info');
+        const hX = document.getElementById('hud-x'); const hZ = document.getElementById('hud-z'); const hS = document.getElementById('hud-snap-info');
         snapCursorGroup.innerHTML = '';
-
         if (closest) {
-            const dispX = isDiameterMode ? closest.x * 2 : closest.x;
-            hudX.innerText = dispX.toFixed(3);
-            hudZ.innerText = closest.z.toFixed(3);
-            hudX.style.color = "red";
-            hudZ.style.color = "red";
-            
-            if (closest.type === 'intersection') {
-                hudSnap.style.display = 'block';
-                hudSnap.innerText = "PRŮSEČÍK";
-            } else if (closest.type === 'center') {
-                hudSnap.style.display = 'block';
-                hudSnap.innerText = "STŘED";
-            } else {
-                hudSnap.style.display = 'none';
-            }
-
-            const crossSize = 20 * (vb.w / svg.clientWidth);
-            const snapMarker = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            snapMarker.setAttribute("d", `M ${closest.x - crossSize/2} ${-closest.z} L ${closest.x + crossSize/2} ${-closest.z} M ${closest.x} ${-closest.z - crossSize/2} L ${closest.x} ${-closest.z + crossSize/2}`);
-            snapMarker.setAttribute("class", "snap-highlight");
-            snapCursorGroup.appendChild(snapMarker);
-            
+            hX.innerText = (isDiameterMode ? closest.x * 2 : closest.x).toFixed(3); hZ.innerText = closest.z.toFixed(3);
+            hX.style.color = "red"; hZ.style.color = "red"; hS.style.display = 'block'; hS.innerText = closest.type === 'center' ? "STŘED" : (closest.type === 'intersection' ? "PRŮSEČÍK" : "SNAP");
+            const s = 20 * (vb.w / svg.clientWidth);
+            const m = document.createElementNS("http://www.w3.org/2000/svg", "path"); m.setAttribute("d", `M ${closest.x-s/2} ${-closest.z} L ${closest.x+s/2} ${-closest.z} M ${closest.x} ${-closest.z-s/2} L ${closest.x} ${-closest.z+s/2}`); m.setAttribute("class", "snap-highlight"); snapCursorGroup.appendChild(m);
             return closest;
-
         } else {
-            // --- ÚPRAVA: ZOBRAZOVÁNÍ SOUŘADNIC I BEZ SNAPU ---
-            hudX.style.color = "#444"; // Tmavší barva pro volný pohyb
-            hudZ.style.color = "#444";
-            hudSnap.style.display = 'none';
-
-            // Zobraz aktuální "raw" souřadnice pod myší/křížem
-            const rawZ = -pos.y; // Invertujeme Y zpět na Z
-            const dispX = isDiameterMode ? pos.x * 2 : pos.x;
-            
-            hudX.innerText = dispX.toFixed(2); // 2 desetinná místa pro pohyb stačí
-            hudZ.innerText = rawZ.toFixed(2);
-
-            return null;
+            hX.style.color = "#444"; hZ.style.color = "#444"; hS.style.display = 'none';
+            hX.innerText = (isDiameterMode ? pos.x * 2 : pos.x).toFixed(2); hZ.innerText = (-pos.y).toFixed(2);
+            return {x: pos.x, z: -pos.y};
         }
     }
 
     function drawDynamicGrid() {
-        const wPx = svg.clientWidth;
-        if (wPx === 0) return; 
-
+        const wPx = svg.clientWidth; if (wPx === 0) return;
         gridLines.innerHTML = ''; textGroup.innerHTML = ''; axisGroup.innerHTML = '';
-        const minDim = vb.w; 
-        const roughStep = minDim / 5; 
-        const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
-        const residual = roughStep / magnitude;
-        let step;
-        if (residual < 2) step = 1 * magnitude;
-        else if (residual < 5) step = 2 * magnitude;
-        else step = 5 * magnitude;
+        const minDim = vb.w;
+        const step = Math.pow(10, Math.floor(Math.log10(minDim/5))) * (minDim/5 / Math.pow(10, Math.floor(Math.log10(minDim/5))) < 2 ? 1 : (minDim/5 / Math.pow(10, Math.floor(Math.log10(minDim/5))) < 5 ? 2 : 5));
         const subStep = step / 5;
-        let decimals = Math.max(0, Math.ceil(-Math.log10(step)));
-        if (step >= 1) decimals = 0;
-        const fontSize = Math.max(minDim / 32, step/3.5); 
-        const padding = fontSize * 3.0;
-        const zMin = -(vb.y + vb.h); const zMax = -vb.y;          
-        const xMin = vb.x; const xMax = vb.x + vb.w;    
-        const startX = Math.floor(xMin / step) * step;
-        const startZ = Math.floor(zMin / step) * step;
+        const fs = Math.max(vb.w/32, step/3.5);
+        
+        createLine(axisGroup, -1e5, 0, 1e5, 0, 'axis-line'); createLine(axisGroup, 0, -1e5, 0, 1e5, 'axis-line');
+        
+        const textY_Xaxis = Math.min(0, vb.y + vb.h - fs * 4.5); 
 
-        createLine(axisGroup, -100000, 0, 100000, 0, 'axis-line');
-        createLine(axisGroup, 0, -100000, 0, 100000, 'axis-line');
-
-        const safeTop = vb.y + padding;
-        const safeBottom = vb.y + vb.h - padding;
-        let stickyY = Math.max(safeTop, Math.min(safeBottom, 0));
-        let baseline = "hanging";
-        let isBottom = false;
-        if (Math.abs(stickyY - safeBottom) < 0.001) { baseline = "auto"; isBottom = true; } 
-        else if (Math.abs(stickyY - safeTop) < 0.001) { baseline = "hanging"; } 
-        else { stickyY += fontSize * 0.6; baseline = "hanging"; }
-
-        for (let x = startX; x < xMax + step; x += step) {
-            if (x > xMax) break;
-            createLine(gridLines, x, zMin, x, zMax, 'grid-line');
-            for (let i = 1; i < 5; i++) {
-                const subX = x + (subStep * i); if (subX < xMax) createLine(gridLines, subX, zMin, subX, zMax, 'grid-sub-line');
+        for(let x=Math.floor(vb.x/step)*step; x<vb.x+vb.w+step; x+=step) {
+            if (x > vb.x + vb.w) break;
+            createLine(gridLines, x, -(vb.y+vb.h), x, -vb.y, 'grid-line');
+            for(let i=1; i<5; i++) {
+                const sx = x + subStep*i;
+                if(sx < vb.x + vb.w) createLine(gridLines, sx, -(vb.y+vb.h), sx, -vb.y, 'grid-sub-line');
             }
-            let staggerOffset = 0;
-            const index = Math.round(x / step);
-            if (index % 2 !== 0) staggerOffset = (isBottom || baseline === "auto") ? -fontSize*1.2 : fontSize*1.2; 
-            const displayVal = isDiameterMode ? (x * 2) : x;
-            const valStr = displayVal.toFixed(decimals);
-            if (Math.abs(x) > step/100) addText(textGroup, x, stickyY + staggerOffset, valStr, fontSize, "middle", baseline);
-            else addText(textGroup, x + fontSize/2, stickyY + staggerOffset, valStr, fontSize, "start", baseline);
-        }
-
-        const safeLeft = vb.x + padding;
-        const safeRight = vb.x + vb.w - padding;
-        let stickyX = Math.max(safeLeft, Math.min(safeRight, 0));
-        let anchor = "end";
-        if (Math.abs(stickyX - safeRight) < 0.001) anchor = "end"; 
-        else if (Math.abs(stickyX - safeLeft) < 0.001) anchor = "start"; 
-        else { stickyX -= fontSize * 0.5; anchor = "end"; }
-
-        for (let z = startZ; z < zMax + step; z += step) {
-            if (z > zMax) break;
-            createLine(gridLines, xMin, z, xMax, z, 'grid-line');
-            for (let i = 1; i < 5; i++) {
-                const subZ = z + (subStep * i); if (subZ < zMax) createLine(gridLines, xMin, subZ, xMax, subZ, 'grid-sub-line');
-            }
-            const valStr = z.toFixed(decimals);
-            if (Math.abs(z) > step/100) addText(textGroup, stickyX, -z + (fontSize/3), valStr, fontSize, anchor, "auto");
-            else addText(textGroup, stickyX, -z - fontSize/2, valStr, fontSize, anchor, "auto");
-        }
-    }
-    
-    function createLine(parent, x1, z1, x2, z2, className) {
-        const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        l.setAttribute("x1", x1); l.setAttribute("y1", z1); l.setAttribute("x2", x2); l.setAttribute("y2", z2);
-        l.setAttribute("class", className); parent.appendChild(l);
-    }
-
-    function addText(parent, screenX, screenY, textStr, size, anchor, baseline) {
-        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        t.setAttribute("x", screenX); t.setAttribute("y", screenY); t.textContent = textStr;
-        t.setAttribute("fill", "#666"); t.setAttribute("font-size", size);
-        t.setAttribute("font-family", "Consolas, monospace"); t.setAttribute("font-weight", "bold");
-        t.setAttribute("text-anchor", anchor || "middle");
-        if(baseline) t.setAttribute("dominant-baseline", baseline);
-        t.setAttribute("stroke", "rgba(255,255,255,0.9)"); t.setAttribute("stroke-width", size/3); t.setAttribute("paint-order", "stroke");
-        parent.appendChild(t);
-    }
-
-    function onPointClick(e, index) {
-        if (isDragging && !lastVirtualSnap) return; // Na mobilu: pokud táhneme a nemáme snap, neklikat
-        
-        // Pokud je to voláno z TouchEnd přes lastVirtualSnap, e bude null
-        const selectedPoint = points[index];
-        
-        if (measureMode) {
-            handleMeasureClick(selectedPoint);
-            return;
-        }
-
-        if (points.length > 0) {
-            const last = points[points.length - 1];
-            if (last.x === selectedPoint.x && last.z === selectedPoint.z && last.type === selectedPoint.type) {
-                centerViewOnPoint(selectedPoint);
-                return;
-            }
-        }
-        
-        const isFirst = points.length === 0;
-        const newPoint = { 
-            x: selectedPoint.x, 
-            z: selectedPoint.z, 
-            break: isFirst, 
-            type: 'line',
-            id: pointIdCounter++
-        };
-        
-        saveHistory(); 
-        points.push(newPoint);
-        
-        centerViewOnPoint(newPoint);
-        updatePath();
-    }
-    
-    function onCenterClick(cx, cz) {
-        if (isDragging && !lastVirtualSnap) return;
-        
-        if (measureMode) {
-            handleMeasureClick({x: cx, z: cz, type: 'center'});
-            return;
-        }
-        const dispX = isDiameterMode ? cx * 2 : cx;
-        document.getElementById('hud-x').innerText = dispX.toFixed(2) + ' (I)';
-        document.getElementById('hud-z').innerText = cz.toFixed(2) + ' (K)';
-    }
-
-    function calculateIntersections() {
-        activeIntersections = [];
-        let segments = [];
-        for (let i = 0; i < points.length - 1; i++) {
-            const p1 = points[i];
-            const p2 = points[i+1];
-            if (p2.break) continue; 
             
-            if (p2.type === 'arc') {
-                segments.push({ 
-                    type: 'arc', 
-                    p1: p1, p2: p2, 
-                    cx: p2.cx, cz: p2.cz, r: p2.r, cw: p2.cw 
-                });
-            } else {
-                segments.push({ type: 'line', p1: p1, p2: p2 });
+            const valStr = (isDiameterMode?x*2:x).toFixed(step>=1?0:Math.ceil(-Math.log10(step)));
+            const yOff = (Math.round(x/step)%2 !== 0) ? fs*1.2 : 0;
+            if (Math.abs(x) > step/100) addText(textGroup, x+fs/2, textY_Xaxis + yOff, valStr, fs, "start");
+        }
+        
+        const leftEdge = vb.x;
+        const safeZPos = leftEdge + fs; 
+        
+        for(let z=Math.floor(-(vb.y+vb.h)/step)*step; z<-vb.y+step; z+=step) {
+            createLine(gridLines, vb.x, z, vb.x+vb.w, z, 'grid-line');
+            for(let i=1; i<5; i++) {
+                const sz = z + subStep*i;
+                if(sz < -vb.y) createLine(gridLines, vb.x, sz, vb.x+vb.w, sz, 'grid-sub-line');
+            }
+            
+            let anchor = "end";
+            let drawX = Math.max(vb.x + fs, Math.min(vb.x + vb.w - fs*4, 0 - fs));
+            if (Math.abs(drawX - (vb.x + fs)) < fs * 0.1) {
+                anchor = "start";
+                drawX = vb.x + fs * 0.5; 
+            }
+
+            const valStr = z.toFixed(step>=1?0:Math.ceil(-Math.log10(step)));
+            if (Math.abs(z) > step/100) addText(textGroup, drawX, -z-fs/2, valStr, fs, anchor);
+        }
+    }
+    function createLine(p,x1,z1,x2,z2,c){const l=document.createElementNS("http://www.w3.org/2000/svg","line");l.setAttribute("x1",x1);l.setAttribute("y1",z1);l.setAttribute("x2",x2);l.setAttribute("y2",z2);l.setAttribute("class",c);p.appendChild(l);}
+    function addText(p,x,y,t,s,a){const el=document.createElementNS("http://www.w3.org/2000/svg","text");el.setAttribute("x",x);el.setAttribute("y",y);el.textContent=t;el.setAttribute("fill","#666");el.setAttribute("font-size",s);el.setAttribute("text-anchor",a);p.appendChild(el);}
+
+    function onPointClick(e, i) { if(isDragging && !lastVirtualSnap) return; const p=points[i]; if(measureMode){handleMeasureClick(p);return;} if(points.length>0 && points[points.length-1]===p) return; saveHistory(); points.push({x:p.x, z:p.z, break:points.length===0, type:'line', id:pointIdCounter++}); centerViewOnPoint(points[points.length-1]); updatePath(); }
+    function onCenterClick(cx, cz) { if(isDragging && !lastVirtualSnap) return; if(measureMode){handleMeasureClick({x:cx,z:cz});return;} }
+
+    function calculateIntersections() { 
+        activeIntersections=[]; 
+        for(let i=0;i<points.length-1;i++){
+            for(let j=i+1;j<points.length-1;j++){
+                const p1 = points[i]; const p2 = points[i+1]; const p3 = points[j]; const p4 = points[j+1];
+                if (!p1 || !p2 || !p3 || !p4) continue;
+                const s1={p1:p1,p2:p2}, s2={p1:p3,p2:p4};
+                if(s1.p2.break||s2.p2.break||s1.p2===s2.p1||s1.p1===s2.p2) continue;
+                if(s1.p2.type!=='arc'&&s2.p2.type!=='arc') { const pt=getLineLineIntersection(s1.p1,s1.p2,s2.p1,s2.p2); if(pt) activeIntersections.push(pt); }
             }
         }
-
-        for (let i = 0; i < segments.length; i++) {
-            for (let j = i + 1; j < segments.length; j++) {
-                const s1 = segments[i];
-                const s2 = segments[j];
-                
-                if (s1.p2 === s2.p1 || s1.p1 === s2.p2) continue;
-
-                if (s1.type === 'line' && s2.type === 'line') {
-                    const pt = getLineLineIntersection(s1.p1, s1.p2, s2.p1, s2.p2);
-                    if (pt) activeIntersections.push(pt);
-                }
-            }
-        }
     }
-
-    function getLineLineIntersection(A, B, C, D) {
-        const a1 = B.z - A.z;
-        const b1 = A.x - B.x;
-        const c1 = a1 * A.x + b1 * A.z;
-        
-        const a2 = D.z - C.z;
-        const b2 = C.x - D.x;
-        const c2 = a2 * C.x + b2 * C.z;
-        
-        const determinant = a1 * b2 - a2 * b1;
-        
-        if (Math.abs(determinant) < 0.0001) return null; 
-        
-        const x = (b2 * c1 - b1 * c2) / determinant;
-        const z = (a1 * c2 - a2 * c1) / determinant;
-        
-        if (isPointOnSegment(x, z, A, B) && isPointOnSegment(x, z, C, D)) {
-            return { x: x, z: z };
-        }
-        return null;
-    }
-
-    function isPointOnSegment(x, z, A, B) {
-        const minX = Math.min(A.x, B.x) - 0.001;
-        const maxX = Math.max(A.x, B.x) + 0.001;
-        const minZ = Math.min(A.z, B.z) - 0.001;
-        const maxZ = Math.max(A.z, B.z) + 0.001;
-        return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
-    }
+    function getLineLineIntersection(A,B,C,D) { const d=(B.z-A.z)*(C.x-D.x)-(A.x-B.x)*(D.z-C.z); if(Math.abs(d)<1e-4)return null; const x=((B.x*A.z-A.x*B.z)*(C.x-D.x)-(B.x-A.x)*(C.x*D.z-D.x*C.z))/d, z=((B.x*A.z-A.x*B.z)*(C.z-D.z)-(B.z-A.z)*(C.x*D.z-D.x*C.z))/d; return (isOnSeg(x,z,A,B)&&isOnSeg(x,z,C,D))?{x,z}:null; }
+    function isOnSeg(x,z,A,B) { return x>=Math.min(A.x,B.x)-1e-3 && x<=Math.max(A.x,B.x)+1e-3 && z>=Math.min(A.z,B.z)-1e-3 && z<=Math.max(A.z,B.z)+1e-3; }
 
     function updatePath() {
-        pathGroup.innerHTML = '';
-        intersectionGroup.innerHTML = ''; 
+        pathGroup.innerHTML=''; intersectionGroup.innerHTML=''; calculateIntersections();
+        const last=points[points.length-1]; 
+        document.getElementById('hud-x').innerText=(isDiameterMode?last.x*2:last.x).toFixed(2); document.getElementById('hud-z').innerText=last.z.toFixed(2);
+        const mm=vb.w/svg.clientWidth, pr=6*mm, cr=15*mm;
         
-        if(points.length === 0) return;
-
-        calculateIntersections();
-
-        const last = points[points.length-1];
-        const xVal = isDiameterMode ? (last.x * 2) : last.x;
-        document.getElementById('hud-x').innerText = xVal.toFixed(2);
-        document.getElementById('hud-z').innerText = last.z.toFixed(2);
-
-        const clientW = svg.clientWidth || 300;
-        const mmPerPx = vb.w / clientW;
-        
-        const pointPixelSize = 6; 
-        const pointRadiusMm = pointPixelSize * mmPerPx;
-        const clickableRadiusMm = 15 * mmPerPx; 
-        const lineWidthMm = 2.5 * mmPerPx;
-
-        activeIntersections.forEach(pt => {
-            const crossSize = 10 * mmPerPx;
-            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            
-            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            path.setAttribute("d", `M ${pt.x - crossSize} ${pt.z - crossSize} L ${pt.x + crossSize} ${pt.z + crossSize} M ${pt.x - crossSize} ${pt.z + crossSize} L ${pt.x + crossSize} ${pt.z - crossSize}`);
-            path.setAttribute("class", "intersection-marker");
-            g.appendChild(path);
-            
-            const area = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            area.setAttribute("cx", pt.x); area.setAttribute("cy", pt.z); area.setAttribute("r", clickableRadiusMm);
-            area.setAttribute("fill", "transparent");
-            g.appendChild(area);
-            
+        activeIntersections.forEach(p=>{
+            const g=document.createElementNS("http://www.w3.org/2000/svg","g");
+            const m=document.createElementNS("http://www.w3.org/2000/svg","path"); m.setAttribute("d",`M ${p.x-10*mm} ${p.z-10*mm} L ${p.x+10*mm} ${p.z+10*mm} M ${p.x-10*mm} ${p.z+10*mm} L ${p.x+10*mm} ${p.z-10*mm}`); m.setAttribute("class","intersection-marker"); g.appendChild(m);
             intersectionGroup.appendChild(g);
         });
-
-        let d = "";
-        points.forEach((p, i) => {
-            const isCurrent = i === points.length - 1;
+        
+        let d="";
+        points.forEach((p,i)=>{
+            const c=document.createElementNS("http://www.w3.org/2000/svg","circle"); c.setAttribute("cx",p.x); c.setAttribute("cy",p.z); c.setAttribute("r",pr); c.setAttribute("class",i===points.length-1?"point-marker point-current":"point-marker"); pathGroup.appendChild(c);
+            const ca=document.createElementNS("http://www.w3.org/2000/svg","circle"); ca.setAttribute("cx",p.x); ca.setAttribute("cy",p.z); ca.setAttribute("r",cr); ca.setAttribute("class","point-marker-clickable"); ca.onclick=()=>onPointClick(null,i); pathGroup.appendChild(ca);
             
-            const clickArea = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            clickArea.setAttribute("cx", p.x); clickArea.setAttribute("cy", p.z);
-            clickArea.setAttribute("r", clickableRadiusMm);
-            clickArea.setAttribute("class", "point-marker-clickable");
-            clickArea.onclick = (e) => onPointClick(e, i);
-            pathGroup.appendChild(clickArea);
-
-            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            circle.setAttribute("cx", p.x); circle.setAttribute("cy", p.z);
-            circle.setAttribute("class", isCurrent ? "point-marker point-current" : "point-marker");
-            circle.setAttribute("r", pointRadiusMm); 
-            circle.setAttribute("stroke-width", 1.5 * mmPerPx); 
-            pathGroup.appendChild(circle);
-            
-            if (p.type === 'arc' && p.cx !== undefined) {
-                const centerClickArea = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                centerClickArea.setAttribute("cx", p.cx);
-                centerClickArea.setAttribute("cy", p.cz);
-                centerClickArea.setAttribute("r", clickableRadiusMm * 1.5);
-                centerClickArea.setAttribute("class", "point-center-clickable");
-                centerClickArea.onclick = () => onCenterClick(p.cx, p.cz);
-                pathGroup.appendChild(centerClickArea);
-
-                const centerCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                centerCircle.setAttribute("cx", p.cx);
-                centerCircle.setAttribute("cy", p.cz);
-                centerCircle.setAttribute("class", "point-center");
-                centerCircle.setAttribute("r", pointRadiusMm); 
-                pathGroup.appendChild(centerCircle);
-                
-                const fullCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                fullCircle.setAttribute("cx", p.cx);
-                fullCircle.setAttribute("cy", p.cz);
-                fullCircle.setAttribute("r", p.r);
-                fullCircle.setAttribute("class", "helper-full-circle");
-                pathGroup.appendChild(fullCircle);
-                
-                if (i > 0) {
-                    const startP = points[i-1];
-                    const radiusLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                    radiusLine.setAttribute("x1", p.cx); radiusLine.setAttribute("y1", p.cz);
-                    radiusLine.setAttribute("x2", startP.x); radiusLine.setAttribute("y2", startP.z);
-                    radiusLine.setAttribute("class", "helper-radius-line");
-                    pathGroup.appendChild(radiusLine);
-                }
-
-                const targetLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                targetLine.setAttribute("x1", p.cx); targetLine.setAttribute("y1", p.cz);
-                targetLine.setAttribute("x2", p.x); targetLine.setAttribute("y2", p.z);
-                targetLine.setAttribute("class", "helper-radius-line");
-                pathGroup.appendChild(targetLine);
-                
-                const dx = p.x - p.cx;
-                const dz = p.z - p.cz;
-                const normalAngle = Math.atan2(dz, dx);
-                const tangentAngle = p.cw ? (normalAngle - Math.PI/2) : (normalAngle + Math.PI/2);
-                
-                const tanLen = 40 * mmPerPx;
-                const tx2 = p.x + Math.cos(tangentAngle) * tanLen;
-                const tz2 = p.z + Math.sin(tangentAngle) * tanLen;
-                
-                const tanCheck = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                tanCheck.setAttribute("x1", p.x); tanCheck.setAttribute("y1", p.z);
-                tanCheck.setAttribute("x2", tx2); tanCheck.setAttribute("y2", tz2);
-                tanCheck.setAttribute("class", "helper-target-tangent");
-                pathGroup.appendChild(tanCheck);
+            if(p.type==='arc'){
+                const cc=document.createElementNS("http://www.w3.org/2000/svg","circle"); cc.setAttribute("cx",p.cx); cc.setAttribute("cy",p.cz); cc.setAttribute("r",pr); cc.setAttribute("class","point-center"); pathGroup.appendChild(cc);
+                const fc=document.createElementNS("http://www.w3.org/2000/svg","circle"); fc.setAttribute("cx",p.cx); fc.setAttribute("cy",p.cz); fc.setAttribute("r",p.r); fc.setAttribute("class","helper-full-circle"); pathGroup.appendChild(fc);
+                const l=document.createElementNS("http://www.w3.org/2000/svg","line"); l.setAttribute("x1",p.cx); l.setAttribute("y1",p.cz); l.setAttribute("x2",p.x); l.setAttribute("y2",p.z); l.setAttribute("class","helper-radius-line"); pathGroup.appendChild(l);
             }
-
-            if (i === 0) d += `M ${p.x} ${p.z}`;
-            else {
-                if (p.break) d += ` M ${p.x} ${p.z}`;
-                else if (p.type === 'arc') {
-                    const sweep = p.cw ? 0 : 1; 
-                    d += ` A ${p.r} ${p.r} 0 0 ${sweep} ${p.x} ${p.z}`;
-                } else d += ` L ${p.x} ${p.z}`;
-            }
+            if(i===0) d+=`M ${p.x} ${p.z}`; else d+= p.break ? ` M ${p.x} ${p.z}` : (p.type==='arc' ? ` A ${p.r} ${p.r} 0 0 ${p.cw?0:1} ${p.x} ${p.z}` : ` L ${p.x} ${p.z}`);
         });
-
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", d);
-        path.setAttribute("class", "path-draw");
-        pathGroup.appendChild(path);
-        
-        updateMeasureDisplay();
-        updateUndoRedoButtons(); 
+        const p=document.createElementNS("http://www.w3.org/2000/svg","path"); p.setAttribute("d",d); p.setAttribute("class","path-draw"); pathGroup.appendChild(p);
+        updateUndoRedoButtons();
     }
 
-    // --- MĚŘENÍ ---
-    function openMeasureModal() {
-        if (points.length < 2) {
-             alert("Nakreslete alespoň dvě úsečky, abyste mohl měřit vzdálenost nebo úhel.");
-             return;
-        }
-        closeModals();
-        document.getElementById('modal-measure').style.display = 'flex';
-        startMeasure('distance');
-    }
+    function openMeasureModal() { if (points.length < 2) { alert("Nakreslete alespoň dvě úsečky."); return; } closeModals(); document.getElementById('modal-measure').style.display = 'flex'; startMeasure('distance'); }
+    function startMeasure(m) { measureMode=m; measurePoints=[]; measureLayer.innerHTML=''; document.getElementById('measure-result').style.display='none'; document.querySelectorAll('#modal-measure .seg-opt').forEach(b=>b.classList.remove('active')); document.getElementById(m==='distance'?'meas-dist-btn':(m==='angle'?'meas-angle-btn':'meas-coord-btn')).classList.add('active'); }
+    function handleMeasureClick(p) { if(!measureMode)return; measurePoints.push(p); updateMeasureDisplay(); if((measureMode==='distance'&&measurePoints.length===2)||(measureMode==='angle'&&measurePoints.length===3)||(measureMode==='coord'&&measurePoints.length===1)) calculateMeasureResult(); }
+    function updateMeasureDisplay() { measureLayer.innerHTML=''; let d=""; measurePoints.forEach((p,i)=>{ const c=document.createElementNS("http://www.w3.org/2000/svg","circle"); c.setAttribute("cx",p.x); c.setAttribute("cy",p.z); c.setAttribute("r",5*(vb.w/svg.clientWidth)); c.setAttribute("class","measure-point"); measureLayer.appendChild(c); if(i>0) d+=` L ${p.x} ${p.z}`; else d+=`M ${p.x} ${p.z}`; }); if(d) { const l=document.createElementNS("http://www.w3.org/2000/svg","path"); l.setAttribute("d",d); l.setAttribute("class","measure-line"); measureLayer.appendChild(l); } }
+    function calculateMeasureResult() { let o=""; const P=measurePoints; document.getElementById('measure-result').style.display='block'; if(measureMode==='distance'){ const dx=P[1].x-P[0].x, dz=P[1].z-P[0].z; o=`L: ${Math.sqrt(dx*dx+dz*dz).toFixed(3)}<br>X: ${(isDiameterMode?dx*2:dx).toFixed(3)} / Z: ${dz.toFixed(3)}`; } else if(measureMode==='angle'){ const v1={x:P[1].x-P[0].x,z:P[1].z-P[0].z}, v2={x:P[2].x-P[1].x,z:P[2].z-P[1].z}; const a=Math.acos((v1.x*v2.x+v1.z*v2.z)/(Math.sqrt(v1.x*v1.x+v1.z*v1.z)*Math.sqrt(v2.x*v2.x+v2.z*v2.z)))*(180/Math.PI); o=`Úhel: ${a.toFixed(3)}°`; } else { o=`X: ${(isDiameterMode?P[0].x*2:P[0].x).toFixed(3)}<br>Z: ${P[0].z.toFixed(3)}`; } document.getElementById('measure-output').innerHTML=o; measurePoints=[]; }
+    function stopMeasure() { measureMode=null; measurePoints=[]; measureLayer.innerHTML=''; closeModals(); }
 
-    function startMeasure(mode) {
-        measureMode = mode;
-        measurePoints = [];
-        measureLayer.innerHTML = '';
-        document.getElementById('measure-result').style.display = 'none';
-        
-        document.querySelectorAll('#modal-measure .seg-opt').forEach(btn => btn.classList.remove('active'));
-        
-        let instructions = "";
-        let requiredPoints = 0;
-
-        switch(mode) {
-            case 'distance':
-                document.getElementById('meas-dist-btn').classList.add('active');
-                instructions = "Klikněte na dva body (P1 a P2) pro měření délky úsečky.";
-                requiredPoints = 2;
-                break;
-            case 'angle':
-                document.getElementById('meas-angle-btn').classList.add('active');
-                instructions = "Klikněte na tři body (P1 -> P2 (vrchol) -> P3) pro měření úhlu lomu.";
-                requiredPoints = 3;
-                break;
-            case 'cone_angle':
-                document.getElementById('meas-cone-btn').classList.add('active');
-                instructions = "Klikněte na libovolný bod ležící na kuželové ploše.";
-                requiredPoints = 1;
-                break;
-            case 'coord':
-                document.getElementById('meas-coord-btn').classList.add('active');
-                instructions = "Klikněte na bod, jehož souřadnice chcete zjistit.";
-                requiredPoints = 1;
-                break;
-        }
-        
-        document.getElementById('measure-instructions').innerHTML = `<span style="color:var(--btn-measure-color);">Instrukce:</span> ${instructions}`;
-        document.getElementById('measure-instructions').dataset.required = requiredPoints;
-    }
-
-    function handleMeasureClick(p) {
-        if (!measureMode) return;
-        if (measurePoints.length > 0 && measurePoints[measurePoints.length - 1].x === p.x && measurePoints[measurePoints.length - 1].z === p.z) return;
-
-        measurePoints.push(p);
-        const required = parseInt(document.getElementById('measure-instructions').dataset.required);
-        updateMeasureDisplay();
-
-        if (measurePoints.length === required) {
-            calculateMeasureResult();
-        } else {
-            const remaining = required - measurePoints.length;
-            document.getElementById('measure-instructions').innerHTML = `<span style="color:var(--btn-measure-color);">Zbývá:</span> Klikněte na ${remaining} bod.`;
-        }
-    }
-
-    function updateMeasureDisplay() {
-        measureLayer.innerHTML = '';
-        const clientW = svg.clientWidth || 300;
-        const mmPerPx = vb.w / clientW;
-        const pointRadiusMm = 5 * mmPerPx;
-        
-        let d = "";
-        measurePoints.forEach((p, i) => {
-            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            circle.setAttribute("cx", p.x); circle.setAttribute("cy", p.z);
-            circle.setAttribute("class", "measure-point");
-            circle.setAttribute("r", pointRadiusMm); 
-            measureLayer.appendChild(circle);
-            if (i === 0) d += `M ${p.x} ${p.z}`;
-            else d += ` L ${p.x} ${p.z}`;
-        });
-
-        if (d) {
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            line.setAttribute("d", d);
-            line.setAttribute("class", "measure-line");
-            measureLayer.appendChild(line);
-        }
-    }
-
-    function calculateMeasureResult() {
-        let output = "";
-        const P = measurePoints;
-        document.getElementById('measure-result').style.display = 'block';
-
-        switch (measureMode) {
-            case 'distance':
-                const dx = P[1].x - P[0].x;
-                const dz = P[1].z - P[0].z;
-                const L = Math.sqrt(dx*dx + dz*dz);
-                const dX = isDiameterMode ? dx * 2 : dx;
-                output = `Délka úsečky (L): ${L.toFixed(3)} mm<br>Delta X: ${dX.toFixed(3)} mm<br>Delta Z: ${dz.toFixed(3)} mm`;
-                break;
-            case 'angle':
-                const V1 = { x: P[1].x - P[0].x, z: P[1].z - P[0].z }; 
-                const V2 = { x: P[2].x - P[1].x, z: P[2].z - P[1].z }; 
-                const dot = V1.x * V2.x + V1.z * V2.z;
-                const mag1 = Math.sqrt(V1.x*V1.x + V1.z*V1.z);
-                const mag2 = Math.sqrt(V2.x*V2.x + V2.z*V2.z);
-                if (mag1 === 0 || mag2 === 0) { output = "Chyba: Nulová délka."; break; }
-                const cosTheta = dot / (mag1 * mag2);
-                const angleDeg = Math.acos(Math.max(-1, Math.min(1, cosTheta))) * (180 / Math.PI);
-                output = `Vnitřní úhel lomu: ${angleDeg.toFixed(3)}°<br>Vnější úhel: ${(180 - angleDeg).toFixed(3)}°`;
-                break;
-            case 'cone_angle':
-                const index = points.findIndex(p => p.x === P[0].x && p.z === P[0].z);
-                if (index <= 0 || points[index].break) { output = "Bod není součástí navazující úsečky."; break; }
-                const P_curr = points[index];
-                let P_prev = null;
-                for(let i = index - 1; i >= 0; i--) { if (!points[i].break) { P_prev = points[i]; break; } }
-                if (!P_prev) { output = "Nelze určit předchozí bod."; break; }
-                const V = { x: P_curr.x - P_prev.x, z: P_curr.z - P_prev.z };
-                const pathAngleRad = Math.atan2(V.z, V.x); 
-                let coneAngleDeg = Math.abs(90 - (pathAngleRad * (180 / Math.PI)));
-                output = `Úhel Kuželu (vůči Ose Z): ${coneAngleDeg.toFixed(3)}°`;
-                break;
-            case 'coord':
-                const dispX = isDiameterMode ? P[0].x * 2 : P[0].x;
-                output = `X: ${dispX.toFixed(3)} mm<br>Z: ${P[0].z.toFixed(3)} mm`;
-                break;
-        }
-        document.getElementById('measure-output').innerHTML = output;
-        measurePoints = []; 
-    }
-
-    function stopMeasure() {
-        measureMode = null;
-        measurePoints = [];
-        measureLayer.innerHTML = '';
-        closeModals();
-    }
-
-    function centerViewOnPoint(p) {
-        vb.x = p.x - vb.w / 2;
-        vb.y = -p.z - vb.h / 2;
-        updateViewBox();
-        drawDynamicGrid();
-    }
-
-    function fitToScreen() {
-        if (points.length < 2) { setHomeView(); return; }
-        let minX=Infinity, maxX=-Infinity, minZ=Infinity, maxZ=-Infinity;
-        points.forEach(p => {
-            if(p.x < minX) minX=p.x; if(p.x > maxX) maxX=p.x;
-            if(p.z < minZ) minZ=p.z; if(p.z > maxZ) maxZ=p.z;
-        });
-        const contentW = maxX - minX; const maxDim = Math.max(contentW, maxZ - minZ);
-        const newSize = maxDim + (maxDim * 0.2 + 10)*2;
-        vb.w = newSize; vb.h = newSize;
-        vb.x = (minX + maxX)/2 - newSize/2; vb.y = -(minZ + maxZ)/2 - newSize/2;
-        if(vb.w < 10) { vb.w = 50; vb.h = 50; }
-        updateViewBox(); drawDynamicGrid(); updatePath(); closeModals();
-    }
+    function centerViewOnPoint(p) { vb.x = p.x - vb.w/2; vb.y = -p.z - vb.h/2; updateViewBox(); drawDynamicGrid(); }
+    function fitToScreen() { if (points.length < 2) { setHomeView(); return; } let minX=Infinity, maxX=-Infinity, minZ=Infinity, maxZ=-Infinity; points.forEach(p => { if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.z<minZ)minZ=p.z; if(p.z>maxZ)maxZ=p.z; }); const s=Math.max(maxX-minX, maxZ-minZ)*1.4 || 50; vb.w=s; vb.h=s; vb.x=(minX+maxX)/2-s/2; vb.y=-(minZ+maxZ)/2-s/2; updateViewBox(); drawDynamicGrid(); updatePath(); closeModals(); }
 
     function toggleDiameterMode() {
         isDiameterMode = !isDiameterMode;
@@ -1246,322 +635,170 @@
 
     function updateDiameterButtonText() {
         const btn = document.getElementById('btn-toggle-dia');
-        if(btn) btn.innerText = isDiameterMode ? "Průměr (Ø)" : "Poloměr";
-        const ikX = document.getElementById('lbl-center-x');
-        if (ikX) {
-            const mode = ikX.innerText.includes('Inkr') ? 'Inkr' : 'Abs';
-            toggleIKMode(mode === 'Inkr'); 
-        }
-    }
-    
-    function openJoypad() {
-        closeModals();
-        document.getElementById('modal-joypad').style.display = 'flex';
-        
-        const last = points[points.length - 1];
-        const btnTangent = document.getElementById('btn-tangent-line');
-        
-        if (last && last.type === 'arc' && !last.break) {
-            btnTangent.style.display = 'flex';
-        } else {
-            btnTangent.style.display = 'none';
-        }
-    }
-
-    function prepMove(direction) {
-        currentDir = direction;
-        closeModals();
-        document.getElementById('modal-input').style.display = 'flex';
-        
-        if (direction === 'TANGENT') {
-            document.getElementById('input-title').innerText = "Tečná linka (zadejte délku)";
-        } else {
-            document.getElementById('input-title').innerText = "Posun: " + direction;
-        }
-        
-        document.getElementById('inp-len').value = '';
-        document.getElementById('inp-len').focus();
-    }
-
-    function commitMove() {
-        const lenVal = parseFloat(document.getElementById('inp-len').value.replace(',','.'));
-        if(isNaN(lenVal)) { alert("Zadejte číslo!"); return; }
-
-        saveHistory();
-        const last = points[points.length-1];
-        let nx = last.x, nz = last.z;
-        
-        if (currentDir === 'TANGENT') {
-            if (last.type !== 'arc') {
-                alert("Nelze navázat tečnou, předchozí prvek není rádius!");
-                return;
-            }
-            const rAngle = Math.atan2(last.z - last.cz, last.x - last.cx);
-            const tanAngle = last.cw ? (rAngle - Math.PI/2) : (rAngle + Math.PI/2);
-            
-            nx = last.x + lenVal * Math.cos(tanAngle);
-            nz = last.z + lenVal * Math.sin(tanAngle);
-            
-        } else {
-            const diagStep = lenVal * 0.70710678; 
-            switch(currentDir) {
-                case 'U': nz += lenVal; break;
-                case 'D': nz -= lenVal; break;
-                case 'L': nx -= lenVal; break;
-                case 'R': nx += lenVal; break;
-                case 'UL': nx -= diagStep; nz += diagStep; break;
-                case 'UR': nx += diagStep; nz += diagStep; break;
-                case 'DL': nx -= diagStep; nz -= diagStep; break;
-                case 'DR': nx += diagStep; nz -= diagStep; break;
+        if(btn) {
+            const span = btn.querySelector('span');
+            const icon = btn.querySelector('i');
+            if(span) span.innerText = isDiameterMode ? "Ø Průměr" : "R Poloměr";
+            if(icon) {
+                icon.className = isDiameterMode ? 'fas fa-expand-arrows-alt' : 'fas fa-compress-arrows-alt';
             }
         }
-
-        points.push({x: nx, z: nz, break: false, type: 'line', id: pointIdCounter++});
-        centerViewOnPoint({x: nx, z: nz});
-        updatePath();
-        closeModals();
+        const lbls = ['lbl-arc-x', 'lbl-center-x', 'lbl-start-x'];
+        lbls.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.innerText = el.innerText.replace(/Průměr|Poloměr/, isDiameterMode ? "Průměr" : "Poloměr");
+        });
     }
     
-    function openArcModal() { 
-        closeModals();
-        document.getElementById('modal-arc').style.display = 'flex';
-        document.getElementById('lbl-arc-x').innerText = isDiameterMode ? "Koncové X (Průměr):" : "Koncové X (Poloměr):";
-        document.getElementById('arc-r').value = 100;
-        document.getElementById('chk-tangent').checked = true;
-        document.getElementById('arc-cone-angle').value = 90; 
-        document.getElementById('arc-x').value = ''; document.getElementById('arc-z').value = ''; 
-        document.getElementById('center-x').value = ''; document.getElementById('center-z').value = '';
-        switchArcMethod('R'); 
-        setArcDir(true);
+    function openJoypad() { closeModals(); document.getElementById('modal-joypad').style.display = 'flex'; const last=points[points.length-1]; document.getElementById('btn-tangent-line').style.display = (last && last.type==='arc' && !last.break) ? 'flex' : 'none'; }
+    function prepMove(d) { currentDir=d; closeModals(); document.getElementById('modal-input').style.display='flex'; document.getElementById('input-title').innerText=d==='TANGENT'?"Tečná linka":"Posun: "+d; document.getElementById('inp-len').value=''; document.getElementById('inp-len').focus(); }
+    function commitMove() { const l=parseFloat(document.getElementById('inp-len').value.replace(',','.')); if(isNaN(l)){alert("Zadejte číslo!");return;} saveHistory(); const last=points[points.length-1]; let nx=last.x, nz=last.z; 
+        if(currentDir==='TANGENT'){ const a=Math.atan2(last.z-last.cz, last.x-last.cx) + (last.cw?-Math.PI/2:Math.PI/2); nx+=l*Math.cos(a); nz+=l*Math.sin(a); } 
+        else { const s=l*0.7071; if(currentDir.includes('U')) nz+=currentDir.length>1?s:l; if(currentDir.includes('D')) nz-=currentDir.length>1?s:l; if(currentDir.includes('L')) nx-=currentDir.length>1?s:l; if(currentDir.includes('R')) nx+=currentDir.length>1?s:l; }
+        points.push({x:nx, z:nz, break:false, type:'line', id:pointIdCounter++}); centerViewOnPoint({x:nx,z:nz}); updatePath(); closeModals();
     }
     
-    function switchArcMethod(method) {
-        arcMethod = method;
-        document.getElementById('tab-r').classList.toggle('active', method === 'R');
-        document.getElementById('tab-ik').classList.toggle('active', method === 'IK');
-        document.getElementById('method-r').style.display = method === 'R' ? 'block' : 'none';
-        document.getElementById('method-ik').style.display = method === 'IK' ? 'block' : 'none';
-        if(method === 'IK') {
-            document.getElementById('arc-targets').style.display = 'none';
-            document.getElementById('tangent-choices').style.display = 'none';
-        } else {
-            document.getElementById('arc-targets').style.display = 'block';
-            toggleTangentMode();
-        }
-    }
-
-    function setArcDir(isClockwise) {
-        isG2 = isClockwise;
-        document.getElementById('seg-g2').classList.toggle('active', isG2);
-        document.getElementById('seg-g3').classList.toggle('active', !isG2);
-    }
-
-    function toggleIKMode(incremental) {
-        isIncrementalIKMode = incremental;
-        document.getElementById('ik-abs-btn').classList.toggle('active', !incremental);
-        document.getElementById('ik-inc-btn').classList.toggle('active', incremental);
-        const modeTextX = isDiameterMode 
-            ? (incremental ? "Přírůstek I (Inkr. X Průměr):" : "Střed I (Absolutní X Průměr):")
-            : (incremental ? "Přírůstek I (Inkr. X Poloměr):" : "Střed I (Absolutní X Poloměr):");
-        const modeTextZ = incremental ? "Přírůstek K (Inkr. Z):" : "Střed K (Absolutní Z):";
-        document.getElementById('lbl-center-x').innerText = modeTextX;
-        document.getElementById('lbl-center-z').innerText = modeTextZ;
-    }
+    function openArcModal() { closeModals(); document.getElementById('modal-arc').style.display='flex'; document.getElementById('arc-r').value=100; document.getElementById('chk-tangent').checked=true; document.getElementById('arc-x').value=''; document.getElementById('arc-z').value=''; document.getElementById('center-x').value=''; document.getElementById('center-z').value=''; document.getElementById('ik-target-x').value=''; document.getElementById('ik-target-z').value=''; document.getElementById('ik-target-angle').value=''; switchArcMethod('R'); setArcDir(true); }
     
-    function setTangentTarget(targetMode) {
-        tangentTargetMode = targetMode;
-        document.getElementById('target-coord-btn').classList.toggle('active', targetMode === 'coord');
-        document.getElementById('target-cone-btn').classList.toggle('active', targetMode === 'cone');
-        document.getElementById('target-coord-inputs').style.display = (targetMode === 'coord') ? 'block' : 'none';
-        document.getElementById('target-cone-input').style.display = (targetMode === 'cone') ? 'block' : 'none';
-        document.getElementById('btn-arc-ok').innerText = "Vykreslit";
-        document.getElementById('tangent-choices').style.display = 'none';
+    function switchArcMethod(m) { 
+        arcMethod=m; 
+        document.getElementById('tab-r').classList.toggle('active', m==='R'); 
+        document.getElementById('tab-ik').classList.toggle('active', m==='IK');
+        document.getElementById('method-r').style.display = m==='R'?'block':'none'; 
+        document.getElementById('method-ik').style.display = m==='IK'?'block':'none';
+        document.getElementById('arc-targets').style.display = m==='R'?'block':'none'; 
+        document.getElementById('tangent-target-selector').style.display = (m==='R' && document.getElementById('chk-tangent').checked) ? 'block' : 'none';
     }
-
-    function toggleTangentMode() {
-        const isTang = document.getElementById('chk-tangent').checked;
-        const selector = document.getElementById('tangent-target-selector');
-        if (isTang && arcMethod === 'R') {
-            selector.style.display = 'block';
-            setTangentTarget(tangentTargetMode); 
-        } else {
-            selector.style.display = 'none';
-            document.getElementById('tangent-choices').style.display = 'none';
-            document.getElementById('target-coord-inputs').style.display = 'block';
-            document.getElementById('target-cone-input').style.display = 'none';
-        }
-    }
-
-    function evaluateExpression(expression) {
-        const cleanExpression = expression.replace(/,/g, '.').replace(/\s/g, '');
-        if (!/^[0-9\.\+\-\*\/\(\)]+$/.test(cleanExpression)) return { error: "Neplatný výraz" };
-        try {
-            const result = new Function('return ' + cleanExpression)();
-            if (typeof result !== 'number' || isNaN(result)) return { error: "Chyba" };
-            return { result: result };
-        } catch (e) { return { error: e.message }; }
-    }
+    function setArcDir(cw) { isG2=cw; document.getElementById('seg-g2').classList.toggle('active', cw); document.getElementById('seg-g3').classList.toggle('active', !cw); }
+    function toggleIKMode(incr) { isIncrementalIKMode=incr; document.getElementById('ik-abs-btn').classList.toggle('active', !incr); document.getElementById('ik-inc-btn').classList.toggle('active', incr); }
+    function setTangentTarget(t) { tangentTargetMode=t; document.getElementById('target-coord-btn').classList.toggle('active', t==='coord'); document.getElementById('target-cone-btn').classList.toggle('active', t==='cone'); document.getElementById('target-coord-inputs').style.display=t==='coord'?'block':'none'; document.getElementById('target-cone-input').style.display=t==='cone'?'block':'none'; }
+    function toggleTangentMode() { const t=document.getElementById('chk-tangent').checked; document.getElementById('tangent-target-selector').style.display=t?'block':'none'; if(!t) { document.getElementById('target-coord-inputs').style.display='block'; document.getElementById('target-cone-input').style.display='none'; } else setTangentTarget(tangentTargetMode); }
 
     function commitArc() {
-        saveHistory(); 
-        const xStr = document.getElementById('arc-x').value.replace(/,/, '.');
-        const zStr = document.getElementById('arc-z').value.replace(/,/, '.');
+        saveHistory();
+        const last = points[points.length - 1];
         
         if (arcMethod === 'IK') {
             const cxStr = document.getElementById('center-x').value.replace(/,/, '.');
             const czStr = document.getElementById('center-z').value.replace(/,/, '.');
-            if(!xStr || !zStr || !cxStr || !czStr) { alert("Vyplňte údaje!"); return; }
-            let ex = parseFloat(xStr), ez = parseFloat(zStr), rawCX = parseFloat(cxStr), rawCZ = parseFloat(czStr);
-            if(isDiameterMode) { ex /= 2; rawCX /= 2; }
-            const last = points[points.length - 1];
+            if(!cxStr || !czStr) { alert("Zadejte souřadnice středu!"); return; }
+            
+            let rawCX = parseFloat(cxStr), rawCZ = parseFloat(czStr);
+            if(isDiameterMode) rawCX /= 2;
             let cx = isIncrementalIKMode ? last.x + rawCX : rawCX;
             let cz = isIncrementalIKMode ? last.z + rawCZ : rawCZ;
-            const rStart = Math.sqrt(Math.pow(last.x - cx, 2) + Math.pow(last.z - cz, 2));
-            points.push({x: ex, z: ez, type: 'arc', r: rStart, cw: isG2, break: false, cx: cx, cz: cz, id: pointIdCounter++}); 
+            const r = Math.sqrt(Math.pow(last.x - cx, 2) + Math.pow(last.z - cz, 2));
+
+            const tXstr = document.getElementById('ik-target-x').value.replace(/,/, '.');
+            const tZstr = document.getElementById('ik-target-z').value.replace(/,/, '.');
+            const tAngStr = document.getElementById('ik-target-angle').value.replace(/,/, '.');
+            const forceLong = document.getElementById('chk-ik-long-arc').checked;
+
+            let ex, ez;
+
+            if (tAngStr) {
+                const angleDeg = parseFloat(tAngStr);
+                const startAngle = Math.atan2(last.z - cz, last.x - cx);
+                const sweepRad = angleDeg * (Math.PI / 180) * (isG2 ? -1 : 1);
+                ex = cx + r * Math.cos(startAngle + sweepRad);
+                ez = cz + r * Math.sin(startAngle + sweepRad);
+            }
+            else if (tXstr || tZstr) {
+                let candidates = [];
+                
+                if (tXstr && tZstr) {
+                    let tx = parseFloat(tXstr); if(isDiameterMode) tx /= 2;
+                    let tz = parseFloat(tZstr);
+                    const angle = Math.atan2(tz - cz, tx - cx);
+                    ex = cx + r * Math.cos(angle);
+                    ez = cz + r * Math.sin(angle);
+                } else if (tXstr) {
+                    let tx = parseFloat(tXstr); if(isDiameterMode) tx /= 2;
+                    const term = r*r - (tx - cx)*(tx - cx);
+                    if (term < 0) { alert("Kružnice nedosáhne na toto X!"); return; }
+                    const dz = Math.sqrt(term);
+                    candidates.push({x: tx, z: cz + dz});
+                    candidates.push({x: tx, z: cz - dz});
+                } else if (tZstr) {
+                    let tz = parseFloat(tZstr);
+                    const term = r*r - (tz - cz)*(tz - cz);
+                    if (term < 0) { alert("Kružnice nedosáhne na toto Z!"); return; }
+                    const dx = Math.sqrt(term);
+                    candidates.push({x: cx + dx, z: tz});
+                    candidates.push({x: cx - dx, z: tz});
+                }
+
+                if (candidates.length > 0) {
+                    const startAngle = Math.atan2(last.z - cz, last.x - cx);
+                    candidates.forEach(cand => {
+                        const endAngle = Math.atan2(cand.z - cz, cand.x - cx);
+                        let diff = endAngle - startAngle;
+                        if (isG2) { if (diff > 0) diff -= 2 * Math.PI; } else { if (diff < 0) diff += 2 * Math.PI; }
+                        cand.sweep = Math.abs(diff);
+                    });
+                    candidates.sort((a, b) => a.sweep - b.sweep);
+                    const selection = forceLong && candidates.length > 1 ? candidates[1] : candidates[0];
+                    ex = selection.x;
+                    ez = selection.z;
+                }
+            } else { alert("Pro IK režim zadejte alespoň jednu cílovou souřadnici nebo úhel."); return; }
+
+            points.push({x: ex, z: ez, type: 'arc', r: r, cw: isG2, break: false, cx: cx, cz: cz, id: pointIdCounter++}); 
             updatePath(); closeModals();
             return;
         }
 
-        const isTang = document.getElementById('chk-tangent').checked;
+        const xStr = document.getElementById('arc-x').value.replace(/,/, '.');
+        const zStr = document.getElementById('arc-z').value.replace(/,/, '.');
         const rStr = document.getElementById('arc-r').value.replace(/,/, '.');
         if(!rStr) { alert("Zadejte Rádius!"); return; }
         const r = Math.abs(parseFloat(rStr));
+        const isTang = document.getElementById('chk-tangent').checked;
 
-        if(!isTang) {
+        if (!isTang) {
             if(!xStr || !zStr) { alert("Vyplňte obě souřadnice!"); return; }
-            let ex = parseFloat(xStr), ez = parseFloat(zStr);
-            if(isDiameterMode) ex /= 2;
-            const last = points[points.length - 1];
+            let ex = parseFloat(xStr), ez = parseFloat(zStr); if(isDiameterMode) ex /= 2;
             const dist = Math.sqrt(Math.pow(ex - last.x, 2) + Math.pow(ez - last.z, 2));
             if (dist > 2 * r) { alert("Rádius je příliš malý!"); return; }
-            const midX = (last.x + ex)/2, midZ = (last.z + ez)/2;
-            const dist_mid = dist/2;
-            const h = Math.sqrt(r*r - dist_mid*dist_mid);
-            const angle = Math.atan2(ez - last.z, ex - last.x);
-            const cx1 = midX + h * Math.sin(angle), cz1 = midZ - h * Math.cos(angle);
-            const cx2 = midX - h * Math.sin(angle), cz2 = midZ + h * Math.cos(angle);
-            const cross = (ex - last.x)*(cz1 - last.z) - (ez - last.z)*(cx1 - last.x);
-            let cx = isG2 ? (cross < 0 ? cx1 : cx2) : (cross > 0 ? cx1 : cx2);
-            let cz = isG2 ? (cross < 0 ? cz1 : cz2) : (cross > 0 ? cz1 : cz2);
-            points.push({x: ex, z: ez, type: 'arc', r: r, cw: isG2, break: false, cx: cx, cz: cz, id: pointIdCounter++});
-            updatePath(); closeModals();
-            return;
-        }
-
-        const last = points[points.length - 1];
-        
-        let prevAngle = 0;
-        let foundPrevVector = false;
-        
-        if (last.type === 'arc' && !last.break) {
-            const rAngle = Math.atan2(last.z - last.cz, last.x - last.cx);
-            prevAngle = last.cw ? (rAngle - Math.PI/2) : (rAngle + Math.PI/2);
-            foundPrevVector = true;
+            const midX=(last.x+ex)/2, midZ=(last.z+ez)/2, h=Math.sqrt(r*r - (dist/2)*(dist/2)), a=Math.atan2(ez-last.z, ex-last.x);
+            const cx1=midX+h*Math.sin(a), cz1=midZ-h*Math.cos(a), cx2=midX-h*Math.sin(a), cz2=midZ+h*Math.cos(a);
+            const cross=(ex-last.x)*(cz1-last.z)-(ez-last.z)*(cx1-last.x);
+            let cx=isG2?(cross<0?cx1:cx2):(cross>0?cx1:cx2), cz=isG2?(cross<0?cz1:cz2):(cross>0?cz1:cz2);
+            points.push({x:ex, z:ez, type:'arc', r:r, cw:isG2, break:false, cx:cx, cz:cz, id:pointIdCounter++}); updatePath(); closeModals();
         } else {
-            for(let i = points.length - 2; i >= 0; i--) {
-                const p = points[i];
-                const dx = last.x - p.x;
-                const dz = last.z - p.z;
-                if (Math.abs(dx) > 0.0001 || Math.abs(dz) > 0.0001) {
-                    prevAngle = Math.atan2(dz, dx);
-                    foundPrevVector = true;
-                    break; 
-                }
-                if(p.break) break; 
+            let prevAngle=0; 
+            if (last.type==='arc' && !last.break) { const ra=Math.atan2(last.z-last.cz,last.x-last.cx); prevAngle=last.cw?(ra-Math.PI/2):(ra+Math.PI/2); }
+            else if(points.length>1) { const p=points[points.length-2]; prevAngle=Math.atan2(last.z-p.z, last.x-p.x); }
+            
+            let normAngle = isG2 ? (prevAngle - Math.PI/2) : (prevAngle + Math.PI/2);
+            const cx = last.x + Math.cos(normAngle) * r;
+            const cz = last.z + Math.sin(normAngle) * r;
+
+            if(tangentTargetMode==='cone') {
+                const angStr=document.getElementById('arc-cone-angle').value; if(!angStr){alert("Zadejte úhel!");return;}
+                const deltaDeg=parseFloat(angStr), startA=Math.atan2(last.z-cz, last.x-cx), endA=startA + (deltaDeg*(Math.PI/180)*(isG2?-1:1));
+                points.push({x:cx+r*Math.cos(endA), z:cz+r*Math.sin(endA), type:'arc', r:r, cw:isG2, break:false, cx:cx, cz:cz, id:pointIdCounter++});
+                updatePath(); closeModals();
+            } else {
+                let cands=[];
+                if(zStr && !xStr) { const tz=parseFloat(zStr), term=r*r-(tz-cz)*(tz-cz); if(term>=0) { const dx=Math.sqrt(term); cands.push({x:cx+dx,z:tz}); cands.push({x:cx-dx,z:tz}); } }
+                else if(xStr && !zStr) { let tx=parseFloat(xStr); if(isDiameterMode)tx/=2; const term=r*r-(tx-cx)*(tx-cx); if(term>=0) { const dz=Math.sqrt(term); cands.push({x:tx,z:cz+dz}); cands.push({x:tx,z:cz-dz}); } }
+                else { alert("Zadejte jednu souřadnici."); return; }
+                
+                const cont=document.getElementById('choices-container'); cont.innerHTML=''; document.getElementById('tangent-choices').style.display='block';
+                cands.forEach((c,i)=>{
+                    const b=document.createElement('div'); b.className='choice-btn'; b.innerHTML=`<span>Bod ${i+1}</span> X:${(isDiameterMode?c.x*2:c.x).toFixed(2)} / Z:${c.z.toFixed(2)}`;
+                    b.onclick=()=>{ points.push({x:c.x, z:c.z, type:'arc', r:r, cw:isG2, break:false, cx:cx, cz:cz, id:pointIdCounter++}); updatePath(); closeModals(); };
+                    cont.appendChild(b);
+                });
             }
         }
-
-        if (!foundPrevVector) {
-             if(!confirm("POZOR: Nepodařilo se určit směr. Použije se 0°. Pokračovat?")) return;
-        }
-
-        let normAngle = isG2 ? (prevAngle - Math.PI/2) : (prevAngle + Math.PI/2);
-        const cx = last.x + Math.cos(normAngle) * r;
-        const cz = last.z + Math.sin(normAngle) * r;
-        
-        if (tangentTargetMode === 'cone') {
-            const coneAngleStr = document.getElementById('arc-cone-angle').value;
-            if (!coneAngleStr) { alert("Zadejte Úhel!"); return; }
-            const evalResult = evaluateExpression(coneAngleStr);
-            if (evalResult.error) { alert("Chyba: " + evalResult.error); return; }
-            let deltaAngleDeg = evalResult.result;
-            
-            const vectorStart = { x: last.x - cx, z: last.z - cz };
-            const startAngleRad = Math.atan2(vectorStart.z, vectorStart.x);
-            const deltaRad = deltaAngleDeg * (Math.PI / 180);
-            const endAngleRad = isG2 ? (startAngleRad - deltaRad) : (startAngleRad + deltaRad);
-            
-            const endX = cx + r * Math.cos(endAngleRad);
-            const endZ = cz + r * Math.sin(endAngleRad);
-            
-            points.push({x: endX, z: endZ, type: 'arc', r: r, cw: isG2, break: false, cx: cx, cz: cz, id: pointIdCounter++});
-            updatePath(); closeModals();
-            
-        } else {
-            let candidates = [];
-            if(zStr !== "" && xStr === "") {
-                const targetZ = parseFloat(zStr);
-                const term = r*r - (targetZ - cz)*(targetZ - cz);
-                if(term < 0) { alert("Kružnice nedosáhne na Z!"); return; }
-                const dx = Math.sqrt(term);
-                candidates.push({x: cx + dx, z: targetZ});
-                candidates.push({x: cx - dx, z: targetZ});
-            } else if(xStr !== "" && zStr === "") {
-                let targetX = parseFloat(xStr);
-                if(isDiameterMode) targetX /= 2;
-                const term = r*r - (targetX - cx)*(targetX - cx);
-                if(term < 0) { alert("Kružnice nedosáhne na X!"); return; }
-                const dz = Math.sqrt(term);
-                candidates.push({x: targetX, z: cz + dz});
-                candidates.push({x: targetX, z: cz - dz});
-            } else { alert("Zadejte jen JEDNU souřadnici pro tangenci!"); return; }
-
-            const container = document.getElementById('choices-container');
-            container.innerHTML = '';
-            document.getElementById('tangent-choices').style.display = 'block';
-            candidates.forEach((c, i) => {
-                const btn = document.createElement('div');
-                btn.className = 'choice-btn';
-                const dispX = isDiameterMode ? c.x * 2 : c.x;
-                btn.innerHTML = `<span>Možnost ${i+1}</span> X:${dispX.toFixed(2)} / Z:${c.z.toFixed(2)}`;
-                btn.onclick = function() {
-                    points.push({x: c.x, z: c.z, type: 'arc', r: r, cw: isG2, break: false, cx: cx, cz: cz, id: pointIdCounter++});
-                    updatePath(); closeModals();
-                };
-                container.appendChild(btn);
-            });
-        }
-    }
-
-    function clearAll() { 
-        saveHistory(); 
-        points = [{x: 0, z: 0, break: false, type: 'line', id: pointIdCounter++}]; 
-        updatePath(); 
-        closeModals(); 
-        setHomeView(); 
     }
     
-    function openStartModal() {
-        closeModals();
-        document.getElementById('modal-start').style.display = 'flex';
-        document.getElementById('lbl-start-x').innerText = isDiameterMode ? "Start X (Průměr):" : "Start X (Poloměr):";
-        document.getElementById('start-x').value = ''; document.getElementById('start-z').value = '';
-    }
-    
-    function confirmNewStart() {
-        saveHistory(); 
-        let valX = parseFloat(document.getElementById('start-x').value.replace(',', '.') || '0');
-        const valZ = parseFloat(document.getElementById('start-z').value.replace(',', '.') || '0');
-        if(isNaN(valX) || isNaN(valZ)) { alert("Chyba zadání!"); return; }
-        if(isDiameterMode) valX = valX / 2;
-        points.push({x: valX, z: valZ, break: true, type: 'line', id: pointIdCounter++});
-        centerViewOnPoint(points[points.length-1]);
-        updatePath(); closeModals();
-    }
-    
-    function closeModals() {
-        document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-    }
+    function openStartModal(){closeModals();document.getElementById('modal-start').style.display='flex';document.getElementById('start-x').value='';document.getElementById('start-z').value='';}
+    function confirmNewStart(){saveHistory();let vx=parseFloat(document.getElementById('start-x').value.replace(',','.')||'0'), vz=parseFloat(document.getElementById('start-z').value.replace(',','.')||'0'); if(isDiameterMode)vx/=2; points.push({x:vx,z:vz,break:true,type:'line',id:pointIdCounter++}); centerViewOnPoint(points[points.length-1]); updatePath(); closeModals();}
+    function clearAll(){saveHistory();points=[{x:0,z:0,break:false,type:'line',id:pointIdCounter++}];updatePath();closeModals();setHomeView();}
+    function closeModals(){document.querySelectorAll('.modal').forEach(m=>m.style.display='none');}
 </script>
 </body>
 </html>
