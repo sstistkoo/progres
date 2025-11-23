@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Karusel CNC SmartGrid Mobile v8.51 Fixed</title>
+    <title>Karusel CNC SmartGrid Mobile v8.53 Fixed</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
@@ -158,7 +158,7 @@
             <button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button>
             <button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button>
         </div>
-        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v8.51 Fixed (BackTangent + SVG)</div>
+        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v8.53 Fixed (MeasureFix + BackTangent)</div>
     </div>
 </div>
 
@@ -616,6 +616,32 @@
         return { x: pWorld.x, z: pWorld.z };
     }
 
+    // --- MOVED FUNCTION TO TOP SCOPE FOR SAFETY ---
+    function updateMeasureDisplay() {
+        measureLayer.innerHTML = '';
+        if (!measurePoints.length) return;
+        
+        const s = vb.w / svg.clientWidth;
+        const r = 5 * s;
+
+        for (let i = 0; i < measurePoints.length; i++) {
+            const p = measurePoints[i];
+            measureLayer.appendChild(svgEl("circle", { 
+                cx: p.x, cy: p.z, r: r, 
+                class: "measure-point" 
+            }));
+        }
+        
+        for (let i = 0; i < measurePoints.length - 1; i++) {
+             const p1 = measurePoints[i];
+             const p2 = measurePoints[i+1];
+             measureLayer.appendChild(svgEl("line", { 
+                 x1: p1.x, y1: p1.z, x2: p2.x, y2: p2.z, 
+                 class: "measure-line"
+             }));
+        }
+    }
+
     function updatePath() {
         pathGroup.innerHTML = '';
         intersectGrp.innerHTML = '';
@@ -714,7 +740,6 @@
             const p2 = points[measureLineBuffer.index + 1];
             let dp = "";
             if (p2.type === 'arc') {
-                // Pro zjednodušení v měření nekalkulujeme largeArc, obvykle to není kritické pro vizualizaci výběru
                 dp = `M ${p1.x} ${p1.z} A ${p2.r} ${p2.r} 0 0 ${p2.cw ? 0 : 1} ${p2.x} ${p2.z}`;
             } else {
                 dp = `M ${p1.x} ${p1.z} L ${p2.x} ${p2.z}`;
