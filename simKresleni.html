@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Karusel CNC SmartGrid Mobile v8.66 Zoom Fix</title>
+    <title>Karusel CNC SmartGrid Mobile v9.0 Fixed</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
@@ -23,10 +23,10 @@
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
 
         #app-layout { display: flex; flex-direction: column; width: 100%; height: 100%; }
+        /* Kontextove menu zakazano jen na platne, ne na celem body (kvuli inputum) */
         #canvas-area { flex-grow: 1; background: var(--bg-canvas); position: relative; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 1; touch-action: none; }
         svg { width: 100%; height: 100%; display: block; cursor: crosshair; }
         
-        /* Helper visibility classes */
         body.helpers-hidden .point-center,
         body.helpers-hidden .helper-full-circle,
         body.helpers-hidden .helper-radius-line,
@@ -139,14 +139,13 @@
         .mobile-cursor-crosshair { stroke: #d32f2f; stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: none; }
         .mobile-finger-pos { fill: rgba(33, 150, 243, 0.3); stroke: #2196f3; stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: none; }
         .click-area { fill: rgba(255,255,255,0.01); stroke: transparent; cursor: pointer; }
-        /* FIX: Added non-scaling-stroke to prevent white halo from covering map on zoom */
         text { paint-order: stroke; stroke: rgba(255,255,255,0.8); stroke-width: 4px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
     </style>
 </head>
-<body oncontextmenu="return false;">
+<body>
 
 <div id="app-layout">
-    <div id="canvas-area">
+    <div id="canvas-area" oncontextmenu="return false;">
         <svg id="svgCanvas" preserveAspectRatio="xMidYMid slice">
             <g id="worldGroup" transform="scale(1, -1)">
                 <g id="gridLines"></g> <g id="axisGroup"></g> 
@@ -186,7 +185,7 @@
             <button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button>
             <button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button>
         </div>
-        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v8.66 Zoom Fix</div>
+        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v9.0 Fixed</div>
     </div>
 </div>
 
@@ -257,10 +256,10 @@
 <div id="modal-arc" class="modal"><div class="modal-content"><div class="modal-header"><h3>Radius</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span><div class="arc-tabs"><div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius</div><div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed</div></div></div><div class="modal-body"><div class="segmented-control"><div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2</div><div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3</div></div><div id="method-r">
     <div class="chk-row" id="row-chk-tangent" onclick="document.getElementById('chk-tangent').click();"><input type="checkbox" id="chk-tangent" onchange="toggleTangentMode()" onclick="event.stopPropagation()"><label for="chk-tangent">Tangenciální napojení (Vpřed)</label></div>
     <div class="chk-row" id="row-chk-back-tangent" onclick="document.getElementById('chk-back-tangent').click();" style="background:#fff3e0; border-color:#ffe0b2;"><input type="checkbox" id="chk-back-tangent" onchange="toggleBackTangentMode()" onclick="event.stopPropagation()"><label for="chk-back-tangent" style="color:#e65100;">Zpětná tangenta (Upravit start)</label></div>
-    <label class="section-label">Rádius:</label><input type="number" id="arc-r"></div><div id="method-ik" style="display:none;"><div class="segmented-control mode-toggle"><div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div><div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div></div><label class="section-label">Střed I:</label><input type="number" id="center-x"><label class="section-label">Střed K:</label><input type="number" id="center-z"><div class="separator"></div><label class="section-label">Cíl X:</label><input type="number" id="ik-target-x"><label class="section-label">Cíl Z:</label><input type="number" id="ik-target-z"><label class="section-label">Úhel:</label><input type="number" id="ik-target-angle"><div class="chk-row"><input type="checkbox" id="chk-ik-long-arc"><label for="chk-ik-long-arc">Delší oblouk</label></div></div><div id="arc-targets"><div id="tangent-target-selector" style="display:none;"><label class="section-label">Cíl:</label><div class="segmented-control tangent-target-toggle"><div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div><div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div></div></div>
-    <div id="target-coord-inputs"><label id="lbl-arc-x" class="section-label">X:</label><input type="number" id="arc-x"><label class="section-label">Z:</label><input type="number" id="arc-z">
+    <label class="section-label">Rádius:</label><input type="number" id="arc-r" inputmode="decimal"></div><div id="method-ik" style="display:none;"><div class="segmented-control mode-toggle"><div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div><div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div></div><label class="section-label">Střed I:</label><input type="number" id="center-x" inputmode="decimal"><label class="section-label">Střed K:</label><input type="number" id="center-z" inputmode="decimal"><div class="separator"></div><label class="section-label">Cíl X:</label><input type="number" id="ik-target-x" inputmode="decimal"><label class="section-label">Cíl Z:</label><input type="number" id="ik-target-z" inputmode="decimal"><label class="section-label">Úhel:</label><input type="number" id="ik-target-angle" inputmode="decimal"><div class="chk-row"><input type="checkbox" id="chk-ik-long-arc"><label for="chk-ik-long-arc">Delší oblouk</label></div></div><div id="arc-targets"><div id="tangent-target-selector" style="display:none;"><label class="section-label">Cíl:</label><div class="segmented-control tangent-target-toggle"><div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div><div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div></div></div>
+    <div id="target-coord-inputs"><label id="lbl-arc-x" class="section-label">X:</label><input type="number" id="arc-x" inputmode="decimal"><label class="section-label">Z:</label><input type="number" id="arc-z" inputmode="decimal">
         <button class="m-btn btn-primary-util" style="padding:8px; margin-top:5px; font-size:12px;" onclick="startArcTargetPick()"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button>
-    </div><div id="target-cone-input" style="display:none;"><label class="section-label">Úhel (°):</label><input type="text" id="arc-cone-angle"></div></div><div id="tangent-choices" style="display:none;"><div id="choices-container"></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button id="btn-arc-ok" class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button></div></div></div></div>
+    </div><div id="target-cone-input" style="display:none;"><label class="section-label">Úhel (°):</label><input type="text" id="arc-cone-angle" inputmode="decimal"></div></div><div id="tangent-choices" style="display:none;"><div id="choices-container"></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button id="btn-arc-ok" class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button></div></div></div></div>
 
 <div id="modal-circle" class="modal">
     <div class="modal-content">
@@ -334,13 +333,31 @@
     }
 
     function copyToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("Zkopírováno: " + text);
+            }).catch(err => {
+                fallbackCopy(text);
+            });
+        } else {
+            fallbackCopy(text);
+        }
+    }
+
+    function fallbackCopy(text) {
         const ta = document.createElement('textarea');
         ta.value = text;
+        ta.style.position = 'fixed'; 
         document.body.appendChild(ta);
+        ta.focus();
         ta.select();
-        document.execCommand('copy');
+        try {
+            document.execCommand('copy');
+            showToast("Zkopírováno: " + text);
+        } catch (e) {
+            showToast("Chyba kopírování");
+        }
         document.body.removeChild(ta);
-        showToast("Zkopírováno: " + text);
     }
 
     function copyCoords(x, z) {
@@ -404,9 +421,9 @@
     let pickingArcTarget = false;
     let pickingCircleCenter = false;
     let trimMode = false;
-    let chamferMode = false; // NEW: Chamfer mode
+    let chamferMode = false; 
     let chamferTargetIdx = -1;
-    let chamferType = 'C'; // C or R
+    let chamferType = 'C'; 
     let measurePoints = [];
     let activeIntersections = [];
     let lastVirtualSnap = null;
@@ -532,8 +549,10 @@
     }
 
     function handleResize() {
-        if ($('canvas-area').clientWidth) {
-            vb.h = vb.w;
+        const el = document.getElementById('canvas-area');
+        if (el && el.clientWidth && el.clientHeight) {
+            const ratio = el.clientHeight / el.clientWidth;
+            vb.h = vb.w * ratio;
             updateViewBox();
             drawDynamicGrid();
             updatePath();
@@ -541,8 +560,10 @@
     }
 
     function setHomeView() {
+        const el = document.getElementById('canvas-area');
+        const ratio = (el && el.clientHeight && el.clientWidth) ? (el.clientHeight / el.clientWidth) : 1;
         vb.w = 800; 
-        vb.h = 800; 
+        vb.h = 800 * ratio; 
         vb.y = -600; 
         vb.x = -50; 
         updateViewBox(); 
@@ -570,10 +591,18 @@
             b.minZ = Math.min(b.minZ, p.z);
             b.maxZ = Math.max(b.maxZ, p.z);
         }
-        const s = Math.max(b.maxX - b.minX, b.maxZ - b.minZ) * 1.4 || 50;
-        vb.w = s; vb.h = s;
-        vb.x = (b.minX + b.maxX) / 2 - s / 2;
-        vb.y = -(b.minZ + b.maxZ) / 2 - s / 2;
+        const el = document.getElementById('canvas-area');
+        const ratio = el ? (el.clientHeight / el.clientWidth) : 1;
+        
+        const w = b.maxX - b.minX;
+        const h = b.maxZ - b.minZ;
+        
+        const s = Math.max(w, h / ratio) * 1.4 || 50;
+        
+        vb.w = s;
+        vb.h = s * ratio;
+        vb.x = (b.minX + b.maxX) / 2 - vb.w / 2;
+        vb.y = -(b.minZ + b.maxZ) / 2 - vb.h / 2;
         updateViewBox(); drawDynamicGrid(); updatePath(); closeModals();
     }
 
@@ -737,9 +766,10 @@
     }
 
     function updatePath() {
+        if (!measureMode) measureLayer.innerHTML = '';
+        
         pathGroup.innerHTML = '';
         intersectGrp.innerHTML = '';
-        measureLayer.innerHTML = '';
         
         activeIntersections = [];
         for (let i = 0; i < points.length - 1; i++) {
@@ -941,252 +971,6 @@
         }
     });
 
-    function toggleHelpers() {
-        document.body.classList.toggle('helpers-hidden');
-        const btn = $('btn-helpers');
-        if (document.body.classList.contains('helpers-hidden')) {
-            btn.classList.add('active-mode');
-        } else {
-            btn.classList.remove('active-mode');
-        }
-    }
-
-    function toggleTrimMode() {
-        trimMode = !trimMode;
-        chamferMode = false; $('btn-chamfer').classList.remove('active-mode');
-        const btn = $('btn-trim');
-        if (trimMode) {
-            btn.classList.add('active-mode');
-            showToast("Režim oříznutí: Klikněte na část čáry");
-            stopMeasure();
-        } else {
-            btn.classList.remove('active-mode');
-        }
-    }
-
-    function toggleChamferMode() {
-        chamferMode = !chamferMode;
-        trimMode = false; $('btn-trim').classList.remove('active-mode');
-        const btn = $('btn-chamfer');
-        if (chamferMode) {
-            btn.classList.add('active-mode');
-            showToast("Režim Rohy: Klikněte na vrchol (roh)");
-            stopMeasure();
-        } else {
-            btn.classList.remove('active-mode');
-        }
-    }
-
-    function openChamferModal() {
-        $('modal-chamfer').style.display = 'flex';
-        $('chamfer-val').value = '';
-        $('chamfer-val').focus();
-    }
-
-    function setChamferType(t) {
-        chamferType = t;
-        $('chamfer-type-c').classList.toggle('active', t === 'C');
-        $('chamfer-type-r').classList.toggle('active', t === 'R');
-        $('chamfer-val').placeholder = t === 'C' ? "Velikost C" : "Rádius R";
-    }
-
-    function applyChamfer() {
-        const val = parseFloat($('chamfer-val').value.replace(',', '.'));
-        if (!val || val <= 0) { alert("Zadejte platnou velikost"); return; }
-        
-        const idx = chamferTargetIdx;
-        const pPrev = points[idx-1];
-        const pCurr = points[idx];
-        const pNext = points[idx+1];
-
-        if (pCurr.type === 'arc' || pNext.type === 'arc') {
-            alert("Lze upravit jen spojení dvou úseček.");
-            closeModals();
-            return;
-        }
-
-        saveHistory();
-
-        // Vectors
-        const v1x = pPrev.x - pCurr.x;
-        const v1z = pPrev.z - pCurr.z;
-        const len1 = Math.sqrt(v1x*v1x + v1z*v1z);
-        
-        const v2x = pNext.x - pCurr.x;
-        const v2z = pNext.z - pCurr.z;
-        const len2 = Math.sqrt(v2x*v2x + v2z*v2z);
-
-        if (len1 < val || len2 < val) {
-            alert("Úsečky jsou příliš krátké pro tuto úpravu.");
-            return;
-        }
-
-        const u1x = v1x / len1;
-        const u1z = v1z / len1;
-        const u2x = v2x / len2;
-        const u2z = v2z / len2;
-
-        // Calculate Angle
-        const dot = u1x*u2x + u1z*u2z;
-        const angle = Math.acos(Math.max(-1, Math.min(1, dot))); // Radians
-        const halfAngle = angle / 2;
-
-        let distFromCorner = 0;
-
-        if (chamferType === 'C') {
-            // Simple distance cut
-            distFromCorner = val;
-        } else {
-            // Fillet tangent distance: R / tan(angle/2)
-            distFromCorner = val / Math.tan(halfAngle);
-        }
-
-        if (distFromCorner > len1 || distFromCorner > len2) {
-             alert("Úprava se nevejde do délky úseček.");
-             return;
-        }
-
-        // Calculate new start/end points for the cut
-        const startX = pCurr.x + u1x * distFromCorner;
-        const startZ = pCurr.z + u1z * distFromCorner;
-        
-        const endX = pCurr.x + u2x * distFromCorner;
-        const endZ = pCurr.z + u2z * distFromCorner;
-
-        // Modify points array
-        // 1. Update pCurr to be the start of the cut
-        points[idx].x = startX;
-        points[idx].z = startZ;
-
-        if (chamferType === 'C') {
-            // Chamfer: Just add a line segment to endX, endZ
-            // Actually, we need to insert a point.
-            // Currently: P(idx-1) -> P(idx=Start) -> P(idx+1=Next)
-            // We want: P(idx-1) -> P(idx=Start) -> P(New=End) -> P(idx+1=Next)
-            points.splice(idx + 1, 0, { x: endX, z: endZ, type: 'line', break: false, id: pointIdCounter++ });
-        } else {
-            // Fillet: Insert Arc
-            // Need center point and direction (CW/CCW)
-            // Cross product to determine turn direction
-            const cross = u1x * u2z - u1z * u2x;
-            const isCW = cross < 0; // Assuming standard coordinate system check (SVG Y is inverted, but math holds for relative)
-            
-            // Center calculation is complex, but for arc drawing we just need
-            // Radius, End Point, Sweep Flag.
-            // SVG Arc command handles center calculation implicitly if we give it R and flags.
-            
-            // NOTE: In our system, points define the segment ending at them.
-            // P[idx] is now the START of the arc (end of previous line).
-            // We need to insert a new point at `endX, endZ` which IS the arc.
-            
-            // Wait, points structure:
-            // P[i] is a point. The segment from P[i-1] to P[i] is defined by P[i].type.
-            // So:
-            // P[idx] (was corner) -> becoming Start of Chamfer (end of prev line). Type stays 'line'.
-            // We insert P_new at End of Chamfer. Type 'arc' or 'line'.
-            
-            // Calculate Center for display/data
-            // (Not strictly needed for SVG path if flags are right, but good for data model)
-            // Let's approximate or calculate properly later. For now, we trust the drawing engine.
-            // Actually, our updatePath needs p.cx, p.cz for arcs. We MUST calculate center.
-            
-            // Vector from corner to center bisects the angle
-            const bisectX = u1x + u2x;
-            const bisectZ = u1z + u2z;
-            const bisectLen = Math.sqrt(bisectX*bisectX + bisectZ*bisectZ);
-            const uBisectX = bisectX / bisectLen;
-            const uBisectZ = bisectZ / bisectLen;
-            
-            const distToCenter = val / Math.sin(halfAngle);
-            const cx = pCurr.x + uBisectX * distToCenter;
-            const cz = pCurr.z + uBisectZ * distToCenter;
-
-            points.splice(idx + 1, 0, { 
-                x: endX, z: endZ, 
-                type: 'arc', 
-                r: val, 
-                cw: isCW, // Check this logic visually
-                cx: cx, cz: cz,
-                break: false, 
-                id: pointIdCounter++ 
-            });
-        }
-
-        updatePath();
-        closeModals();
-        toggleChamferMode(); // Turn off mode after success
-    }
-
-    function handleTrimClick(e) {
-        // Determine clicked segment
-        let bestSeg = null;
-        let segMd = 30 * (vb.w / svg.clientWidth); // Bigger tolerance for trim
-        const m = svg.getScreenCTM();
-        const pWorld = { x: (e.clientX - m.e) / m.a, z: -((e.clientY - m.f) / m.d) };
-
-        for (let i = 0; i < points.length - 1; i++) {
-            const p1 = points[i];
-            const p2 = points[i + 1];
-            if (p2.break) continue;
-            const snap = getClosestOnSeg(pWorld, p1, p2);
-            if (snap.dist < segMd) {
-                segMd = snap.dist;
-                bestSeg = { x: snap.x, z: snap.z, index: i };
-            }
-        }
-
-        if (!bestSeg) return;
-
-        const idx = bestSeg.index;
-        const pStart = points[idx];
-        const pEnd = points[idx+1];
-
-        // Find intersections on this segment
-        let intersectionsOnSeg = activeIntersections.filter(function(int) {
-            return int.s1 === idx || int.s2 === idx;
-        });
-
-        if (intersectionsOnSeg.length === 0) {
-            showToast("Žádný průsečík k oříznutí");
-            return;
-        }
-
-        // Find closest intersection to click
-        let bestInt = null;
-        let minIntDist = Infinity;
-
-        for(let i=0; i<intersectionsOnSeg.length; i++) {
-            const int = intersectionsOnSeg[i];
-            const d = dist(pWorld, int);
-            if(d < minIntDist) {
-                minIntDist = d;
-                bestInt = int;
-            }
-        }
-
-        // Determine which side to trim
-        const dClickStart = dist(pWorld, pStart);
-        const dClickEnd = dist(pWorld, pEnd);
-        const dIntStart = dist(bestInt, pStart);
-        const dIntEnd = dist(bestInt, pEnd);
-
-        saveHistory();
-
-        if (dClickStart > dIntStart) {
-            // Trim tail
-            points[idx+1].x = bestInt.x;
-            points[idx+1].z = bestInt.z;
-            showToast("Oříznut konec");
-        } else {
-            // Trim head
-            points[idx].x = bestInt.x;
-            points[idx].z = bestInt.z;
-            points[idx].break = true; 
-            showToast("Oříznut začátek");
-        }
-        updatePath();
-    }
-
     svg.addEventListener('touchstart', function(e) {
         if (e.touches.length > 1) {
             clearTimeout(longPressTimer);
@@ -1219,11 +1003,17 @@
             }
             
             if (chamferMode) {
-                const m = svg.getScreenCTM();
-                const t = e.changedTouches[0];
-                const wx = (t.clientX - m.e) / m.a;
-                const wy = ((t.clientY - TOUCH_OFFSET_Y) - m.f) / m.d;
-                const snap = handleMouseSnap({x: wx, y: wy});
+                // Opravena logika pro presnejsi detekci rohu na mobilu
+                let snap = lastVirtualSnap;
+                if (!snap) {
+                     // Fallback pokud lastVirtualSnap neni set
+                     const m = svg.getScreenCTM();
+                     const t = e.changedTouches[0];
+                     const wx = (t.clientX - m.e) / m.a;
+                     const wy = ((t.clientY - TOUCH_OFFSET_Y) - m.f) / m.d;
+                     snap = handleMouseSnap({x: wx, y: wy});
+                }
+                
                 if (snap && snap.type === 'point') {
                     const idx = points.findIndex(function(p) { return Math.abs(p.x - snap.x) < 0.001 && Math.abs(p.z - snap.z) < 0.001; });
                     if (idx > 0 && idx < points.length - 1) {
@@ -1232,6 +1022,7 @@
                     }
                 }
                 isLongPressActive = false;
+                mobCursorGrp.innerHTML = ''; snapGrp.innerHTML = ''; lastVirtualSnap = null;
                 return;
             }
 
@@ -1386,7 +1177,6 @@
         }
     }
 
-    // NEW FUNCTIONS: Arc & Circle Picking
     function startArcTargetPick() {
         closeModals();
         pickingArcTarget = true;
@@ -1401,7 +1191,7 @@
         let dX = isDiameterMode ? x * 2 : x;
         $('arc-x').value = dX.toFixed(3);
         $('arc-z').value = z.toFixed(3);
-        $('ik-target-x').value = dX.toFixed(3); // Also fill IK target if needed
+        $('ik-target-x').value = dX.toFixed(3); 
         $('ik-target-z').value = z.toFixed(3);
 
         $('modal-arc').style.display = 'flex';
@@ -1506,7 +1296,7 @@
         $('modal-arc').style.display = 'flex'; 
         $('arc-r').value = 100; 
         $('chk-tangent').checked = true;
-        $('chk-back-tangent').checked = false; // Reset back tangent state 
+        $('chk-back-tangent').checked = false; 
         $('arc-x').value = ''; 
         $('arc-z').value = ''; 
         $('center-x').value = ''; 
@@ -1534,7 +1324,6 @@
     function commitArc() {
         saveHistory(); const l = points[points.length - 1]; let ex, ez, cx, cz, r;
         
-        // --- BACK TANGENT LOGIC (FIXED OFFSET DIRECTION) ---
         if (arcMethod === 'R' && $('chk-back-tangent').checked) {
             if (points.length < 2) { alert("Nelze použít zpětnou tangentu."); return; }
             const prevP = points[points.length-2]; 
@@ -1613,7 +1402,6 @@
         }
 
         if (arcMethod === 'IK') {
-            // IK Logic (mostly unaffected as it calculates center explicitly)
             const cX = parseFloat($('center-x').value.replace(',', '.')), cZ = parseFloat($('center-z').value.replace(',', '.'));
             if (isNaN(cX) || isNaN(cZ)) { alert("Střed?"); return; }
             cx = isIncrementalIKMode ? l.x + (isDiameterMode ? cX / 2 : cX) : (isDiameterMode ? cX / 2 : cX);
@@ -1621,42 +1409,34 @@
             r = dist(l, { x: cx, z: cz });
             const tA = $('ik-target-angle').value, tX = $('ik-target-x').value, tZ = $('ik-target-z').value;
             if (tA) {
-                const a = Math.atan2(l.z - cz, l.x - cx) + parseFloat(tA.replace(',', '.')) * (Math.PI / 180) * (isG2 ? 1 : -1); // Direction flip for SVG angle
+                const a = Math.atan2(l.z - cz, l.x - cx) + parseFloat(tA.replace(',', '.')) * (Math.PI / 180) * (isG2 ? 1 : -1);
                 ex = cx + r * Math.cos(a); ez = cz + r * Math.sin(a);
             } else if (tX || tZ) {
                 let c = [];
                 if (tX) { let tx = parseFloat(tX.replace(',', '.')) / (isDiameterMode ? 2 : 1), tm = r * r - Math.pow(tx - cx, 2); if (tm >= 0) { let d = Math.sqrt(tm); c.push({ x: tx, z: cz + d }, { x: tx, z: cz - d }); } }
                 if (tZ) { let tz = parseFloat(tZ.replace(',', '.')), tm = r * r - Math.pow(tz - cz, 2); if (tm >= 0) { let d = Math.sqrt(tm); c.push({ x: cx + d, z: tz }, { x: cx - d, z: tz }); } }
                 if (!c.length) { alert("Mimo dosah"); return; }
-                // Pick closest logic... simplified
                 const s = ($('chk-ik-long-arc').checked && c.length > 1) ? c[1] : c[0];
                 ex = s.x; ez = s.z;
             } else { alert("Cíl?"); return; }
         } else {
             const rV = parseFloat($('arc-r').value.replace(',', '.')); if (isNaN(rV)) { alert("R?"); return; } r = Math.abs(rV);
             if (!$('chk-tangent').checked) {
-                // Manual Arc logic fix
                 let tx = parseFloat($('arc-x').value.replace(',', '.')), tz = parseFloat($('arc-z').value.replace(',', '.'));
                 if (isNaN(tx) || isNaN(tz)) { alert("Cíl?"); return; } if (isDiameterMode) tx /= 2; ex = tx; ez = tz;
                 const d = dist(l, { x: ex, z: ez }); if (d > 2 * r) { alert("Malé R"); return; }
                 const h = Math.sqrt(r * r - (d / 2) * (d / 2)), a = Math.atan2(ez - l.z, ex - l.x), mx = (l.x + ex) / 2, mz = (l.z + ez) / 2, c1x = mx + h * Math.sin(a), c1z = mz - h * Math.cos(a), c2x = mx - h * Math.sin(a), c2z = mz + h * Math.cos(a), cr = (ex - l.x) * (c1z - l.z) - (ez - l.z) * (c1x - l.x);
-                // G2 means Right center. Cross > 0 is Right in SVG.
                 cx = isG2 ? (cr > 0 ? c1x : c2x) : (cr < 0 ? c1x : c2x); cz = isG2 ? (cr > 0 ? c1z : c2z) : (cr < 0 ? c1z : c2z);
             } else {
-                // Manual Tangent
                 let pA = 0;
-                if (l.type === 'arc' && !l.break) { const ra = Math.atan2(l.z - l.cz, l.x - l.cx); pA = l.cw ? ra + Math.PI / 2 : ra - Math.PI / 2; } // Tangent direction
+                if (l.type === 'arc' && !l.break) { const ra = Math.atan2(l.z - l.cz, l.x - l.cx); pA = l.cw ? ra + Math.PI / 2 : ra - Math.PI / 2; }
                 else if (points.length > 1) { const p = points[points.length - 2]; pA = Math.atan2(l.z - p.z, l.x - p.x); }
                 
-                // G2 (Right) center is +PI/2 from tangent?
-                // Tangent vector (cos, sin). Normal Right is (-sin, cos).
-                // Angle + PI/2.
                 const nA = isG2 ? pA + Math.PI / 2 : pA - Math.PI / 2;
                 cx = l.x + Math.cos(nA) * r; cz = l.z + Math.sin(nA) * r;
                 
                 if (tangentTargetMode === 'cone') {
                     const ang = parseFloat($('arc-cone-angle').value.replace(',', '.')); if (isNaN(ang)) { alert("Úhel?"); return; }
-                    // G2 means angle increases? 
                     const eA = Math.atan2(l.z - cz, l.x - cx) + ang * (Math.PI / 180) * (isG2 ? 1 : -1);
                     ex = cx + r * Math.cos(eA); ez = cz + r * Math.sin(eA);
                 } else {
@@ -1698,19 +1478,23 @@
         if (!val || val <= 0) { alert("Zadejte platnou velikost"); return; }
         
         const idx = chamferTargetIdx;
+        if (idx <= 0 || idx >= points.length - 1) { 
+            alert("Nelze upravit tento bod."); 
+            return; 
+        }
+
         const pPrev = points[idx-1];
         const pCurr = points[idx];
         const pNext = points[idx+1];
 
         if (pCurr.type === 'arc' || pNext.type === 'arc') {
-            alert("Lze upravit jen spojení dvou úseček.");
+            alert("Lze upravit jen spojení dvou rovných úseček.");
             closeModals();
             return;
         }
 
         saveHistory();
 
-        // Vectors
         const v1x = pPrev.x - pCurr.x;
         const v1z = pPrev.z - pCurr.z;
         const len1 = Math.sqrt(v1x*v1x + v1z*v1z);
@@ -1719,111 +1503,92 @@
         const v2z = pNext.z - pCurr.z;
         const len2 = Math.sqrt(v2x*v2x + v2z*v2z);
 
-        if (len1 < val || len2 < val) {
-            alert("Úsečky jsou příliš krátké pro tuto úpravu.");
-            return;
-        }
-
         const u1x = v1x / len1;
         const u1z = v1z / len1;
         const u2x = v2x / len2;
         const u2z = v2z / len2;
 
-        // Calculate Angle
         const dot = u1x*u2x + u1z*u2z;
-        const angle = Math.acos(Math.max(-1, Math.min(1, dot))); // Radians
+        const angle = Math.acos(Math.max(-1, Math.min(1, dot))); 
         const halfAngle = angle / 2;
+
+        if (angle > 3.14 || angle < 0.01) {
+             alert("Úhel je příliš ostrý nebo rovný.");
+             return;
+        }
 
         let distFromCorner = 0;
 
         if (chamferType === 'C') {
-            // Simple distance cut
             distFromCorner = val;
         } else {
-            // Fillet tangent distance: R / tan(angle/2)
             distFromCorner = val / Math.tan(halfAngle);
         }
 
         if (distFromCorner > len1 || distFromCorner > len2) {
-             alert("Úprava se nevejde do délky úseček.");
+             alert("Úprava se nevejde do délky úseček. Zmenšete rozměr.");
              return;
         }
 
-        // Calculate new start/end points for the cut
         const startX = pCurr.x + u1x * distFromCorner;
         const startZ = pCurr.z + u1z * distFromCorner;
         
         const endX = pCurr.x + u2x * distFromCorner;
         const endZ = pCurr.z + u2z * distFromCorner;
 
-        // Modify points array
-        // 1. Update pCurr to be the start of the cut
         points[idx].x = startX;
         points[idx].z = startZ;
 
         if (chamferType === 'C') {
-            // Chamfer: Just add a line segment to endX, endZ
-            // Actually, we need to insert a point.
-            // Currently: P(idx-1) -> P(idx=Start) -> P(idx+1=Next)
-            // We want: P(idx-1) -> P(idx=Start) -> P(New=End) -> P(idx+1=Next)
-            points.splice(idx + 1, 0, { x: endX, z: endZ, type: 'line', break: false, id: pointIdCounter++ });
+            points.splice(idx + 1, 0, { 
+                x: endX, 
+                z: endZ, 
+                type: 'line', 
+                break: false, 
+                id: pointIdCounter++ 
+            });
         } else {
-            // Fillet: Insert Arc
-            // Need center point and direction (CW/CCW)
-            // Cross product to determine turn direction
-            const cross = u1x * u2z - u1z * u2x;
-            const isCW = cross < 0; // Assuming standard coordinate system check (SVG Y is inverted, but math holds for relative)
+            const vecInX = pCurr.x - pPrev.x; 
+            const vecInZ = pCurr.z - pPrev.z;
             
-            // Center calculation is complex, but for arc drawing we just need
-            // Radius, End Point, Sweep Flag.
-            // SVG Arc command handles center calculation implicitly if we give it R and flags.
+            const cross = vecInX * u2z - vecInZ * u2x;
+            const isCW = cross < 0; 
+
+            let centerX, centerZ;
+            const dirX = -u1x; 
+            const dirZ = -u1z;
             
-            // NOTE: In our system, points define the segment ending at them.
-            // P[idx] is now the START of the arc (end of previous line).
-            // We need to insert a new point at `endX, endZ` which IS the arc.
-            
-            // Wait, points structure:
-            // P[i] is a point. The segment from P[i-1] to P[i] is defined by P[i].type.
-            // So:
-            // P[idx] (was corner) -> becoming Start of Chamfer (end of prev line). Type stays 'line'.
-            // We insert P_new at End of Chamfer. Type 'arc' or 'line'.
-            
-            // Calculate Center for display/data
-            // (Not strictly needed for SVG path if flags are right, but good for data model)
-            // Let's approximate or calculate properly later. For now, we trust the drawing engine.
-            // Actually, our updatePath needs p.cx, p.cz for arcs. We MUST calculate center.
-            
-            // Vector from corner to center bisects the angle
-            const bisectX = u1x + u2x;
-            const bisectZ = u1z + u2z;
-            const bisectLen = Math.sqrt(bisectX*bisectX + bisectZ*bisectZ);
-            const uBisectX = bisectX / bisectLen;
-            const uBisectZ = bisectZ / bisectLen;
-            
-            const distToCenter = val / Math.sin(halfAngle);
-            const cx = pCurr.x + uBisectX * distToCenter;
-            const cz = pCurr.z + uBisectZ * distToCenter;
+            if (isCW) { 
+                centerX = startX + (dirZ * val); 
+                centerZ = startZ + (-dirX * val);
+            } else { 
+                centerX = startX + (-dirZ * val); 
+                centerZ = startZ + (dirX * val);
+            }
 
             points.splice(idx + 1, 0, { 
                 x: endX, z: endZ, 
                 type: 'arc', 
                 r: val, 
-                cw: isCW, // Check this logic visually
-                cx: cx, cz: cz,
+                cw: isCW, 
+                cx: centerX, cz: centerZ,
                 break: false, 
                 id: pointIdCounter++ 
             });
+            
+            if (points[idx + 2]) {
+                points[idx + 2].type = 'line';
+            }
         }
 
         updatePath();
         closeModals();
-        toggleChamferMode(); // Turn off mode after success
+        toggleChamferMode();
     }
 
     function handleTrimClick(e) {
-        // Determine clicked segment
         let bestSeg = null;
-        let segMd = 30 * (vb.w / svg.clientWidth); // Bigger tolerance for trim
+        let segMd = 30 * (vb.w / svg.clientWidth);
         const m = svg.getScreenCTM();
         const pWorld = { x: (e.clientX - m.e) / m.a, z: -((e.clientY - m.f) / m.d) };
 
@@ -1844,7 +1609,6 @@
         const pStart = points[idx];
         const pEnd = points[idx+1];
 
-        // Find intersections on this segment
         let intersectionsOnSeg = activeIntersections.filter(function(int) {
             return int.s1 === idx || int.s2 === idx;
         });
@@ -1854,7 +1618,6 @@
             return;
         }
 
-        // Find closest intersection to click
         let bestInt = null;
         let minIntDist = Infinity;
 
@@ -1867,7 +1630,6 @@
             }
         }
 
-        // Determine which side to trim
         const dClickStart = dist(pWorld, pStart);
         const dClickEnd = dist(pWorld, pEnd);
         const dIntStart = dist(bestInt, pStart);
@@ -1876,12 +1638,10 @@
         saveHistory();
 
         if (dClickStart > dIntStart) {
-            // Trim tail
             points[idx+1].x = bestInt.x;
             points[idx+1].z = bestInt.z;
             showToast("Oříznut konec");
         } else {
-            // Trim head
             points[idx].x = bestInt.x;
             points[idx].z = bestInt.z;
             points[idx].break = true; 
@@ -1956,7 +1716,7 @@
     function onPointClick(i) {
         if (isDragging && !lastVirtualSnap && !isLongPressActive) return;
         const p = points[i];
-        copyCoords(p.x, p.z); // Auto-Copy na klik
+        copyCoords(p.x, p.z); 
         if (measureMode) { handleMeasureClick(p); return; }
         if (points.length > 0 && points[points.length - 1] === p) { centerViewOnPoint(p); return; }
         if (!pickingStartPoint) { saveHistory(); points.push({ x: p.x, z: p.z, break: points.length === 0, type: 'line', id: pointIdCounter++ }); centerViewOnPoint(points[points.length - 1]); updatePath(); }
@@ -1964,7 +1724,7 @@
     }
     function onCenterClick(cx, cz) {
         if (isDragging && !lastVirtualSnap && !isLongPressActive) return;
-        copyCoords(cx, cz); // Auto-Copy na klik středu
+        copyCoords(cx, cz); 
         if (measureMode) handleMeasureClick({ x: cx, z: cz });
         else { $('hud-x').innerText = (isDiameterMode ? cx * 2 : cx).toFixed(2) + " (I)"; $('hud-z').innerText = cz.toFixed(2) + " (K)"; }
     }
