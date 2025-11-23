@@ -3,16 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Karusel CNC SmartGrid Mobile v8.41</title>
+    <title>Karusel CNC SmartGrid Mobile v8.43</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
             --bg-canvas: #ffffff; --bg-panel: #1e1e1e; --bg-btn: #333;
             --grid-main: #999; --grid-sub: #e0e0e0; --axis: #444; --accent: #ff6f00; --text-light: #eee;
-            --c-draw: #2e7d32; --c-arc: #1565c0; --c-circle: #6a1b9a; 
+            --c-draw: #2e7d32; --c-arc: #1565c0; --c-circle: #6a1b9a;
             --c-meas: #ef6c00; --c-util: #0097a7; --c-undo: #757575; --c-del: #d32f2f;     
         }
-        body { margin: 0; padding: 0; background: var(--bg-panel); color: var(--text-light); font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; width: 100vw; overflow: hidden; user-select: none; -webkit-user-select: none; overscroll-behavior: none; touch-action: none; }
+        
+        body { 
+            margin: 0; padding: 0; background: var(--bg-panel); color: var(--text-light); 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            height: 100vh; width: 100vw; overflow: hidden; 
+            user-select: none; -webkit-user-select: none; 
+            overscroll-behavior: none; touch-action: none; 
+        }
         * { -webkit-tap-highlight-color: transparent; }
 
         #app-layout { display: flex; flex-direction: column; width: 100%; height: 100%; }
@@ -20,24 +27,22 @@
         svg { width: 100%; height: 100%; display: block; cursor: crosshair; }
         
         #panel-area { 
-            flex-shrink: 0; background: var(--bg-panel); padding: 10px 10px 40px 10px;
+            flex-shrink: 0; background: var(--bg-panel); padding: 8px 8px 40px 8px;
             box-shadow: 0 -4px 10px rgba(0,0,0,0.3); z-index: 10; 
             overflow-y: auto; max-height: 45vh; 
             touch-action: pan-y; 
         }
         
-        /* UPRAVENO: 5 sloupců pro mobil */
         .panel-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: 100%; max-width: 700px; margin: 0 auto; }
         @media (orientation: landscape) { #app-layout { flex-direction: row; } #panel-area { width: 280px; max-height: 100%; border-left: 1px solid #444; padding-bottom: 100px; } .panel-grid { grid-template-columns: repeat(3, 1fr); } }
 
         .icon-btn { background: var(--bg-btn); border: none; border-radius: 10px; aspect-ratio: 1/0.9; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; color: #ccc; transition: all 0.1s; position: relative; padding: 4px; }
         .icon-btn:active { transform: scale(0.95); background: #444; }
         .icon-btn.active-mode { background: var(--c-util); color: #fff; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); border: 2px solid #fff; }
-        .icon-btn i { font-size: 22px; margin-bottom: 5px; } .icon-btn span { font-size: 9px; font-weight: 600; line-height: 1.1; text-align: center; }
-        .btn-draw i { color: #4caf50; } .btn-arc i { color: #2196f3; } .btn-circ i { color: #9c27b0; } .btn-meas i { color: #ff9800; } .btn-util i { color: #00bcd4; } .btn-del i { color: #f44336; }
+        .icon-btn i { font-size: 20px; margin-bottom: 4px; } .icon-btn span { font-size: 9px; font-weight: 600; line-height: 1.1; text-align: center; }
         
-        /* Tlačítko smazat výraznější */
-        .btn-del { background: #3e2723; border: 1px solid #5d4037; }
+        .btn-draw i { color: #4caf50; } .btn-arc i { color: #2196f3; } .btn-circ i { color: #9c27b0; } .btn-meas i { color: #ff9800; } .btn-util i { color: #00bcd4; } 
+        .btn-del { background: #3e2723; border: 1px solid #4e342e; } .btn-del i { color: #ff5252; }
         
         .btn-disabled { opacity: 0.3; pointer-events: none; }
 
@@ -150,11 +155,9 @@
             <button id="btn-start-pick" class="icon-btn btn-util" onclick="toggleStartPick()"><i class="fas fa-pen-nib"></i><span>Start Bod</span></button>
             <button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button>
             <button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button>
-            
-            <!-- SMAZAT PŘESUNUTO NAKONEC -->
-            <button class="icon-btn btn-del" onclick="clearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button>
+            <button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button>
         </div>
-        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v8.41 Multitouch Fix</div>
+        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v8.43 Stabilized</div>
     </div>
 </div>
 
@@ -257,30 +260,58 @@
 </div>
 
 <script>
-    const $ = (id) => document.getElementById(id);
-    const svg=$('svgCanvas'), gridLines=$('gridLines'), textGroup=$('textGroup'), pathGroup=$('pathGroup'), axisGroup=$('axisGroup'), measureLayer=$('measureLayer'), intersectGrp=$('intersectionGroup'), snapGrp=$('snapCursorGroup'), mobCursorGrp=$('mobileCursorGroup');
-    let points=[{x:0,z:0,break:false,type:'line',id:0}], historyStack=[], redoStack=[], pointIdCounter=1;
-    let currentDir='', isG2=true, arcMethod='R', isIncrementalIKMode=false, tangentTargetMode='cone', measureMode=null;
-    let circleInputMode='R';
+    // --- 1. CONFIGURATION & GLOBALS ---
+    const $ = function(id) { return document.getElementById(id); };
+    const svg = $('svgCanvas');
+    const gridLines = $('gridLines');
+    const textGroup = $('textGroup');
+    const pathGroup = $('pathGroup');
+    const axisGroup = $('axisGroup');
+    const measureLayer = $('measureLayer');
+    const intersectGrp = $('intersectionGroup');
+    const snapGrp = $('snapCursorGroup');
+    const mobCursorGrp = $('mobileCursorGroup');
+    
+    let points = [{x: 0, z: 0, break: false, type: 'line', id: 0}]; 
+    let historyStack = [];
+    let redoStack = []; 
+    let pointIdCounter = 1;
+    let currentDir = '';
+    let isG2 = true;
+    let arcMethod = 'R';
+    let isIncrementalIKMode = false;
+    let tangentTargetMode = 'cone';
+    let measureMode = null; 
+    let circleInputMode = 'R';
     let pickingStartPoint = false;
-    let measurePoints=[], activeIntersections=[], lastVirtualSnap=null, vb={x:0,y:0,w:600,h:600};
+    let measurePoints = [];
+    let activeIntersections = [];
+    let lastVirtualSnap = null;
+    let vb = { x: 0, y: 0, w: 600, h: 600 };
     let measureLineBuffer = null;
     const TOUCH_OFFSET_Y = 100;
-    let isDiameterMode = (localStorage.getItem('cnc_diameter_mode') === 'true') || true;
+    let isDiameterMode = true;
+    if (localStorage.getItem('cnc_diameter_mode') === 'false') {
+        isDiameterMode = false;
+    }
+    
     let longPressTimer = null;
     let isLongPressActive = false;
     const LONG_PRESS_DURATION = 600;
     
-    // PINCH ZOOM VARS
     let initialPinchDist = 0;
     let initialVbW = 0;
     let initialVbH = 0;
 
+    // --- 2. HELPER FUNCTIONS ---
     function svgEl(tag, attrs) {
         const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
         for (let k in attrs) {
-            if (k === 'textContent') el.textContent = attrs[k];
-            else el.setAttribute(k, attrs[k]);
+            if (k === 'textContent') {
+                el.textContent = attrs[k];
+            } else {
+                el.setAttribute(k, attrs[k]);
+            }
         }
         return el;
     }
@@ -289,33 +320,38 @@
         return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.z - p1.z, 2));
     }
 
-    function distToSeg(p, v, w) {
-        const vy = v.z, wy = w.z;
-        const l2 = Math.pow(w.x - v.x, 2) + Math.pow(wy - vy, 2);
-        if (l2 === 0) return Math.sqrt(Math.pow(p.x - v.x, 2) + Math.pow(p.y - vy, 2));
-        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - vy) * (wy - vy)) / l2;
-        t = Math.max(0, Math.min(1, t));
-        return Math.sqrt(Math.pow(p.x - (v.x + t * (w.x - v.x)), 2) + Math.pow(p.y - (vy + t * (wy - vy)), 2));
-    }
-
     function getClosestOnSeg(pWorld, p1, p2) {
         if (p2.type !== 'arc') {
-            const dx = p2.x - p1.x, dz = p2.z - p1.z;
+            const dx = p2.x - p1.x;
+            const dz = p2.z - p1.z;
             const l2 = dx * dx + dz * dz;
-            if (l2 === 0) return { x: p1.x, z: p1.z, dist: dist(pWorld, p1) };
+            if (l2 === 0) {
+                return { x: p1.x, z: p1.z, dist: dist(pWorld, p1) };
+            }
             let t = ((pWorld.x - p1.x) * dx + (pWorld.z - p1.z) * dz) / l2;
-            t = Math.max(0, Math.min(1, t));
-            const px = p1.x + t * dx, pz = p1.z + t * dz;
+            if (t < 0) t = 0;
+            if (t > 1) t = 1;
+            const px = p1.x + t * dx;
+            const pz = p1.z + t * dz;
             return { x: px, z: pz, dist: dist(pWorld, { x: px, z: pz }) };
         } else {
-            const cx = p2.cx, cz = p2.cz, r = p2.r;
-            const dx = pWorld.x - cx, dz = pWorld.z - cz;
+            const cx = p2.cx;
+            const cz = p2.cz;
+            const r = p2.r;
+            const dx = pWorld.x - cx;
+            const dz = pWorld.z - cz;
             const dCenter = Math.sqrt(dx * dx + dz * dz);
-            const px = cx + (dx / dCenter) * r, pz = cz + (dz / dCenter) * r;
+            
+            const px = cx + (dx / dCenter) * r;
+            const pz = cz + (dz / dCenter) * r;
+            
             const aStart = Math.atan2(p1.z - cz, p1.x - cx);
             const aEnd = Math.atan2(p2.z - cz, p2.x - cx);
             const aP = Math.atan2(pz - cz, px - cx);
-            let sweep = aEnd - aStart, sweepP = aP - aStart;
+            
+            let sweep = aEnd - aStart;
+            let sweepP = aP - aStart;
+            
             if (p2.cw) {
                 if (sweep > 0) sweep -= 2 * Math.PI;
                 if (sweepP > 0) sweepP -= 2 * Math.PI;
@@ -323,190 +359,22 @@
                 if (sweep < 0) sweep += 2 * Math.PI;
                 if (sweepP < 0) sweepP += 2 * Math.PI;
             }
+            
             let onArc = false;
             if (p2.cw) {
                 if (sweepP <= 0 && sweepP >= sweep) onArc = true;
             } else {
                 if (sweepP >= 0 && sweepP <= sweep) onArc = true;
             }
-            if (onArc) return { x: px, z: pz, dist: Math.abs(dCenter - r) };
+            
+            if (onArc) {
+                return { x: px, z: pz, dist: Math.abs(dCenter - r) };
+            }
             return { dist: Infinity };
         }
     }
 
-    function drawDynamicGrid() {
-        if (!svg.clientWidth) return;
-        gridLines.innerHTML = ''; textGroup.innerHTML = ''; axisGroup.innerHTML = '';
-        
-        const step = Math.pow(10, Math.floor(Math.log10(vb.w / 5))) * (vb.w / 5 / Math.pow(10, Math.floor(Math.log10(vb.w / 5))) < 2 ? 1 : (vb.w / 5 / Math.pow(10, Math.floor(Math.log10(vb.w / 5))) < 5 ? 2 : 5));
-        const subStep = step / 5;
-        const fs = Math.max(vb.w / 32, step / 3.5);
-
-        axisGroup.appendChild(svgEl("line", { x1: -1e5, y1: 0, x2: 1e5, y2: 0, class: 'axis-line' }));
-        axisGroup.appendChild(svgEl("line", { x1: 0, y1: -1e5, x2: 0, y2: 1e5, class: 'axis-line' }));
-
-        const drawAxis = (isX) => {
-            const s = Math.floor((isX ? vb.x : -(vb.y + vb.h)) / step) * step;
-            const e = isX ? vb.x + vb.w : -vb.y;
-            
-            for (let v = s; v < e + step; v += step) {
-                if (isX && v > vb.x + vb.w) break;
-                
-                const c = isX ? { x1: v, y1: -(vb.y + vb.h), x2: v, y2: -vb.y } : { x1: vb.x, y1: v, x2: vb.x + vb.w, y2: v };
-                gridLines.appendChild(svgEl("line", { ...c, class: 'grid-line' }));
-                
-                for (let i = 1; i < 5; i++) {
-                    const sv = v + subStep * i;
-                    if (sv < e) {
-                        const sc = isX ? { x1: sv, y1: c.y1, x2: sv, y2: c.y2 } : { x1: c.x1, y1: sv, x2: c.x2, y2: sv };
-                        gridLines.appendChild(svgEl("line", { ...sc, class: 'grid-sub-line' }));
-                    }
-                }
-                
-                if (Math.abs(v) > step / 100) {
-                    const tStr = (isX ? (isDiameterMode ? v * 2 : v) : v).toFixed(step >= 1 ? 0 : Math.ceil(-Math.log10(step)));
-                    let tX = isX ? v : Math.max(vb.x + fs * 1.5, Math.min(vb.x + vb.w - fs * 4, -fs));
-                    
-                    // FIX Z-AXIS LABEL OVERLAP
-                    let anch = "end";
-                    if (isX) {
-                        anch = "middle";
-                    } else {
-                         // Check if sticking to left edge
-                         if (Math.abs(tX - (vb.x + fs * 1.5)) < fs * 0.5) {
-                             anch = "start";
-                         }
-                    }
-                    
-                    const tY = isX ? Math.min(0, vb.y + vb.h - fs * 4.5) + ((Math.round(v / step) % 2 !== 0) ? fs * 1.2 : 0) : -v;
-                    const base = isX ? "auto" : "middle";
-                    
-                    textGroup.appendChild(svgEl("text", { x: tX, y: tY, fill: "#222", "font-size": fs, "text-anchor": anch, "dominant-baseline": base, textContent: tStr }));
-                }
-            }
-        };
-        drawAxis(true);
-        drawAxis(false);
-    }
-
-    function handleMouseSnap(p) {
-        if (isDragging && !isTouch && !isLongPressActive) { snapGrp.innerHTML = ''; return null; }
-
-        let c = null, md = 15 * (vb.w / svg.clientWidth);
-        const pWorld = { x: p.x, z: -p.y };
-
-        const targets = [...activeIntersections, ...points.filter(x => x.type !== 'arc'), ...points.filter(x => x.type === 'arc').map(x => ({ x: x.cx, z: x.cz, type: 'center' }))];
-        
-        targets.forEach(t => {
-            const d = dist(pWorld, t);
-            if (d < md) { md = d; c = { x: t.x, z: t.z, type: t.type || 'point' }; }
-        });
-
-        const hX = $('hud-x'), hZ = $('hud-z'), hS = $('hud-snap-info');
-        snapGrp.innerHTML = '';
-
-        if (c) {
-            hX.innerText = (isDiameterMode ? c.x * 2 : c.x).toFixed(3); hX.style.color = "red";
-            hZ.innerText = c.z.toFixed(3); hZ.style.color = "red";
-            hS.style.display = 'block';
-            hS.innerText = c.type === 'center' ? "STŘED" : (c.type === 'intersection' ? "PRŮSEČÍK" : "BOD");
-            const s = 20 * (vb.w / svg.clientWidth);
-            snapGrp.appendChild(svgEl("path", { d: `M ${c.x - s / 2} ${c.z} L ${c.x + s / 2} ${c.z} M ${c.x} ${c.z - s / 2} L ${c.x} ${c.z + s / 2}`, class: "snap-highlight" }));
-            return c;
-        }
-
-        let bestSeg = null;
-        let segMd = 20 * (vb.w / svg.clientWidth);
-
-        for (let i = 0; i < points.length - 1; i++) {
-            const p1 = points[i], p2 = points[i + 1];
-            if (p2.break) continue;
-            if (measureMode === 'radius' && p2.type !== 'arc') continue;
-
-            const snap = getClosestOnSeg(pWorld, p1, p2);
-            if (snap.dist < segMd) {
-                segMd = snap.dist;
-                bestSeg = { x: snap.x, z: snap.z, index: i, p2: p2 };
-            }
-        }
-
-        if (bestSeg) {
-            hX.innerText = (isDiameterMode ? bestSeg.x * 2 : bestSeg.x).toFixed(3); hX.style.color = "orange";
-            hZ.innerText = bestSeg.z.toFixed(3); hZ.style.color = "orange";
-            hS.style.display = 'block';
-            hS.innerText = measureMode === 'radius' ? "NA OBLOUKU" : "NA ÚSEČCE";
-
-            const s = 15 * (vb.w / svg.clientWidth);
-            snapGrp.appendChild(svgEl("path", { d: `M ${bestSeg.x - s / 2} ${bestSeg.z} L ${bestSeg.x + s / 2} ${bestSeg.z} M ${bestSeg.x} ${bestSeg.z - s / 2} L ${bestSeg.x} ${bestSeg.z + s / 2}`, class: "snap-highlight", stroke: "orange" }));
-
-            if (measureMode === 'distance' || measureMode === 'radius' || measureMode === 'angle') {
-                const p1 = points[bestSeg.index], p2 = points[bestSeg.index + 1];
-                const dp = p2.type === 'arc' ? `M ${p1.x} ${p1.z} A ${p2.r} ${p2.r} 0 0 ${p2.cw ? 0 : 1} ${p2.x} ${p2.z}` : `M ${p1.x} ${p1.z} L ${p2.x} ${p2.z}`;
-                snapGrp.appendChild(svgEl("path", { d: dp, class: "entity-highlight" }));
-            }
-            return { x: bestSeg.x, z: bestSeg.z, type: 'segment_stick', index: bestSeg.index };
-        }
-
-        hX.style.color = "#444"; hZ.style.color = "#444"; hS.style.display = 'none';
-        hX.innerText = (isDiameterMode ? pWorld.x * 2 : pWorld.x).toFixed(2);
-        hZ.innerText = pWorld.z.toFixed(2);
-        return { x: pWorld.x, z: pWorld.z };
-    }
-
-    function updatePath() {
-        pathGroup.innerHTML = ''; intersectGrp.innerHTML = ''; measureLayer.innerHTML = '';
-        calculateIntersections();
-        if (!points.length) return;
-        const l = points[points.length - 1];
-        $('hud-x').innerText = (isDiameterMode ? l.x * 2 : l.x).toFixed(2);
-        $('hud-z').innerText = l.z.toFixed(2);
-        const s = vb.w / svg.clientWidth, pr = 6 * s, cr = 15 * s;
-
-        activeIntersections.forEach(p => intersectGrp.appendChild(svgEl("path", { d: `M ${p.x - 10 * s} ${p.z - 10 * s} L ${p.x + 10 * s} ${p.z + 10 * s} M ${p.x - 10 * s} ${p.z + 10 * s} L ${p.x + 10 * s} ${p.z - 10 * s}`, class: "intersection-marker" })));
-
-        let d = "";
-        points.forEach((p, i) => {
-            pathGroup.appendChild(svgEl("circle", { cx: p.x, cy: p.z, r: pr, class: i === points.length - 1 ? "point-marker point-current" : "point-marker" }));
-            const h = svgEl("circle", { cx: p.x, cy: p.z, r: cr, class: "click-area" });
-            h.onclick = () => onPointClick(i); pathGroup.appendChild(h);
-
-            if (p.type === 'arc') {
-                pathGroup.appendChild(svgEl("circle", { cx: p.cx, cy: p.cz, r: pr, class: "point-center" }));
-                pathGroup.appendChild(svgEl("circle", { cx: p.cx, cy: p.cz, r: p.r, class: "helper-full-circle" }));
-                pathGroup.appendChild(svgEl("line", { x1: p.cx, y1: p.cz, x2: p.x, y2: p.z, class: "helper-radius-line" }));
-                const ch = svgEl("circle", { cx: p.cx, cy: p.cz, r: cr * 1.5, class: "click-area" });
-                ch.onclick = () => onCenterClick(p.cx, p.cz); pathGroup.appendChild(ch);
-            }
-            if (i === 0) d += `M ${p.x} ${p.z}`;
-            else d += p.break ? ` M ${p.x} ${p.z}` : (p.type === 'arc' ? ` A ${p.r} ${p.r} 0 0 ${p.cw ? 0 : 1} ${p.x} ${p.z}` : ` L ${p.x} ${p.z}`);
-        });
-        pathGroup.appendChild(svgEl("path", { d, class: "path-draw" }));
-        if (measureMode) updateMeasureDisplay();
-        if (measureMode === 'angle' && measureLineBuffer) {
-            const p1 = points[measureLineBuffer.index], p2 = points[measureLineBuffer.index + 1];
-            const dp = p2.type === 'arc' ? `M ${p1.x} ${p1.z} A ${p2.r} ${p2.r} 0 0 ${p2.cw ? 0 : 1} ${p2.x} ${p2.z}` : `M ${p1.x} ${p1.z} L ${p2.x} ${p2.z}`;
-            measureLayer.appendChild(svgEl("path", { d: dp, class: "line-selected" }));
-        }
-    }
-
-    function calculateIntersections() {
-        activeIntersections = [];
-        for (let i = 0; i < points.length - 1; i++) {
-            for (let j = i + 1; j < points.length - 1; j++) {
-                const s1 = { p1: points[i], p2: points[i + 1] }, s2 = { p1: points[j], p2: points[j + 1] };
-                if (s1.p2.break || s2.p2.break || s1.p2 === s2.p1 || s1.p1 === s2.p2) continue;
-                if (s1.p2.type !== 'arc' && s2.p2.type !== 'arc') {
-                    const d = (s1.p2.z - s1.p1.z) * (s2.p1.x - s2.p2.x) - (s1.p1.x - s1.p2.x) * (s2.p2.z - s2.p1.z);
-                    if (Math.abs(d) < 1e-4) continue;
-                    const x = ((s1.p2.x * s1.p1.z - s1.p1.x * s1.p2.z) * (s2.p1.x - s2.p2.x) - (s1.p2.x - s1.p1.x) * (s2.p1.x * s2.p2.z - s2.p2.x * s2.p1.z)) / d;
-                    const z = ((s1.p2.x * s1.p1.z - s1.p1.x * s1.p2.z) * (s2.p1.z - s2.p2.z) - (s1.p2.z - s1.p1.z) * (s2.p1.x * s2.p2.z - s2.p2.x * s2.p1.z)) / d;
-                    const onSeg = (p, A, B) => p.x >= Math.min(A.x, B.x) - 1e-3 && p.x <= Math.max(A.x, B.x) + 1e-3 && p.z >= Math.min(A.z, B.z) - 1e-3 && p.z <= Math.max(A.z, B.z) + 1e-3;
-                    if (onSeg({ x, z }, s1.p1, s1.p2) && onSeg({ x, z }, s2.p1, s2.p2)) activeIntersections.push({ x, z });
-                }
-            }
-        }
-    }
-
+    // --- 3. HISTORY & VIEW ---
     function updateHistoryState() {
         $('btn-undo').classList.toggle('btn-disabled', !historyStack.length);
         $('btn-redo').classList.toggle('btn-disabled', !redoStack.length);
@@ -542,17 +410,322 @@
         updatePath(); updateHistoryState();
     }
 
-    function handleResize() { if ($('canvas-area').clientWidth) { vb.h = vb.w; updateViewBox(); drawDynamicGrid(); updatePath(); } }
-    function setHomeView() { vb.w = 600; vb.h = 600; vb.y = -580; vb.x = -20; updateViewBox(); drawDynamicGrid(); updatePath(); }
-    function updateViewBox() { svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
-    function centerViewOnPoint(p) { vb.x = p.x - vb.w / 2; vb.y = -p.z - vb.h / 2; updateViewBox(); drawDynamicGrid(); }
+    function handleResize() {
+        if ($('canvas-area').clientWidth) {
+            vb.h = vb.w;
+            updateViewBox();
+            drawDynamicGrid();
+            updatePath();
+        }
+    }
 
+    function setHomeView() {
+        vb.w = 600; vb.h = 600; vb.y = -580; vb.x = -20;
+        updateViewBox(); drawDynamicGrid(); updatePath();
+    }
+
+    function updateViewBox() {
+        svg.setAttribute('viewBox', vb.x + " " + vb.y + " " + vb.w + " " + vb.h);
+    }
+
+    function centerViewOnPoint(p) {
+        vb.x = p.x - vb.w / 2;
+        vb.y = -p.z - vb.h / 2;
+        updateViewBox(); drawDynamicGrid();
+    }
+
+    function fitToScreen() {
+        if (points.length < 2) { setHomeView(); return; }
+        let b = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+        for(let i=0; i<points.length; i++) {
+            let p = points[i];
+            b.minX = Math.min(b.minX, p.x);
+            b.maxX = Math.max(b.maxX, p.x);
+            b.minZ = Math.min(b.minZ, p.z);
+            b.maxZ = Math.max(b.maxZ, p.z);
+        }
+        const s = Math.max(b.maxX - b.minX, b.maxZ - b.minZ) * 1.4 || 50;
+        vb.w = s; vb.h = s;
+        vb.x = (b.minX + b.maxX) / 2 - s / 2;
+        vb.y = -(b.minZ + b.maxZ) / 2 - s / 2;
+        updateViewBox(); drawDynamicGrid(); updatePath(); closeModals();
+    }
+
+    // --- 4. DRAWING & CALCULATIONS ---
+    function drawDynamicGrid() {
+        if (!svg.clientWidth) return;
+        gridLines.innerHTML = '';
+        textGroup.innerHTML = '';
+        axisGroup.innerHTML = '';
+        
+        let stepPow = Math.pow(10, Math.floor(Math.log10(vb.w / 5)));
+        let step = stepPow;
+        if (vb.w / 5 / stepPow < 2) step = 1 * stepPow;
+        else if (vb.w / 5 / stepPow < 5) step = 2 * stepPow;
+        else step = 5 * stepPow;
+        
+        const subStep = step / 5;
+        const fs = Math.max(vb.w / 32, step / 3.5);
+
+        axisGroup.appendChild(svgEl("line", { x1: -100000, y1: 0, x2: 100000, y2: 0, class: 'axis-line' }));
+        axisGroup.appendChild(svgEl("line", { x1: 0, y1: -100000, x2: 0, y2: 100000, class: 'axis-line' }));
+
+        // X AXIS
+        const sX = Math.floor(vb.x / step) * step;
+        const eX = vb.x + vb.w;
+        
+        for (let v = sX; v < eX + step; v += step) {
+            if (v > eX) break;
+            gridLines.appendChild(svgEl("line", { x1: v, y1: -(vb.y + vb.h), x2: v, y2: -vb.y, class: 'grid-line' }));
+            for (let i = 1; i < 5; i++) {
+                const sv = v + subStep * i;
+                if (sv < eX) gridLines.appendChild(svgEl("line", { x1: sv, y1: -(vb.y + vb.h), x2: sv, y2: -vb.y, class: 'grid-sub-line' }));
+            }
+            if (Math.abs(v) > step / 100) {
+                let tVal = isDiameterMode ? v * 2 : v;
+                let dec = (step < 1) ? Math.ceil(-Math.log10(step)) : 0;
+                const tX = v;
+                const tY = Math.min(0, vb.y + vb.h - fs * 4.5) + ((Math.round(v / step) % 2 !== 0) ? fs * 1.2 : 0);
+                textGroup.appendChild(svgEl("text", { x: tX, y: tY, fill: "#222", "font-size": fs, "text-anchor": "middle", "dominant-baseline": "auto", textContent: tVal.toFixed(dec) }));
+            }
+        }
+
+        // Z AXIS
+        const sZ = Math.floor(-(vb.y + vb.h) / step) * step;
+        const eZ = -vb.y;
+        
+        for (let v = sZ; v < eZ + step; v += step) {
+            gridLines.appendChild(svgEl("line", { x1: vb.x, y1: v, x2: vb.x + vb.w, y2: v, class: 'grid-line' }));
+            for (let i = 1; i < 5; i++) {
+                const sv = v + subStep * i;
+                if (sv < eZ) gridLines.appendChild(svgEl("line", { x1: vb.x, y1: sv, x2: vb.x + vb.w, y2: sv, class: 'grid-sub-line' }));
+            }
+            if (Math.abs(v) > step / 100) {
+                let dec = (step < 1) ? Math.ceil(-Math.log10(step)) : 0;
+                let tX = Math.max(vb.x + fs * 2.5, Math.min(vb.x + vb.w - fs * 4, -fs));
+                let anch = "end";
+                if (Math.abs(tX - (vb.x + fs * 2.5)) < fs * 0.5) anch = "start";
+                textGroup.appendChild(svgEl("text", { x: tX, y: -v, fill: "#222", "font-size": fs, "text-anchor": anch, "dominant-baseline": "middle", textContent: v.toFixed(dec) }));
+            }
+        }
+    }
+
+    function handleMouseSnap(p) {
+        if (isDragging && !isTouch && !isLongPressActive) { 
+            snapGrp.innerHTML = ''; 
+            return null; 
+        }
+
+        let c = null;
+        let md = 15 * (vb.w / svg.clientWidth);
+        const pWorld = { x: p.x, z: -p.y };
+
+        let allTargets = [];
+        for (let i = 0; i < activeIntersections.length; i++) {
+             allTargets.push({ x: activeIntersections[i].x, z: activeIntersections[i].z, type: 'intersection' });
+        }
+        for (let i = 0; i < points.length; i++) {
+             if (points[i].type !== 'arc') {
+                 allTargets.push({ x: points[i].x, z: points[i].z, type: 'point' });
+             } else {
+                 allTargets.push({ x: points[i].x, z: points[i].z, type: 'point' });
+                 allTargets.push({ x: points[i].cx, z: points[i].cz, type: 'center' });
+             }
+        }
+
+        for (let i = 0; i < allTargets.length; i++) {
+            const t = allTargets[i];
+            const d = dist(pWorld, t);
+            if (d < md) {
+                md = d;
+                c = t;
+            }
+        }
+
+        const hX = $('hud-x');
+        const hZ = $('hud-z');
+        const hS = $('hud-snap-info');
+        snapGrp.innerHTML = '';
+
+        if (c) {
+            let dispX = isDiameterMode ? c.x * 2 : c.x;
+            hX.innerText = dispX.toFixed(3);
+            hX.style.color = "red";
+            hZ.innerText = c.z.toFixed(3);
+            hZ.style.color = "red";
+            hS.style.display = 'block';
+            let typeText = "BOD";
+            if (c.type === 'center') typeText = "STŘED";
+            if (c.type === 'intersection') typeText = "PRŮSEČÍK";
+            hS.innerText = typeText;
+            const s = 20 * (vb.w / svg.clientWidth);
+            snapGrp.appendChild(svgEl("path", { d: `M ${c.x - s / 2} ${c.z} L ${c.x + s / 2} ${c.z} M ${c.x} ${c.z - s / 2} L ${c.x} ${c.z + s / 2}`, class: "snap-highlight" }));
+            return c;
+        }
+
+        let bestSeg = null;
+        let segMd = 20 * (vb.w / svg.clientWidth);
+
+        for (let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i];
+            const p2 = points[i + 1];
+            if (p2.break) continue;
+            if (measureMode === 'radius' && p2.type !== 'arc') continue;
+
+            const snap = getClosestOnSeg(pWorld, p1, p2);
+            if (snap.dist < segMd) {
+                segMd = snap.dist;
+                bestSeg = { x: snap.x, z: snap.z, index: i, p2: p2 };
+            }
+        }
+
+        if (bestSeg) {
+            let dispX = isDiameterMode ? bestSeg.x * 2 : bestSeg.x;
+            hX.innerText = dispX.toFixed(3);
+            hX.style.color = "orange";
+            hZ.innerText = bestSeg.z.toFixed(3);
+            hZ.style.color = "orange";
+            hS.style.display = 'block';
+            hS.innerText = measureMode === 'radius' ? "NA OBLOUKU" : "NA ÚSEČCE";
+            const s = 15 * (vb.w / svg.clientWidth);
+            snapGrp.appendChild(svgEl("path", { d: `M ${bestSeg.x - s / 2} ${bestSeg.z} L ${bestSeg.x + s / 2} ${bestSeg.z} M ${bestSeg.x} ${bestSeg.z - s / 2} L ${bestSeg.x} ${bestSeg.z + s / 2}`, class: "snap-highlight", stroke: "orange" }));
+
+            if (measureMode === 'distance' || measureMode === 'radius' || measureMode === 'angle') {
+                const p1 = points[bestSeg.index];
+                const p2 = points[bestSeg.index + 1];
+                let dp = "";
+                if (p2.type === 'arc') {
+                    dp = `M ${p1.x} ${p1.z} A ${p2.r} ${p2.r} 0 0 ${p2.cw ? 0 : 1} ${p2.x} ${p2.z}`;
+                } else {
+                    dp = `M ${p1.x} ${p1.z} L ${p2.x} ${p2.z}`;
+                }
+                snapGrp.appendChild(svgEl("path", { d: dp, class: "entity-highlight" }));
+            }
+            return { x: bestSeg.x, z: bestSeg.z, type: 'segment_stick', index: bestSeg.index };
+        }
+
+        hX.style.color = "#444";
+        hZ.style.color = "#444";
+        hS.style.display = 'none';
+        let dX = isDiameterMode ? pWorld.x * 2 : pWorld.x;
+        hX.innerText = dX.toFixed(2);
+        hZ.innerText = pWorld.z.toFixed(2);
+        return { x: pWorld.x, z: pWorld.z };
+    }
+
+    function updatePath() {
+        pathGroup.innerHTML = '';
+        intersectGrp.innerHTML = '';
+        measureLayer.innerHTML = '';
+        
+        activeIntersections = [];
+        for (let i = 0; i < points.length - 1; i++) {
+            for (let j = i + 1; j < points.length - 1; j++) {
+                const s1p1 = points[i];
+                const s1p2 = points[i + 1];
+                const s2p1 = points[j];
+                const s2p2 = points[j + 1];
+
+                if (s1p2.break || s2p2.break || s1p2 === s2p1 || s1p1 === s2p2) continue;
+
+                if (s1p2.type !== 'arc' && s2p2.type !== 'arc') {
+                    const d = (s1p2.z - s1p1.z) * (s2p1.x - s2p2.x) - (s1p1.x - s1p2.x) * (s2p2.z - s2p1.z);
+                    if (Math.abs(d) > 1e-4) {
+                        const x = ((s1p2.x * s1p1.z - s1p1.x * s1p2.z) * (s2p1.x - s2p2.x) - (s1p2.x - s1p1.x) * (s2p1.x * s2p2.z - s2p2.x * s2p1.z)) / d;
+                        const z = ((s1p2.x * s1p1.z - s1p1.x * s1p2.z) * (s2p1.z - s2p2.z) - (s1p2.z - s1p1.z) * (s2p1.x * s2p2.z - s2p2.x * s2p1.z)) / d;
+                        const onSeg1 = x >= Math.min(s1p1.x, s1p2.x) - 0.001 && x <= Math.max(s1p1.x, s1p2.x) + 0.001 && z >= Math.min(s1p1.z, s1p2.z) - 0.001 && z <= Math.max(s1p1.z, s1p2.z) + 0.001;
+                        const onSeg2 = x >= Math.min(s2p1.x, s2p2.x) - 0.001 && x <= Math.max(s2p1.x, s2p2.x) + 0.001 && z >= Math.min(s2p1.z, s2p2.z) - 0.001 && z <= Math.max(s2p1.z, s2p2.z) + 0.001;
+                        if (onSeg1 && onSeg2) {
+                            activeIntersections.push({ x: x, z: z });
+                        }
+                    }
+                }
+            }
+        }
+
+        if (points.length === 0) return;
+        const l = points[points.length - 1];
+        let lX = isDiameterMode ? l.x * 2 : l.x;
+        $('hud-x').innerText = lX.toFixed(2);
+        $('hud-z').innerText = l.z.toFixed(2);
+        const s = vb.w / svg.clientWidth;
+        const pr = 6 * s;
+        const cr = 15 * s;
+
+        for (let i = 0; i < activeIntersections.length; i++) {
+            const p = activeIntersections[i];
+            const size = 10 * s;
+            intersectGrp.appendChild(svgEl("path", { d: `M ${p.x - size} ${p.z - size} L ${p.x + size} ${p.z + size} M ${p.x - size} ${p.z + size} L ${p.x + size} ${p.z - size}`, class: "intersection-marker" }));
+        }
+
+        let d = "";
+        for (let i = 0; i < points.length; i++) {
+            const p = points[i];
+            let cls = "point-marker";
+            if (i === points.length - 1) cls += " point-current";
+            
+            pathGroup.appendChild(svgEl("circle", { cx: p.x, cy: p.z, r: pr, class: cls }));
+            const h = svgEl("circle", { cx: p.x, cy: p.z, r: cr, class: "click-area" });
+            h.onclick = function() { onPointClick(i); };
+            pathGroup.appendChild(h);
+
+            if (p.type === 'arc') {
+                pathGroup.appendChild(svgEl("circle", { cx: p.cx, cy: p.cz, r: pr, class: "point-center" }));
+                pathGroup.appendChild(svgEl("circle", { cx: p.cx, cy: p.cz, r: p.r, class: "helper-full-circle" }));
+                pathGroup.appendChild(svgEl("line", { x1: p.cx, y1: p.cz, x2: p.x, y2: p.z, class: "helper-radius-line" }));
+                const ch = svgEl("circle", { cx: p.cx, cy: p.cz, r: cr * 1.5, class: "click-area" });
+                ch.onclick = function() { onCenterClick(p.cx, p.cz); };
+                pathGroup.appendChild(ch);
+            }
+            
+            if (i === 0) {
+                d += `M ${p.x} ${p.z}`;
+            } else {
+                if (p.break) {
+                    d += ` M ${p.x} ${p.z}`;
+                } else if (p.type === 'arc') {
+                    const sweep = p.cw ? 0 : 1;
+                    d += ` A ${p.r} ${p.r} 0 0 ${sweep} ${p.x} ${p.z}`;
+                } else {
+                    d += ` L ${p.x} ${p.z}`;
+                }
+            }
+        }
+        pathGroup.appendChild(svgEl("path", { d: d, class: "path-draw" }));
+        
+        if (measureMode) updateMeasureDisplay();
+        
+        if (measureMode === 'angle' && measureLineBuffer) {
+            const p1 = points[measureLineBuffer.index];
+            const p2 = points[measureLineBuffer.index + 1];
+            let dp = "";
+            if (p2.type === 'arc') {
+                dp = `M ${p1.x} ${p1.z} A ${p2.r} ${p2.r} 0 0 ${p2.cw ? 0 : 1} ${p2.x} ${p2.z}`;
+            } else {
+                dp = `M ${p1.x} ${p1.z} L ${p2.x} ${p2.z}`;
+            }
+            measureLayer.appendChild(svgEl("path", { d: dp, class: "line-selected" }));
+        }
+    }
+
+    function updateMeasureDisplay() {
+        measureLayer.innerHTML = '';
+        let d = "";
+        for (let i = 0; i < measurePoints.length; i++) {
+            const p = measurePoints[i];
+            measureLayer.appendChild(svgEl("circle", { cx: p.x, cy: p.z, r: 5 * (vb.w / svg.clientWidth), class: "measure-point" }));
+            if (i > 0) d += ` L ${p.x} ${p.z}`; else d += `M ${p.x} ${p.z}`;
+        }
+        if (d !== "") measureLayer.appendChild(svgEl("path", { d: d, class: "measure-line" }));
+    }
+
+    // --- EVENT LISTENERS ---
     let isDragging = false, lastTouch = { x: 0, y: 0 }, isTouch = false;
 
-    svg.addEventListener('mousedown', () => isDragging = true);
-    window.addEventListener('mouseup', () => isDragging = false);
+    svg.addEventListener('mousedown', function() { isDragging = true; });
+    window.addEventListener('mouseup', function() { isDragging = false; });
 
-    svg.addEventListener('click', (e) => {
+    svg.addEventListener('click', function(e) {
         if (isDragging) return;
         if (pickingStartPoint) {
             let pickX = 0, pickZ = 0;
@@ -571,53 +744,51 @@
                 if (measureMode === 'distance' || measureMode === 'radius') measureSegment(lastVirtualSnap.index);
                 else if (measureMode === 'angle') handleAngleLineClick(lastVirtualSnap.index);
             } else if (lastVirtualSnap.type === 'point') {
-                const idx = points.findIndex(p => Math.abs(p.x - lastVirtualSnap.x) < 0.001 && Math.abs(p.z - lastVirtualSnap.z) < 0.001);
+                const idx = points.findIndex(function(p) { return Math.abs(p.x - lastVirtualSnap.x) < 0.001 && Math.abs(p.z - lastVirtualSnap.z) < 0.001; });
                 if (idx !== -1) onPointClick(idx);
-            } else if (lastVirtualSnap.type === 'center') onCenterClick(lastVirtualSnap.x, lastVirtualSnap.z);
-            else if (lastVirtualSnap.type === 'intersection') {
+            } else if (lastVirtualSnap.type === 'center') {
+                onCenterClick(lastVirtualSnap.x, lastVirtualSnap.z);
+            } else if (lastVirtualSnap.type === 'intersection') {
                 saveHistory();
                 points.push({ x: lastVirtualSnap.x, z: lastVirtualSnap.z, break: true, type: 'line', id: pointIdCounter++ });
-                centerViewOnPoint(points[points.length - 1]); updatePath();
+                centerViewOnPoint(points[points.length - 1]);
+                updatePath();
             }
         }
     });
 
-    svg.addEventListener('touchstart', e => {
-        // MULTITOUCH GUARD - Pokud jsou 2 a více prstů, zruš long press
+    svg.addEventListener('touchstart', function(e) {
         if (e.touches.length > 1) {
             clearTimeout(longPressTimer);
             isLongPressActive = false;
-            isDragging = false; // Zamezí kreslení při zoomu
-            
-            // Init pinch zoom
+            isDragging = false;
             const t1 = e.touches[0]; const t2 = e.touches[1];
             initialPinchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
             initialVbW = vb.w; initialVbH = vb.h;
             return;
         }
-
         const t = e.touches[0];
         isTouch = true;
         lastTouch = { x: t.clientX, y: t.clientY };
         isLongPressActive = false;
-        longPressTimer = setTimeout(() => {
+        longPressTimer = setTimeout(function() {
             isLongPressActive = true;
             if (navigator.vibrate) navigator.vibrate(50);
             updateMobileCursor(t);
         }, LONG_PRESS_DURATION);
     }, { passive: false });
 
-    window.addEventListener('touchend', () => {
+    window.addEventListener('touchend', function() {
         clearTimeout(longPressTimer);
         if (isLongPressActive) {
-            if(lastVirtualSnap) {
+            if (lastVirtualSnap) {
                if (pickingStartPoint) {
                    openStartModal(lastVirtualSnap.x, lastVirtualSnap.z);
                } else if (lastVirtualSnap.type === 'segment_stick') {
                    if (measureMode === 'distance' || measureMode === 'radius') measureSegment(lastVirtualSnap.index);
                    else if (measureMode === 'angle') handleAngleLineClick(lastVirtualSnap.index);
                } else if (lastVirtualSnap.type === 'point') {
-                   const idx = points.findIndex(p => Math.abs(p.x - lastVirtualSnap.x) < 0.001 && Math.abs(p.z - lastVirtualSnap.z) < 0.001);
+                   const idx = points.findIndex(function(p) { return Math.abs(p.x - lastVirtualSnap.x) < 0.001 && Math.abs(p.z - lastVirtualSnap.z) < 0.001; });
                    if (idx !== -1) onPointClick(idx);
                } else if (lastVirtualSnap.type === 'center') {
                    onCenterClick(lastVirtualSnap.x, lastVirtualSnap.z);
@@ -627,85 +798,136 @@
             } else if (pickingStartPoint) {
                if(lastVirtualSnap) openStartModal(lastVirtualSnap.x, lastVirtualSnap.z);
             }
-            
             mobCursorGrp.innerHTML = ''; snapGrp.innerHTML = ''; lastVirtualSnap = null; isLongPressActive = false; isDragging = false;
         } else {
             isDragging = false; isTouch = false;
         }
     });
 
-    const moveHandler = (dx, dy, cx, cy) => {
+    function moveHandler(dx, dy, cx, cy) {
         if (isTouch) {
-            if (isLongPressActive) { updateMobileCursor({ clientX: cx, clientY: cy }); }
-            else {
+            if (isLongPressActive) {
+                updateMobileCursor({ clientX: cx, clientY: cy });
+            } else {
                 if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
                     clearTimeout(longPressTimer);
-                    const s = vb.w / svg.clientWidth; vb.x -= dx * s; vb.y -= dy * s; updateViewBox(); requestAnimationFrame(drawDynamicGrid);
+                    const s = vb.w / svg.clientWidth;
+                    vb.x -= dx * s;
+                    vb.y -= dy * s;
+                    updateViewBox();
+                    requestAnimationFrame(drawDynamicGrid);
                 }
             }
         } else {
-            if (isDragging) { const s = vb.w / svg.clientWidth; vb.x -= dx * s; vb.y -= dy * s; updateViewBox(); requestAnimationFrame(drawDynamicGrid); }
-            const m = svg.getScreenCTM(); lastVirtualSnap = handleMouseSnap({ x: (cx - m.e) / m.a, y: (cy - m.f) / m.d });
+            if (isDragging) {
+                const s = vb.w / svg.clientWidth;
+                vb.x -= dx * s;
+                vb.y -= dy * s;
+                updateViewBox();
+                requestAnimationFrame(drawDynamicGrid);
+            }
+            const m = svg.getScreenCTM();
+            lastVirtualSnap = handleMouseSnap({ x: (cx - m.e) / m.a, y: (cy - m.f) / m.d });
         }
-    };
+    }
 
-    window.addEventListener('mousemove', e => moveHandler(e.movementX, e.movementY, e.clientX, e.clientY));
+    window.addEventListener('mousemove', function(e) { moveHandler(e.movementX, e.movementY, e.clientX, e.clientY); });
     
-    svg.addEventListener('touchmove', e => { 
-        e.preventDefault(); 
-        
-        // PINCH ZOOM LOGIC
+    svg.addEventListener('touchmove', function(e) {
+        e.preventDefault();
         if (e.touches.length === 2) {
             clearTimeout(longPressTimer);
             const t1 = e.touches[0]; const t2 = e.touches[1];
             const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-            
             if (initialPinchDist > 0) {
                 const scale = initialPinchDist / dist;
-                // Zoom center? Pro zjednodušení zoomujeme střed viewboxu
-                // Pro přesnější pinch zoom bychom museli počítat střed mezi prsty
                 const oldW = vb.w; const oldH = vb.h;
                 vb.w = initialVbW * scale;
                 vb.h = initialVbH * scale;
-                
-                // Adjust x/y to zoom to center
                 vb.x -= (vb.w - oldW) / 2;
                 vb.y -= (vb.h - oldH) / 2;
-                
                 updateViewBox(); drawDynamicGrid(); updatePath();
             }
             return;
         }
-        
-        const t = e.touches[0]; 
-        const dx = t.clientX - lastTouch.x; 
-        const dy = t.clientY - lastTouch.y; 
-        moveHandler(dx, dy, t.clientX, t.clientY); 
-        lastTouch = { x: t.clientX, y: t.clientY }; 
+        const t = e.touches[0];
+        const dx = t.clientX - lastTouch.x;
+        const dy = t.clientY - lastTouch.y;
+        moveHandler(dx, dy, t.clientX, t.clientY);
+        lastTouch = { x: t.clientX, y: t.clientY };
     }, { passive: false });
-    
-    svg.addEventListener('wheel', e => { e.preventDefault(); const z = e.deltaY > 0 ? 1.1 : 0.9; const m = svg.getScreenCTM(), mx = (e.clientX - m.e) / m.a, my = (e.clientY - m.f) / m.d, rx = (mx - vb.x) / vb.w, ry = (my - vb.y) / vb.h; vb.w *= z; vb.h *= z; vb.x = mx - rx * vb.w; vb.y = my - ry * vb.h; updateViewBox(); drawDynamicGrid(); updatePath(); }, { passive: false });
+
+    svg.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        const z = e.deltaY > 0 ? 1.1 : 0.9;
+        const m = svg.getScreenCTM();
+        const mx = (e.clientX - m.e) / m.a;
+        const my = (e.clientY - m.f) / m.d;
+        const rx = (mx - vb.x) / vb.w;
+        const ry = (my - vb.y) / vb.h;
+        vb.w *= z; vb.h *= z;
+        vb.x = mx - rx * vb.w;
+        vb.y = my - ry * vb.h;
+        updateViewBox(); drawDynamicGrid(); updatePath();
+    }, { passive: false });
 
     function updateMobileCursor(t) {
         const m = svg.getScreenCTM();
-        const wx = (t.clientX - m.e) / m.a, wy = ((t.clientY - TOUCH_OFFSET_Y) - m.f) / m.d;
+        const wx = (t.clientX - m.e) / m.a;
+        const wy = ((t.clientY - TOUCH_OFFSET_Y) - m.f) / m.d;
         lastVirtualSnap = handleMouseSnap({ x: wx, y: wy });
-        const fx = (t.clientX - m.e) / m.a, fy = (t.clientY - m.f) / m.d, s = 20 * (vb.w / svg.clientWidth);
+        
+        const fx = (t.clientX - m.e) / m.a;
+        const fy = (t.clientY - m.f) / m.d;
+        const s = 20 * (vb.w / svg.clientWidth);
+        
         const cx = (t.clientX - m.e) / m.a;
         const cy = (t.clientY - m.f) / m.d - (TOUCH_OFFSET_Y / m.d);
+        
         mobCursorGrp.innerHTML = '';
         mobCursorGrp.appendChild(svgEl("circle", { cx: fx, cy: fy, r: 8 * s / 20, class: "mobile-finger-pos" }));
         mobCursorGrp.appendChild(svgEl("path", { d: `M ${fx} ${fy} L ${cx} ${cy}`, class: "mobile-cursor-crosshair", "vector-effect": "non-scaling-stroke" }));
         mobCursorGrp.appendChild(svgEl("path", { d: `M ${cx - s} ${cy} L ${cx + s} ${cy} M ${cx} ${cy - s} L ${cx} ${cy + s}`, class: "mobile-cursor-crosshair", "vector-effect": "non-scaling-stroke" }));
+        
         lastVirtualSnap = handleMouseSnap({ x: cx, y: cy });
     }
 
-    function openJoypad() { closeModals(); $('modal-joypad').style.display = 'flex'; const l = points[points.length - 1]; $('btn-joy-tangent').classList.toggle('disabled', !(l && l.type === 'arc' && !l.break)); if (l && l.type === 'arc' && !l.break) $('btn-joy-tangent').onclick = () => prepMove('TANGENT'); else $('btn-joy-tangent').onclick = null; }
-    function prepMove(d) { currentDir = d; closeModals(); $('modal-input').style.display = 'flex'; $('input-title').innerText = d === 'TANGENT' ? "Tečná linka" : "Posun: " + d; $('inp-len').value = $('inp-x').value = $('inp-z').value = $('inp-angle').value = ''; $('chk-rel-angle').checked = false; $('inp-len').focus(); }
+    // --- UI ACTIONS ---
+    function openJoypad() {
+        closeModals();
+        $('modal-joypad').style.display = 'flex';
+        const l = points[points.length - 1];
+        const btn = $('btn-joy-tangent');
+        if (l && l.type === 'arc' && !l.break) {
+            btn.classList.remove('disabled');
+            btn.onclick = function() { prepMove('TANGENT'); };
+        } else {
+            btn.classList.add('disabled');
+            btn.onclick = null;
+        }
+    }
+
+    function prepMove(d) {
+        currentDir = d;
+        closeModals();
+        $('modal-input').style.display = 'flex';
+        let title = "Posun: " + d;
+        if (d === 'TANGENT') title = "Tečná linka";
+        $('input-title').innerText = title;
+        $('inp-len').value = ''; $('inp-x').value = ''; $('inp-z').value = ''; $('inp-angle').value = '';
+        $('chk-rel-angle').checked = false;
+        $('inp-len').focus();
+    }
+
     function commitMove() {
-        const lS = $('inp-len').value.replace(',', '.'), xS = $('inp-x').value.replace(',', '.'), zS = $('inp-z').value.replace(',', '.'), aS = $('inp-angle').value.replace(',', '.');
+        const lS = $('inp-len').value.replace(',', '.');
+        const xS = $('inp-x').value.replace(',', '.');
+        const zS = $('inp-z').value.replace(',', '.');
+        const aS = $('inp-angle').value.replace(',', '.');
         if (!lS && !xS && !zS && !aS) { alert("Hodnoty?"); return; }
-        saveHistory(); const l = points[points.length - 1]; let nx = l.x, nz = l.z;
+        saveHistory();
+        const l = points[points.length - 1];
+        let nx = l.x; let nz = l.z;
         if (xS && zS) { nx = parseFloat(xS) / (isDiameterMode ? 2 : 1); nz = parseFloat(zS); }
         else if (aS) {
             let ad = parseFloat(aS);
@@ -733,7 +955,7 @@
         centerViewOnPoint({ x: nx, z: nz }); updatePath(); closeModals();
     }
 
-    function openArcModal() { closeModals(); $('modal-arc').style.display = 'flex'; $('arc-r').value = 100; $('chk-tangent').checked = true; $('arc-x').value = $('arc-z').value = $('center-x').value = $('center-z').value = $('ik-target-x').value = $('ik-target-z').value = $('ik-target-angle').value = ''; switchArcMethod('R'); setArcDir(true); }
+    function openArcModal() { closeModals(); $('modal-arc').style.display = 'flex'; $('arc-r').value = 100; $('chk-tangent').checked = true; $('arc-x').value = ''; $('arc-z').value = ''; $('center-x').value = ''; $('center-z').value = ''; $('ik-target-x').value = ''; $('ik-target-z').value = ''; $('ik-target-angle').value = ''; switchArcMethod('R'); setArcDir(true); }
     function switchArcMethod(m) { arcMethod = m; $('tab-r').classList.toggle('active', m === 'R'); $('tab-ik').classList.toggle('active', m === 'IK'); $('method-r').style.display = m === 'R' ? 'block' : 'none'; $('method-ik').style.display = m === 'IK' ? 'block' : 'none'; $('arc-targets').style.display = m === 'R' ? 'block' : 'none'; toggleTangentMode(); }
     function setArcDir(cw) { isG2 = cw; $('seg-g2').classList.toggle('active', cw); $('seg-g3').classList.toggle('active', !cw); }
     function toggleIKMode(i) { isIncrementalIKMode = i; $('ik-abs-btn').classList.toggle('active', !i); $('ik-inc-btn').classList.toggle('active', i); }
@@ -757,8 +979,8 @@
                 if (tZ) { let tz = parseFloat(tZ.replace(',', '.')), tm = r * r - Math.pow(tz - cz, 2); if (tm >= 0) { let d = Math.sqrt(tm); c.push({ x: cx + d, z: tz }, { x: cx - d, z: tz }); } }
                 if (!c.length) { alert("Mimo dosah"); return; }
                 const sA = Math.atan2(l.z - cz, l.x - cx);
-                c.forEach(k => { let d = Math.atan2(k.z - cz, k.x - cx) - sA; if (isG2 && d > 0) d -= 2 * Math.PI; else if (!isG2 && d < 0) d += 2 * Math.PI; k.s = Math.abs(d); });
-                c.sort((a, b) => a.s - b.s);
+                c.forEach(function(k) { let d = Math.atan2(k.z - cz, k.x - cx) - sA; if (isG2 && d > 0) d -= 2 * Math.PI; else if (!isG2 && d < 0) d += 2 * Math.PI; k.s = Math.abs(d); });
+                c.sort(function(a, b) { return a.s - b.s; });
                 const s = ($('chk-ik-long-arc').checked && c.length > 1) ? c[1] : c[0];
                 ex = s.x; ez = s.z;
             } else { alert("Cíl?"); return; }
@@ -768,7 +990,7 @@
                 let tx = parseFloat($('arc-x').value.replace(',', '.')), tz = parseFloat($('arc-z').value.replace(',', '.'));
                 if (isNaN(tx) || isNaN(tz)) { alert("Cíl?"); return; } if (isDiameterMode) tx /= 2; ex = tx; ez = tz;
                 const d = dist(l, { x: ex, z: ez }); if (d > 2 * r) { alert("Malé R"); return; }
-                const h = Math.sqrt(r * r - (d / 2) ** 2), a = Math.atan2(ez - l.z, ex - l.x), mx = (l.x + ex) / 2, mz = (l.z + ez) / 2, c1x = mx + h * Math.sin(a), c1z = mz - h * Math.cos(a), c2x = mx - h * Math.sin(a), c2z = mz + h * Math.cos(a), cr = (ex - l.x) * (c1z - l.z) - (ez - l.z) * (c1x - l.x);
+                const h = Math.sqrt(r * r - (d / 2) * (d / 2)), a = Math.atan2(ez - l.z, ex - l.x), mx = (l.x + ex) / 2, mz = (l.z + ez) / 2, c1x = mx + h * Math.sin(a), c1z = mz - h * Math.cos(a), c2x = mx - h * Math.sin(a), c2z = mz + h * Math.cos(a), cr = (ex - l.x) * (c1z - l.z) - (ez - l.z) * (c1x - l.x);
                 cx = isG2 ? (cr < 0 ? c1x : c2x) : (cr > 0 ? c1x : c2x); cz = isG2 ? (cr < 0 ? c1z : c2z) : (cr > 0 ? c1z : c2z);
             } else {
                 let pA = 0;
@@ -782,44 +1004,80 @@
                     ex = cx + r * Math.cos(eA); ez = cz + r * Math.sin(eA);
                 } else {
                     let c = [], tX = $('arc-x').value, tZ = $('arc-z').value;
-                    if (tZ) { let tz = parseFloat(tZ.replace(',', '.')), tm = r * r - Math.pow(tz - cz, 2); if (tm >= 0) { let d = Math.sqrt(tm); c.push({ x: cx + d, z: tz }, { x: cx - d, z: tz }); } }
-                    else if (tX) { let tx = parseFloat(tX.replace(',', '.')) / (isDiameterMode ? 2 : 1), tm = r * r - Math.pow(tx - cx, 2); if (tm >= 0) { let d = Math.sqrt(tm); c.push({ x: tx, z: cz + d }, { x: tx, z: cz - d }); } }
+                    if (tZ) { let tz = parseFloat(tZ.replace(',', '.')), tm = r * r - Math.pow(tz - cz, 2); if (tm >= 0) { let d = Math.sqrt(tm); c.push({ x: cx + d, z: tz }); c.push({ x: cx - d, z: tz }); } }
+                    else if (tX) { let tx = parseFloat(tX.replace(',', '.')) / (isDiameterMode ? 2 : 1), tm = r * r - Math.pow(tx - cx, 2); if (tm >= 0) { let d = Math.sqrt(tm); c.push({ x: tx, z: cz + d }); c.push({ x: tx, z: cz - d }); } }
                     else { alert("Souřadnice?"); return; }
                     const ct = $('choices-container'); ct.innerHTML = ''; $('tangent-choices').style.display = 'block';
-                    c.forEach((k, i) => {
-                        const b = document.createElement('div'); b.className = 'choice-btn'; b.innerHTML = `<span>Bod ${i + 1}</span> X:${(isDiameterMode ? k.x * 2 : k.x).toFixed(2)} Z:${k.z.toFixed(2)}`;
-                        b.onclick = () => { points.push({ x: k.x, z: k.z, type: 'arc', r, cw: isG2, break: false, cx, cz, id: pointIdCounter++ }); updatePath(); closeModals(); };
+                    for(let k=0; k<c.length; k++) {
+                        const cand = c[k];
+                        const b = document.createElement('div'); b.className = 'choice-btn';
+                        let dX = isDiameterMode ? cand.x * 2 : cand.x;
+                        b.innerHTML = `<span>Bod ${k + 1}</span> X:${dX.toFixed(2)} Z:${cand.z.toFixed(2)}`;
+                        b.onclick = function() { points.push({ x: cand.x, z: cand.z, type: 'arc', r: r, cw: isG2, break: false, cx: cx, cz: cz, id: pointIdCounter++ }); updatePath(); closeModals(); };
                         ct.appendChild(b);
-                    });
+                    }
                     return;
                 }
             }
         }
-        points.push({ x: ex, z: ez, type: 'arc', r, cw: isG2, break: false, cx, cz, id: pointIdCounter++ }); updatePath(); closeModals();
+        points.push({ x: ex, z: ez, type: 'arc', r: r, cw: isG2, break: false, cx: cx, cz: cz, id: pointIdCounter++ }); updatePath(); closeModals();
     }
-    
-    // CIRCLE FUNCTIONS
-    function openCircleModal() { closeModals(); $('modal-circle').style.display = 'flex'; $('circ-val').value = $('circ-cx').value = $('circ-cz').value = ''; setCircleMode('R'); }
+
+    function openCircleModal() { closeModals(); $('modal-circle').style.display = 'flex'; $('circ-val').value = ''; $('circ-cx').value = ''; $('circ-cz').value = ''; setCircleMode('R'); }
     function setCircleMode(m) { circleInputMode = m; $('circ-rad-btn').classList.toggle('active', m === 'R'); $('circ-dia-btn').classList.toggle('active', m === 'D'); $('lbl-circ-val').innerText = m === 'R' ? 'Hodnota R:' : 'Hodnota D:'; updateDiameterButtonText(); }
     function commitCircle() {
-        const sizeStr = $('circ-val').value.replace(',', '.');
-        const cxStr = $('circ-cx').value.replace(',', '.');
-        const czStr = $('circ-cz').value.replace(',', '.');
-        if (!sizeStr || !cxStr || !czStr) { alert("Vyplňte všechna pole!"); return; }
-        const sizeVal = parseFloat(sizeStr);
-        let cX = parseFloat(cxStr);
-        if (isDiameterMode) cX /= 2;
-        const cZ = parseFloat(czStr);
-        const r = circleInputMode === 'R' ? sizeVal : sizeVal / 2;
+        const sS = $('circ-val').value.replace(',', '.');
+        const cS = $('circ-cx').value.replace(',', '.');
+        const zS = $('circ-cz').value.replace(',', '.');
+        if (!sS || !cS || !zS) { alert("Všechna pole?"); return; }
+        const v = parseFloat(sS);
+        let cX = parseFloat(cS); if (isDiameterMode) cX /= 2;
+        const cZ = parseFloat(zS), r = circleInputMode === 'R' ? v : v / 2;
         saveHistory();
-        points.push({x: cX + r, z: cZ, break: true, type: 'line', id: pointIdCounter++});
-        points.push({x: cX - r, z: cZ, type: 'arc', r: r, cw: true, cx: cX, cz: cZ, id: pointIdCounter++});
-        points.push({x: cX + r, z: cZ, type: 'arc', r: r, cw: true, cx: cX, cz: cZ, id: pointIdCounter++});
-        updatePath();
-        centerViewOnPoint({x: cX, z: cZ});
-        closeModals();
+        points.push({ x: cX + r, z: cZ, break: true, type: 'line', id: pointIdCounter++ });
+        points.push({ x: cX - r, z: cZ, type: 'arc', r: r, cw: true, cx: cX, cz: cZ, id: pointIdCounter++ });
+        points.push({ x: cX + r, z: cZ, type: 'arc', r: r, cw: true, cx: cX, cz: cZ, id: pointIdCounter++ });
+        updatePath(); centerViewOnPoint({ x: cX, z: cZ }); closeModals();
     }
-    
+
+    function onPointClick(i) {
+        if (isDragging && !lastVirtualSnap && !isLongPressActive) return;
+        const p = points[i];
+        if (measureMode) { handleMeasureClick(p); return; }
+        if (points.length > 0 && points[points.length - 1] === p) { centerViewOnPoint(p); return; }
+        if (!pickingStartPoint) { saveHistory(); points.push({ x: p.x, z: p.z, break: points.length === 0, type: 'line', id: pointIdCounter++ }); centerViewOnPoint(points[points.length - 1]); updatePath(); }
+        else openStartModal(p.x, p.z);
+    }
+    function onCenterClick(cx, cz) {
+        if (isDragging && !lastVirtualSnap && !isLongPressActive) return;
+        if (measureMode) handleMeasureClick({ x: cx, z: cz });
+        else { $('hud-x').innerText = (isDiameterMode ? cx * 2 : cx).toFixed(2) + " (I)"; $('hud-z').innerText = cz.toFixed(2) + " (K)"; }
+    }
+    function toggleDiameterMode() { isDiameterMode = !isDiameterMode; localStorage.setItem('cnc_diameter_mode', isDiameterMode); updateDiameterButtonText(); drawDynamicGrid(); updatePath(); }
+    function updateDiameterButtonText() {
+        const b = $('btn-toggle-dia'); if (!b) return;
+        b.querySelector('span').innerText = isDiameterMode ? "Ø Průměr" : "R Poloměr";
+        b.querySelector('i').className = isDiameterMode ? 'fas fa-expand-arrows-alt' : 'fas fa-compress-arrows-alt';
+        ['lbl-arc-x', 'lbl-center-x', 'lbl-start-x', 'lbl-inp-x', 'lbl-circ-cx', 'lbl-circ-val'].forEach(function(id) { if ($(id)) $(id).innerText = $(id).innerText.replace(/Průměr|Poloměr/, isDiameterMode ? "Průměr" : "Poloměr"); });
+    }
+    function confirmClearAll() { if (confirm("Opravdu smazat celý výkres?")) clearAll(); }
+    function clearAll() { saveHistory(); points = [{ x: 0, z: 0, break: false, type: 'line', id: pointIdCounter++ }]; updatePath(); closeModals(); setHomeView(); }
+
+    function openMeasureModal() { if (points.length < 2) { alert("Málo bodů"); return; } closeModals(); $('modal-measure').style.display = 'flex'; setMeasureMode('distance'); $('measure-result').style.display = 'none'; }
+    function setMeasureMode(m) {
+        measureMode = m; measurePoints = []; measureLineBuffer = null; measureLayer.innerHTML = ''; $('measure-result').style.display = 'none';
+        const opts = document.querySelectorAll('#modal-measure .seg-opt');
+        for (let i = 0; i < opts.length; i++) opts[i].classList.remove('active');
+        const btnId = m === 'distance' ? 'meas-dist-btn' : (m === 'angle' ? 'meas-angle-btn' : 'meas-coord-btn');
+        if ($(btnId)) $(btnId).classList.add('active');
+        let instr = "Vyberte body.";
+        if (m === 'distance') instr = "Vyberte úsečku nebo 2 body.";
+        if (m === 'angle') instr = "Vyberte 2 úsečky nebo 3 body.";
+        if (m === 'radius') instr = "Vyberte oblouk.";
+        $('measure-instructions').innerText = instr;
+    }
+    function selectMeasure(m) { setMeasureMode(m); $('modal-measure').style.display = 'none'; }
+    function stopMeasure() { measureMode = null; measurePoints = []; measureLineBuffer = null; measureLayer.innerHTML = ''; updatePath(); closeModals(); }
     function handleMeasureClick(p) {
         if (!measureMode) return;
         measurePoints.push(p); updateMeasureDisplay();
@@ -831,15 +1089,14 @@
                 const dx = P[1].x - P[0].x, dz = P[1].z - P[0].z;
                 o = `L: ${Math.sqrt(dx * dx + dz * dz).toFixed(3)}<br>X: ${(isDiameterMode ? dx * 2 : dx).toFixed(3)} Z: ${dz.toFixed(3)}`;
             } else if (measureMode === 'angle') {
-                const v1 = {x: P[1].x - P[0].x, z: P[1].z - P[0].z}, v2 = {x: P[2].x - P[1].x, z: P[2].z - P[1].z};
-                o = `Úhel: ${(Math.acos((v1.x * v2.x + v1.z * v2.z) / (dist({x: 0, z: 0}, v1) * dist({x: 0, z: 0}, v2))) * (180 / Math.PI)).toFixed(3)}°`;
+                const v1 = { x: P[1].x - P[0].x, z: P[1].z - P[0].z }, v2 = { x: P[2].x - P[1].x, z: P[2].z - P[1].z };
+                o = `Úhel: ${(Math.acos((v1.x * v2.x + v1.z * v2.z) / (dist({ x: 0, z: 0 }, v1) * dist({ x: 0, z: 0 }, v2))) * (180 / Math.PI)).toFixed(3)}°`;
             } else o = `X: ${(isDiameterMode ? P[0].x * 2 : P[0].x).toFixed(3)}<br>Z: ${P[0].z.toFixed(3)}`;
             $('measure-output').innerHTML = o; measurePoints = [];
         }
     }
-
     function measureSegment(i) {
-        const p1 = points[i], p2 = points[i+1]; if (!p1 || !p2) return;
+        const p1 = points[i], p2 = points[i + 1]; if (!p1 || !p2) return;
         $('modal-measure').style.display = 'flex'; $('measure-result').style.display = 'block';
         let o = "";
         if (measureMode === 'radius') {
@@ -857,10 +1114,9 @@
             }
         }
         $('measure-output').innerHTML = o; measureLayer.innerHTML = '';
-        if (p2.type === 'arc') measureLayer.appendChild(svgEl("path", {d: `M ${p1.x} ${p1.z} A ${p2.r} ${p2.r} 0 0 ${p2.cw?0:1} ${p2.x} ${p2.z}`, class: "entity-highlight"}));
-        else measureLayer.appendChild(svgEl("path", {d: `M ${p1.x} ${p1.z} L ${p2.x} ${p2.z}`, class: "entity-highlight"}));
+        if (p2.type === 'arc') measureLayer.appendChild(svgEl("path", { d: `M ${p1.x} ${p1.z} A ${p2.r} ${p2.r} 0 0 ${p2.cw ? 0 : 1} ${p2.x} ${p2.z}`, class: "entity-highlight" }));
+        else measureLayer.appendChild(svgEl("path", { d: `M ${p1.x} ${p1.z} L ${p2.x} ${p2.z}`, class: "entity-highlight" }));
     }
-
     function handleAngleLineClick(i) {
         if (measureLineBuffer === null) {
             measureLineBuffer = { index: i };
@@ -868,36 +1124,63 @@
             updatePath();
         } else {
             const i1 = measureLineBuffer.index; const i2 = i;
-            const p1a = points[i1], p1b = points[i1+1];
-            const p2a = points[i2], p2b = points[i2+1];
-            
+            const p1a = points[i1], p1b = points[i1 + 1];
+            const p2a = points[i2], p2b = points[i2 + 1];
             const v1 = { x: p1b.x - p1a.x, z: p1b.z - p1a.z };
             const v2 = { x: p2b.x - p2a.x, z: p2b.z - p2a.z };
-            
             const dot = v1.x * v2.x + v1.z * v2.z;
-            const mag1 = Math.sqrt(v1.x*v1.x + v1.z*v1.z);
-            const mag2 = Math.sqrt(v2.x*v2.x + v2.z*v2.z);
+            const mag1 = Math.sqrt(v1.x * v1.x + v1.z * v1.z);
+            const mag2 = Math.sqrt(v2.x * v2.x + v2.z * v2.z);
             const angleRad = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2))));
             const angleDeg = angleRad * (180 / Math.PI);
-            
-            $('modal-measure').style.display = 'flex';
-            $('measure-result').style.display = 'block';
-            $('measure-output').innerHTML = `Úhel mezi úsečkami: ${angleDeg.toFixed(3)}°<br>Doplněk do 180: ${(180-angleDeg).toFixed(3)}°`;
-            
-            measureLineBuffer = null;
-            $('measure-instructions').innerText = "Vyberte 2 úsečky.";
-            updatePath();
+            $('modal-measure').style.display = 'flex'; $('measure-result').style.display = 'block';
+            $('measure-output').innerHTML = `Úhel mezi úsečkami: ${angleDeg.toFixed(3)}°<br>Doplněk do 180: ${(180 - angleDeg).toFixed(3)}°`;
+            measureLineBuffer = null; $('measure-instructions').innerText = "Vyberte 2 úsečky."; updatePath();
         }
     }
 
-    function updateMeasureDisplay() { measureLayer.innerHTML = ''; let d = ""; measurePoints.forEach((p, i) => { measureLayer.appendChild(svgEl("circle", {cx: p.x, cy: p.z, r: 5 * (vb.w / svg.clientWidth), class: "measure-point"})); if (i > 0) d += ` L ${p.x} ${p.z}`; else d += `M ${p.x} ${p.z}`; }); if (d) measureLayer.appendChild(svgEl("path", {d, class: "measure-line"})); }
-    function stopMeasure() { 
-        measureMode = null; measurePoints = []; measureLineBuffer = null; measureLayer.innerHTML = ''; 
-        updatePath(); // Clear selection
-        closeModals(); 
+    function toggleStartPick() {
+        pickingStartPoint = !pickingStartPoint;
+        const btn = $('btn-start-pick');
+        if (pickingStartPoint) {
+            btn.classList.add('active-mode');
+            stopMeasure();
+        } else {
+            btn.classList.remove('active-mode');
+        }
+    }
+    function openStartModal(x, z) {
+        closeModals(); $('modal-start').style.display = 'flex';
+        if (x !== undefined && z !== undefined) {
+            const dX = isDiameterMode ? x * 2 : x;
+            $('start-x').value = dX.toFixed(3); $('start-z').value = z.toFixed(3);
+        } else { $('start-x').value = ''; $('start-z').value = ''; }
+        pickingStartPoint = false; $('btn-start-pick').classList.remove('active-mode');
+    }
+    function confirmNewStart() {
+        saveHistory();
+        let vx = parseFloat($('start-x').value.replace(',', '.') || '0');
+        let vz = parseFloat($('start-z').value.replace(',', '.') || '0');
+        if (isDiameterMode) vx /= 2;
+        points.push({ x: vx, z: vz, break: true, type: 'line', id: pointIdCounter++ });
+        centerViewOnPoint(points[points.length - 1]);
+        updatePath();
+        closeModals();
+    }
+    function actionMoveOnly() { confirmNewStart(); toggleStartPick(); }
+    function actionMoveAndLine() { confirmNewStart(); toggleStartPick(); openJoypad(); }
+    function actionCircleCenter() {
+        const sx = $('start-x').value; const sz = $('start-z').value;
+        closeModals(); toggleStartPick(); openCircleModal();
+        $('circ-cx').value = sx; $('circ-cz').value = sz; $('circ-val').focus();
     }
 
-    setTimeout(() => { handleResize(); setHomeView(); saveHistory(); setTimeout(drawDynamicGrid, 100); }, 50);
+    function closeModals() {
+        const modals = document.querySelectorAll('.modal');
+        for (let i = 0; i < modals.length; i++) modals[i].style.display = 'none';
+    }
+
+    setTimeout(function() { handleResize(); setHomeView(); saveHistory(); setTimeout(drawDynamicGrid, 100); }, 50);
     window.addEventListener('resize', handleResize);
 </script>
 </body>
