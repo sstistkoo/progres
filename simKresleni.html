@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Karusel CNC SmartGrid Pro v8.30 (Mobile Precision)</title>
+    <title>Karusel CNC SmartGrid Pro v8.31 (Live Coords)</title>
     <style>
         :root { 
             --bg-canvas: #ffffff;           
@@ -80,7 +80,7 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
             z-index: 20;
         }
-        .hud-val { font-size: 1.2rem; font-weight: bold; color: #000; font-family: 'Consolas', monospace; }
+        .hud-val { font-size: 1.2rem; font-weight: bold; color: #333; font-family: 'Consolas', monospace; min-width: 60px; display: inline-block; text-align: right; }
         .hud-label { font-size: 0.7rem; color: #666; text-transform: uppercase; font-weight: 700; margin-left: 4px; }
         .hud-snap-indicator { color: red; font-weight: bold; font-size: 0.8rem; display:none; margin-left: 10px;}
 
@@ -225,7 +225,7 @@
         </div>
 
         <div style="margin-top:auto; font-size:10px; color:#666;">
-            Karusel CNC Helper v8.30 (Mobile Cursor)
+            Karusel CNC Helper v8.31 (Live Coords)
         </div>
     </div>
 </div>
@@ -730,9 +730,18 @@
             return closest;
 
         } else {
-            hudX.style.color = "black";
-            hudZ.style.color = "black";
+            // --- ÚPRAVA: ZOBRAZOVÁNÍ SOUŘADNIC I BEZ SNAPU ---
+            hudX.style.color = "#444"; // Tmavší barva pro volný pohyb
+            hudZ.style.color = "#444";
             hudSnap.style.display = 'none';
+
+            // Zobraz aktuální "raw" souřadnice pod myší/křížem
+            const rawZ = -pos.y; // Invertujeme Y zpět na Z
+            const dispX = isDiameterMode ? pos.x * 2 : pos.x;
+            
+            hudX.innerText = dispX.toFixed(2); // 2 desetinná místa pro pohyb stačí
+            hudZ.innerText = rawZ.toFixed(2);
+
             return null;
         }
     }
