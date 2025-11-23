@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Karusel CNC SmartGrid Mobile v8.43</title>
+    <title>Karusel CNC SmartGrid Mobile v8.44</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
@@ -16,18 +16,27 @@
         body { 
             margin: 0; padding: 0; background: var(--bg-panel); color: var(--text-light); 
             font-family: 'Segoe UI', Roboto, sans-serif; 
-            height: 100vh; width: 100vw; overflow: hidden; 
+            /* Důležité: 100dvh řeší skákající lišty na mobilu */
+            height: 100vh; height: 100dvh; width: 100vw; 
+            overflow: hidden; 
             user-select: none; -webkit-user-select: none; 
             overscroll-behavior: none; touch-action: none; 
         }
-        * { -webkit-tap-highlight-color: transparent; }
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
 
         #app-layout { display: flex; flex-direction: column; width: 100%; height: 100%; }
-        #canvas-area { flex-grow: 1; background: var(--bg-canvas); position: relative; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 1; touch-action: none; }
+        
+        #canvas-area { 
+            flex-grow: 1; background: var(--bg-canvas); position: relative; 
+            overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 1; 
+            touch-action: none; 
+        }
         svg { width: 100%; height: 100%; display: block; cursor: crosshair; }
         
         #panel-area { 
-            flex-shrink: 0; background: var(--bg-panel); padding: 8px 8px 40px 8px;
+            flex-shrink: 0; background: var(--bg-panel); 
+            /* Větší padding dole (60px) aby šlo scrollovat přes lišty */
+            padding: 8px 8px 60px 8px;
             box-shadow: 0 -4px 10px rgba(0,0,0,0.3); z-index: 10; 
             overflow-y: auto; max-height: 45vh; 
             touch-action: pan-y; 
@@ -43,7 +52,6 @@
         
         .btn-draw i { color: #4caf50; } .btn-arc i { color: #2196f3; } .btn-circ i { color: #9c27b0; } .btn-meas i { color: #ff9800; } .btn-util i { color: #00bcd4; } 
         .btn-del { background: #3e2723; border: 1px solid #4e342e; } .btn-del i { color: #ff5252; }
-        
         .btn-disabled { opacity: 0.3; pointer-events: none; }
 
         #coords-hud { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.95); padding: 6px 10px; border-radius: 8px; border: 2px solid #444; pointer-events: none; display: flex; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 20; }
@@ -157,110 +165,23 @@
             <button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button>
             <button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button>
         </div>
-        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v8.43 Stabilized</div>
+        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v8.44 Layout & Grid Fix</div>
     </div>
 </div>
 
-<!-- MODALS -->
-<div id="modal-joypad" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><h3>Vyberte směr</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div>
-        <div class="modal-body">
-            <div class="joypad-grid">
-                <div class="joy-btn" onclick="prepMove('UL')"><span class="joy-arrow">↖</span><span class="joy-desc">Kužel</span></div>
-                <div class="joy-btn" onclick="prepMove('U')"><span class="joy-arrow">⬆</span><span class="joy-desc">Z+</span></div>
-                <div class="joy-btn" onclick="prepMove('UR')"><span class="joy-arrow">↗</span><span class="joy-desc">Kužel</span></div>
-                <div class="joy-btn" onclick="prepMove('L')"><span class="joy-arrow">⬅</span><span class="joy-desc">X-</span></div>
-                <div id="btn-joy-tangent" class="joy-btn" onclick="prepMove('TANGENT')"><span class="joy-arrow" style="font-size:18px;">⤤</span><span class="joy-desc">TEČNA</span></div>
-                <div class="joy-btn" onclick="prepMove('R')"><span class="joy-arrow">➡</span><span class="joy-desc">X+</span></div>
-                <div class="joy-btn" onclick="prepMove('DL')"><span class="joy-arrow">↙</span><span class="joy-desc">Kužel</span></div>
-                <div class="joy-btn" onclick="prepMove('D')"><span class="joy-arrow">⬇</span><span class="joy-desc">Z-</span></div>
-                <div class="joy-btn" onclick="prepMove('DR')"><span class="joy-arrow">↘</span><span class="joy-desc">Kužel</span></div>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- MODALS (Stejné jako v předchozích verzích, zkráceno pro přehlednost, ale funkčnost zachována) -->
+<!-- ... MODALS JOYPAD, INPUT, ARC, CIRCLE, START, MEASURE JSOU ZDE (stejný kód jako v8.40) ... -->
+<!-- Vkládám je znovu pro úplnost, aby byl soubor standalone -->
 
-<div id="modal-input" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><h3 id="input-title">Parametry pohybu</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div>
-        <div class="modal-body">
-            <label class="section-label">Délka pohybu (mm):</label><input type="number" id="inp-len" placeholder="Např. 50" inputmode="decimal">
-            <div class="separator"></div>
-            <label class="section-label" style="color:#0097a7">Cílové souřadnice:</label>
-            <label id="lbl-inp-x" class="section-label">Cílové X:</label><input type="number" id="inp-x" placeholder="Prázdné = beze změny" inputmode="decimal">
-            <label class="section-label">Cílové Z:</label><input type="number" id="inp-z" placeholder="Prázdné = beze změny" inputmode="decimal">
-            <div class="separator"></div>
-            <label class="section-label" style="color:#ef6c00">Polární zadání (Kužel):</label>
-            <label class="section-label">Úhel (°):</label><input type="number" id="inp-angle" placeholder="Úhel sklonu" inputmode="decimal">
-            <div class="chk-row" style="margin-top:5px;" onclick="document.getElementById('chk-rel-angle').click();"><input type="checkbox" id="chk-rel-angle" onclick="event.stopPropagation()"><label for="chk-rel-angle">Úhel od předchozí čáry</label></div>
-        </div>
-        <div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="openJoypad()">Zpět</button><button class="m-btn btn-primary-draw" onclick="commitMove()">Vypočítat</button></div></div>
-    </div>
-</div>
-
+<div id="modal-joypad" class="modal"><div class="modal-content"><div class="modal-header"><h3>Vyberte směr</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><div class="joypad-grid"><div class="joy-btn" onclick="prepMove('UL')"><span class="joy-arrow">↖</span><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('U')"><span class="joy-arrow">⬆</span><span class="joy-desc">Z+</span></div><div class="joy-btn" onclick="prepMove('UR')"><span class="joy-arrow">↗</span><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('L')"><span class="joy-arrow">⬅</span><span class="joy-desc">X-</span></div><div id="btn-joy-tangent" class="joy-btn" onclick="prepMove('TANGENT')"><span class="joy-arrow" style="font-size:18px;">⤤</span><span class="joy-desc">TEČNA</span></div><div class="joy-btn" onclick="prepMove('R')"><span class="joy-arrow">➡</span><span class="joy-desc">X+</span></div><div class="joy-btn" onclick="prepMove('DL')"><span class="joy-arrow">↙</span><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('D')"><span class="joy-arrow">⬇</span><span class="joy-desc">Z-</span></div><div class="joy-btn" onclick="prepMove('DR')"><span class="joy-arrow">↘</span><span class="joy-desc">Kužel</span></div></div></div></div></div>
+<div id="modal-input" class="modal"><div class="modal-content"><div class="modal-header"><h3 id="input-title">Parametry pohybu</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Délka pohybu (mm):</label><input type="number" id="inp-len" placeholder="Např. 50" inputmode="decimal"><div class="separator"></div><label class="section-label" style="color:#0097a7">Cílové souřadnice:</label><label id="lbl-inp-x" class="section-label">Cílové X:</label><input type="number" id="inp-x" placeholder="Prázdné = beze změny" inputmode="decimal"><label class="section-label">Cílové Z:</label><input type="number" id="inp-z" placeholder="Prázdné = beze změny" inputmode="decimal"><div class="separator"></div><label class="section-label" style="color:#ef6c00">Polární zadání (Kužel):</label><label class="section-label">Úhel (°):</label><input type="number" id="inp-angle" placeholder="Úhel sklonu" inputmode="decimal"><div class="chk-row" style="margin-top:5px;" onclick="document.getElementById('chk-rel-angle').click();"><input type="checkbox" id="chk-rel-angle" onclick="event.stopPropagation()"><label for="chk-rel-angle">Úhel od předchozí čáry</label></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="openJoypad()">Zpět</button><button class="m-btn btn-primary-draw" onclick="commitMove()">Vypočítat</button></div></div></div></div>
 <div id="modal-arc" class="modal"><div class="modal-content"><div class="modal-header"><h3>Radius</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span><div class="arc-tabs"><div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius</div><div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed</div></div></div><div class="modal-body"><div class="segmented-control"><div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2</div><div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3</div></div><div id="method-r"><div class="chk-row"><input type="checkbox" id="chk-tangent" onchange="toggleTangentMode()"><label for="chk-tangent">Tangenciální</label></div><label class="section-label">Rádius:</label><input type="number" id="arc-r"></div><div id="method-ik" style="display:none;"><div class="segmented-control mode-toggle"><div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div><div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div></div><label class="section-label">Střed I:</label><input type="number" id="center-x"><label class="section-label">Střed K:</label><input type="number" id="center-z"><div class="separator"></div><label class="section-label">Cíl X:</label><input type="number" id="ik-target-x"><label class="section-label">Cíl Z:</label><input type="number" id="ik-target-z"><label class="section-label">Úhel:</label><input type="number" id="ik-target-angle"><div class="chk-row"><input type="checkbox" id="chk-ik-long-arc"><label for="chk-ik-long-arc">Delší oblouk</label></div></div><div id="arc-targets"><div id="tangent-target-selector" style="display:none;"><label class="section-label">Cíl:</label><div class="segmented-control tangent-target-toggle"><div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div><div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div></div></div><div id="target-coord-inputs"><label id="lbl-arc-x" class="section-label">X:</label><input type="number" id="arc-x"><label class="section-label">Z:</label><input type="number" id="arc-z"></div><div id="target-cone-input" style="display:none;"><label class="section-label">Úhel (°):</label><input type="text" id="arc-cone-angle"></div></div><div id="tangent-choices" style="display:none;"><div id="choices-container"></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button id="btn-arc-ok" class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button></div></div></div></div>
-
-<div id="modal-circle" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><h3>Celá Kružnice</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div>
-        <div class="modal-body">
-            <label class="section-label">Velikost zadat jako:</label>
-            <div class="segmented-control circle-toggle">
-                <div class="seg-opt active" id="circ-rad-btn" onclick="setCircleMode('R')">Rádius (R)</div>
-                <div class="seg-opt" id="circ-dia-btn" onclick="setCircleMode('D')">Průměr (D)</div>
-            </div>
-            <label id="lbl-circ-val" class="section-label">Hodnota R:</label>
-            <input type="number" id="circ-val" placeholder="Zadejte velikost" inputmode="decimal">
-            <div class="separator"></div>
-            <label class="section-label" style="color:#6a1b9a">Souřadnice Středu:</label>
-            <label id="lbl-circ-cx" class="section-label">Střed X:</label><input type="number" id="circ-cx" placeholder="Absolutní X" inputmode="decimal">
-            <label class="section-label">Střed Z:</label><input type="number" id="circ-cz" placeholder="Absolutní Z" inputmode="decimal">
-        </div>
-        <div class="modal-footer">
-            <div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-circ" onclick="commitCircle()">Vykreslit</button></div>
-        </div>
-    </div>
-</div>
-
-<div id="modal-start" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><h3>Nový Bod</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div>
-        <div class="modal-body">
-            <p style="font-size:12px; color:#444; margin-bottom:10px; text-align:center;">Vybrané souřadnice:</p>
-            <label id="lbl-start-x" class="section-label">X:</label><input type="number" id="start-x" inputmode="decimal">
-            <label class="section-label">Z:</label><input type="number" id="start-z" inputmode="decimal">
-            <div class="separator"></div>
-            <label class="section-label">Co udělat dál?</label>
-        </div>
-        <div class="modal-footer">
-             <div class="modal-btn-row" style="flex-wrap:wrap;">
-                <button class="m-btn btn-primary-util" style="background:#757575;" onclick="actionMoveOnly()"><i class="fas fa-map-marker-alt"></i> Jen Bod</button>
-                <button class="m-btn btn-primary-draw" onclick="actionMoveAndLine()"><i class="fas fa-minus" style="transform:rotate(-45deg);"></i> Linka</button>
-                <button class="m-btn btn-primary-circ" onclick="actionCircleCenter()"><i class="fas fa-circle-notch"></i> Kruh</button>
-             </div>
-        </div>
-    </div>
-</div>
-
-<div id="modal-measure" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><h3>Měření</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div>
-        <div class="modal-body">
-            <div class="segmented-control" style="border-color:var(--c-meas);">
-                <div class="seg-opt active" id="meas-dist-btn" onclick="selectMeasure('distance')" style="background:var(--c-meas);color:white;">Délka</div>
-                <div class="seg-opt" id="meas-angle-btn" onclick="selectMeasure('angle')">Úhel</div>
-                <div class="seg-opt" id="meas-coord-btn" onclick="selectMeasure('radius')">Rádius</div>
-            </div>
-            <p id="measure-instructions" style="text-align:center;font-weight:bold;">Vyberte nástroj a označte prvek v mapě.</p>
-            <div id="measure-result" style="display:none;padding:10px;background:#fff3e0;margin-top:10px;border-radius:4px;"><div id="measure-output" style="font-family:monospace;font-size:14px;font-weight:bold;"></div></div>
-        </div>
-        <div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="stopMeasure()">Ukončit</button></div></div>
-    </div>
-</div>
+<div id="modal-circle" class="modal"><div class="modal-content"><div class="modal-header"><h3>Celá Kružnice</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Velikost zadat jako:</label><div class="segmented-control circle-toggle"><div class="seg-opt active" id="circ-rad-btn" onclick="setCircleMode('R')">Rádius (R)</div><div class="seg-opt" id="circ-dia-btn" onclick="setCircleMode('D')">Průměr (D)</div></div><label id="lbl-circ-val" class="section-label">Hodnota R:</label><input type="number" id="circ-val" placeholder="Zadejte velikost" inputmode="decimal"><div class="separator"></div><label class="section-label" style="color:#6a1b9a">Souřadnice Středu:</label><label id="lbl-circ-cx" class="section-label">Střed X:</label><input type="number" id="circ-cx" placeholder="Absolutní X" inputmode="decimal"><label class="section-label">Střed Z:</label><input type="number" id="circ-cz" placeholder="Absolutní Z" inputmode="decimal"></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-circ" onclick="commitCircle()">Vykreslit</button></div></div></div></div>
+<div id="modal-start" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nový Bod</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><p style="font-size:12px; color:#444; margin-bottom:10px; text-align:center;">Vybrané souřadnice:</p><label id="lbl-start-x" class="section-label">X:</label><input type="number" id="start-x" inputmode="decimal"><label class="section-label">Z:</label><input type="number" id="start-z" inputmode="decimal"><div class="separator"></div><label class="section-label">Co udělat dál?</label></div><div class="modal-footer"><div class="modal-btn-row" style="flex-wrap:wrap;"><button class="m-btn btn-primary-util" style="background:#757575;" onclick="actionMoveOnly()"><i class="fas fa-map-marker-alt"></i> Jen Bod</button><button class="m-btn btn-primary-draw" onclick="actionMoveAndLine()"><i class="fas fa-minus" style="transform:rotate(-45deg);"></i> Linka</button><button class="m-btn btn-primary-circ" onclick="actionCircleCenter()"><i class="fas fa-circle-notch"></i> Kruh</button></div></div></div></div>
+<div id="modal-measure" class="modal"><div class="modal-content"><div class="modal-header"><h3>Měření</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><div class="segmented-control" style="border-color:var(--c-meas);"><div class="seg-opt active" id="meas-dist-btn" onclick="selectMeasure('distance')" style="background:var(--c-meas);color:white;">Délka</div><div class="seg-opt" id="meas-angle-btn" onclick="selectMeasure('angle')">Úhel</div><div class="seg-opt" id="meas-coord-btn" onclick="selectMeasure('radius')">Rádius</div></div><p id="measure-instructions" style="text-align:center;font-weight:bold;">Vyberte nástroj a označte prvek v mapě.</p><div id="measure-result" style="display:none;padding:10px;background:#fff3e0;margin-top:10px;border-radius:4px;"><div id="measure-output" style="font-family:monospace;font-size:14px;font-weight:bold;"></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="stopMeasure()">Ukončit</button></div></div></div></div>
 
 <script>
-    // --- 1. CONFIGURATION & GLOBALS ---
+    // --- 1. CONFIG & GLOBALS ---
     const $ = function(id) { return document.getElementById(id); };
     const svg = $('svgCanvas');
     const gridLines = $('gridLines');
@@ -420,7 +341,11 @@
     }
 
     function setHomeView() {
-        vb.w = 600; vb.h = 600; vb.y = -580; vb.x = -20;
+        // ZMENA: Odzoomovat a posunout origin, aby nebyla nula nalepená na kraji
+        vb.w = 800; 
+        vb.h = 800; 
+        vb.y = -600; // Z axis
+        vb.x = -50;  // X axis (padding from left)
         updateViewBox(); drawDynamicGrid(); updatePath();
     }
 
@@ -479,8 +404,11 @@
             gridLines.appendChild(svgEl("line", { x1: v, y1: -(vb.y + vb.h), x2: v, y2: -vb.y, class: 'grid-line' }));
             for (let i = 1; i < 5; i++) {
                 const sv = v + subStep * i;
-                if (sv < eX) gridLines.appendChild(svgEl("line", { x1: sv, y1: -(vb.y + vb.h), x2: sv, y2: -vb.y, class: 'grid-sub-line' }));
+                if (sv < eX) {
+                    gridLines.appendChild(svgEl("line", { x1: sv, y1: -(vb.y + vb.h), x2: sv, y2: -vb.y, class: 'grid-sub-line' }));
+                }
             }
+            
             if (Math.abs(v) > step / 100) {
                 let tVal = isDiameterMode ? v * 2 : v;
                 let dec = (step < 1) ? Math.ceil(-Math.log10(step)) : 0;
@@ -502,45 +430,31 @@
             }
             if (Math.abs(v) > step / 100) {
                 let dec = (step < 1) ? Math.ceil(-Math.log10(step)) : 0;
-                let tX = Math.max(vb.x + fs * 2.5, Math.min(vb.x + vb.w - fs * 4, -fs));
+                
+                // ZMENA: Zvýšeno odsazení textu od levého okraje (fs * 4.5) a upravena logika kotvy
+                let tX = Math.max(vb.x + fs * 4.5, Math.min(vb.x + vb.w - fs * 4, -fs));
                 let anch = "end";
-                if (Math.abs(tX - (vb.x + fs * 2.5)) < fs * 0.5) anch = "start";
+                // Pokud se text dotýká levého okraje, zarovnej doleva (start) aby neutekl
+                if (Math.abs(tX - (vb.x + fs * 4.5)) < fs * 1.0) anch = "start";
+                
                 textGroup.appendChild(svgEl("text", { x: tX, y: -v, fill: "#222", "font-size": fs, "text-anchor": anch, "dominant-baseline": "middle", textContent: v.toFixed(dec) }));
             }
         }
     }
 
     function handleMouseSnap(p) {
-        if (isDragging && !isTouch && !isLongPressActive) { 
-            snapGrp.innerHTML = ''; 
-            return null; 
-        }
+        if (isDragging && !isTouch && !isLongPressActive) { snapGrp.innerHTML = ''; return null; }
 
         let c = null;
         let md = 15 * (vb.w / svg.clientWidth);
         const pWorld = { x: p.x, z: -p.y };
 
-        let allTargets = [];
-        for (let i = 0; i < activeIntersections.length; i++) {
-             allTargets.push({ x: activeIntersections[i].x, z: activeIntersections[i].z, type: 'intersection' });
-        }
-        for (let i = 0; i < points.length; i++) {
-             if (points[i].type !== 'arc') {
-                 allTargets.push({ x: points[i].x, z: points[i].z, type: 'point' });
-             } else {
-                 allTargets.push({ x: points[i].x, z: points[i].z, type: 'point' });
-                 allTargets.push({ x: points[i].cx, z: points[i].cz, type: 'center' });
-             }
-        }
-
-        for (let i = 0; i < allTargets.length; i++) {
-            const t = allTargets[i];
+        const targets = [...activeIntersections, ...points.filter(x => x.type !== 'arc'), ...points.filter(x => x.type === 'arc').map(x => ({ x: x.cx, z: x.cz, type: 'center' }))];
+        
+        targets.forEach(t => {
             const d = dist(pWorld, t);
-            if (d < md) {
-                md = d;
-                c = t;
-            }
-        }
+            if (d < md) { md = d; c = { x: t.x, z: t.z, type: t.type || 'point' }; }
+        });
 
         const hX = $('hud-x');
         const hZ = $('hud-z');
@@ -587,18 +501,13 @@
             hZ.style.color = "orange";
             hS.style.display = 'block';
             hS.innerText = measureMode === 'radius' ? "NA OBLOUKU" : "NA ÚSEČCE";
+
             const s = 15 * (vb.w / svg.clientWidth);
             snapGrp.appendChild(svgEl("path", { d: `M ${bestSeg.x - s / 2} ${bestSeg.z} L ${bestSeg.x + s / 2} ${bestSeg.z} M ${bestSeg.x} ${bestSeg.z - s / 2} L ${bestSeg.x} ${bestSeg.z + s / 2}`, class: "snap-highlight", stroke: "orange" }));
 
             if (measureMode === 'distance' || measureMode === 'radius' || measureMode === 'angle') {
-                const p1 = points[bestSeg.index];
-                const p2 = points[bestSeg.index + 1];
-                let dp = "";
-                if (p2.type === 'arc') {
-                    dp = `M ${p1.x} ${p1.z} A ${p2.r} ${p2.r} 0 0 ${p2.cw ? 0 : 1} ${p2.x} ${p2.z}`;
-                } else {
-                    dp = `M ${p1.x} ${p1.z} L ${p2.x} ${p2.z}`;
-                }
+                const p1 = points[bestSeg.index], p2 = points[bestSeg.index + 1];
+                const dp = p2.type === 'arc' ? `M ${p1.x} ${p1.z} A ${p2.r} ${p2.r} 0 0 ${p2.cw ? 0 : 1} ${p2.x} ${p2.z}` : `M ${p1.x} ${p1.z} L ${p2.x} ${p2.z}`;
                 snapGrp.appendChild(svgEl("path", { d: dp, class: "entity-highlight" }));
             }
             return { x: bestSeg.x, z: bestSeg.z, type: 'segment_stick', index: bestSeg.index };
@@ -714,12 +623,18 @@
         for (let i = 0; i < measurePoints.length; i++) {
             const p = measurePoints[i];
             measureLayer.appendChild(svgEl("circle", { cx: p.x, cy: p.z, r: 5 * (vb.w / svg.clientWidth), class: "measure-point" }));
-            if (i > 0) d += ` L ${p.x} ${p.z}`; else d += `M ${p.x} ${p.z}`;
+            if (i > 0) {
+                d += ` L ${p.x} ${p.z}`;
+            } else {
+                d += `M ${p.x} ${p.z}`;
+            }
         }
-        if (d !== "") measureLayer.appendChild(svgEl("path", { d: d, class: "measure-line" }));
+        if (d !== "") {
+            measureLayer.appendChild(svgEl("path", { d: d, class: "measure-line" }));
+        }
     }
 
-    // --- EVENT LISTENERS ---
+    // --- EVENT HANDLERS ---
     let isDragging = false, lastTouch = { x: 0, y: 0 }, isTouch = false;
 
     svg.addEventListener('mousedown', function() { isDragging = true; });
@@ -781,7 +696,7 @@
     window.addEventListener('touchend', function() {
         clearTimeout(longPressTimer);
         if (isLongPressActive) {
-            if (lastVirtualSnap) {
+            if(lastVirtualSnap) {
                if (pickingStartPoint) {
                    openStartModal(lastVirtualSnap.x, lastVirtualSnap.z);
                } else if (lastVirtualSnap.type === 'segment_stick') {
@@ -798,6 +713,7 @@
             } else if (pickingStartPoint) {
                if(lastVirtualSnap) openStartModal(lastVirtualSnap.x, lastVirtualSnap.z);
             }
+            
             mobCursorGrp.innerHTML = ''; snapGrp.innerHTML = ''; lastVirtualSnap = null; isLongPressActive = false; isDragging = false;
         } else {
             isDragging = false; isTouch = false;
@@ -806,30 +722,18 @@
 
     function moveHandler(dx, dy, cx, cy) {
         if (isTouch) {
-            if (isLongPressActive) {
-                updateMobileCursor({ clientX: cx, clientY: cy });
-            } else {
+            if (isLongPressActive) { updateMobileCursor({ clientX: cx, clientY: cy }); }
+            else {
                 if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
                     clearTimeout(longPressTimer);
-                    const s = vb.w / svg.clientWidth;
-                    vb.x -= dx * s;
-                    vb.y -= dy * s;
-                    updateViewBox();
-                    requestAnimationFrame(drawDynamicGrid);
+                    const s = vb.w / svg.clientWidth; vb.x -= dx * s; vb.y -= dy * s; updateViewBox(); requestAnimationFrame(drawDynamicGrid);
                 }
             }
         } else {
-            if (isDragging) {
-                const s = vb.w / svg.clientWidth;
-                vb.x -= dx * s;
-                vb.y -= dy * s;
-                updateViewBox();
-                requestAnimationFrame(drawDynamicGrid);
-            }
-            const m = svg.getScreenCTM();
-            lastVirtualSnap = handleMouseSnap({ x: (cx - m.e) / m.a, y: (cy - m.f) / m.d });
+            if (isDragging) { const s = vb.w / svg.clientWidth; vb.x -= dx * s; vb.y -= dy * s; updateViewBox(); requestAnimationFrame(drawDynamicGrid); }
+            const m = svg.getScreenCTM(); lastVirtualSnap = handleMouseSnap({ x: (cx - m.e) / m.a, y: (cy - m.f) / m.d });
         }
-    }
+    };
 
     window.addEventListener('mousemove', function(e) { moveHandler(e.movementX, e.movementY, e.clientX, e.clientY); });
     
@@ -893,32 +797,9 @@
     }
 
     // --- UI ACTIONS ---
-    function openJoypad() {
-        closeModals();
-        $('modal-joypad').style.display = 'flex';
-        const l = points[points.length - 1];
-        const btn = $('btn-joy-tangent');
-        if (l && l.type === 'arc' && !l.break) {
-            btn.classList.remove('disabled');
-            btn.onclick = function() { prepMove('TANGENT'); };
-        } else {
-            btn.classList.add('disabled');
-            btn.onclick = null;
-        }
-    }
-
-    function prepMove(d) {
-        currentDir = d;
-        closeModals();
-        $('modal-input').style.display = 'flex';
-        let title = "Posun: " + d;
-        if (d === 'TANGENT') title = "Tečná linka";
-        $('input-title').innerText = title;
-        $('inp-len').value = ''; $('inp-x').value = ''; $('inp-z').value = ''; $('inp-angle').value = '';
-        $('chk-rel-angle').checked = false;
-        $('inp-len').focus();
-    }
-
+    function openJoypad() { closeModals(); $('modal-joypad').style.display = 'flex'; const l = points[points.length - 1]; $('btn-joy-tangent').classList.toggle('disabled', !(l && l.type === 'arc' && !l.break)); if (l && l.type === 'arc' && !l.break) $('btn-joy-tangent').onclick = () => prepMove('TANGENT'); else $('btn-joy-tangent').onclick = null; }
+    function prepMove(d) { currentDir = d; closeModals(); $('modal-input').style.display = 'flex'; $('input-title').innerText = d === 'TANGENT' ? "Tečná linka" : "Posun: " + d; $('inp-len').value = ''; $('inp-x').value = ''; $('inp-z').value = ''; $('inp-angle').value = ''; $('chk-rel-angle').checked = false; $('inp-len').focus(); }
+    
     function commitMove() {
         const lS = $('inp-len').value.replace(',', '.');
         const xS = $('inp-x').value.replace(',', '.');
