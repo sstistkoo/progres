@@ -3,221 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Karusel CNC SmartGrid Mobile v8.8</title>
+    <title>Karusel CNC SmartGrid Mobile v8.9</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
-            --bg-canvas: #ffffff;           
-            --bg-panel: #1e1e1e;
-            --bg-btn: #333333;
-            --grid-main: #999;       
-            --grid-sub: #e0e0e0;
-            --axis: #444;            
-            --accent: #ff6f00;       
-            --text-light: #eee;
-            
-            /* Barvy funkcí - Sytější pro lepší čitelnost */
-            --c-draw: #2e7d32;    /* Tmavší zelená */
-            --c-arc: #1565c0;     /* Tmavší modrá */
-            --c-meas: #ef6c00;    /* Tmavší oranžová */
-            --c-util: #0097a7;    /* Tmavší tyrkysová */
-            --c-undo: #757575;    
-            --c-del: #d32f2f;     
+            --bg-canvas: #ffffff; --bg-panel: #1e1e1e; --bg-btn: #333;
+            --grid-main: #999; --grid-sub: #e0e0e0; --axis: #444; --accent: #ff6f00; --text-light: #eee;
+            /* High Contrast Colors */
+            --c-draw: #2e7d32; --c-arc: #1565c0; --c-meas: #ef6c00; --c-util: #0097a7; --c-undo: #757575; --c-del: #d32f2f;     
         }
-
         body { margin: 0; padding: 0; background: var(--bg-panel); color: var(--text-light); font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; width: 100vw; overflow: hidden; user-select: none; }
-
         #app-layout { display: flex; flex-direction: column; width: 100%; height: 100%; }
-
-        /* CANVAS AREA */
-        #canvas-area {
-            flex-grow: 1; background: var(--bg-canvas); position: relative; 
-            overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 1;
-            touch-action: none;
-        }
-
+        
+        /* Canvas */
+        #canvas-area { flex-grow: 1; background: var(--bg-canvas); position: relative; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 1; touch-action: none; }
         svg { width: 100%; height: 100%; display: block; cursor: crosshair; }
+        
+        /* Panel */
+        #panel-area { flex-shrink: 0; background: var(--bg-panel); padding: 10px; box-shadow: 0 -4px 10px rgba(0,0,0,0.3); z-index: 10; overflow-y: auto; max-height: 45vh; }
+        .panel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; max-width: 600px; margin: 0 auto; }
+        @media (orientation: landscape) { #app-layout { flex-direction: row; } #panel-area { width: 280px; max-height: 100%; border-left: 1px solid #444; } .panel-grid { grid-template-columns: repeat(3, 1fr); } }
 
-        /* PANEL AREA */
-        #panel-area {
-            flex-shrink: 0; background: var(--bg-panel); 
-            padding: 10px; box-sizing: border-box; 
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
-            z-index: 10; overflow-y: auto; max-height: 45vh; 
-        }
-
-        .panel-grid {
-            display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
-            width: 100%; max-width: 600px; margin: 0 auto;
-        }
-
-        .icon-btn {
-            background: var(--bg-btn); border: none; border-radius: 12px;
-            aspect-ratio: 1 / 0.9; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; cursor: pointer;
-            color: #ccc; transition: all 0.1s; position: relative; padding: 5px;
-        }
+        /* Buttons */
+        .icon-btn { background: var(--bg-btn); border: none; border-radius: 12px; aspect-ratio: 1/0.9; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; color: #ccc; transition: all 0.1s; position: relative; padding: 5px; }
         .icon-btn:active { transform: scale(0.95); background: #444; }
-        .icon-btn i { font-size: 24px; margin-bottom: 6px; }
-        .icon-btn span { font-size: 10px; font-weight: 600; text-align: center; line-height: 1.1; }
-
-        .btn-draw i { color: #4caf50; }
-        .btn-arc i { color: #2196f3; }
-        .btn-meas i { color: #ff9800; }
-        .btn-util i { color: #00bcd4; }
-        .btn-del i { color: #f44336; }
+        .icon-btn i { font-size: 24px; margin-bottom: 6px; } .icon-btn span { font-size: 10px; font-weight: 600; line-height: 1.1; }
+        .btn-draw i { color: #4caf50; } .btn-arc i { color: #2196f3; } .btn-meas i { color: #ff9800; } .btn-util i { color: #00bcd4; } .btn-del i { color: #f44336; }
         .btn-disabled { opacity: 0.3; pointer-events: none; }
 
-        /* SVG Stylizace */
+        /* HUD & Home */
+        #coords-hud { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.95); padding: 6px 10px; border-radius: 8px; border: 2px solid #444; pointer-events: none; display: flex; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 20; }
+        .hud-val { font-size: 1.1rem; font-weight: bold; color: #333; font-family: 'Consolas', monospace; min-width: 50px; text-align: right; }
+        .hud-label { font-size: 0.7rem; color: #666; font-weight: 700; margin-left: 2px; }
+        .hud-snap-indicator { color: red; font-weight: bold; font-size: 0.7rem; display:none; margin-left: 5px;}
+        #btn-home { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; background: #fff; color: #333; border-radius: 50%; border: 2px solid #888; display: flex; justify-content: center; align-items: center; font-size: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; }
+
+        /* Modals */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .modal-content { background: #fff; width: 90%; max-width: 350px; max-height: 90vh; border-radius: 16px; border: 1px solid #999; color: #000; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .modal-header { padding: 15px 20px 10px; border-bottom: 2px solid #eee; flex-shrink: 0; background: #fff; }
+        .modal-header h3 { margin: 0; font-size: 20px; color: #000; text-align: center; font-weight: 800; }
+        .modal-body { padding: 15px 20px; overflow-y: auto; flex-grow: 1; background: #fff; }
+        .modal-footer { padding: 15px 20px; border-top: 2px solid #eee; background: #f8f8f8; flex-shrink: 0; }
+
+        /* Controls & Inputs */
+        .segmented-control { display: flex; width: 100%; margin-bottom: 15px; border: 2px solid #666; border-radius: 8px; overflow: hidden; background: #fff; }
+        .seg-opt { flex: 1; padding: 12px; text-align: center; cursor: pointer; background: #fff; color: #333; font-weight: bold; font-size: 15px; transition: 0.1s; border-right: 1px solid #ccc; }
+        .seg-opt:last-child { border-right: none; }
+        .seg-opt:hover { background: #eee; color: #000; }
+        .seg-opt.active { background: var(--c-arc); color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.5); }
+        .mode-toggle .seg-opt.active { background: var(--c-util); } .tangent-target-toggle .seg-opt.active { background: var(--c-meas); }
+
+        input { width: 100%; padding: 12px; font-size: 20px; text-align: right; font-weight: bold; font-family: 'Consolas', monospace; border: 2px solid #777; border-radius: 6px; margin-bottom: 15px; box-sizing: border-box; background: #fff; color: #000; }
+        input:focus { border-color: var(--c-arc); outline: none; background: #f0f8ff; }
+        
+        .joypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; aspect-ratio: 1/0.8; margin-top: 5px; }
+        .joy-btn { background: #f0f0f0; border: 2px solid #ccc; border-radius: 8px; color: #222; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 3px 0 #bbb; transition: 0.1s; }
+        .joy-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #bbb; background: var(--accent); color: #fff; }
+        .joy-arrow { font-size: 28px; line-height: 1; font-weight: bold; } .joy-desc { font-size: 10px; font-weight: 800; margin-top: 2px; }
+        .joy-close { background: #ddd; border-color: #999; color: #000; }
+        
+        .modal-btn-row { display: flex; gap: 10px; width: 100%; }
+        .m-btn { flex: 1; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; text-transform: uppercase; }
+        .m-cancel { background: #ddd; color: #000; border: 1px solid #bbb; }
+        .btn-primary-arc { background: var(--c-arc); color: #fff; box-shadow: 0 3px 0 #0d47a1; }
+        .btn-primary-draw { background: var(--c-draw); color: #fff; box-shadow: 0 3px 0 #1b5e20; }
+
+        .chk-row { display: flex; align-items: center; margin-bottom: 15px; background: #e3f2fd; padding: 12px; border-radius: 8px; border: 2px solid #90caf9; cursor: pointer; }
+        .chk-row input { width: 24px; height: 24px; margin: 0 15px 0 0; border: 2px solid #555; }
+        .chk-row label { font-weight: 800; color: #0d47a1; font-size: 15px; width: 100%; pointer-events: none; }
+        
+        .arc-tabs { display: flex; border-bottom: 3px solid #eee; margin-bottom: 20px; }
+        .arc-tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; font-weight: 800; font-size: 15px; color: #888; border-bottom: 3px solid transparent; margin-bottom: -3px; }
+        .arc-tab.active { color: var(--c-arc); border-bottom-color: var(--c-arc); }
+        
+        .choice-btn { width: 100%; padding: 12px; margin-bottom: 8px; background: #fff8e1; border: 2px solid #ffecb3; border-radius: 6px; text-align: left; cursor: pointer; font-family: monospace; font-size: 14px; font-weight: bold; color: #000; }
+        .section-label { font-size: 13px; color: #111; text-transform: uppercase; font-weight: 900; margin-bottom: 6px; display:block; letter-spacing: 0.5px; }
+        .separator { width:100%; height:2px; background:#ddd; margin:15px 0; }
+
+        /* SVG Classes */
         .axis-line { stroke: var(--axis); stroke-width: 2px; vector-effect: non-scaling-stroke; }
         .grid-line { stroke: var(--grid-main); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
         .grid-sub-line { stroke: var(--grid-sub); stroke-width: 1px; vector-effect: non-scaling-stroke; }
         .path-draw { stroke: #00c853; fill: none; stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
         .point-marker { fill: #fff; stroke: var(--accent); vector-effect: non-scaling-stroke; }
         .point-current { fill: var(--accent); }
-        .measure-line { stroke: #ff9800; stroke-width: 2.5px; stroke-dasharray: 8, 4; vector-effect: non-scaling-stroke; }
-        .measure-point { fill: #ff9800; vector-effect: non-scaling-stroke; }
-        .point-center { fill: yellow; stroke: #333; stroke-width: 1px; vector-effect: non-scaling-stroke; } 
-        .point-center-clickable { cursor: pointer; fill: rgba(255,255,0,0.01); stroke: transparent; }
-        .point-center-clickable:hover { stroke: #ff0; stroke-width: 2px; }
+        .point-center { fill: yellow; stroke: #333; stroke-width: 1px; vector-effect: non-scaling-stroke; }
         .helper-full-circle { fill: none; stroke: rgba(0,0,0,0.4); stroke-width: 1px; stroke-dasharray: 4,4; vector-effect: non-scaling-stroke; }
         .helper-radius-line { stroke: rgba(33, 150, 243, 0.8); stroke-width: 1px; stroke-dasharray: 2,2; vector-effect: non-scaling-stroke; }
         .helper-target-tangent { stroke: #9c27b0; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
-        .point-marker-clickable { cursor: pointer; fill: rgba(255,255,255,0.01); stroke: transparent; }
-        .point-marker-clickable:hover { stroke: #2196f3; stroke-width: 2px; }
         .intersection-marker { fill: none; stroke: #666; stroke-width: 2px; vector-effect: non-scaling-stroke; opacity: 0.7; }
         .snap-highlight { fill: none; stroke: #f00; stroke-width: 3px; vector-effect: non-scaling-stroke; }
+        .measure-line { stroke: #ff9800; stroke-width: 2.5px; stroke-dasharray: 8, 4; vector-effect: non-scaling-stroke; }
+        .measure-point { fill: #ff9800; vector-effect: non-scaling-stroke; }
         .mobile-cursor-line { stroke: rgba(0,0,0,0.3); stroke-width: 1px; vector-effect: non-scaling-stroke; stroke-dasharray: 4,4; }
         .mobile-cursor-crosshair { stroke: #d32f2f; stroke-width: 2px; vector-effect: non-scaling-stroke; }
-
-        #coords-hud {
-            position: absolute; top: 10px; left: 10px;
-            background: rgba(255,255,255,0.95); padding: 6px 10px;
-            border-radius: 8px; border: 2px solid #444;
-            pointer-events: none; display: flex; gap: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 20;
-        }
-        .hud-val { font-size: 1.1rem; font-weight: bold; color: #333; font-family: 'Consolas', monospace; min-width: 50px; display: inline-block; text-align: right; }
-        .hud-label { font-size: 0.7rem; color: #666; text-transform: uppercase; font-weight: 700; margin-left: 2px; }
-        .hud-snap-indicator { color: red; font-weight: bold; font-size: 0.7rem; display:none; margin-left: 5px;}
-
-        #btn-home {
-            position: absolute; top: 10px; right: 10px; width: 40px; height: 40px;
-            background: #fff; color: #333; border-radius: 50%; border: 2px solid #888;
-            display: flex; justify-content: center; align-items: center;
-            font-size: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10;
-        }
-
-        @media (orientation: landscape) {
-            #app-layout { flex-direction: row; }
-            #panel-area { width: 280px; max-height: 100%; overflow-y: auto; border-left: 1px solid #444; }
-            .panel-grid { grid-template-columns: repeat(3, 1fr); } 
-        }
-
-        /* MODALS */
-        .modal { 
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.85); z-index: 100; 
-            justify-content: center; align-items: center; backdrop-filter: blur(5px); 
-        }
-        .modal-content { 
-            background: #fff; width: 90%; max-width: 350px; max-height: 90vh;
-            border-radius: 16px; border: 1px solid #999; color: #000;
-            display: flex; flex-direction: column; overflow: hidden; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .modal-header { padding: 15px 20px 10px 20px; border-bottom: 2px solid #eee; flex-shrink: 0; background: #fff; }
-        .modal-header h3 { margin: 0; font-size: 20px; color: #000; text-align: center; font-weight: 800; }
-        .modal-body { padding: 15px 20px; overflow-y: auto; flex-grow: 1; background: #fff; }
-        .modal-footer { padding: 15px 20px; border-top: 2px solid #eee; background: #f8f8f8; flex-shrink: 0; }
-
-        /* VYSOCE KONTRASTNÍ OVLÁDACÍ PRVKY */
-        .segmented-control { 
-            display: flex; width: 100%; margin-bottom: 15px; 
-            border: 2px solid #666; border-radius: 8px; overflow: hidden; background: #fff; 
-        }
-        .seg-opt { 
-            flex: 1; padding: 12px; text-align: center; cursor: pointer; 
-            background: #fff; color: #333; 
-            font-weight: bold; font-size: 15px; transition: all 0.1s; 
-            border-right: 1px solid #ccc;
-        }
-        .seg-opt:last-child { border-right: none; }
-        .seg-opt:hover { background: #eee; color: #000; } /* Hover efekt: jen ztmavne pozadí */
-        
-        /* Aktivní stavy s vysokým kontrastem */
-        .seg-opt.active { background: var(--c-arc); color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.5); }
-        .mode-toggle .seg-opt.active { background: var(--c-util); color: #fff; }
-        .tangent-target-toggle .seg-opt.active { background: var(--c-meas); color: #fff; }
-        
-        .joypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; aspect-ratio: 1/0.8; margin-top: 5px; }
-        .joy-btn { 
-            background: #f0f0f0; border: 2px solid #ccc; border-radius: 8px; 
-            color: #222; display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            cursor: pointer; transition: background 0.1s; box-shadow: 0 3px 0 #bbb; 
-        }
-        .joy-btn:hover { background: #e0e0e0; }
-        .joy-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #bbb; background: var(--accent); color: #fff; }
-        .joy-arrow { font-size: 28px; line-height: 1; font-weight: bold; }
-        .joy-desc { font-size: 10px; color: #444; font-weight: 800; margin-top: 2px; }
-        .joy-close { background: #ddd; border-color: #999; color: #000; font-weight: bold; }
-        #btn-tangent-line { grid-column: 1 / -1; background: #e3f2fd; border-color: #2196f3; color: #0d47a1; flex-direction: row; gap: 10px; font-weight: bold;}
-
-        /* INPUTY - Max čitelnost */
-        input { 
-            width: 100%; padding: 12px; font-size: 20px; text-align: right; font-weight: bold; font-family: 'Consolas', monospace;
-            border: 2px solid #777; border-radius: 6px; margin-bottom: 15px; box-sizing: border-box; 
-            background: #fff; color: #000; 
-        }
-        input:focus { border-color: var(--c-arc); outline: none; background: #f0f8ff; }
-        ::placeholder { color: #888; opacity: 1; font-weight: normal; font-family: 'Segoe UI', sans-serif; font-size: 16px; }
-
-        .modal-btn-row { display: flex; gap: 10px; width: 100%; }
-        .m-btn { flex: 1; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; text-transform: uppercase; }
-        .m-cancel { background: #ddd; color: #000; border: 1px solid #bbb; }
-        .m-cancel:hover { background: #ccc; }
-        
-        /* Tlačítka akcí - explicitní barvy */
-        .btn-primary-arc { background: var(--c-arc); color: #fff; box-shadow: 0 3px 0 #0d47a1; }
-        .btn-primary-arc:hover { background: #1976d2; } /* Tmavší modrá na hover */
-        .btn-primary-draw { background: var(--c-draw); color: #fff; box-shadow: 0 3px 0 #1b5e20; }
-        
-        /* Checkbox řádek */
-        .chk-row { 
-            display: flex; align-items: center; margin-bottom: 15px; 
-            background: #e3f2fd; padding: 12px; border-radius: 8px; border: 2px solid #90caf9; 
-            cursor: pointer; /* Celý řádek klikatelný */
-        }
-        .chk-row:hover { background: #bbdefb; } /* Hover efekt pro řádek */
-        .chk-row input { width: 24px; height: 24px; margin: 0 15px 0 0; transform: none; border: 2px solid #555; }
-        .chk-row label { font-weight: 800; color: #0d47a1; cursor: pointer; font-size: 15px; width: 100%; pointer-events: none; /* Klik jde skrz na row */ }
-
-        #tangent-choices { display: none; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
-        .choice-btn { 
-            width: 100%; padding: 12px; margin-bottom: 8px; 
-            background: #fff8e1; border: 2px solid #ffecb3; border-radius: 6px;
-            text-align: left; cursor: pointer; font-family: monospace; font-size: 14px; font-weight: bold;
-            display: flex; justify-content: space-between; align-items: center; color: #000;
-        }
-        .choice-btn:hover { background: #ffecb3; }
-
-        .arc-tabs { display: flex; border-bottom: 3px solid #eee; margin-bottom: 20px; }
-        .arc-tab { 
-            flex: 1; text-align: center; padding: 12px; cursor: pointer; 
-            font-weight: 800; font-size: 15px; color: #888; 
-            border-bottom: 3px solid transparent; margin-bottom: -3px;
-        }
-        .arc-tab.active { color: var(--c-arc); border-bottom-color: var(--c-arc); }
-        .arc-tab:hover { color: #555; }
-
-        .separator { width:100%; height:2px; background:#ddd; margin:15px 0; }
-        
-        /* Sekční nadpisy - ČERNÉ */
-        .section-label { 
-            font-size: 13px; color: #111; /* Téměř černá */
-            text-transform: uppercase; font-weight: 900; margin-bottom: 6px; display:block; 
-            letter-spacing: 0.5px;
-        }
+        .click-area { fill: rgba(255,255,255,0.01); stroke: transparent; cursor: pointer; } /* Unified click area */
     </style>
 </head>
 <body>
@@ -226,25 +107,19 @@
     <div id="canvas-area">
         <svg id="svgCanvas" preserveAspectRatio="xMidYMid slice">
             <g id="worldGroup" transform="scale(1, -1)">
-                <g id="gridLines"></g> 
-                <g id="axisGroup"></g> 
-                <g id="pathGroup"></g> 
-                <g id="intersectionGroup"></g>
-                <g id="measureLayer"></g> 
-                <g id="snapCursorGroup"></g>
-                <g id="mobileCursorGroup"></g>
+                <g id="gridLines"></g> <g id="axisGroup"></g> 
+                <g id="pathGroup"></g> <g id="intersectionGroup"></g>
+                <g id="measureLayer"></g> <g id="snapCursorGroup"></g> <g id="mobileCursorGroup"></g>
             </g>
             <g id="textGroup"></g>
         </svg>
-        
         <div id="coords-hud">
             <div><span class="hud-val" id="hud-x">0.00</span><span class="hud-label">X</span></div>
             <div style="width:1px; background:#999;"></div>
             <div><span class="hud-val" id="hud-z">0.00</span><span class="hud-label">Z</span></div>
             <div id="hud-snap-info" class="hud-snap-indicator">SNAP</div>
         </div>
-
-        <div id="btn-home" onclick="setHomeView()" title="Reset pohledu"><i class="fas fa-home"></i></div>
+        <div id="btn-home" onclick="setHomeView()" title="Reset"><i class="fas fa-home"></i></div>
     </div>
 
     <div id="panel-area">
@@ -260,7 +135,7 @@
             <button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button>
             <button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button>
         </div>
-        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v8.8 Mobile SmartGrid</div>
+        <div style="margin-top:15px; text-align:center; font-size:10px; color:#555;">v8.9 Optimized</div>
     </div>
 </div>
 
@@ -279,7 +154,7 @@
                 <div class="joy-btn" onclick="prepMove('DL')"><span class="joy-arrow">↙</span><span class="joy-desc">Kužel</span></div>
                 <div class="joy-btn" onclick="prepMove('D')"><span class="joy-arrow">⬇</span><span class="joy-desc">Z-</span></div>
                 <div class="joy-btn" onclick="prepMove('DR')"><span class="joy-arrow">↘</span><span class="joy-desc">Kužel</span></div>
-                <div id="btn-tangent-line" class="joy-btn" style="display:none;" onclick="prepMove('TANGENT')"><span class="joy-arrow" style="font-size:18px;">⤤</span><span class="joy-desc">TEČNA</span></div>
+                <div id="btn-tangent-line" class="joy-btn" style="display:none; grid-column:1/-1; flex-direction:row; gap:10px;" onclick="prepMove('TANGENT')"><span class="joy-arrow" style="font-size:18px;">⤤</span><span class="joy-desc">TEČNA</span></div>
             </div>
         </div>
     </div>
@@ -312,87 +187,63 @@
                 <div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed (I, K)</div>
             </div>
         </div>
-        
         <div class="modal-body">
             <label class="section-label">Směr otáčení:</label>
             <div class="segmented-control">
                 <div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2 (Po směru)</div>
                 <div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3 (Proti)</div>
             </div>
-
             <!-- METHOD R -->
             <div id="method-r">
                 <div class="chk-row" onclick="document.getElementById('chk-tangent').click();">
                     <input type="checkbox" id="chk-tangent" onchange="toggleTangentMode()" onclick="event.stopPropagation()">
                     <label for="chk-tangent">Tangenciální napojení</label>
                 </div>
-                <label class="section-label">Rádius (R):</label>
-                <input type="number" id="arc-r" placeholder="Zadejte poloměr" inputmode="decimal">
+                <label class="section-label">Rádius (R):</label><input type="number" id="arc-r" placeholder="Zadejte poloměr" inputmode="decimal">
             </div>
-
             <!-- METHOD IK -->
             <div id="method-ik" style="display:none;">
                 <div class="segmented-control mode-toggle">
                     <div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div>
                     <div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div>
                 </div>
-                
-                <label id="lbl-center-x" class="section-label">Střed I (Absolutní X):</label>
-                <input type="number" id="center-x" placeholder="Střed X" inputmode="decimal">
-                <label id="lbl-center-z" class="section-label">Střed K (Absolutní Z):</label>
-                <input type="number" id="center-z" placeholder="Střed Z" inputmode="decimal">
-
+                <label id="lbl-center-x" class="section-label">Střed I (Absolutní X):</label><input type="number" id="center-x" placeholder="Střed X" inputmode="decimal">
+                <label id="lbl-center-z" class="section-label">Střed K (Absolutní Z):</label><input type="number" id="center-z" placeholder="Střed Z" inputmode="decimal">
                 <div class="separator"></div>
-                
                 <label class="section-label" style="color:#007bff">Cíl kružnice (Volitelné):</label>
-                <p style="font-size:11px; color:#444; margin-top:-3px; margin-bottom:8px; font-weight:bold;">Zadejte alespoň jednu hodnotu.</p>
-                
-                <label class="section-label">Cílové X:</label>
-                <input type="number" id="ik-target-x" placeholder="Nechat prázdné" inputmode="decimal">
-                <label class="section-label">Cílové Z:</label>
-                <input type="number" id="ik-target-z" placeholder="Nechat prázdné" inputmode="decimal">
-                <label class="section-label">Nebo Úhel otevření (°):</label>
-                <input type="number" id="ik-target-angle" placeholder="např. 45" inputmode="decimal">
-
+                <p style="font-size:11px; color:#444; margin-top:-3px; font-weight:bold;">Zadejte alespoň jednu hodnotu.</p>
+                <label class="section-label">Cílové X:</label><input type="number" id="ik-target-x" placeholder="Nechat prázdné" inputmode="decimal">
+                <label class="section-label">Cílové Z:</label><input type="number" id="ik-target-z" placeholder="Nechat prázdné" inputmode="decimal">
+                <label class="section-label">Nebo Úhel otevření (°):</label><input type="number" id="ik-target-angle" placeholder="např. 45" inputmode="decimal">
                 <div class="chk-row" style="margin-top:10px;" onclick="document.getElementById('chk-ik-long-arc').click();">
                     <input type="checkbox" id="chk-ik-long-arc" onclick="event.stopPropagation()">
                     <label for="chk-ik-long-arc">Použít delší oblouk</label>
                 </div>
             </div>
-            
-            <!-- Target Inputs for R Method -->
+            <!-- Target Inputs -->
             <div id="arc-targets">
-                <div id="tangent-target-selector" style="margin-bottom: 15px; display: none;">
+                <div id="tangent-target-selector" style="display: none;">
                     <label class="section-label">Definovat cíl přes:</label>
                     <div class="segmented-control tangent-target-toggle">
                         <div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div>
                         <div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div>
                     </div>
                 </div>
-                
                 <div id="target-coord-inputs">
-                    <label id="lbl-arc-x" class="section-label">Koncové X (Průměr):</label>
-                    <input type="number" id="arc-x" placeholder="Průměr" inputmode="decimal">
-                    <label class="section-label">Koncové Z:</label>
-                    <input type="number" id="arc-z" placeholder="Délka" inputmode="decimal">
+                    <label id="lbl-arc-x" class="section-label">Koncové X (Průměr):</label><input type="number" id="arc-x" placeholder="Průměr" inputmode="decimal">
+                    <label class="section-label">Koncové Z:</label><input type="number" id="arc-z" placeholder="Délka" inputmode="decimal">
                 </div>
-                
                 <div id="target-cone-input" style="display: none;">
-                    <label id="lbl-arc-cone-angle" class="section-label">Úhel Rozevření (°):</label>
-                    <input type="text" id="arc-cone-angle" placeholder="např. 30" inputmode="text">
+                    <label id="lbl-arc-cone-angle" class="section-label">Úhel Rozevření (°):</label><input type="text" id="arc-cone-angle" placeholder="např. 30" inputmode="text">
                 </div>
             </div>
-            
-            <div id="tangent-choices">
-                <p style="font-size:12px; color:#000; text-align:center; margin:5px 0; font-weight:bold;">Nalezeny 2 možnosti:</p>
-                <div id="choices-container"></div>
+            <div id="tangent-choices" style="display:none;">
+                <p style="font-size:12px; color:#000; text-align:center; margin:5px 0; font-weight:bold;">Nalezeny 2 možnosti:</p><div id="choices-container"></div>
             </div>
         </div>
-
         <div class="modal-footer">
             <div class="modal-btn-row" id="arc-main-btns">
                 <button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button>
-                <!-- Zde opravena barva -->
                 <button id="btn-arc-ok" class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button>
             </div>
         </div>
@@ -438,367 +289,357 @@
 </div>
 
 <script>
+    // --- CONFIG & STATE ---
+    const $ = (id) => document.getElementById(id);
+    const svg = $('svgCanvas'), gridLines = $('gridLines'), textGroup = $('textGroup'), 
+          pathGroup = $('pathGroup'), axisGroup = $('axisGroup'), measureLayer = $('measureLayer'),
+          intersectGrp = $('intersectionGroup'), snapGrp = $('snapCursorGroup'), mobCursorGrp = $('mobileCursorGroup');
+          
     let points = [{x: 0, z: 0, break: false, type: 'line', id: 0}]; 
-    let historyStack = []; let redoStack = []; let pointIdCounter = 1;
-    let currentDir = ''; let isG2 = true; let arcMethod = 'R';
-    let isIncrementalIKMode = false; let tangentTargetMode = 'cone'; 
-    let measureMode = null; let measurePoints = []; let activeIntersections = []; 
-    let lastVirtualSnap = null; const TOUCH_OFFSET_Y = 100; 
-    
-    const savedMode = localStorage.getItem('cnc_diameter_mode');
-    let isDiameterMode = savedMode !== null ? (savedMode === 'true') : true;
-    
-    const svg = document.getElementById('svgCanvas');
-    const gridLines = document.getElementById('gridLines');
-    const textGroup = document.getElementById('textGroup');
-    const pathGroup = document.getElementById('pathGroup');
-    const axisGroup = document.getElementById('axisGroup');
-    const measureLayer = document.getElementById('measureLayer'); 
-    const intersectionGroup = document.getElementById('intersectionGroup');
-    const snapCursorGroup = document.getElementById('snapCursorGroup');
-    const mobileCursorGroup = document.getElementById('mobileCursorGroup');
-
+    let historyStack = [], redoStack = []; 
+    let pointIdCounter = 1, currentDir = '', isG2 = true, arcMethod = 'R';
+    let isIncrementalIKMode = false, tangentTargetMode = 'cone', measureMode = null; 
+    let measurePoints = [], activeIntersections = [], lastVirtualSnap = null;
+    const TOUCH_OFFSET_Y = 100, MIN_ZOOM = 0.05;
     let vb = { x: 0, y: 0, w: 600, h: 600 };
-    
-    function saveHistory() { if (points.length > 0) { if (historyStack.length > 0 && JSON.stringify(historyStack[historyStack.length - 1]) === JSON.stringify(points)) return; historyStack.push(JSON.parse(JSON.stringify(points))); redoStack = []; updateUndoRedoButtons(); } }
-    function updateUndoRedoButtons() { document.getElementById('btn-undo').classList.toggle('btn-disabled', historyStack.length === 0); document.getElementById('btn-redo').classList.toggle('btn-disabled', redoStack.length === 0); }
-    function undoLastMove() { if (historyStack.length > 0) { redoStack.push(JSON.parse(JSON.stringify(points))); points = historyStack.pop(); centerViewOnPoint(points[points.length - 1]); updatePath(); } else if (points.length > 1) { redoStack.push(JSON.parse(JSON.stringify(points))); points = points.slice(0, 1); setHomeView(); updatePath(); } updateUndoRedoButtons(); }
-    function redoLastMove() { if (redoStack.length > 0) { historyStack.push(JSON.parse(JSON.stringify(points))); points = redoStack.pop(); centerViewOnPoint(points[points.length - 1]); updatePath(); } updateUndoRedoButtons(); }
-    updateDiameterButtonText();
-    points = [{x: 100, z: 100, break: true, type: 'line', id: pointIdCounter++}, {x: 300, z: 300, break: false, type: 'line', id: pointIdCounter++}];
-    
-    function handleResize() { const c = document.getElementById('canvas-area'); if(!c.clientWidth) return; vb.h = vb.w; updateViewBox(); drawDynamicGrid(); updatePath(); }
+    let isDiameterMode = (localStorage.getItem('cnc_diameter_mode') === 'true') || true;
+
+    // --- HELPERS ---
+    const svgEl = (tag, attrs) => {
+        const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+        for (let k in attrs) el.setAttribute(k, attrs[k]);
+        return el;
+    };
+    const dist = (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.z - p1.z, 2));
+    const toRad = (deg) => deg * Math.PI / 180;
+
+    // --- CORE LOGIC ---
+    function updateHistoryState() {
+        $('btn-undo').classList.toggle('btn-disabled', historyStack.length === 0);
+        $('btn-redo').classList.toggle('btn-disabled', redoStack.length === 0);
+    }
+    function saveHistory() {
+        if (points.length && (historyStack.length === 0 || JSON.stringify(historyStack[historyStack.length - 1]) !== JSON.stringify(points))) {
+            historyStack.push(JSON.parse(JSON.stringify(points)));
+            redoStack = []; updateHistoryState();
+        }
+    }
+    function undoLastMove() { handleHistory(historyStack, redoStack, true); }
+    function redoLastMove() { handleHistory(redoStack, historyStack, false); }
+    function handleHistory(source, dest, isUndo) {
+        if (!source.length) { if (isUndo && points.length > 1) { dest.push(JSON.parse(JSON.stringify(points))); points = points.slice(0, 1); setHomeView(); updatePath(); } return; }
+        dest.push(JSON.parse(JSON.stringify(points))); points = source.pop();
+        centerViewOnPoint(points[points.length - 1]); updatePath(); updateHistoryState();
+    }
+
+    function handleResize() { if($('canvas-area').clientWidth) { vb.h = vb.w; updateViewBox(); drawDynamicGrid(); updatePath(); } }
     function setHomeView() { vb.w = 600; vb.h = 600; vb.y = -580; vb.x = -20; updateViewBox(); drawDynamicGrid(); updatePath(); }
-    window.addEventListener('resize', handleResize);
-    setTimeout(() => { handleResize(); setHomeView(); saveHistory(); setTimeout(drawDynamicGrid, 100); }, 50);
-
-    let isDragging = false;
-    svg.addEventListener('mousedown', e => { isDragging = true; });
-    window.addEventListener('mouseup', () => isDragging = false);
-    window.addEventListener('mousemove', e => { const p = getMousePos(e); lastVirtualSnap = handleMouseSnap(p); if (isDragging) { const s = vb.w / svg.clientWidth; vb.x -= e.movementX * s; vb.y -= e.movementY * s; updateViewBox(); requestAnimationFrame(drawDynamicGrid); } });
-    
-    let lastTouchX=0, lastTouchY=0; let isTouchActive = false;
-    svg.addEventListener('touchstart', e => { isDragging = true; isTouchActive = true; lastTouchX = e.touches[0].clientX; lastTouchY = e.touches[0].clientY; updateMobileCursor(e.touches[0]); }, {passive:false});
-    window.addEventListener('touchend', e => { isDragging = false; isTouchActive = false; mobileCursorGroup.innerHTML = ''; if (lastVirtualSnap) { if (lastVirtualSnap.type === 'point') { const idx = points.findIndex(p => Math.abs(p.x - lastVirtualSnap.x) < 0.001 && Math.abs(p.z - lastVirtualSnap.z) < 0.001); if(idx !== -1) onPointClick(null, idx); } else if (lastVirtualSnap.type === 'center') { onCenterClick(lastVirtualSnap.x, lastVirtualSnap.z); } else if (lastVirtualSnap.type === 'intersection') { const newP = { x: lastVirtualSnap.x, z: lastVirtualSnap.z, break: true, type: 'line', id: pointIdCounter++ }; saveHistory(); points.push(newP); centerViewOnPoint(newP); updatePath(); } } lastVirtualSnap = null; snapCursorGroup.innerHTML = ''; });
-    svg.addEventListener('touchmove', e => { if(!isDragging) return; e.preventDefault(); const tx = e.touches[0].clientX; const ty = e.touches[0].clientY; const scale = vb.w / svg.clientWidth; vb.x -= (tx - lastTouchX) * scale; vb.y -= (ty - lastTouchY) * scale; lastTouchX = tx; lastTouchY = ty; updateViewBox(); updateMobileCursor(e.touches[0]); requestAnimationFrame(drawDynamicGrid); }, {passive:false});
-
-    function updateMobileCursor(touch) {
-        const rect = svg.getBoundingClientRect(); const CTM = svg.getScreenCTM();
-        const worldX = (touch.clientX - CTM.e) / CTM.a; const worldY = ((touch.clientY - TOUCH_OFFSET_Y) - CTM.f) / CTM.d;
-        lastVirtualSnap = handleMouseSnap({ x: worldX, y: worldY });
-        const fingerWorldX = (touch.clientX - CTM.e) / CTM.a; const fingerWorldY = (touch.clientY - CTM.f) / CTM.d;
-        const size = 20 * (vb.w / svg.clientWidth); 
-        let d = `M ${fingerWorldX} ${fingerWorldY} L ${lastVirtualSnap ? lastVirtualSnap.x : worldX} ${lastVirtualSnap ? -lastVirtualSnap.z : worldY}`; 
-        const cx = lastVirtualSnap ? lastVirtualSnap.x : worldX; const cy = lastVirtualSnap ? -lastVirtualSnap.z : worldY;
-        d += ` M ${cx - size} ${cy} L ${cx + size} ${cy} M ${cx} ${cy - size} L ${cx} ${cy + size}`;
-        mobileCursorGroup.innerHTML = '';
-        const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); p.setAttribute("class", "mobile-cursor-crosshair"); p.setAttribute("vector-effect", "non-scaling-stroke"); mobileCursorGroup.appendChild(p);
-    }
-
-    svg.addEventListener('wheel', e => { e.preventDefault(); const zf = e.deltaY > 0 ? 1.1 : 0.9; vb.w *= zf; vb.h *= zf; updateViewBox(); drawDynamicGrid(); updatePath(); }, {passive: false});
     function updateViewBox() { svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
-    function getMousePos(evt) { const CTM = svg.getScreenCTM(); return { x: (evt.clientX - CTM.e) / CTM.a, y: (evt.clientY - CTM.f) / CTM.d }; }
     
+    // --- INPUT HANDLERS ---
+    let isDragging = false, lastTouch = {x:0, y:0}, isTouch = false;
+    svg.addEventListener('mousedown', () => isDragging = true);
+    window.addEventListener('mouseup', () => isDragging = false);
+    svg.addEventListener('touchstart', e => { isDragging = true; isTouch = true; lastTouch = {x:e.touches[0].clientX, y:e.touches[0].clientY}; updateMobileCursor(e.touches[0]); }, {passive:false});
+    window.addEventListener('touchend', () => { 
+        isDragging = false; isTouch = false; mobCursorGrp.innerHTML = ''; 
+        if (lastVirtualSnap) {
+            if (lastVirtualSnap.type === 'point') {
+                const idx = points.findIndex(p => Math.abs(p.x-lastVirtualSnap.x)<0.001 && Math.abs(p.z-lastVirtualSnap.z)<0.001);
+                if(idx!==-1) onPointClick(idx);
+            } else if (lastVirtualSnap.type === 'center') onCenterClick(lastVirtualSnap.x, lastVirtualSnap.z);
+            else if (lastVirtualSnap.type === 'intersection') {
+                saveHistory(); points.push({x:lastVirtualSnap.x, z:lastVirtualSnap.z, break:true, type:'line', id:pointIdCounter++});
+                centerViewOnPoint(points[points.length-1]); updatePath();
+            }
+        }
+        lastVirtualSnap = null; snapGrp.innerHTML = '';
+    });
+
+    const moveHandler = (dx, dy, clientX, clientY) => {
+        if(isDragging) {
+            const scale = vb.w / svg.clientWidth;
+            vb.x -= dx * scale; vb.y -= dy * scale;
+            updateViewBox(); requestAnimationFrame(drawDynamicGrid);
+        }
+        if(isTouch) updateMobileCursor({clientX, clientY});
+        else {
+            const CTM = svg.getScreenCTM();
+            lastVirtualSnap = handleMouseSnap({x: (clientX - CTM.e)/CTM.a, y: (clientY - CTM.f)/CTM.d});
+        }
+    };
+    window.addEventListener('mousemove', e => moveHandler(e.movementX, e.movementY, e.clientX, e.clientY));
+    svg.addEventListener('touchmove', e => { e.preventDefault(); const t = e.touches[0]; moveHandler(t.clientX - lastTouch.x, t.clientY - lastTouch.y, t.clientX, t.clientY); lastTouch = {x:t.clientX, y:t.clientY}; }, {passive:false});
+    svg.addEventListener('wheel', e => { e.preventDefault(); const zf = e.deltaY > 0 ? 1.1 : 0.9; vb.w *= zf; vb.h *= zf; updateViewBox(); drawDynamicGrid(); updatePath(); }, {passive:false});
+
+    function updateMobileCursor(t) {
+        const rect = svg.getBoundingClientRect(), CTM = svg.getScreenCTM();
+        const wX = (t.clientX - CTM.e)/CTM.a, wY = ((t.clientY - TOUCH_OFFSET_Y) - CTM.f)/CTM.d;
+        lastVirtualSnap = handleMouseSnap({x: wX, y: wY});
+        const fX = (t.clientX - CTM.e)/CTM.a, fY = (t.clientY - CTM.f)/CTM.d;
+        const s = 20 * (vb.w / svg.clientWidth), cx = lastVirtualSnap ? lastVirtualSnap.x : wX, cy = lastVirtualSnap ? -lastVirtualSnap.z : wY;
+        
+        mobCursorGrp.innerHTML = '';
+        mobCursorGrp.appendChild(svgEl("path", {d: `M ${fX} ${fY} L ${cx} ${cy}`, class: "mobile-cursor-crosshair", "vector-effect": "non-scaling-stroke"}));
+        mobCursorGrp.appendChild(svgEl("path", {d: `M ${cx-s} ${cy} L ${cx+s} ${cy} M ${cx} ${cy-s} L ${cx} ${cy+s}`, class: "mobile-cursor-crosshair", "vector-effect": "non-scaling-stroke"}));
+    }
+
     function handleMouseSnap(pos) {
-        if (isDragging && !isTouchActive) { snapCursorGroup.innerHTML = ''; return null; }
-        let closest = null; let minDist = 15 * (vb.w / svg.clientWidth); 
-        [...activeIntersections, ...points.filter(p=>p.type!=='arc'), ...points.filter(p=>p.type==='arc').map(p=>({x:p.cx, z:p.cz, type:'center'}))].forEach(p => {
-            const dx = pos.x - p.x; const dy = pos.y - (-p.z); const d = Math.sqrt(dx*dx + dy*dy);
-            if (d < minDist) { minDist = d; closest = { x: p.x, z: p.z, type: p.type || 'point' }; }
+        if (isDragging && !isTouch) { snapGrp.innerHTML = ''; return null; }
+        let closest = null, minDist = 15 * (vb.w / svg.clientWidth);
+        const targets = [...activeIntersections, ...points.filter(p=>p.type!=='arc'), ...points.filter(p=>p.type==='arc').map(p=>({x:p.cx, z:p.cz, type:'center'}))];
+        
+        targets.forEach(p => {
+            const d = Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - (-p.z), 2));
+            if (d < minDist) { minDist = d; closest = {x: p.x, z: p.z, type: p.type || 'point'}; }
         });
-        const hX = document.getElementById('hud-x'); const hZ = document.getElementById('hud-z'); const hS = document.getElementById('hud-snap-info');
-        snapCursorGroup.innerHTML = '';
+
+        const hX = $('hud-x'), hZ = $('hud-z'), hS = $('hud-snap-info');
+        snapGrp.innerHTML = '';
+        
         if (closest) {
-            hX.innerText = (isDiameterMode ? closest.x * 2 : closest.x).toFixed(3); hZ.innerText = closest.z.toFixed(3);
-            hX.style.color = "red"; hZ.style.color = "red"; hS.style.display = 'block'; hS.innerText = closest.type === 'center' ? "STŘED" : (closest.type === 'intersection' ? "PRŮSEČÍK" : "SNAP");
+            hX.innerText = (isDiameterMode ? closest.x * 2 : closest.x).toFixed(3); hX.style.color = "red";
+            hZ.innerText = closest.z.toFixed(3); hZ.style.color = "red";
+            hS.style.display = 'block'; hS.innerText = closest.type==='center'?"STŘED":(closest.type==='intersection'?"PRŮSEČÍK":"SNAP");
             const s = 20 * (vb.w / svg.clientWidth);
-            const m = document.createElementNS("http://www.w3.org/2000/svg", "path"); m.setAttribute("d", `M ${closest.x-s/2} ${-closest.z} L ${closest.x+s/2} ${-closest.z} M ${closest.x} ${-closest.z-s/2} L ${closest.x} ${-closest.z+s/2}`); m.setAttribute("class", "snap-highlight"); snapCursorGroup.appendChild(m);
+            snapGrp.appendChild(svgEl("path", {d: `M ${closest.x-s/2} ${-closest.z} L ${closest.x+s/2} ${-closest.z} M ${closest.x} ${-closest.z-s/2} L ${closest.x} ${-closest.z+s/2}`, class: "snap-highlight"}));
             return closest;
-        } else {
-            hX.style.color = "#444"; hZ.style.color = "#444"; hS.style.display = 'none';
-            hX.innerText = (isDiameterMode ? pos.x * 2 : pos.x).toFixed(2); hZ.innerText = (-pos.y).toFixed(2);
-            return {x: pos.x, z: -pos.y};
-        }
+        } 
+        hX.style.color = "#444"; hZ.style.color = "#444"; hS.style.display = 'none';
+        hX.innerText = (isDiameterMode ? pos.x * 2 : pos.x).toFixed(2); hZ.innerText = (-pos.y).toFixed(2);
+        return {x: pos.x, z: -pos.y};
     }
 
+    // --- DRAWING LOGIC ---
     function drawDynamicGrid() {
-        const wPx = svg.clientWidth; if (wPx === 0) return;
+        if (!svg.clientWidth) return;
         gridLines.innerHTML = ''; textGroup.innerHTML = ''; axisGroup.innerHTML = '';
-        const minDim = vb.w;
-        const step = Math.pow(10, Math.floor(Math.log10(minDim/5))) * (minDim/5 / Math.pow(10, Math.floor(Math.log10(minDim/5))) < 2 ? 1 : (minDim/5 / Math.pow(10, Math.floor(Math.log10(minDim/5))) < 5 ? 2 : 5));
+        const fs = Math.max(vb.w/32, Math.pow(10, Math.floor(Math.log10(vb.w/5)))/3.5);
+        const step = Math.pow(10, Math.floor(Math.log10(vb.w/5))) * (vb.w/5 / Math.pow(10, Math.floor(Math.log10(vb.w/5))) < 2 ? 1 : (vb.w/5 / Math.pow(10, Math.floor(Math.log10(vb.w/5))) < 5 ? 2 : 5));
         const subStep = step / 5;
-        const fs = Math.max(vb.w/32, step/3.5);
         
-        createLine(axisGroup, -1e5, 0, 1e5, 0, 'axis-line'); createLine(axisGroup, 0, -1e5, 0, 1e5, 'axis-line');
-        
-        const textY_Xaxis = Math.min(0, vb.y + vb.h - fs * 4.5); 
+        axisGroup.appendChild(svgEl("line", {x1: -1e5, y1: 0, x2: 1e5, y2: 0, class: 'axis-line'}));
+        axisGroup.appendChild(svgEl("line", {x1: 0, y1: -1e5, x2: 0, y2: 1e5, class: 'axis-line'}));
 
-        for(let x=Math.floor(vb.x/step)*step; x<vb.x+vb.w+step; x+=step) {
-            if (x > vb.x + vb.w) break;
-            createLine(gridLines, x, -(vb.y+vb.h), x, -vb.y, 'grid-line');
-            for(let i=1; i<5; i++) {
-                const sx = x + subStep*i;
-                if(sx < vb.x + vb.w) createLine(gridLines, sx, -(vb.y+vb.h), sx, -vb.y, 'grid-sub-line');
+        const drawGridAxis = (isX) => {
+            const start = Math.floor((isX ? vb.x : -(vb.y+vb.h))/step)*step, end = isX ? vb.x+vb.w : -vb.y;
+            for(let v=start; v < end + step; v+=step) {
+                if (isX && v > vb.x + vb.w) break;
+                const coord = isX ? {x1: v, y1: -(vb.y+vb.h), x2: v, y2: -vb.y} : {x1: vb.x, y1: v, x2: vb.x+vb.w, y2: v};
+                gridLines.appendChild(svgEl("line", {...coord, class: 'grid-line'}));
+                for(let i=1; i<5; i++) {
+                    const sv = v + subStep*i;
+                    if(sv < end) gridLines.appendChild(svgEl("line", {...(isX ? {x1: sv, y1: coord.y1, x2: sv, y2: coord.y2} : {x1: coord.x1, y1: sv, x2: coord.x2, y2: sv}), class: 'grid-sub-line'}));
+                }
+                if (Math.abs(v) > step/100) {
+                    const txtVal = isX ? (isDiameterMode?v*2:v) : v;
+                    const txtStr = txtVal.toFixed(step>=1?0:Math.ceil(-Math.log10(step)));
+                    const tX = isX ? v + fs/2 : (Math.abs((vb.x+fs) - (vb.x+fs)) < fs*0.1 ? vb.x + fs*0.5 : Math.max(vb.x+fs, Math.min(vb.x+vb.w-fs*4, -fs)));
+                    const tY = isX ? Math.min(0, vb.y + vb.h - fs*4.5) + ((Math.round(v/step)%2!==0)?fs*1.2:0) : -v-fs/2;
+                    const txt = svgEl("text", {x: tX, y: tY, fill: "#666", "font-size": fs, "text-anchor": isX?"start":(Math.abs(tX-(vb.x+fs*0.5))<1?"start":"end")});
+                    txt.textContent = txtStr; textGroup.appendChild(txt);
+                }
             }
-            
-            const valStr = (isDiameterMode?x*2:x).toFixed(step>=1?0:Math.ceil(-Math.log10(step)));
-            const yOff = (Math.round(x/step)%2 !== 0) ? fs*1.2 : 0;
-            if (Math.abs(x) > step/100) addText(textGroup, x+fs/2, textY_Xaxis + yOff, valStr, fs, "start");
-        }
-        
-        const leftEdge = vb.x;
-        const safeZPos = leftEdge + fs; 
-        
-        for(let z=Math.floor(-(vb.y+vb.h)/step)*step; z<-vb.y+step; z+=step) {
-            createLine(gridLines, vb.x, z, vb.x+vb.w, z, 'grid-line');
-            for(let i=1; i<5; i++) {
-                const sz = z + subStep*i;
-                if(sz < -vb.y) createLine(gridLines, vb.x, sz, vb.x+vb.w, sz, 'grid-sub-line');
-            }
-            
-            let anchor = "end";
-            let drawX = Math.max(vb.x + fs, Math.min(vb.x + vb.w - fs*4, 0 - fs));
-            if (Math.abs(drawX - (vb.x + fs)) < fs * 0.1) {
-                anchor = "start";
-                drawX = vb.x + fs * 0.5; 
-            }
-
-            const valStr = z.toFixed(step>=1?0:Math.ceil(-Math.log10(step)));
-            if (Math.abs(z) > step/100) addText(textGroup, drawX, -z-fs/2, valStr, fs, anchor);
-        }
+        };
+        drawGridAxis(true); drawGridAxis(false);
     }
-    function createLine(p,x1,z1,x2,z2,c){const l=document.createElementNS("http://www.w3.org/2000/svg","line");l.setAttribute("x1",x1);l.setAttribute("y1",z1);l.setAttribute("x2",x2);l.setAttribute("y2",z2);l.setAttribute("class",c);p.appendChild(l);}
-    function addText(p,x,y,t,s,a){const el=document.createElementNS("http://www.w3.org/2000/svg","text");el.setAttribute("x",x);el.setAttribute("y",y);el.textContent=t;el.setAttribute("fill","#666");el.setAttribute("font-size",s);el.setAttribute("text-anchor",a);p.appendChild(el);}
 
-    function onPointClick(e, i) { if(isDragging && !lastVirtualSnap) return; const p=points[i]; if(measureMode){handleMeasureClick(p);return;} if(points.length>0 && points[points.length-1]===p) return; saveHistory(); points.push({x:p.x, z:p.z, break:points.length===0, type:'line', id:pointIdCounter++}); centerViewOnPoint(points[points.length-1]); updatePath(); }
-    function onCenterClick(cx, cz) { if(isDragging && !lastVirtualSnap) return; if(measureMode){handleMeasureClick({x:cx,z:cz});return;} }
-
-    function calculateIntersections() { 
-        activeIntersections=[]; 
-        for(let i=0;i<points.length-1;i++){
-            for(let j=i+1;j<points.length-1;j++){
-                const p1 = points[i]; const p2 = points[i+1]; const p3 = points[j]; const p4 = points[j+1];
-                if (!p1 || !p2 || !p3 || !p4) continue;
-                const s1={p1:p1,p2:p2}, s2={p1:p3,p2:p4};
-                if(s1.p2.break||s2.p2.break||s1.p2===s2.p1||s1.p1===s2.p2) continue;
-                if(s1.p2.type!=='arc'&&s2.p2.type!=='arc') { const pt=getLineLineIntersection(s1.p1,s1.p2,s2.p1,s2.p2); if(pt) activeIntersections.push(pt); }
+    function calculateIntersections() {
+        activeIntersections = [];
+        for(let i=0; i<points.length-1; i++) {
+            for(let j=i+1; j<points.length-1; j++) {
+                const s1 = {p1:points[i], p2:points[i+1]}, s2 = {p1:points[j], p2:points[j+1]};
+                if (s1.p2.break || s2.p2.break || s1.p2===s2.p1 || s1.p1===s2.p2) continue;
+                if (s1.p2.type!=='arc' && s2.p2.type!=='arc') {
+                    const d=(s1.p2.z-s1.p1.z)*(s2.p1.x-s2.p2.x)-(s1.p1.x-s1.p2.x)*(s2.p2.z-s2.p1.z);
+                    if(Math.abs(d)<1e-4) continue;
+                    const x=((s1.p2.x*s1.p1.z-s1.p1.x*s1.p2.z)*(s2.p1.x-s2.p2.x)-(s1.p2.x-s1.p1.x)*(s2.p1.x*s2.p2.z-s2.p2.x*s2.p1.z))/d;
+                    const z=((s1.p2.x*s1.p1.z-s1.p1.x*s1.p2.z)*(s2.p1.z-s2.p2.z)-(s1.p2.z-s1.p1.z)*(s2.p1.x*s2.p2.z-s2.p2.x*s2.p1.z))/d;
+                    const onSeg = (p, A, B) => p.x>=Math.min(A.x,B.x)-1e-3 && p.x<=Math.max(A.x,B.x)+1e-3 && p.z>=Math.min(A.z,B.z)-1e-3 && p.z<=Math.max(A.z,B.z)+1e-3;
+                    if(onSeg({x,z},s1.p1,s1.p2) && onSeg({x,z},s2.p1,s2.p2)) activeIntersections.push({x,z});
+                }
             }
         }
     }
-    function getLineLineIntersection(A,B,C,D) { const d=(B.z-A.z)*(C.x-D.x)-(A.x-B.x)*(D.z-C.z); if(Math.abs(d)<1e-4)return null; const x=((B.x*A.z-A.x*B.z)*(C.x-D.x)-(B.x-A.x)*(C.x*D.z-D.x*C.z))/d, z=((B.x*A.z-A.x*B.z)*(C.z-D.z)-(B.z-A.z)*(C.x*D.z-D.x*C.z))/d; return (isOnSeg(x,z,A,B)&&isOnSeg(x,z,C,D))?{x,z}:null; }
-    function isOnSeg(x,z,A,B) { return x>=Math.min(A.x,B.x)-1e-3 && x<=Math.max(A.x,B.x)+1e-3 && z>=Math.min(A.z,B.z)-1e-3 && z<=Math.max(A.z,B.z)+1e-3; }
 
     function updatePath() {
-        pathGroup.innerHTML=''; intersectionGroup.innerHTML=''; calculateIntersections();
-        const last=points[points.length-1]; 
-        document.getElementById('hud-x').innerText=(isDiameterMode?last.x*2:last.x).toFixed(2); document.getElementById('hud-z').innerText=last.z.toFixed(2);
-        const mm=vb.w/svg.clientWidth, pr=6*mm, cr=15*mm;
-        
-        activeIntersections.forEach(p=>{
-            const g=document.createElementNS("http://www.w3.org/2000/svg","g");
-            const m=document.createElementNS("http://www.w3.org/2000/svg","path"); m.setAttribute("d",`M ${p.x-10*mm} ${p.z-10*mm} L ${p.x+10*mm} ${p.z+10*mm} M ${p.x-10*mm} ${p.z+10*mm} L ${p.x+10*mm} ${p.z-10*mm}`); m.setAttribute("class","intersection-marker"); g.appendChild(m);
-            intersectionGroup.appendChild(g);
-        });
-        
-        let d="";
-        points.forEach((p,i)=>{
-            const c=document.createElementNS("http://www.w3.org/2000/svg","circle"); c.setAttribute("cx",p.x); c.setAttribute("cy",p.z); c.setAttribute("r",pr); c.setAttribute("class",i===points.length-1?"point-marker point-current":"point-marker"); pathGroup.appendChild(c);
-            const ca=document.createElementNS("http://www.w3.org/2000/svg","circle"); ca.setAttribute("cx",p.x); ca.setAttribute("cy",p.z); ca.setAttribute("r",cr); ca.setAttribute("class","point-marker-clickable"); ca.onclick=()=>onPointClick(null,i); pathGroup.appendChild(ca);
-            
-            if(p.type==='arc'){
-                const cc=document.createElementNS("http://www.w3.org/2000/svg","circle"); cc.setAttribute("cx",p.cx); cc.setAttribute("cy",p.cz); cc.setAttribute("r",pr); cc.setAttribute("class","point-center"); pathGroup.appendChild(cc);
-                const fc=document.createElementNS("http://www.w3.org/2000/svg","circle"); fc.setAttribute("cx",p.cx); fc.setAttribute("cy",p.cz); fc.setAttribute("r",p.r); fc.setAttribute("class","helper-full-circle"); pathGroup.appendChild(fc);
-                const l=document.createElementNS("http://www.w3.org/2000/svg","line"); l.setAttribute("x1",p.cx); l.setAttribute("y1",p.cz); l.setAttribute("x2",p.x); l.setAttribute("y2",p.z); l.setAttribute("class","helper-radius-line"); pathGroup.appendChild(l);
+        pathGroup.innerHTML=''; intersectGrp.innerHTML=''; measureLayer.innerHTML=''; calculateIntersections();
+        if(!points.length) return;
+        const last = points[points.length-1];
+        $('hud-x').innerText=(isDiameterMode?last.x*2:last.x).toFixed(2); $('hud-z').innerText=last.z.toFixed(2);
+        const s = vb.w/svg.clientWidth, pr=6*s, cr=15*s;
+
+        activeIntersections.forEach(p => intersectGrp.appendChild(svgEl("path", {d: `M ${p.x-10*s} ${p.z-10*s} L ${p.x+10*s} ${p.z+10*s} M ${p.x-10*s} ${p.z+10*s} L ${p.x+10*s} ${p.z-10*s}`, class: "intersection-marker"})));
+
+        let d = "";
+        points.forEach((p, i) => {
+            pathGroup.appendChild(svgEl("circle", {cx: p.x, cy: p.z, r: pr, class: i===points.length-1?"point-marker point-current":"point-marker"}));
+            const hit = svgEl("circle", {cx: p.x, cy: p.z, r: cr, class: "click-area"});
+            hit.onclick = () => onPointClick(i); pathGroup.appendChild(hit);
+
+            if (p.type === 'arc') {
+                pathGroup.appendChild(svgEl("circle", {cx: p.cx, cy: p.cz, r: pr, class: "point-center"}));
+                pathGroup.appendChild(svgEl("circle", {cx: p.cx, cy: p.cz, r: p.r, class: "helper-full-circle"}));
+                pathGroup.appendChild(svgEl("line", {x1: p.cx, y1: p.cz, x2: p.x, y2: p.z, class: "helper-radius-line"}));
+                const cHit = svgEl("circle", {cx: p.cx, cy: p.cz, r: cr*1.5, class: "click-area"});
+                cHit.onclick = () => onCenterClick(p.cx, p.cz); pathGroup.appendChild(cHit);
             }
-            if(i===0) d+=`M ${p.x} ${p.z}`; else d+= p.break ? ` M ${p.x} ${p.z}` : (p.type==='arc' ? ` A ${p.r} ${p.r} 0 0 ${p.cw?0:1} ${p.x} ${p.z}` : ` L ${p.x} ${p.z}`);
+            if (i===0) d+=`M ${p.x} ${p.z}`; else d+= p.break ? ` M ${p.x} ${p.z}` : (p.type==='arc' ? ` A ${p.r} ${p.r} 0 0 ${p.cw?0:1} ${p.x} ${p.z}` : ` L ${p.x} ${p.z}`);
         });
-        const p=document.createElementNS("http://www.w3.org/2000/svg","path"); p.setAttribute("d",d); p.setAttribute("class","path-draw"); pathGroup.appendChild(p);
-        updateUndoRedoButtons();
+        pathGroup.appendChild(svgEl("path", {d: d, class: "path-draw"}));
+        if(measureMode) updateMeasureDisplay();
     }
 
-    function openMeasureModal() { if (points.length < 2) { alert("Nakreslete alespoň dvě úsečky."); return; } closeModals(); document.getElementById('modal-measure').style.display = 'flex'; startMeasure('distance'); }
-    function startMeasure(m) { measureMode=m; measurePoints=[]; measureLayer.innerHTML=''; document.getElementById('measure-result').style.display='none'; document.querySelectorAll('#modal-measure .seg-opt').forEach(b=>b.classList.remove('active')); document.getElementById(m==='distance'?'meas-dist-btn':(m==='angle'?'meas-angle-btn':'meas-coord-btn')).classList.add('active'); }
-    function handleMeasureClick(p) { if(!measureMode)return; measurePoints.push(p); updateMeasureDisplay(); if((measureMode==='distance'&&measurePoints.length===2)||(measureMode==='angle'&&measurePoints.length===3)||(measureMode==='coord'&&measurePoints.length===1)) calculateMeasureResult(); }
-    function updateMeasureDisplay() { measureLayer.innerHTML=''; let d=""; measurePoints.forEach((p,i)=>{ const c=document.createElementNS("http://www.w3.org/2000/svg","circle"); c.setAttribute("cx",p.x); c.setAttribute("cy",p.z); c.setAttribute("r",5*(vb.w/svg.clientWidth)); c.setAttribute("class","measure-point"); measureLayer.appendChild(c); if(i>0) d+=` L ${p.x} ${p.z}`; else d+=`M ${p.x} ${p.z}`; }); if(d) { const l=document.createElementNS("http://www.w3.org/2000/svg","path"); l.setAttribute("d",d); l.setAttribute("class","measure-line"); measureLayer.appendChild(l); } }
-    function calculateMeasureResult() { let o=""; const P=measurePoints; document.getElementById('measure-result').style.display='block'; if(measureMode==='distance'){ const dx=P[1].x-P[0].x, dz=P[1].z-P[0].z; o=`L: ${Math.sqrt(dx*dx+dz*dz).toFixed(3)}<br>X: ${(isDiameterMode?dx*2:dx).toFixed(3)} / Z: ${dz.toFixed(3)}`; } else if(measureMode==='angle'){ const v1={x:P[1].x-P[0].x,z:P[1].z-P[0].z}, v2={x:P[2].x-P[1].x,z:P[2].z-P[1].z}; const a=Math.acos((v1.x*v2.x+v1.z*v2.z)/(Math.sqrt(v1.x*v1.x+v1.z*v1.z)*Math.sqrt(v2.x*v2.x+v2.z*v2.z)))*(180/Math.PI); o=`Úhel: ${a.toFixed(3)}°`; } else { o=`X: ${(isDiameterMode?P[0].x*2:P[0].x).toFixed(3)}<br>Z: ${P[0].z.toFixed(3)}`; } document.getElementById('measure-output').innerHTML=o; measurePoints=[]; }
-    function stopMeasure() { measureMode=null; measurePoints=[]; measureLayer.innerHTML=''; closeModals(); }
-
+    // --- ACTIONS & MODALS ---
+    function onPointClick(i) {
+        if(isDragging && !lastVirtualSnap) return;
+        const p = points[i];
+        if(measureMode) { handleMeasureClick(p); return; }
+        if(points.length > 0 && points[points.length-1] === p) { centerViewOnPoint(p); return; }
+        saveHistory(); points.push({x:p.x, z:p.z, break:points.length===0, type:'line', id:pointIdCounter++});
+        centerViewOnPoint(points[points.length-1]); updatePath();
+    }
+    function onCenterClick(cx, cz) { 
+        if(isDragging && !lastVirtualSnap) return;
+        if(measureMode) handleMeasureClick({x:cx, z:cz}); else { $('hud-x').innerText=(isDiameterMode?cx*2:cx).toFixed(2)+" (I)"; $('hud-z').innerText=cz.toFixed(2)+" (K)"; }
+    }
     function centerViewOnPoint(p) { vb.x = p.x - vb.w/2; vb.y = -p.z - vb.h/2; updateViewBox(); drawDynamicGrid(); }
-    function fitToScreen() { if (points.length < 2) { setHomeView(); return; } let minX=Infinity, maxX=-Infinity, minZ=Infinity, maxZ=-Infinity; points.forEach(p => { if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.z<minZ)minZ=p.z; if(p.z>maxZ)maxZ=p.z; }); const s=Math.max(maxX-minX, maxZ-minZ)*1.4 || 50; vb.w=s; vb.h=s; vb.x=(minX+maxX)/2-s/2; vb.y=-(minZ+maxZ)/2-s/2; updateViewBox(); drawDynamicGrid(); updatePath(); closeModals(); }
-
-    function toggleDiameterMode() {
-        isDiameterMode = !isDiameterMode;
-        localStorage.setItem('cnc_diameter_mode', isDiameterMode);
-        updateDiameterButtonText();
-        drawDynamicGrid(); updatePath();
+    function fitToScreen() {
+        if (points.length < 2) { setHomeView(); return; }
+        let b = {minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity};
+        points.forEach(p => { b.minX=Math.min(b.minX,p.x); b.maxX=Math.max(b.maxX,p.x); b.minZ=Math.min(b.minZ,p.z); b.maxZ=Math.max(b.maxZ,p.z); });
+        const s = Math.max(b.maxX-b.minX, b.maxZ-b.minZ)*1.4 || 50;
+        vb.w=s; vb.h=s; vb.x=(b.minX+b.maxX)/2-s/2; vb.y=-(b.minZ+b.maxZ)/2-s/2;
+        updateViewBox(); drawDynamicGrid(); updatePath(); closeModals();
     }
-
+    function toggleDiameterMode() { isDiameterMode = !isDiameterMode; localStorage.setItem('cnc_diameter_mode', isDiameterMode); updateDiameterButtonText(); drawDynamicGrid(); updatePath(); }
     function updateDiameterButtonText() {
-        const btn = document.getElementById('btn-toggle-dia');
-        if(btn) {
-            const span = btn.querySelector('span');
-            const icon = btn.querySelector('i');
-            if(span) span.innerText = isDiameterMode ? "Ø Průměr" : "R Poloměr";
-            if(icon) {
-                icon.className = isDiameterMode ? 'fas fa-expand-arrows-alt' : 'fas fa-compress-arrows-alt';
-            }
-        }
-        const lbls = ['lbl-arc-x', 'lbl-center-x', 'lbl-start-x'];
-        lbls.forEach(id => {
-            const el = document.getElementById(id);
-            if(el) el.innerText = el.innerText.replace(/Průměr|Poloměr/, isDiameterMode ? "Průměr" : "Poloměr");
-        });
+        const btn = $('btn-toggle-dia'); if(!btn) return;
+        btn.querySelector('span').innerText = isDiameterMode ? "Ø Průměr" : "R Poloměr";
+        btn.querySelector('i').className = isDiameterMode ? 'fas fa-expand-arrows-alt' : 'fas fa-compress-arrows-alt';
+        ['lbl-arc-x', 'lbl-center-x', 'lbl-start-x'].forEach(id => { if($(id)) $(id).innerText = $(id).innerText.replace(/Průměr|Poloměr/, isDiameterMode ? "Průměr" : "Poloměr"); });
     }
+    function clearAll() { saveHistory(); points = [{x: 0, z: 0, break: false, type: 'line', id: pointIdCounter++}]; updatePath(); closeModals(); setHomeView(); }
     
-    function openJoypad() { closeModals(); document.getElementById('modal-joypad').style.display = 'flex'; const last=points[points.length-1]; document.getElementById('btn-tangent-line').style.display = (last && last.type==='arc' && !last.break) ? 'flex' : 'none'; }
-    function prepMove(d) { currentDir=d; closeModals(); document.getElementById('modal-input').style.display='flex'; document.getElementById('input-title').innerText=d==='TANGENT'?"Tečná linka":"Posun: "+d; document.getElementById('inp-len').value=''; document.getElementById('inp-len').focus(); }
-    function commitMove() { const l=parseFloat(document.getElementById('inp-len').value.replace(',','.')); if(isNaN(l)){alert("Zadejte číslo!");return;} saveHistory(); const last=points[points.length-1]; let nx=last.x, nz=last.z; 
-        if(currentDir==='TANGENT'){ const a=Math.atan2(last.z-last.cz, last.x-last.cx) + (last.cw?-Math.PI/2:Math.PI/2); nx+=l*Math.cos(a); nz+=l*Math.sin(a); } 
-        else { const s=l*0.7071; if(currentDir.includes('U')) nz+=currentDir.length>1?s:l; if(currentDir.includes('D')) nz-=currentDir.length>1?s:l; if(currentDir.includes('L')) nx-=currentDir.length>1?s:l; if(currentDir.includes('R')) nx+=currentDir.length>1?s:l; }
+    // --- MOVEMENTS ---
+    function openJoypad() { closeModals(); $('modal-joypad').style.display='flex'; const l=points[points.length-1]; $('btn-tangent-line').style.display = (l && l.type==='arc' && !l.break) ? 'flex' : 'none'; }
+    function prepMove(d) { currentDir=d; closeModals(); $('modal-input').style.display='flex'; $('input-title').innerText=d==='TANGENT'?"Tečná linka":"Posun: "+d; $('inp-len').value=''; $('inp-len').focus(); }
+    function commitMove() {
+        const len = parseFloat($('inp-len').value.replace(',','.')); if(isNaN(len)) { alert("Zadejte číslo!"); return; }
+        saveHistory(); const last = points[points.length-1]; let nx = last.x, nz = last.z;
+        if (currentDir === 'TANGENT') {
+            const a = Math.atan2(last.z-last.cz, last.x-last.cx) + (last.cw ? -Math.PI/2 : Math.PI/2);
+            nx += len * Math.cos(a); nz += len * Math.sin(a);
+        } else {
+            const s = len * 0.7071;
+            const DIRS = {'U':[0,1],'D':[0,-1],'L':[-1,0],'R':[1,0],'UL':[-s,s],'UR':[s,s],'DL':[-s,-s],'DR':[s,-s]};
+            if(DIRS[currentDir]) { nx += DIRS[currentDir][0] * (currentDir.length>1?1:len); nz += DIRS[currentDir][1] * (currentDir.length>1?1:len); }
+        }
         points.push({x:nx, z:nz, break:false, type:'line', id:pointIdCounter++}); centerViewOnPoint({x:nx,z:nz}); updatePath(); closeModals();
     }
-    
-    function openArcModal() { closeModals(); document.getElementById('modal-arc').style.display='flex'; document.getElementById('arc-r').value=100; document.getElementById('chk-tangent').checked=true; document.getElementById('arc-x').value=''; document.getElementById('arc-z').value=''; document.getElementById('center-x').value=''; document.getElementById('center-z').value=''; document.getElementById('ik-target-x').value=''; document.getElementById('ik-target-z').value=''; document.getElementById('ik-target-angle').value=''; switchArcMethod('R'); setArcDir(true); }
-    
-    function switchArcMethod(m) { 
-        arcMethod=m; 
-        document.getElementById('tab-r').classList.toggle('active', m==='R'); 
-        document.getElementById('tab-ik').classList.toggle('active', m==='IK');
-        document.getElementById('method-r').style.display = m==='R'?'block':'none'; 
-        document.getElementById('method-ik').style.display = m==='IK'?'block':'none';
-        document.getElementById('arc-targets').style.display = m==='R'?'block':'none'; 
-        document.getElementById('tangent-target-selector').style.display = (m==='R' && document.getElementById('chk-tangent').checked) ? 'block' : 'none';
-    }
-    function setArcDir(cw) { isG2=cw; document.getElementById('seg-g2').classList.toggle('active', cw); document.getElementById('seg-g3').classList.toggle('active', !cw); }
-    function toggleIKMode(incr) { isIncrementalIKMode=incr; document.getElementById('ik-abs-btn').classList.toggle('active', !incr); document.getElementById('ik-inc-btn').classList.toggle('active', incr); }
-    function setTangentTarget(t) { tangentTargetMode=t; document.getElementById('target-coord-btn').classList.toggle('active', t==='coord'); document.getElementById('target-cone-btn').classList.toggle('active', t==='cone'); document.getElementById('target-coord-inputs').style.display=t==='coord'?'block':'none'; document.getElementById('target-cone-input').style.display=t==='cone'?'block':'none'; }
-    function toggleTangentMode() { const t=document.getElementById('chk-tangent').checked; document.getElementById('tangent-target-selector').style.display=t?'block':'none'; if(!t) { document.getElementById('target-coord-inputs').style.display='block'; document.getElementById('target-cone-input').style.display='none'; } else setTangentTarget(tangentTargetMode); }
+
+    // --- ARCS ---
+    function openArcModal() { closeModals(); $('modal-arc').style.display='flex'; $('arc-r').value=100; $('chk-tangent').checked=true; $('arc-x').value=$('arc-z').value=$('center-x').value=$('center-z').value=$('ik-target-x').value=$('ik-target-z').value=$('ik-target-angle').value=''; switchArcMethod('R'); setArcDir(true); }
+    function switchArcMethod(m) { arcMethod=m; $('tab-r').classList.toggle('active', m==='R'); $('tab-ik').classList.toggle('active', m==='IK'); $('method-r').style.display=m==='R'?'block':'none'; $('method-ik').style.display=m==='IK'?'block':'none'; $('arc-targets').style.display=m==='R'?'block':'none'; toggleTangentMode(); }
+    function setArcDir(cw) { isG2=cw; $('seg-g2').classList.toggle('active', cw); $('seg-g3').classList.toggle('active', !cw); }
+    function toggleIKMode(incr) { isIncrementalIKMode=incr; $('ik-abs-btn').classList.toggle('active', !incr); $('ik-inc-btn').classList.toggle('active', incr); }
+    function setTangentTarget(t) { tangentTargetMode=t; $('target-coord-btn').classList.toggle('active', t==='coord'); $('target-cone-btn').classList.toggle('active', t==='cone'); $('target-coord-inputs').style.display=t==='coord'?'block':'none'; $('target-cone-input').style.display=t==='cone'?'block':'none'; }
+    function toggleTangentMode() { const t=$('chk-tangent').checked; $('tangent-target-selector').style.display=(arcMethod==='R' && t)?'block':'none'; if(!t && arcMethod==='R') { $('target-coord-inputs').style.display='block'; $('target-cone-input').style.display='none'; } else if(arcMethod==='R') setTangentTarget(tangentTargetMode); }
 
     function commitArc() {
-        saveHistory();
-        const last = points[points.length - 1];
-        
+        saveHistory(); const last = points[points.length-1];
+        let ex, ez, cx, cz, r;
+
         if (arcMethod === 'IK') {
-            const cxStr = document.getElementById('center-x').value.replace(/,/, '.');
-            const czStr = document.getElementById('center-z').value.replace(/,/, '.');
-            if(!cxStr || !czStr) { alert("Zadejte souřadnice středu!"); return; }
-            
-            let rawCX = parseFloat(cxStr), rawCZ = parseFloat(czStr);
-            if(isDiameterMode) rawCX /= 2;
-            let cx = isIncrementalIKMode ? last.x + rawCX : rawCX;
-            let cz = isIncrementalIKMode ? last.z + rawCZ : rawCZ;
-            const r = Math.sqrt(Math.pow(last.x - cx, 2) + Math.pow(last.z - cz, 2));
+            const cxVal = parseFloat($('center-x').value.replace(',','.')), czVal = parseFloat($('center-z').value.replace(',','.'));
+            if(isNaN(cxVal) || isNaN(czVal)) { alert("Zadejte střed!"); return; }
+            cx = isIncrementalIKMode ? last.x + (isDiameterMode ? cxVal/2 : cxVal) : (isDiameterMode ? cxVal/2 : cxVal);
+            cz = isIncrementalIKMode ? last.z + czVal : czVal;
+            r = dist(last, {x:cx, z:cz});
 
-            const tXstr = document.getElementById('ik-target-x').value.replace(/,/, '.');
-            const tZstr = document.getElementById('ik-target-z').value.replace(/,/, '.');
-            const tAngStr = document.getElementById('ik-target-angle').value.replace(/,/, '.');
-            const forceLong = document.getElementById('chk-ik-long-arc').checked;
-
-            let ex, ez;
-
-            if (tAngStr) {
-                const angleDeg = parseFloat(tAngStr);
-                const startAngle = Math.atan2(last.z - cz, last.x - cx);
-                const sweepRad = angleDeg * (Math.PI / 180) * (isG2 ? -1 : 1);
-                ex = cx + r * Math.cos(startAngle + sweepRad);
-                ez = cz + r * Math.sin(startAngle + sweepRad);
-            }
-            else if (tXstr || tZstr) {
-                let candidates = [];
-                
-                if (tXstr && tZstr) {
-                    let tx = parseFloat(tXstr); if(isDiameterMode) tx /= 2;
-                    let tz = parseFloat(tZstr);
-                    const angle = Math.atan2(tz - cz, tx - cx);
-                    ex = cx + r * Math.cos(angle);
-                    ez = cz + r * Math.sin(angle);
-                } else if (tXstr) {
-                    let tx = parseFloat(tXstr); if(isDiameterMode) tx /= 2;
-                    const term = r*r - (tx - cx)*(tx - cx);
-                    if (term < 0) { alert("Kružnice nedosáhne na toto X!"); return; }
-                    const dz = Math.sqrt(term);
-                    candidates.push({x: tx, z: cz + dz});
-                    candidates.push({x: tx, z: cz - dz});
-                } else if (tZstr) {
-                    let tz = parseFloat(tZstr);
-                    const term = r*r - (tz - cz)*(tz - cz);
-                    if (term < 0) { alert("Kružnice nedosáhne na toto Z!"); return; }
-                    const dx = Math.sqrt(term);
-                    candidates.push({x: cx + dx, z: tz});
-                    candidates.push({x: cx - dx, z: tz});
-                }
-
-                if (candidates.length > 0) {
-                    const startAngle = Math.atan2(last.z - cz, last.x - cx);
-                    candidates.forEach(cand => {
-                        const endAngle = Math.atan2(cand.z - cz, cand.x - cx);
-                        let diff = endAngle - startAngle;
-                        if (isG2) { if (diff > 0) diff -= 2 * Math.PI; } else { if (diff < 0) diff += 2 * Math.PI; }
-                        cand.sweep = Math.abs(diff);
-                    });
-                    candidates.sort((a, b) => a.sweep - b.sweep);
-                    const selection = forceLong && candidates.length > 1 ? candidates[1] : candidates[0];
-                    ex = selection.x;
-                    ez = selection.z;
-                }
-            } else { alert("Pro IK režim zadejte alespoň jednu cílovou souřadnici nebo úhel."); return; }
-
-            points.push({x: ex, z: ez, type: 'arc', r: r, cw: isG2, break: false, cx: cx, cz: cz, id: pointIdCounter++}); 
-            updatePath(); closeModals();
-            return;
-        }
-
-        const xStr = document.getElementById('arc-x').value.replace(/,/, '.');
-        const zStr = document.getElementById('arc-z').value.replace(/,/, '.');
-        const rStr = document.getElementById('arc-r').value.replace(/,/, '.');
-        if(!rStr) { alert("Zadejte Rádius!"); return; }
-        const r = Math.abs(parseFloat(rStr));
-        const isTang = document.getElementById('chk-tangent').checked;
-
-        if (!isTang) {
-            if(!xStr || !zStr) { alert("Vyplňte obě souřadnice!"); return; }
-            let ex = parseFloat(xStr), ez = parseFloat(zStr); if(isDiameterMode) ex /= 2;
-            const dist = Math.sqrt(Math.pow(ex - last.x, 2) + Math.pow(ez - last.z, 2));
-            if (dist > 2 * r) { alert("Rádius je příliš malý!"); return; }
-            const midX=(last.x+ex)/2, midZ=(last.z+ez)/2, h=Math.sqrt(r*r - (dist/2)*(dist/2)), a=Math.atan2(ez-last.z, ex-last.x);
-            const cx1=midX+h*Math.sin(a), cz1=midZ-h*Math.cos(a), cx2=midX-h*Math.sin(a), cz2=midZ+h*Math.cos(a);
-            const cross=(ex-last.x)*(cz1-last.z)-(ez-last.z)*(cx1-last.x);
-            let cx=isG2?(cross<0?cx1:cx2):(cross>0?cx1:cx2), cz=isG2?(cross<0?cz1:cz2):(cross>0?cz1:cz2);
-            points.push({x:ex, z:ez, type:'arc', r:r, cw:isG2, break:false, cx:cx, cz:cz, id:pointIdCounter++}); updatePath(); closeModals();
-        } else {
-            let prevAngle=0; 
-            if (last.type==='arc' && !last.break) { const ra=Math.atan2(last.z-last.cz,last.x-last.cx); prevAngle=last.cw?(ra-Math.PI/2):(ra+Math.PI/2); }
-            else if(points.length>1) { const p=points[points.length-2]; prevAngle=Math.atan2(last.z-p.z, last.x-p.x); }
-            
-            let normAngle = isG2 ? (prevAngle - Math.PI/2) : (prevAngle + Math.PI/2);
-            const cx = last.x + Math.cos(normAngle) * r;
-            const cz = last.z + Math.sin(normAngle) * r;
-
-            if(tangentTargetMode==='cone') {
-                const angStr=document.getElementById('arc-cone-angle').value; if(!angStr){alert("Zadejte úhel!");return;}
-                const deltaDeg=parseFloat(angStr), startA=Math.atan2(last.z-cz, last.x-cx), endA=startA + (deltaDeg*(Math.PI/180)*(isG2?-1:1));
-                points.push({x:cx+r*Math.cos(endA), z:cz+r*Math.sin(endA), type:'arc', r:r, cw:isG2, break:false, cx:cx, cz:cz, id:pointIdCounter++});
-                updatePath(); closeModals();
-            } else {
-                let cands=[];
-                if(zStr && !xStr) { const tz=parseFloat(zStr), term=r*r-(tz-cz)*(tz-cz); if(term>=0) { const dx=Math.sqrt(term); cands.push({x:cx+dx,z:tz}); cands.push({x:cx-dx,z:tz}); } }
-                else if(xStr && !zStr) { let tx=parseFloat(xStr); if(isDiameterMode)tx/=2; const term=r*r-(tx-cx)*(tx-cx); if(term>=0) { const dz=Math.sqrt(term); cands.push({x:tx,z:cz+dz}); cands.push({x:tx,z:cz-dz}); } }
-                else { alert("Zadejte jednu souřadnici."); return; }
-                
-                const cont=document.getElementById('choices-container'); cont.innerHTML=''; document.getElementById('tangent-choices').style.display='block';
-                cands.forEach((c,i)=>{
-                    const b=document.createElement('div'); b.className='choice-btn'; b.innerHTML=`<span>Bod ${i+1}</span> X:${(isDiameterMode?c.x*2:c.x).toFixed(2)} / Z:${c.z.toFixed(2)}`;
-                    b.onclick=()=>{ points.push({x:c.x, z:c.z, type:'arc', r:r, cw:isG2, break:false, cx:cx, cz:cz, id:pointIdCounter++}); updatePath(); closeModals(); };
-                    cont.appendChild(b);
+            const tAng = $('ik-target-angle').value, tX = $('ik-target-x').value, tZ = $('ik-target-z').value;
+            if (tAng) {
+                const a = Math.atan2(last.z-cz, last.x-cx) + parseFloat(tAng.replace(',','.')) * (Math.PI/180) * (isG2?-1:1);
+                ex = cx + r*Math.cos(a); ez = cz + r*Math.sin(a);
+            } else if (tX || tZ) {
+                let cands = [];
+                if(tX) { let tx = parseFloat(tX.replace(',','.'))/(isDiameterMode?2:1); let term = r*r - Math.pow(tx-cx,2); if(term>=0) { let dz=Math.sqrt(term); cands.push({x:tx,z:cz+dz},{x:tx,z:cz-dz}); } }
+                if(tZ) { let tz = parseFloat(tZ.replace(',','.')); let term = r*r - Math.pow(tz-cz,2); if(term>=0) { let dx=Math.sqrt(term); cands.push({x:cx+dx,z:tz},{x:cx-dx,z:tz}); } }
+                if(!cands.length) { alert("Cíl mimo dosah!"); return; }
+                const startA = Math.atan2(last.z-cz, last.x-cx);
+                cands.forEach(c => { 
+                    let diff = Math.atan2(c.z-cz, c.x-cx) - startA;
+                    if(isG2 && diff>0) diff-=2*Math.PI; else if(!isG2 && diff<0) diff+=2*Math.PI;
+                    c.sweep = Math.abs(diff);
                 });
+                cands.sort((a,b)=>a.sweep-b.sweep);
+                const sel = ($('chk-ik-long-arc').checked && cands.length>1) ? cands[1] : cands[0];
+                ex = sel.x; ez = sel.z;
+            } else { alert("Zadejte cíl!"); return; }
+        } else { // Method R
+            const rVal = parseFloat($('arc-r').value.replace(',','.')); if(isNaN(rVal)){alert("Zadejte R!"); return;} r=Math.abs(rVal);
+            const isTan = $('chk-tangent').checked;
+            if (!isTan) {
+                let tx = parseFloat($('arc-x').value.replace(',','.')), tz = parseFloat($('arc-z').value.replace(',','.'));
+                if(isNaN(tx)||isNaN(tz)){alert("Zadejte cíl!"); return;} if(isDiameterMode) tx/=2; ex=tx; ez=tz;
+                const d = dist(last, {x:ex,z:ez}); if(d > 2*r){alert("Rádius malý!"); return;}
+                const h = Math.sqrt(r*r - (d/2)*(d/2)), a = Math.atan2(ez-last.z, ex-last.x), mx=(last.x+ex)/2, mz=(last.z+ez)/2;
+                const cx1=mx+h*Math.sin(a), cz1=mz-h*Math.cos(a), cx2=mx-h*Math.sin(a), cz2=mz+h*Math.cos(a);
+                const cross = (ex-last.x)*(cz1-last.z)-(ez-last.z)*(cx1-last.x);
+                cx = isG2 ? (cross<0?cx1:cx2) : (cross>0?cx1:cx2); cz = isG2 ? (cross<0?cz1:cz2) : (cross>0?cz1:cz2);
+            } else {
+                let prevA = 0;
+                if(last.type==='arc' && !last.break) { const ra = Math.atan2(last.z-last.cz, last.x-last.cx); prevA = last.cw ? ra-Math.PI/2 : ra+Math.PI/2; }
+                else if(points.length>1) { const p=points[points.length-2]; prevA = Math.atan2(last.z-p.z, last.x-p.x); }
+                const normA = isG2 ? prevA-Math.PI/2 : prevA+Math.PI/2;
+                cx = last.x + Math.cos(normA)*r; cz = last.z + Math.sin(normA)*r;
+                
+                if(tangentTargetMode==='cone') {
+                    const ang = parseFloat($('arc-cone-angle').value.replace(',','.')); if(isNaN(ang)){alert("Zadejte úhel!"); return;}
+                    const endA = Math.atan2(last.z-cz, last.x-cx) + ang*(Math.PI/180)*(isG2?-1:1);
+                    ex = cx + r*Math.cos(endA); ez = cz + r*Math.sin(endA);
+                } else {
+                    // Coord tangent
+                    let cands=[]; const txStr=$('arc-x').value, tzStr=$('arc-z').value;
+                    if(tzStr) { let tz=parseFloat(tzStr.replace(',','.')), term=r*r-Math.pow(tz-cz,2); if(term>=0){let dx=Math.sqrt(term); cands.push({x:cx+dx,z:tz},{x:cx-dx,z:tz});} }
+                    else if(txStr) { let tx=parseFloat(txStr.replace(',','.'))/(isDiameterMode?2:1), term=r*r-Math.pow(tx-cx,2); if(term>=0){let dz=Math.sqrt(term); cands.push({x:tx,z:cz+dz},{x:tx,z:cz-dz});} }
+                    else { alert("Zadejte souřadnici!"); return; }
+                    
+                    const cont = $('choices-container'); cont.innerHTML=''; $('tangent-choices').style.display='block';
+                    cands.forEach((c,i) => {
+                        const b = document.createElement('div'); b.className='choice-btn'; b.innerHTML=`<span>Bod ${i+1}</span> X:${(isDiameterMode?c.x*2:c.x).toFixed(2)} Z:${c.z.toFixed(2)}`;
+                        b.onclick = () => { points.push({x:c.x, z:c.z, type:'arc', r, cw:isG2, break:false, cx, cz, id:pointIdCounter++}); updatePath(); closeModals(); };
+                        cont.appendChild(b);
+                    });
+                    return; // Wait for choice
+                }
             }
+        }
+        points.push({x:ex, z:ez, type:'arc', r, cw:isG2, break:false, cx, cz, id:pointIdCounter++}); updatePath(); closeModals();
+    }
+
+    // --- MEASURE & START ---
+    function openMeasureModal() { if(points.length<2){alert("Málo bodů!"); return;} closeModals(); $('modal-measure').style.display='flex'; startMeasure('distance'); }
+    function startMeasure(m) { measureMode=m; measurePoints=[]; measureLayer.innerHTML=''; $('measure-result').style.display='none'; document.querySelectorAll('#modal-measure .seg-opt').forEach(b=>b.classList.remove('active')); $(m==='distance'?'meas-dist-btn':(m==='angle'?'meas-angle-btn':'meas-coord-btn')).classList.add('active'); }
+    function handleMeasureClick(p) { if(!measureMode)return; measurePoints.push(p); updateMeasureDisplay(); 
+        const req = measureMode==='angle'?3:(measureMode==='distance'?2:1);
+        if(measurePoints.length===req) {
+            let o="", P=measurePoints; $('measure-result').style.display='block';
+            if(measureMode==='distance'){ const dx=P[1].x-P[0].x, dz=P[1].z-P[0].z; o=`L: ${Math.sqrt(dx*dx+dz*dz).toFixed(3)}<br>X: ${(isDiameterMode?dx*2:dx).toFixed(3)} Z: ${dz.toFixed(3)}`; }
+            else if(measureMode==='angle'){ const v1={x:P[1].x-P[0].x,z:P[1].z-P[0].z}, v2={x:P[2].x-P[1].x,z:P[2].z-P[1].z}; o=`Úhel: ${(Math.acos((v1.x*v2.x+v1.z*v2.z)/(dist({x:0,z:0},v1)*dist({x:0,z:0},v2)))*(180/Math.PI)).toFixed(3)}°`; }
+            else o=`X: ${(isDiameterMode?P[0].x*2:P[0].x).toFixed(3)}<br>Z: ${P[0].z.toFixed(3)}`;
+            $('measure-output').innerHTML=o; measurePoints=[];
         }
     }
-    
-    function openStartModal(){closeModals();document.getElementById('modal-start').style.display='flex';document.getElementById('start-x').value='';document.getElementById('start-z').value='';}
-    function confirmNewStart(){saveHistory();let vx=parseFloat(document.getElementById('start-x').value.replace(',','.')||'0'), vz=parseFloat(document.getElementById('start-z').value.replace(',','.')||'0'); if(isDiameterMode)vx/=2; points.push({x:vx,z:vz,break:true,type:'line',id:pointIdCounter++}); centerViewOnPoint(points[points.length-1]); updatePath(); closeModals();}
-    function clearAll(){saveHistory();points=[{x:0,z:0,break:false,type:'line',id:pointIdCounter++}];updatePath();closeModals();setHomeView();}
-    function closeModals(){document.querySelectorAll('.modal').forEach(m=>m.style.display='none');}
+    function updateMeasureDisplay() { measureLayer.innerHTML=''; let d=""; measurePoints.forEach((p,i)=>{ measureLayer.appendChild(svgEl("circle", {cx:p.x, cy:p.z, r:5*(vb.w/svg.clientWidth), class:"measure-point"})); if(i>0)d+=` L ${p.x} ${p.z}`; else d+=`M ${p.x} ${p.z}`; }); if(d) measureLayer.appendChild(svgEl("path", {d, class:"measure-line"})); }
+    function stopMeasure() { measureMode=null; measurePoints=[]; measureLayer.innerHTML=''; closeModals(); }
+    function openStartModal() { closeModals(); $('modal-start').style.display='flex'; $('start-x').value=$('start-z').value=''; }
+    function confirmNewStart() { saveHistory(); let vx=parseFloat($('start-x').value.replace(',','.')||'0'), vz=parseFloat($('start-z').value.replace(',','.')||'0'); if(isDiameterMode)vx/=2; points.push({x:vx, z:vz, break:true, type:'line', id:pointIdCounter++}); centerViewOnPoint(points[points.length-1]); updatePath(); closeModals(); }
+    function closeModals() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
+
+    // Init
+    setTimeout(() => { handleResize(); setHomeView(); saveHistory(); setTimeout(drawDynamicGrid, 100); }, 50);
+    window.addEventListener('resize', handleResize);
 </script>
 </body>
 </html>
