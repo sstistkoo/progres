@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Karusel CNC SmartGrid Mobile v12.3 (Final Measure Fix)</title>
+    <title>Karusel CNC SmartGrid Mobile v12.7 (Final FULL)</title>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -18,7 +18,7 @@
         --bg-btn: #333;
         --grid-main: #999;
         --grid-sub: #e0e0e0;
-        --axis: #444;
+        --axis: #000;
         --accent: #ff6f00;
         --text-light: #eee;
         --c-draw: #2e7d32;
@@ -243,24 +243,10 @@
       .section-label { font-size: 13px; color: #111; text-transform: uppercase; font-weight: 900; margin-bottom: 6px; display: block; letter-spacing: 0.5px; }
       .separator { width: 100%; height: 2px; background: #ddd; margin: 15px 0; }
 
-      /* --- MŘÍŽKA A OSY --- */
-      .axis-line {
-        stroke: #000000;
-        stroke-width: 3px;
-        opacity: 1;
-        vector-effect: non-scaling-stroke;
-        z-index: 10;
-      }
-      .grid-line {
-        stroke: #888;
-        stroke-width: 1.5px;
-        vector-effect: non-scaling-stroke;
-      }
-      .grid-sub-line {
-        stroke: #e0e0e0;
-        stroke-width: 1px;
-        vector-effect: non-scaling-stroke;
-      }
+      /* Mřížka */
+      .axis-line { stroke: #000; stroke-width: 3px; opacity: 1; vector-effect: non-scaling-stroke; z-index: 10; }
+      .grid-line { stroke: #888; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+      .grid-sub-line { stroke: #e0e0e0; stroke-width: 1px; vector-effect: non-scaling-stroke; }
       
       .path-draw { stroke: #00c853; fill: none; stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
       .point-marker { fill: #fff; stroke: var(--accent); vector-effect: non-scaling-stroke; }
@@ -276,53 +262,29 @@
       .mobile-cursor-crosshair { stroke: #d32f2f; stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: none; }
       .mobile-finger-pos { fill: rgba(33, 150, 243, 0.3); stroke: #2196f3; stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: none; }
       .click-area { fill: rgba(255, 255, 255, 0.01); stroke: transparent; cursor: pointer; }
-      
       text { paint-order: stroke; stroke: rgba(255, 255, 255, 0.8); stroke-width: 4px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 
-      /* STYLY KÓT */
+      /* Kóty */
       .dim-line { stroke: #5d4037; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
       .dim-arrow { fill: #5d4037; vector-effect: non-scaling-stroke; }
-      .dim-text {
-        fill: #3e2723;
-        font-weight: 900;
-        font-family: "Segoe UI", Roboto, sans-serif;
-        text-anchor: middle;
-        dominant-baseline: middle;
-        vector-effect: non-scaling-stroke;
-        paint-order: stroke;
-        stroke: rgba(255, 255, 255, 0.9);
-        stroke-width: 4px;
-        stroke-linejoin: round;
-      }
+      .dim-text { fill: #3e2723; font-weight: 900; font-family: "Segoe UI", Roboto, sans-serif; text-anchor: middle; dominant-baseline: middle; vector-effect: non-scaling-stroke; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 4px; stroke-linejoin: round; }
     </style>
   </head>
-<body>
+  <body>
     <div id="app-layout">
       <div id="canvas-area" oncontextmenu="return false;">
         <svg id="svgCanvas" preserveAspectRatio="xMidYMid slice">
           <g id="worldGroup" transform="scale(1, -1)">
-            <g id="gridLines"></g>
-            <g id="axisGroup"></g>
-            <g id="pathGroup"></g>
-            <g id="intersectionGroup"></g>
-            <g id="dimGroup"></g>
-            <g id="measureLayer"></g>
-            <g id="snapCursorGroup"></g>
+            <g id="gridLines"></g><g id="axisGroup"></g><g id="pathGroup"></g><g id="intersectionGroup"></g><g id="dimGroup"></g><g id="measureLayer"></g><g id="snapCursorGroup"></g>
           </g>
-          <g id="textGroup"></g> 
-          <g id="mobileCursorGroup"></g>
+          <g id="textGroup"></g> <g id="mobileCursorGroup"></g>
         </svg>
-
         <div id="coords-hud" onclick="copyHudCoords()" title="Kliknutím zkopírujete souřadnice">
-          <div><span class="hud-label">X</span><span class="hud-val" id="hud-x">0.00</span></div>
-          <div style="width: 1px; background: #999"></div>
-          <div><span class="hud-label">Z</span><span class="hud-val" id="hud-z">0.00</span></div>
-          <div id="hud-snap-info" class="hud-snap-indicator">SNAP</div>
+          <div><span class="hud-label">X</span><span class="hud-val" id="hud-x">0.00</span></div><div style="width: 1px; background: #999"></div><div><span class="hud-label">Z</span><span class="hud-val" id="hud-z">0.00</span></div><div id="hud-snap-info" class="hud-snap-indicator">SNAP</div>
         </div>
         <div id="btn-home" onclick="setHomeView()" title="Reset"><i class="fas fa-home"></i></div>
         <div id="toast-msg">Zkopírováno</div>
       </div>
-
       <div id="panel-area">
         <div class="panel-grid">
           <button id="btn-draw" class="icon-btn btn-draw" onclick="openJoypad()"><i class="fas fa-minus" style="transform: rotate(-45deg)"></i><span>Linka</span></button>
@@ -330,85 +292,24 @@
           <button id="btn-circ" class="icon-btn btn-circ" onclick="openCircleModal()"><i class="fas fa-circle-notch"></i><span>Kruh</span></button>
           <button class="icon-btn btn-draw" onclick="setMode('PICK_TARGET')"><i class="fas fa-crosshairs"></i><span>Cíl</span></button>
           <button id="btn-meas" class="icon-btn btn-meas" onclick="openMeasureModal()"><i class="fas fa-ruler-combined"></i><span>Měřit</span></button>
-
           <button id="btn-start-pick" class="icon-btn btn-util" onclick="setMode('PICK_START')"><i class="fas fa-pen-nib"></i><span>Start Bod</span></button>
           <button id="btn-trim" class="icon-btn btn-trim" onclick="setMode('TRIM')"><i class="fas fa-cut"></i><span>Oříznout</span></button>
           <button id="btn-chamfer" class="icon-btn btn-chamfer" onclick="setMode('CHAMFER')"><i class="fas fa-vector-square" style="transform: rotate(45deg)"></i><span>Rohy</span></button>
           <button id="btn-dim" class="icon-btn btn-util" onclick="setMode('MANUAL_DIMENSION')" style="background: #795548; border-color: #8d6e63"><i class="fas fa-arrows-alt-h"></i><span>Kóta</span></button>
-
           <button id="btn-menu" class="icon-btn btn-menu" onclick="openMainMenu()"><i class="fas fa-bars"></i><span>MENU</span></button>
         </div>
-        <div style="margin-top: 15px; text-align: center; font-size: 10px; color: #555;">v12.3 Final</div>
+        <div style="margin-top: 15px; text-align: center; font-size: 10px; color: #555;">v12.7 Final</div>
       </div>
     </div>
 
-    <div id="modal-main-menu" class="modal">
-      <div class="modal-content">
-        <div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div>
-        <div class="modal-body">
-          <label class="section-label" style="margin-top: 0">Editační Nástroje</label>
-          <div class="menu-grid">
-            <button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button>
-            <button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button>
-            <button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button>
-
-            <button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button>
-            <button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button>
-            <button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button>
-
-            <button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button>
-            <button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button>
-          </div>
-          <div class="separator"></div>
-          <label class="section-label">Data / Fusion 360</label>
-          <div class="menu-grid">
-            <button class="icon-btn btn-export" onclick="exportToDXF()"><i class="fas fa-file-export"></i><span>Export DXF</span></button>
-            <button class="icon-btn btn-import" onclick="triggerImportDXF()"><i class="fas fa-file-import"></i><span>Import DXF</span></button>
-          </div>
-          <p style="font-size: 10px; color: #777; text-align: center; margin-top: 10px;">
-            Importuje DXF jako geometrii. Podporuje Úsečky a Oblouky (LINES, ARCS).
-          </p>
-        </div>
-        <div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div>
-      </div>
-    </div>
-
+    <div id="modal-main-menu" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label" style="margin-top: 0">Editační Nástroje</label><div class="menu-grid"><button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button><button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button><button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button><button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button><button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button><button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button><button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button><button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button></div><div class="separator"></div><label class="section-label">Data / Fusion 360</label><div class="menu-grid"><button class="icon-btn btn-export" onclick="exportToDXF()"><i class="fas fa-file-export"></i><span>Export DXF</span></button><button class="icon-btn btn-import" onclick="triggerImportDXF()"><i class="fas fa-file-import"></i><span>Import DXF</span></button></div><p style="font-size: 10px; color: #777; text-align: center; margin-top: 10px;">Importuje DXF jako geometrii. Podporuje Úsečky a Oblouky.</p></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
     <input type="file" id="dxf-loader" style="display: none" accept=".dxf" onchange="loadDXF(this)" />
-
-    <div id="modal-joypad" class="modal">
-      <div class="modal-content">
-        <div class="modal-header"><h3>Vyberte směr</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div>
-        <div class="modal-body">
-          <div class="joypad-grid">
-            <div class="joy-btn" onclick="prepMove('UL')"><i class="fas fa-arrow-up" style="transform: rotate(-45deg)"></i><span class="joy-desc">Kužel</span></div>
-            <div class="joy-btn" onclick="prepMove('U')"><i class="fas fa-arrow-up"></i><span class="joy-desc">Z+</span></div>
-            <div class="joy-btn" onclick="prepMove('UR')"><i class="fas fa-arrow-up" style="transform: rotate(45deg)"></i><span class="joy-desc">Kužel</span></div>
-            <div class="joy-btn" onclick="prepMove('L')"><i class="fas fa-arrow-left"></i><span class="joy-desc">X-</span></div>
-            <div id="btn-joy-tangent" class="joy-btn" onclick="prepMove('TANGENT')"><i class="fas fa-long-arrow-alt-up" style="transform: rotate(45deg)"></i><span class="joy-desc">TEČNA</span></div>
-            <div class="joy-btn" onclick="prepMove('R')"><i class="fas fa-arrow-right"></i><span class="joy-desc">X+</span></div>
-            <div class="joy-btn" onclick="prepMove('DL')"><i class="fas fa-arrow-down" style="transform: rotate(45deg)"></i><span class="joy-desc">Kužel</span></div>
-            <div class="joy-btn" onclick="prepMove('D')"><i class="fas fa-arrow-down"></i><span class="joy-desc">Z-</span></div>
-            <div class="joy-btn" onclick="prepMove('DR')"><i class="fas fa-arrow-down" style="transform: rotate(-45deg)"></i><span class="joy-desc">Kužel</span></div>
-          </div>
-          <div style="margin-top: 15px">
-            <button class="m-btn btn-primary-util" onclick="setMode('PICK_TARGET')">
-              <i class="fas fa-crosshairs"></i> Vybrat bod na mapě
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
+    <div id="modal-joypad" class="modal"><div class="modal-content"><div class="modal-header"><h3>Vyberte směr</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><div class="joypad-grid"><div class="joy-btn" onclick="prepMove('UL')"><i class="fas fa-arrow-up" style="transform: rotate(-45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('U')"><i class="fas fa-arrow-up"></i><span class="joy-desc">Z+</span></div><div class="joy-btn" onclick="prepMove('UR')"><i class="fas fa-arrow-up" style="transform: rotate(45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('L')"><i class="fas fa-arrow-left"></i><span class="joy-desc">X-</span></div><div id="btn-joy-tangent" class="joy-btn" onclick="prepMove('TANGENT')"><i class="fas fa-long-arrow-alt-up" style="transform: rotate(45deg)"></i><span class="joy-desc">TEČNA</span></div><div class="joy-btn" onclick="prepMove('R')"><i class="fas fa-arrow-right"></i><span class="joy-desc">X+</span></div><div class="joy-btn" onclick="prepMove('DL')"><i class="fas fa-arrow-down" style="transform: rotate(45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('D')"><i class="fas fa-arrow-down"></i><span class="joy-desc">Z-</span></div><div class="joy-btn" onclick="prepMove('DR')"><i class="fas fa-arrow-down" style="transform: rotate(-45deg)"></i><span class="joy-desc">Kužel</span></div></div><div style="margin-top: 15px"><button class="m-btn btn-primary-util" onclick="setMode('PICK_TARGET')"><i class="fas fa-crosshairs"></i> Vybrat bod na mapě</button></div></div></div></div>
     <div id="modal-chamfer" class="modal"><div class="modal-content"><div class="modal-header"><h3>Úprava Rohu</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Typ úpravy:</label><div class="segmented-control"><div class="seg-opt active" id="chamfer-type-c" onclick="setChamferType('C')">Sražení (C)</div><div class="seg-opt" id="chamfer-type-r" onclick="setChamferType('R')">Rádius (R)</div></div><label class="section-label">Velikost (mm):</label><input type="number" id="chamfer-val" placeholder="Velikost C nebo R" inputmode="decimal" /></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-draw" onclick="applyChamfer()">Provést</button></div></div></div></div>
-    
     <div id="modal-input" class="modal"><div class="modal-content"><div class="modal-header"><h3 id="input-title">Parametry pohybu</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Délka pohybu (mm):</label><input type="number" id="inp-len" placeholder="Např. 50" inputmode="decimal" /><div class="separator"></div><label class="section-label" style="color: #0097a7">Cílové souřadnice:</label><label id="lbl-inp-x" class="section-label">Cílové X:</label><input type="number" id="inp-x" placeholder="Prázdné = beze změny" inputmode="decimal" /><label class="section-label">Cílové Z:</label><input type="number" id="inp-z" placeholder="Prázdné = beze změny" inputmode="decimal" /><div class="separator"></div><label class="section-label" style="color: #ef6c00">Polární zadání (Kužel):</label><label class="section-label">Úhel (°):</label><input type="number" id="inp-angle" placeholder="Úhel sklonu" inputmode="decimal" /><div class="chk-row" onclick="$('chk-rel-angle').click()"><input type="checkbox" id="chk-rel-angle" onclick="event.stopPropagation()" /><label for="chk-rel-angle">Úhel od předchozí čáry</label></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="openJoypad()">Zpět</button><button class="m-btn btn-primary-draw" onclick="commitMove()">Vypočítat</button></div></div></div></div>
-    
     <div id="modal-arc" class="modal"><div class="modal-content"><div class="modal-header"><h3>Radius</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span><div class="arc-tabs"><div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius</div><div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed</div></div></div><div class="modal-body"><div class="segmented-control"><div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2</div><div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3</div></div><div id="method-r"><div class="chk-row" onclick="$('chk-tangent').click()"><input type="checkbox" id="chk-tangent" onchange="toggleTangentMode()" onclick="event.stopPropagation()" /><label for="chk-tangent">Tangenciální napojení</label></div><div class="chk-row" style="background: #fff3e0; border-color: #ffe0b2" onclick="$('chk-back-tangent').click()"><input type="checkbox" id="chk-back-tangent" onchange="toggleBackTangentMode()" onclick="event.stopPropagation()" /><label for="chk-back-tangent" style="color: #e65100">Zpětná tangenta</label></div><label class="section-label">Rádius:</label><input type="number" id="arc-r" inputmode="decimal" /></div><div id="method-ik" style="display: none"><div class="segmented-control mode-toggle"><div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div><div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div></div><label class="section-label">Střed I:</label><input type="number" id="center-x" inputmode="decimal" /><label class="section-label">Střed K:</label><input type="number" id="center-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 15px;" onclick="setMode('PICK_ARC_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button><div class="separator"></div><label class="section-label">Cíl X:</label><input type="number" id="ik-target-x" inputmode="decimal" /><label class="section-label">Cíl Z:</label><input type="number" id="ik-target-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 5px;" onclick="setMode('PICK_ARC_TARGET_IK')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button><label class="section-label">Úhel:</label><input type="number" id="ik-target-angle" inputmode="decimal" /><div class="chk-row"><input type="checkbox" id="chk-ik-long-arc" /><label for="chk-ik-long-arc">Delší oblouk</label></div></div><div id="arc-targets"><div id="tangent-target-selector" style="display: none"><label class="section-label">Cíl:</label><div class="segmented-control tangent-target-toggle"><div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div><div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div></div></div><div id="target-coord-inputs"><label id="lbl-arc-x" class="section-label">X:</label><input type="number" id="arc-x" inputmode="decimal" /><label class="section-label">Z:</label><input type="number" id="arc-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_ARC_TARGET')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button></div><div id="target-cone-input" style="display: none"><label class="section-label">Úhel (°):</label><input type="number" id="arc-cone-angle" inputmode="decimal" /></div></div><div id="tangent-choices" style="display: none"><div id="choices-container"></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button></div></div></div></div>
-    
     <div id="modal-circle" class="modal"><div class="modal-content"><div class="modal-header"><h3>Celá Kružnice</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Velikost zadat jako:</label><div class="segmented-control circle-toggle"><div class="seg-opt active" id="circ-rad-btn" onclick="setCircleMode('R')">Rádius (R)</div><div class="seg-opt" id="circ-dia-btn" onclick="setCircleMode('D')">Průměr (D)</div></div><label id="lbl-circ-val" class="section-label">Hodnota R:</label><input type="number" id="circ-val" placeholder="Zadejte velikost" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 15px;" onclick="setMode('PICK_CIRCLE_RADIUS')"><i class="fas fa-ruler-horizontal"></i> Určit R na mapě</button><div class="separator"></div><label class="section-label" style="color: #6a1b9a">Souřadnice Středu:</label><label id="lbl-circ-cx" class="section-label">Střed X:</label><input type="number" id="circ-cx" placeholder="Absolutní X" inputmode="decimal" /><label class="section-label">Střed Z:</label><input type="number" id="circ-cz" placeholder="Absolutní Z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_CIRCLE_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-circ" onclick="commitCircle()">Vykreslit</button></div></div></div></div>
-    
     <div id="modal-start" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nový Bod / Info</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label id="lbl-start-x" class="section-label">X:</label><input type="number" id="start-x" inputmode="decimal" /><label class="section-label">Z:</label><input type="number" id="start-z" inputmode="decimal" /><div style="margin-top: 10px; text-align: center"><button class="m-btn btn-copy" onclick="copyFromModal()"><i class="fas fa-copy"></i> KOPÍROVAT X.. Z..</button></div><div class="separator"></div><label class="section-label">Co udělat dál?</label></div><div class="modal-footer"><div class="modal-btn-row" style="flex-wrap: wrap"><button class="m-btn btn-primary-util" style="background: #757575" onclick="actionMoveOnly()"><i class="fas fa-map-marker-alt"></i> Jen Bod</button><button class="m-btn btn-primary-draw" onclick="actionMoveAndLine()"><i class="fas fa-minus" style="transform: rotate(-45deg)"></i> Linka</button><button class="m-btn btn-primary-circ" onclick="actionCircleCenter()"><i class="fas fa-circle-notch"></i> Kruh</button></div></div></div></div>
-    
     <div id="modal-measure" class="modal"><div class="modal-content"><div class="modal-header"><h3>Měření</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><div class="segmented-control" style="border-color: var(--c-meas)"><div class="seg-opt active" id="meas-dist-btn" onclick="selectMeasure('distance')" style="background: var(--c-meas); color: white">Délka</div><div class="seg-opt" id="meas-angle-btn" onclick="selectMeasure('angle')">Úhel</div><div class="seg-opt" id="meas-coord-btn" onclick="selectMeasure('radius')">Rádius</div></div><p id="measure-instructions" style="text-align: center; font-weight: bold">Vyberte nástroj a označte prvek v mapě.</p><div id="measure-result" style="display: none; padding: 10px; background: #fff3e0; margin-top: 10px; border-radius: 4px;"><div id="measure-output" style="font-family: monospace; font-size: 14px; font-weight: bold"></div><button class="m-btn btn-primary-util" style="margin-top: 10px; background: #795548" onclick="addDimension()"><i class="fas fa-ruler"></i> Vložit Kótu</button></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="stopMeasure()">Ukončit</button></div></div></div></div>
 <script>
       const $ = (id) => document.getElementById(id);
@@ -428,7 +329,8 @@
         dimensions: [],
         lastMeasured: null,
         dimP1: null,
-        intersectionNoticeShown: false, 
+        intersectionNoticeShown: false,
+        isDragging: false 
       };
 
       let pointIdCounter = 1;
@@ -544,7 +446,11 @@
 
       // --- POMOCNÉ FUNKCE ---
       function svgEl(tag, attrs) { const el = document.createElementNS("http://www.w3.org/2000/svg", tag); for (let k in attrs) k === "textContent" ? (el.textContent = attrs[k]) : el.setAttribute(k, attrs[k]); return el; }
-      function dist(p1, p2) { return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.z - p1.z, 2)); }
+      function dist(p1, p2) { 
+          const z1 = p1.z !== undefined ? p1.z : p1.y; 
+          const z2 = p2.z !== undefined ? p2.z : p2.y;
+          return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(z2 - z1, 2)); 
+      }
       function showToast(msg) { const t = $("toast-msg"); t.innerText = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2000); }
       function getNum(id) { const el = $(id); if (!el) return NaN; return parseFloat(el.value.replace(",", ".")); }
       function formatVal(v) { return (State.isDiameter ? v * 2 : v).toFixed(3); }
@@ -620,13 +526,15 @@
       }
 
       function getClosestOnSeg(pWorld, p1, p2) {
+        const pZ = pWorld.z !== undefined ? pWorld.z : pWorld.y;
         if (p2.type !== "arc") {
           const dx = p2.x - p1.x, dz = p2.z - p1.z, l2 = dx * dx + dz * dz;
           if (l2 === 0) return { x: p1.x, z: p1.z, dist: dist(pWorld, p1) };
-          let t = Math.max(0, Math.min(1, ((pWorld.x - p1.x) * dx + (pWorld.z - p1.z) * dz) / l2));
-          return { x: p1.x + t * dx, z: p1.z + t * dz, dist: dist(pWorld, { x: p1.x + t * dx, z: p1.z + t * dz }) };
+          let t = Math.max(0, Math.min(1, ((pWorld.x - p1.x) * dx + (pZ - p1.z) * dz) / l2));
+          const px = p1.x + t * dx, pz = p1.z + t * dz;
+          return { x: px, z: pz, dist: Math.hypot(pWorld.x - px, pZ - pz) };
         } else {
-          const dx = pWorld.x - p2.cx, dz = pWorld.z - p2.cz, dCenter = Math.sqrt(dx * dx + dz * dz);
+          const dx = pWorld.x - p2.cx, dz = pZ - p2.cz, dCenter = Math.sqrt(dx * dx + dz * dz);
           return { x: p2.cx + (dx / dCenter) * p2.r, z: p2.cz + (dz / dCenter) * p2.r, dist: Math.abs(dCenter - p2.r) };
         }
       }
