@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Karusel CNC SmartGrid Mobile v12.7 (Final FULL)</title>
+    <title>Karusel CNC SmartGrid v13.5 (Final Full)</title>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -298,19 +298,26 @@
           <button id="btn-dim" class="icon-btn btn-util" onclick="setMode('MANUAL_DIMENSION')" style="background: #795548; border-color: #8d6e63"><i class="fas fa-arrows-alt-h"></i><span>Kóta</span></button>
           <button id="btn-menu" class="icon-btn btn-menu" onclick="openMainMenu()"><i class="fas fa-bars"></i><span>MENU</span></button>
         </div>
-        <div style="margin-top: 15px; text-align: center; font-size: 10px; color: #555;">v12.7 Final</div>
+        <div style="margin-top: 15px; text-align: center; font-size: 10px; color: #555;">v13.5 FinalFull</div>
       </div>
     </div>
-
-    <div id="modal-main-menu" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label" style="margin-top: 0">Editační Nástroje</label><div class="menu-grid"><button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button><button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button><button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button><button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button><button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button><button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button><button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button><button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button></div><div class="separator"></div><label class="section-label">Data / Fusion 360</label><div class="menu-grid"><button class="icon-btn btn-export" onclick="exportToDXF()"><i class="fas fa-file-export"></i><span>Export DXF</span></button><button class="icon-btn btn-import" onclick="triggerImportDXF()"><i class="fas fa-file-import"></i><span>Import DXF</span></button></div><p style="font-size: 10px; color: #777; text-align: center; margin-top: 10px;">Importuje DXF jako geometrii. Podporuje Úsečky a Oblouky.</p></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
+<div id="modal-main-menu" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label" style="margin-top: 0">Editační Nástroje</label><div class="menu-grid"><button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button><button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button><button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button><button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button><button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button><button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button><button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button><button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button></div><div class="separator"></div><label class="section-label">Data / Fusion 360</label><div class="menu-grid"><button class="icon-btn btn-export" onclick="exportToDXF()"><i class="fas fa-file-export"></i><span>Export DXF</span></button><button class="icon-btn btn-import" onclick="triggerImportDXF()"><i class="fas fa-file-import"></i><span>Import DXF</span></button></div><p style="font-size: 10px; color: #777; text-align: center; margin-top: 10px;">Importuje DXF jako geometrii. Podporuje Úsečky a Oblouky.</p></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
     <input type="file" id="dxf-loader" style="display: none" accept=".dxf" onchange="loadDXF(this)" />
+    
     <div id="modal-joypad" class="modal"><div class="modal-content"><div class="modal-header"><h3>Vyberte směr</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><div class="joypad-grid"><div class="joy-btn" onclick="prepMove('UL')"><i class="fas fa-arrow-up" style="transform: rotate(-45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('U')"><i class="fas fa-arrow-up"></i><span class="joy-desc">Z+</span></div><div class="joy-btn" onclick="prepMove('UR')"><i class="fas fa-arrow-up" style="transform: rotate(45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('L')"><i class="fas fa-arrow-left"></i><span class="joy-desc">X-</span></div><div id="btn-joy-tangent" class="joy-btn" onclick="prepMove('TANGENT')"><i class="fas fa-long-arrow-alt-up" style="transform: rotate(45deg)"></i><span class="joy-desc">TEČNA</span></div><div class="joy-btn" onclick="prepMove('R')"><i class="fas fa-arrow-right"></i><span class="joy-desc">X+</span></div><div class="joy-btn" onclick="prepMove('DL')"><i class="fas fa-arrow-down" style="transform: rotate(45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('D')"><i class="fas fa-arrow-down"></i><span class="joy-desc">Z-</span></div><div class="joy-btn" onclick="prepMove('DR')"><i class="fas fa-arrow-down" style="transform: rotate(-45deg)"></i><span class="joy-desc">Kužel</span></div></div><div style="margin-top: 15px"><button class="m-btn btn-primary-util" onclick="setMode('PICK_TARGET')"><i class="fas fa-crosshairs"></i> Vybrat bod na mapě</button></div></div></div></div>
+    
     <div id="modal-chamfer" class="modal"><div class="modal-content"><div class="modal-header"><h3>Úprava Rohu</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Typ úpravy:</label><div class="segmented-control"><div class="seg-opt active" id="chamfer-type-c" onclick="setChamferType('C')">Sražení (C)</div><div class="seg-opt" id="chamfer-type-r" onclick="setChamferType('R')">Rádius (R)</div></div><label class="section-label">Velikost (mm):</label><input type="number" id="chamfer-val" placeholder="Velikost C nebo R" inputmode="decimal" /></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-draw" onclick="applyChamfer()">Provést</button></div></div></div></div>
+    
     <div id="modal-input" class="modal"><div class="modal-content"><div class="modal-header"><h3 id="input-title">Parametry pohybu</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Délka pohybu (mm):</label><input type="number" id="inp-len" placeholder="Např. 50" inputmode="decimal" /><div class="separator"></div><label class="section-label" style="color: #0097a7">Cílové souřadnice:</label><label id="lbl-inp-x" class="section-label">Cílové X:</label><input type="number" id="inp-x" placeholder="Prázdné = beze změny" inputmode="decimal" /><label class="section-label">Cílové Z:</label><input type="number" id="inp-z" placeholder="Prázdné = beze změny" inputmode="decimal" /><div class="separator"></div><label class="section-label" style="color: #ef6c00">Polární zadání (Kužel):</label><label class="section-label">Úhel (°):</label><input type="number" id="inp-angle" placeholder="Úhel sklonu" inputmode="decimal" /><div class="chk-row" onclick="$('chk-rel-angle').click()"><input type="checkbox" id="chk-rel-angle" onclick="event.stopPropagation()" /><label for="chk-rel-angle">Úhel od předchozí čáry</label></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="openJoypad()">Zpět</button><button class="m-btn btn-primary-draw" onclick="commitMove()">Vypočítat</button></div></div></div></div>
-    <div id="modal-arc" class="modal"><div class="modal-content"><div class="modal-header"><h3>Radius</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span><div class="arc-tabs"><div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius</div><div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed</div></div></div><div class="modal-body"><div class="segmented-control"><div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2</div><div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3</div></div><div id="method-r"><div class="chk-row" onclick="$('chk-tangent').click()"><input type="checkbox" id="chk-tangent" onchange="toggleTangentMode()" onclick="event.stopPropagation()" /><label for="chk-tangent">Tangenciální napojení</label></div><div class="chk-row" style="background: #fff3e0; border-color: #ffe0b2" onclick="$('chk-back-tangent').click()"><input type="checkbox" id="chk-back-tangent" onchange="toggleBackTangentMode()" onclick="event.stopPropagation()" /><label for="chk-back-tangent" style="color: #e65100">Zpětná tangenta</label></div><label class="section-label">Rádius:</label><input type="number" id="arc-r" inputmode="decimal" /></div><div id="method-ik" style="display: none"><div class="segmented-control mode-toggle"><div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div><div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div></div><label class="section-label">Střed I:</label><input type="number" id="center-x" inputmode="decimal" /><label class="section-label">Střed K:</label><input type="number" id="center-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 15px;" onclick="setMode('PICK_ARC_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button><div class="separator"></div><label class="section-label">Cíl X:</label><input type="number" id="ik-target-x" inputmode="decimal" /><label class="section-label">Cíl Z:</label><input type="number" id="ik-target-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 5px;" onclick="setMode('PICK_ARC_TARGET_IK')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button><label class="section-label">Úhel:</label><input type="number" id="ik-target-angle" inputmode="decimal" /><div class="chk-row"><input type="checkbox" id="chk-ik-long-arc" /><label for="chk-ik-long-arc">Delší oblouk</label></div></div><div id="arc-targets"><div id="tangent-target-selector" style="display: none"><label class="section-label">Cíl:</label><div class="segmented-control tangent-target-toggle"><div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div><div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div></div></div><div id="target-coord-inputs"><label id="lbl-arc-x" class="section-label">X:</label><input type="number" id="arc-x" inputmode="decimal" /><label class="section-label">Z:</label><input type="number" id="arc-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_ARC_TARGET')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button></div><div id="target-cone-input" style="display: none"><label class="section-label">Úhel (°):</label><input type="number" id="arc-cone-angle" inputmode="decimal" /></div></div><div id="tangent-choices" style="display: none"><div id="choices-container"></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button></div></div></div></div>
+    
+    <div id="modal-arc" class="modal"><div class="modal-content"><div class="modal-header"><h3>Radius</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span><div class="arc-tabs"><div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius</div><div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed</div></div></div><div class="modal-body"><div class="segmented-control"><div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2</div><div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3</div></div><div id="method-r"><div class="chk-row" onclick="$('chk-tangent').click()"><input type="checkbox" id="chk-tangent" onchange="toggleTangentMode()" onclick="event.stopPropagation()" /><label for="chk-tangent">Tangenciální napojení (Auto R)</label></div><div class="chk-row" style="background: #fff3e0; border-color: #ffe0b2" onclick="$('chk-back-tangent').click()"><input type="checkbox" id="chk-back-tangent" onchange="toggleBackTangentMode()" onclick="event.stopPropagation()" /><label for="chk-back-tangent" style="color: #e65100">Zpětná tangenta</label></div><label class="section-label">Rádius:</label><input type="number" id="arc-r" inputmode="decimal" placeholder="Auto pokud je Tangenta" /></div><div id="method-ik" style="display: none"><div class="segmented-control mode-toggle"><div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div><div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div></div><label class="section-label">Střed I:</label><input type="number" id="center-x" inputmode="decimal" /><label class="section-label">Střed K:</label><input type="number" id="center-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 15px;" onclick="setMode('PICK_ARC_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button><div class="separator"></div><label class="section-label">Cíl X:</label><input type="number" id="ik-target-x" inputmode="decimal" /><label class="section-label">Cíl Z:</label><input type="number" id="ik-target-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 5px;" onclick="setMode('PICK_ARC_TARGET_IK')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button><label class="section-label">Úhel:</label><input type="number" id="ik-target-angle" inputmode="decimal" /><div class="chk-row"><input type="checkbox" id="chk-ik-long-arc" /><label for="chk-ik-long-arc">Delší oblouk</label></div></div><div id="arc-targets"><div id="tangent-target-selector" style="display: none"><label class="section-label">Cíl:</label><div class="segmented-control tangent-target-toggle"><div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div><div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div></div></div><div id="target-coord-inputs"><label id="lbl-arc-x" class="section-label">X:</label><input type="number" id="arc-x" inputmode="decimal" /><label class="section-label">Z:</label><input type="number" id="arc-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_ARC_TARGET')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button></div><div id="target-cone-input" style="display: none"><label class="section-label">Úhel (°):</label><input type="number" id="arc-cone-angle" inputmode="decimal" /></div></div><div id="tangent-choices" style="display: none"><div id="choices-container"></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button></div></div></div></div>
+    
     <div id="modal-circle" class="modal"><div class="modal-content"><div class="modal-header"><h3>Celá Kružnice</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Velikost zadat jako:</label><div class="segmented-control circle-toggle"><div class="seg-opt active" id="circ-rad-btn" onclick="setCircleMode('R')">Rádius (R)</div><div class="seg-opt" id="circ-dia-btn" onclick="setCircleMode('D')">Průměr (D)</div></div><label id="lbl-circ-val" class="section-label">Hodnota R:</label><input type="number" id="circ-val" placeholder="Zadejte velikost" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 15px;" onclick="setMode('PICK_CIRCLE_RADIUS')"><i class="fas fa-ruler-horizontal"></i> Určit R na mapě</button><div class="separator"></div><label class="section-label" style="color: #6a1b9a">Souřadnice Středu:</label><label id="lbl-circ-cx" class="section-label">Střed X:</label><input type="number" id="circ-cx" placeholder="Absolutní X" inputmode="decimal" /><label class="section-label">Střed Z:</label><input type="number" id="circ-cz" placeholder="Absolutní Z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_CIRCLE_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-circ" onclick="commitCircle()">Vykreslit</button></div></div></div></div>
+    
     <div id="modal-start" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nový Bod / Info</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label id="lbl-start-x" class="section-label">X:</label><input type="number" id="start-x" inputmode="decimal" /><label class="section-label">Z:</label><input type="number" id="start-z" inputmode="decimal" /><div style="margin-top: 10px; text-align: center"><button class="m-btn btn-copy" onclick="copyFromModal()"><i class="fas fa-copy"></i> KOPÍROVAT X.. Z..</button></div><div class="separator"></div><label class="section-label">Co udělat dál?</label></div><div class="modal-footer"><div class="modal-btn-row" style="flex-wrap: wrap"><button class="m-btn btn-primary-util" style="background: #757575" onclick="actionMoveOnly()"><i class="fas fa-map-marker-alt"></i> Jen Bod</button><button class="m-btn btn-primary-draw" onclick="actionMoveAndLine()"><i class="fas fa-minus" style="transform: rotate(-45deg)"></i> Linka</button><button class="m-btn btn-primary-circ" onclick="actionCircleCenter()"><i class="fas fa-circle-notch"></i> Kruh</button></div></div></div></div>
+    
     <div id="modal-measure" class="modal"><div class="modal-content"><div class="modal-header"><h3>Měření</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><div class="segmented-control" style="border-color: var(--c-meas)"><div class="seg-opt active" id="meas-dist-btn" onclick="selectMeasure('distance')" style="background: var(--c-meas); color: white">Délka</div><div class="seg-opt" id="meas-angle-btn" onclick="selectMeasure('angle')">Úhel</div><div class="seg-opt" id="meas-coord-btn" onclick="selectMeasure('radius')">Rádius</div></div><p id="measure-instructions" style="text-align: center; font-weight: bold">Vyberte nástroj a označte prvek v mapě.</p><div id="measure-result" style="display: none; padding: 10px; background: #fff3e0; margin-top: 10px; border-radius: 4px;"><div id="measure-output" style="font-family: monospace; font-size: 14px; font-weight: bold"></div><button class="m-btn btn-primary-util" style="margin-top: 10px; background: #795548" onclick="addDimension()"><i class="fas fa-ruler"></i> Vložit Kótu</button></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="stopMeasure()">Ukončit</button></div></div></div></div>
+
 <script>
       const $ = (id) => document.getElementById(id);
       const State = {
@@ -397,7 +404,7 @@
               saveHistory(); State.points = pts; pointIdCounter = State.points.reduce((max, p) => Math.max(max, p.id || 0), 0) + 1;
               fitToScreen(); showToast("DXF Importováno");
             } else { alert("Žádné entity (LINES/ARCS) nenalezeny"); }
-          } catch (err) { console.error(err); alert("Chyba importu DXF"); }
+          } catch (err) { console.error(err); alert("Chyba importu DXF: " + err.message); }
           closeModals();
         };
         reader.readAsText(file); input.value = "";
@@ -409,6 +416,7 @@
         let i = 0;
         while (i < lines.length) {
           let line = lines[i].trim();
+          if (lines[i + 1] === undefined) break; // Bezpečnostní pojistka
           if (line === "0") {
             let type = lines[i + 1].trim(); i += 2;
             if (type === "SECTION") {} else if (type === "ENDSEC") { inEntities = false; } else if (type === "ENTITIES") { inEntities = true; } else if (inEntities) {
@@ -470,11 +478,14 @@
         cachedControls.btnRedo && cachedControls.btnRedo.classList.toggle("btn-disabled", !State.redo.length);
       }
       function saveHistory() {
-        if (State.points.length) { State.history.push(structuredClone({ points: State.points, dimensions: State.dimensions })); State.redo = []; updateHistory(); }
+        if (State.points.length) { 
+            State.history.push(JSON.parse(JSON.stringify({ points: State.points, dimensions: State.dimensions }))); 
+            State.redo = []; updateHistory(); 
+        }
       }
       function undoLastMove() {
         if (!State.history.length) return;
-        State.redo.push(structuredClone({ points: State.points, dimensions: State.dimensions }));
+        State.redo.push(JSON.parse(JSON.stringify({ points: State.points, dimensions: State.dimensions })));
         const prev = State.history.pop();
         if (Array.isArray(prev)) { State.points = prev; } else { State.points = prev.points; State.dimensions = prev.dimensions || []; }
         pointIdCounter = State.points.reduce((max, p) => Math.max(max, p.id || 0), 0) + 1;
@@ -483,18 +494,18 @@
       }
       function redoLastMove() {
         if (!State.redo.length) return;
-        State.history.push(structuredClone({ points: State.points, dimensions: State.dimensions }));
+        State.history.push(JSON.parse(JSON.stringify({ points: State.points, dimensions: State.dimensions })));
         const next = State.redo.pop();
         if (Array.isArray(next)) { State.points = next; } else { State.points = next.points; State.dimensions = next.dimensions || []; }
         pointIdCounter = State.points.reduce((max, p) => Math.max(max, p.id || 0), 0) + 1;
         updatePath(); if (State.points.length) centerViewOnPoint(State.points[State.points.length - 1]); updateHistory();
       }
-
-      // --- REŽIMY ---
+// --- REŽIMY A UI ---
       function setMode(mode) {
         State.mode = mode; State.tempCenter = null; State.dimP1 = null;
         ["btn-trim", "btn-chamfer", "btn-start-pick", "btn-draw", "btn-arc", "btn-circ", "btn-dim"].forEach((id) => { const el = $(id); if (el) el.classList.remove("active-mode"); });
         $("measure-result").style.display = "none";
+        
         if (mode === "IDLE") return;
         if (mode === "TRIM") { $("btn-trim").classList.add("active-mode"); showToast("Klikni na prvek: Bod = smazat, Čára = smazat/oříznout"); }
         else if (mode === "CHAMFER") { $("btn-chamfer").classList.add("active-mode"); showToast("Rohy: Klikněte na vrchol"); }
@@ -509,37 +520,378 @@
           closeModals(); $("btn-circ").classList.add("active-mode"); showToast("Klikněte na obvod"); updatePath(); return;
         } else if (mode === "PICK_ARC_CENTER") { closeModals(); $("btn-arc").classList.add("active-mode"); showToast("Vyberte střed oblouku"); }
         else if (mode === "MANUAL_DIMENSION") { $("btn-dim").classList.add("active-mode"); showToast("Klikni na čáru, rádius nebo 2 body"); }
+        
         if (["TRIM", "CHAMFER", "PICK_START"].includes(mode)) stopMeasure(false);
         if (mode === "TRIM") scheduleUpdatePath();
       }
 
-      // --- VÝPOČTY GEOMETRIE (OPRAVENO - CalculateIntersection) ---
+      function setTangentTarget(val) {
+        tanTarget = val;
+        $("target-coord-btn").classList.toggle("active", val === "coord");
+        $("target-cone-btn").classList.toggle("active", val === "cone");
+        if (val === "coord") { $("target-coord-inputs").style.display = "block"; $("target-cone-input").style.display = "none"; }
+        else { $("target-coord-inputs").style.display = "none"; $("target-cone-input").style.display = "block"; }
+      }
+
+      function toggleBackTangentMode() { /* Jen placeholder pro UI */ }
+
+      function toggleTangentMode() {
+        const isTan = $("chk-tangent").checked;
+        $("tangent-target-selector").style.display = isTan ? "block" : "none";
+        if(isTan) { 
+            $("arc-r").disabled = true; $("arc-r").placeholder = "Dopočítá se"; $("arc-r").value = "";
+            $("target-coord-inputs").style.display = "block"; 
+        } else {
+            $("arc-r").disabled = false; $("arc-r").placeholder = ""; $("arc-r").value = "100";
+            if (!$("chk-tangent").checked) { $("target-coord-inputs").style.display = "block"; $("target-cone-input").style.display = "none"; }
+        }
+      }
+
+      // --- GEOMETRIE ---
       function calculateIntersection(p1, p2, p3, p4) {
         const d = (p1.x - p2.x) * (p3.z - p4.z) - (p1.z - p2.z) * (p3.x - p4.x);
         if (d === 0) return null;
         const t = ((p1.x - p3.x) * (p3.z - p4.z) - (p1.z - p3.z) * (p3.x - p4.x)) / d;
         const u = -((p1.x - p2.x) * (p1.z - p3.z) - (p1.z - p2.z) * (p1.x - p3.x)) / d;
-        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-          return { x: p1.x + t * (p2.x - p1.x), z: p1.z + t * (p2.z - p1.z) };
-        }
+        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return { x: p1.x + t * (p2.x - p1.x), z: p1.z + t * (p2.z - p1.z) };
         return null;
       }
-
       function getClosestOnSeg(pWorld, p1, p2) {
         const pZ = pWorld.z !== undefined ? pWorld.z : pWorld.y;
         if (p2.type !== "arc") {
           const dx = p2.x - p1.x, dz = p2.z - p1.z, l2 = dx * dx + dz * dz;
           if (l2 === 0) return { x: p1.x, z: p1.z, dist: dist(pWorld, p1) };
           let t = Math.max(0, Math.min(1, ((pWorld.x - p1.x) * dx + (pZ - p1.z) * dz) / l2));
-          const px = p1.x + t * dx, pz = p1.z + t * dz;
-          return { x: px, z: pz, dist: Math.hypot(pWorld.x - px, pZ - pz) };
+          return { x: p1.x + t * dx, z: p1.z + t * dz, dist: Math.hypot(pWorld.x - (p1.x + t * dx), pZ - (p1.z + t * dz)) };
         } else {
           const dx = pWorld.x - p2.cx, dz = pZ - p2.cz, dCenter = Math.sqrt(dx * dx + dz * dz);
           return { x: p2.cx + (dx / dCenter) * p2.r, z: p2.cz + (dz / dCenter) * p2.r, dist: Math.abs(dCenter - p2.r) };
         }
       }
 
-      // --- KÓTY A MĚŘENÍ ---
+      // --- MĚŘENÍ (OPRAVENO: ÚHEL MEZI ČARAMI A NAN FIX) ---
+      function handleMeasureClick(p, isLine) {
+        // Měření úhlu mezi dvěma čarami
+        if (isLine && State.measureMode === "angle") {
+           const idx = p.index;
+           const pStart = State.points[idx], pEnd = State.points[idx+1];
+           // Uložíme vektor úsečky
+           State.measurePoints.push({ x: pEnd.x - pStart.x, z: pEnd.z - pStart.z, type: 'vector' });
+           showToast(`Vybrána čára ${State.measurePoints.length}/2`);
+           
+           if(State.measurePoints.length === 2) {
+               const v1 = State.measurePoints[0], v2 = State.measurePoints[1];
+               const mag1 = Math.sqrt(v1.x*v1.x + v1.z*v1.z), mag2 = Math.sqrt(v2.x*v2.x + v2.z*v2.z);
+               if(mag1 === 0 || mag2 === 0) { showMeasureResult("Chyba: Nulová délka"); State.measurePoints = []; return; }
+               
+               const dot = v1.x * v2.x + v1.z * v2.z;
+               // Clamp pro ochranu před NaN (floating point errors)
+               const angRad = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2))));
+               const angDeg = angRad * (180 / Math.PI);
+               
+               showMeasureResult(`Úhel mezi čarami:<br>${angDeg.toFixed(3)}°<br>Doplněk: ${(180-angDeg).toFixed(3)}°`);
+               State.measurePoints = [];
+           }
+           return;
+        }
+        
+        // Měření délky úsečky (kliknutím na čáru)
+        if (isLine && State.measureMode === "distance") { 
+            const next = State.points[p.index + 1], start = State.points[p.index]; 
+            const dx = next.x - start.x, dz = next.z - start.z, distVal = Math.sqrt(dx * dx + dz * dz); 
+            State.lastMeasured = { type: "dist", p1: {x: start.x, z: start.z}, p2: {x: next.x, z: next.z}, val: distVal.toFixed(3) }; 
+            showMeasureResult(`Délka: ${distVal.toFixed(3)}<br>dX: ${formatVal(dx)} dZ: ${dz.toFixed(3)}`); 
+            return; 
+        }
+
+        // Měření bodů
+        State.measurePoints.push(p); renderMeasure();
+        
+        if (State.measureMode === "distance" && State.measurePoints.length === 2) {
+             const P = State.measurePoints;
+             const dx = P[1].x - P[0].x, dz = P[1].z - P[0].z, distVal = Math.sqrt(dx * dx + dz * dz);
+             State.lastMeasured = { type: "dist", p1: {x: P[0].x, z: P[0].z}, p2: {x: P[1].x, z: P[1].z}, val: distVal.toFixed(3) };
+             showMeasureResult(`Délka: ${distVal.toFixed(3)}<br>dX: ${formatVal(dx)} dZ: ${dz.toFixed(3)}`);
+             State.measurePoints = [];
+        } else if (State.measureMode === "angle" && State.measurePoints.length === 3) {
+             // 3 body: P1 - P2(vrchol) - P3
+             const P = State.measurePoints;
+             const v1 = { x: P[0].x - P[1].x, z: P[0].z - P[1].z }; // Vektor od vrcholu k bodu 1
+             const v2 = { x: P[2].x - P[1].x, z: P[2].z - P[1].z }; // Vektor od vrcholu k bodu 3
+             
+             const mag1 = Math.sqrt(v1.x*v1.x + v1.z*v1.z);
+             const mag2 = Math.sqrt(v2.x*v2.x + v2.z*v2.z);
+             
+             if (mag1 === 0 || mag2 === 0) {
+                 showMeasureResult("Chyba: Body se překrývají");
+             } else {
+                 const dot = v1.x * v2.x + v1.z * v2.z;
+                 const ang = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI);
+                 showMeasureResult(`Úhel (vrchol bod 2): ${ang.toFixed(3)}°`);
+             }
+             State.measurePoints = [];
+        }
+      }
+
+      // --- HLAVNÍ LOGIKA: POHYB A OBLOUKY ---
+      function commitMove() {
+        const lS = getNum("inp-len"), xS = getNum("inp-x"), zS = getNum("inp-z"), aS = getNum("inp-angle");
+        if (isNaN(lS) && isNaN(xS) && isNaN(zS) && isNaN(aS)) { alert("Hodnoty?"); return; }
+        saveHistory(); const l = State.points[State.points.length - 1]; let nx = l.x, nz = l.z;
+        if (!isNaN(aS)) {
+          let ang = aS; if ($("chk-rel-angle").checked && State.points.length > 1) { const prev = State.points[State.points.length - 2]; ang += Math.atan2(l.z - prev.z, l.x - prev.x) * (180 / Math.PI); }
+          const rad = ang * (Math.PI / 180);
+          if (!isNaN(lS)) { nx += lS * Math.cos(rad); nz += lS * Math.sin(rad); } else if (!isNaN(xS)) { let tx = State.isDiameter ? xS / 2 : xS; nx = tx; nz += ((tx - l.x) / Math.cos(rad)) * Math.sin(rad); } else if (!isNaN(zS)) { nz = zS; nx += ((zS - l.z) / Math.sin(rad)) * Math.cos(rad); }
+        } else if (!isNaN(xS) || !isNaN(zS)) { if (!isNaN(xS)) nx = State.isDiameter ? xS / 2 : xS; if (!isNaN(zS)) nz = zS; } else if (!isNaN(lS)) {
+          if (currentDir === "TANGENT") { let a; if (l.type === "arc" && l.cx !== undefined) { a = Math.atan2(l.z - l.cz, l.x - l.cx) + (l.cw ? -Math.PI / 2 : Math.PI / 2); } else if (State.points.length > 1) { const prev = State.points[State.points.length - 2]; a = Math.atan2(l.z - prev.z, l.x - prev.x); } else { a = 0; } nx += lS * Math.cos(a); nz += lS * Math.sin(a); } else { const diag = Math.SQRT1_2; const D = { U: [0, 1], D: [0, -1], L: [-1, 0], R: [1, 0], UL: [-diag, diag], UR: [diag, diag], DL: [-diag, -diag], DR: [diag, -diag] }; if (D[currentDir]) { nx += D[currentDir][0] * lS; nz += D[currentDir][1] * lS; } }
+        }
+        State.points.push({ x: nx, z: nz, break: false, type: "line", id: pointIdCounter++ }); centerViewOnPoint({ x: nx, z: nz }); updatePath(); $("inp-len").value = ""; $("inp-x").value = ""; $("inp-z").value = ""; $("inp-angle").value = ""; closeModals();
+      }
+
+      function commitArc() {
+        saveHistory(); 
+        const l = State.points[State.points.length - 1]; 
+        let ex, ez, cx, cz, r, cw;
+
+        // 1. Metoda IK (Střed + Cíl/Úhel)
+        if (arcMethod === "IK") {
+          const cX = getNum("center-x"), cZ = getNum("center-z"); if (isNaN(cX)) { alert("Střed?"); return; }
+          cx = (State.isDiameter ? cX / 2 : cX) + (isIncIK ? l.x : 0); cz = cZ + (isIncIK ? l.z : 0); r = dist(l, { x: cx, z: cz });
+          const tA = getNum("ik-target-angle");
+          if (!isNaN(tA)) { 
+              const a = Math.atan2(l.z - cz, l.x - cx) + tA * (Math.PI / 180) * (isG2 ? 1 : -1); 
+              ex = cx + r * Math.cos(a); ez = cz + r * Math.sin(a); 
+          } else { 
+              const tx = getNum("ik-target-x"), tz = getNum("ik-target-z");
+              if (!isNaN(tx) && !isNaN(tz)) { ex = State.isDiameter ? tx/2 : tx; ez = tz; } else { alert("Zadejte cíl nebo úhel"); return; }
+          }
+          cw = isG2;
+
+        // 2. Metoda R (Rádius) + Tangenciální napojení
+        } else {
+          
+          if ($("chk-tangent").checked) {
+            // === AUTO TANGENTA (CROSS PRODUCT FIX) ===
+            let tx = getNum("arc-x"), tz = getNum("arc-z");
+            if (State.isDiameter) tx /= 2;
+            if (isNaN(tx) || isNaN(tz)) { alert("Zadejte cílový bod (X/Z)"); return; }
+            ex = tx; ez = tz;
+
+            let prevAngle = 0;
+            if (State.points.length > 1) {
+                const prevPt = State.points[State.points.length - 2];
+                if (l.type === "arc") {
+                     // Tečna k oblouku v koncovém bodě (kolmice na rádius)
+                     const angleToCenter = Math.atan2(l.z - l.cz, l.x - l.cx);
+                     // G2 (CW) -> -90, G3 (CCW) -> +90
+                     prevAngle = l.cw ? angleToCenter - Math.PI/2 : angleToCenter + Math.PI/2;
+                } else {
+                     // Tečna je prostě úhel úsečky
+                     prevAngle = Math.atan2(l.z - prevPt.z, l.x - prevPt.x);
+                }
+            }
+
+            const midX = (l.x + ex) / 2, midZ = (l.z + ez) / 2;
+            const bisectorAngle = Math.atan2(ez - l.z, ex - l.x) + Math.PI / 2; 
+            
+            const normalAngle = prevAngle + Math.PI / 2; // Kolmice k tečně = směr ke středu
+            
+            const D = Math.cos(normalAngle) * Math.sin(bisectorAngle) - Math.sin(normalAngle) * Math.cos(bisectorAngle);
+            if (Math.abs(D) < 1e-5) { alert("Body leží v přímce, použijte Linku."); return; }
+
+            const dx = midX - l.x, dz = midZ - l.z;
+            const t = (dx * Math.sin(bisectorAngle) - dz * Math.cos(bisectorAngle)) / D; 
+
+            cx = l.x + t * Math.cos(normalAngle);
+            cz = l.z + t * Math.sin(normalAngle);
+            r = Math.sqrt(Math.pow(l.x - cx, 2) + Math.pow(l.z - cz, 2));
+
+            // === URČENÍ SMĚRU (VEKTOROVÝ SOUČIN) ===
+            // Vektor Tečny [Tx, Tz]
+            const Tx = Math.cos(prevAngle), Tz = Math.sin(prevAngle);
+            // Vektor tětivy k cíli [Vx, Vz]
+            const Vx = ex - l.x, Vz = ez - l.z;
+            
+            // Cross Product (Vektorový součin v 2D)
+            // Pokud > 0, bod je vlevo (CCW / G3). Pokud < 0, bod je vpravo (CW / G2).
+            const cross = Tx * Vz - Tz * Vx;
+            
+            cw = cross < 0; // G2 (CW) pokud je cíl vpravo
+
+            // Zpětná tangenta (S-křivka) - otočit směr
+            if ($("chk-back-tangent").checked) cw = !cw;
+
+          } else {
+            // Manuální R (bez tangenty)
+            r = Math.abs(getNum("arc-r"));
+            let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; ex = tx; ez = tz;
+            const d = dist(l, { x: ex, z: ez }); if (d > 2 * r) { alert("Malé R (nedosáhne)"); return; }
+            const h = Math.sqrt(r * r - (d / 2) * (d / 2)), a = Math.atan2(ez - l.z, ex - l.x), mx = (l.x + ex) / 2, mz = (l.z + ez) / 2;
+            const c1x = mx + h * Math.sin(a), c1z = mz - h * Math.cos(a), c2x = mx - h * Math.sin(a), c2z = mz + h * Math.cos(a);
+            const cr = (ex - l.x) * (c1z - l.z) - (ez - l.z) * (c1x - l.x); 
+            cw = isG2;
+            if (cw) { cx = cr > 0 ? c1x : c2x; cz = cr > 0 ? c1z : c2z; }
+            else { cx = cr < 0 ? c1x : c2x; cz = cr < 0 ? c1z : c2z; }
+          }
+        }
+        
+        State.points.push({ x: ex, z: ez, type: "arc", r, cw: cw, break: false, cx, cz, id: pointIdCounter++ }); 
+        updatePath(); closeModals();
+      }
+
+      function applyChamfer() {
+        const val = getNum("chamfer-val"); if (!val || val <= 0) { alert("Hodnota?"); return; }
+        const idx = State.chamferIdx, pCurr = State.points[idx], pPrev = State.points[idx - 1], pNext = State.points[idx + 1];
+        if (idx <= 0 || idx >= State.points.length - 1 || pCurr.type === "arc" || pNext.type === "arc") { alert("Nelze"); return; }
+        saveHistory(); const v1 = { x: pPrev.x - pCurr.x, z: pPrev.z - pCurr.z }, v2 = { x: pNext.x - pCurr.x, z: pNext.z - pCurr.z };
+        const l1 = Math.sqrt(v1.x * v1.x + v1.z * v1.z), l2 = Math.sqrt(v2.x * v2.x + v2.z * v2.z);
+        const u1 = { x: v1.x / l1, z: v1.z / l1 }, u2 = { x: v2.x / l2, z: v2.z / l2 };
+        const angle = Math.acos(Math.max(-1, Math.min(1, u1.x * u2.x + u1.z * u2.z)));
+        if (Math.abs(angle - Math.PI) < 0.01 || Math.abs(angle) < 0.01) { alert("Rovná přímka"); return; }
+        const distC = chamferType === "C" ? val : val / Math.tan(angle / 2);
+        if (distC > l1 || distC > l2) { alert("Velké"); return; }
+        State.points[idx] = { x: pCurr.x + u1.x * distC, z: pCurr.z + u1.z * distC, type: "line", break: false, id: pCurr.id };
+        if (chamferType === "C") { State.points.splice(idx + 1, 0, { x: pCurr.x + u2.x * distC, z: pCurr.z + u2.z * distC, type: "line", break: false, id: pointIdCounter++ }); }
+        else { const cross = v1.x * u2.z - v1.z * u2.x, isCW = cross > 0, cx = State.points[idx].x + (isCW ? -u1.z : u1.z) * val, cz = State.points[idx].z + (isCW ? u1.x : -u1.x) * val; State.points.splice(idx + 1, 0, { x: pCurr.x + u2.x * distC, z: pCurr.z + u2.z * distC, type: "arc", r: val, cw: isCW, cx, cz, break: false, id: pointIdCounter++ }); if (State.points[idx + 2]) State.points[idx + 2].type = "line"; }
+        updatePath(); closeModals(); setMode("IDLE");
+      }
+
+      function performTrim(seg) {
+        const idx = seg.index, pS = State.points[idx], pE = State.points[idx + 1];
+        let validCuts = [];
+        State.activeIntersections.forEach((i) => { if (i.s1 === idx || i.s2 === idx) validCuts.push({ x: i.x, z: i.z }); });
+        State.points.forEach((pt, k) => { if (k === idx || k === idx + 1) return; const snap = getClosestOnSeg({ x: pt.x, z: pt.z }, pS, pE); if (snap.dist < 0.1) validCuts.push({ x: pt.x, z: pt.z }); });
+
+        if (validCuts.length === 0) {
+          saveHistory();
+          if (idx === State.points.length - 2) { State.points.pop(); updatePath(); showToast("Smazáno (Konec)"); }
+          else { if (State.points[idx + 1]) { State.points[idx + 1].break = true; updatePath(); showToast("Smazáno (Guma)"); } }
+          return;
+        }
+        let bestCut = validCuts[0], minClickDist = Infinity;
+        validCuts.forEach((cut) => { const d = Math.hypot(seg.x - cut.x, seg.z - cut.z); if (d < minClickDist) { minClickDist = d; bestCut = cut; } });
+        saveHistory();
+        if (dist(seg, pS) > dist(seg, pE)) { State.points[idx + 1].x = bestCut.x; State.points[idx + 1].z = bestCut.z; }
+        else { State.points[idx].x = bestCut.x; State.points[idx].z = bestCut.z; State.points[idx].break = true; }
+        updatePath(); showToast("Oříznuto");
+      }
+
+      function openJoypad() { closeModals(); $("modal-joypad").style.display = "flex"; const l = State.points[State.points.length - 1]; if (l.type !== "arc") $("btn-joy-tangent").classList.add("disabled"); else $("btn-joy-tangent").classList.remove("disabled"); }
+      function prepMove(d) { currentDir = d; closeModals(); $("modal-input").style.display = "flex"; $("input-title").innerText = d === "TANGENT" ? "Tečna" : `Posun ${d}`; $("inp-len").value = ""; $("inp-x").value = ""; $("inp-z").value = ""; $("inp-angle").value = ""; $("inp-len").focus(); }
+      function openArcModal() { closeModals(); $("modal-arc").style.display = "flex"; $("arc-r").value = 100; switchArcMethod("R"); setArcDir(true); toggleTangentMode(); }
+      function switchArcMethod(m) { arcMethod = m; $("tab-r").classList.toggle("active", m === "R"); $("tab-ik").classList.toggle("active", m === "IK"); $("method-r").style.display = m === "R" ? "block" : "none"; $("method-ik").style.display = m === "IK" ? "block" : "none"; $("arc-targets").style.display = m === "R" ? "block" : "none"; }
+      function setArcDir(cw) { isG2 = cw; $("seg-g2").classList.toggle("active", cw); $("seg-g3").classList.toggle("active", !cw); }
+      function toggleIKMode(i) { isIncIK = i; $("ik-abs-btn").classList.toggle("active", !i); $("ik-inc-btn").classList.toggle("active", i); }
+      
+      function openCircleModal() { closeModals(); $("modal-circle").style.display = "flex"; setCircleMode("R"); }
+      function setCircleMode(m) { circMode = m; $("circ-rad-btn").classList.toggle("active", m === "R"); $("circ-dia-btn").classList.toggle("active", m === "D"); $("lbl-circ-val").innerText = m === "R" ? "Poloměr R:" : "Průměr D:"; }
+      function commitCircle() {
+        const v = getNum("circ-val"), cX = getNum("circ-cx"), cZ = getNum("circ-cz");
+        if (isNaN(v) || isNaN(cX)) return; saveHistory();
+        const r = circMode === "R" ? v : v / 2, cx = State.isDiameter ? cX / 2 : cX;
+        State.points.push({ x: cx + r, z: cZ, break: true, type: "line", id: pointIdCounter++ }, { x: cx - r, z: cZ, type: "arc", r, cw: true, cx, cz: cZ, id: pointIdCounter++ }, { x: cx + r, z: cZ, type: "arc", r, cw: true, cx, cz: cZ, id: pointIdCounter++ });
+        updatePath(); closeModals();
+      }
+      function openChamferModal() { closeModals(); $("modal-chamfer").style.display = "flex"; $("chamfer-val").value = ""; $("chamfer-val").focus(); }
+      function setChamferType(t) { chamferType = t; $("chamfer-type-c").classList.toggle("active", t === "C"); $("chamfer-type-r").classList.toggle("active", t === "R"); }
+      function openStartModal(x, z) { closeModals(); $("modal-start").style.display = "flex"; if (x !== undefined) { $("start-x").value = formatVal(x); $("start-z").value = z.toFixed(3); } else { $("start-x").value = ""; $("start-z").value = ""; } setMode("IDLE"); }
+      function actionMoveOnly() { confirmNewStart(); }
+      function actionMoveAndLine() { confirmNewStart(); openJoypad(); }
+      function actionCircleCenter() { const x = $("start-x").value, z = $("start-z").value; closeModals(); openCircleModal(); $("circ-cx").value = x; $("circ-cz").value = z; }
+      function confirmNewStart() { saveHistory(); const x = getNum("start-x") / (State.isDiameter ? 2 : 1), z = getNum("start-z"); State.points.push({ x, z, break: true, type: "line", id: pointIdCounter++ }); centerViewOnPoint({ x, z }); updatePath(); closeModals(); }
+      function openLineTargetModal(x, z) { setMode("IDLE"); $("modal-input").style.display = "flex"; $("input-title").innerText = "Cíl"; $("inp-len").value = ""; $("inp-x").value = formatVal(x); $("inp-z").value = z.toFixed(3); }
+      function completeArcTargetPick(x, z) { setMode("IDLE"); $("arc-x").value = formatVal(x); $("arc-z").value = z.toFixed(3); $("modal-arc").style.display = "flex"; }
+      function completeCircleCenterPick(x, z) { setMode("IDLE"); $("circ-cx").value = formatVal(x); $("circ-cz").value = z.toFixed(3); $("modal-circle").style.display = "flex"; }
+      function openMeasureModal() { closeModals(); $("modal-measure").style.display = "flex"; setMode("MEASURE"); selectMeasure("distance", true); }
+      function selectMeasure(m, keepOpen = false) {
+        State.measureMode = m; State.measurePoints = []; els.meas.innerHTML = "";
+        ["meas-dist-btn", "meas-angle-btn", "meas-coord-btn"].forEach((id) => $(id).classList.remove("active"));
+        $(m === "distance" ? "meas-dist-btn" : m === "angle" ? "meas-angle-btn" : "meas-coord-btn").classList.add("active");
+        const msg = m === "distance" ? "Vyberte 2 body nebo čáru" : m === "angle" ? "Vyberte 3 body nebo 2 čáry" : "Vyberte oblouk"; 
+        $("measure-instructions").innerText = msg; if (!keepOpen) { closeModals(); showToast(msg); }
+      }
+      function renderMeasure() { els.meas.innerHTML = ""; State.measurePoints.forEach((p) => els.meas.append(svgEl("circle", { cx: p.x, cy: p.z, r: 4, class: "measure-point" }))); }
+      function showMeasureResult(html) { $("measure-output").innerHTML = html; $("modal-measure").style.display = "flex"; $("measure-result").style.display = "block"; }
+      function stopMeasure(clearUI = true) { State.measureMode = null; State.measurePoints = []; els.meas.innerHTML = ""; if (clearUI) { closeModals(); $("btn-meas").classList.remove("active-mode"); } }
+      function closeModals() { document.querySelectorAll(".modal").forEach((m) => (m.style.display = "none")); }
+      function toggleHelpers() { document.body.classList.toggle("helpers-hidden"); $("btn-helpers").classList.toggle("active-mode", document.body.classList.contains("helpers-hidden")); }
+      function toggleDiameterMode() {
+        State.isDiameter = !State.isDiameter; localStorage.setItem("cnc_diameter_mode", State.isDiameter);
+        $("btn-toggle-dia").querySelector("span").innerText = State.isDiameter ? "Ø Průměr" : "R Poloměr";
+        ["lbl-arc-x", "lbl-center-x", "lbl-start-x", "lbl-inp-x", "lbl-circ-cx", "lbl-circ-val"].forEach((id) => { const e = $(id); if (e) e.innerText = e.innerText.replace(/Průměr|Poloměr/, State.isDiameter ? "Průměr" : "Poloměr"); });
+        requestRender(); updatePath();
+      }
+      function centerViewOnPoint(p) { State.vb.x = p.x - State.vb.w / 2; State.vb.y = -p.z - State.vb.h / 2; requestRender(); }
+      function setHomeView() { State.vb.w = 800; State.vb.h = 800 * (els.svg.clientHeight / els.svg.clientWidth); State.vb.x = -50; State.vb.y = -600; requestRender(); updatePath(); }
+      function fitToScreen() {
+        if (State.points.length < 2) return setHomeView();
+        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+        State.points.forEach((p) => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); });
+        const ratio = els.svg.clientHeight / els.svg.clientWidth, w = maxX - minX, h = maxZ - minZ;
+        State.vb.w = Math.max(w, h / ratio) * 1.4 || 50; State.vb.h = State.vb.w * ratio;
+        State.vb.x = (minX + maxX) / 2 - State.vb.w / 2; State.vb.y = -(minZ + maxZ) / 2 - State.vb.h / 2;
+        requestRender();
+      }
+      function confirmClearAll() { if (confirm("Smazat vše?")) { State.points = [{ x: 0, z: 0, break: false, type: "line", id: 0 }]; pointIdCounter = 1; saveHistory(); setHomeView(); } }
+      function onPointClick(i) {
+        if (State.isDragging || State.touch.timer) return; const p = State.points[i];
+        if (State.measureMode) { handleMeasureClick(p); return; } copyToClipboard(`X${formatVal(p.x)} Z${p.z.toFixed(3)}`); if (i === State.points.length - 1) centerViewOnPoint(p);
+      }
+      function onCenterClick(cx, cz) { if (State.measureMode) { handleMeasureClick({ x: cx, z: cz }); return; } copyToClipboard(`I${formatVal(cx)} K${cz.toFixed(3)}`); }
+      function openMainMenu() { closeModals(); $("modal-main-menu").style.display = "flex"; }
+      function deletePoint(x, z) {
+        const idx = State.points.findIndex((p) => Math.abs(p.x - x) < 1e-3 && Math.abs(p.z - z) < 1e-3);
+        if (idx === -1) return; saveHistory(); 
+        if (State.points[idx + 1] && State.points[idx + 1].type === "arc") {
+            State.points[idx + 1].type = "line";
+        }
+        State.points.splice(idx, 1);
+        if (State.points.length === 0) { State.points = [{ x: 0, z: 0, break: false, type: "line", id: 0 }]; pointIdCounter = 1; } else if (idx === 0) { State.points[0].break = false; State.points[0].type = "line"; }
+        updatePath(); showToast("Bod smazán");
+      }
+      function handleActionClick(snap) {
+        if (!snap) return;
+        if (State.measureMode === "radius" && snap.t === "segment_stick") {
+          const p = State.points[snap.index + 1]; if (p.type === "arc") { State.lastMeasured = { type: "rad", c: { x: p.cx, z: p.cz }, p: { x: p.x, z: p.z }, val: p.r.toFixed(3) }; showMeasureResult(`Rádius: ${p.r.toFixed(3)}`); return; }
+        }
+        if ((State.measureMode === "distance" || State.measureMode === "angle") && snap.t === "segment_stick") { handleMeasureClick(snap, true); return; }
+
+        const x = snap.x, z = snap.z;
+        if (State.mode === "TRIM") {
+          if (snap.t === "point") deletePoint(x, z); else if (snap.t === "segment_stick") performTrim(snap); else if (snap.t === "intersection") showToast("Průsečík nelze smazat přímo"); return;
+        }
+        if (State.mode === "MANUAL_DIMENSION") {
+          if (snap.t === "segment_stick") {
+            const p1 = State.points[snap.index], p2 = State.points[snap.index + 1];
+            if (p2.type === "arc") {
+              const midAng = Math.atan2(z - p2.cz, x - p2.cx), mx = p2.cx + Math.cos(midAng) * p2.r, mz = p2.cz + Math.sin(midAng) * p2.r;
+              saveHistory(); State.dimensions.push({ type: "rad", c: { x: p2.cx, z: p2.cz }, p: { x: mx, z: mz }, val: p2.r.toFixed(3) }); updatePath(); showToast("Rádius vložen");
+            } else {
+              const dx = p2.x - p1.x, dz = p2.z - p1.z, len = Math.sqrt(dx*dx + dz*dz), nx = -dz / len, nz = dx / len, offsetDist = 30 * (State.vb.w / els.svg.clientWidth);
+              saveHistory(); State.dimensions.push({ type: "dist", p1: { x: p1.x, z: p1.z }, p2: { x: p2.x, z: p2.z }, val: len.toFixed(3), lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } }); updatePath(); showToast("Kóta vložena");
+            }
+            return;
+          }
+          if (!State.dimP1) { State.dimP1 = { x, z }; showToast("Vyberte druhý bod"); updatePath(); } else {
+            const p1 = State.dimP1, p2 = { x, z }, dx = p2.x - p1.x, dz = p2.z - p1.z, len = Math.sqrt(dx * dx + dz * dz);
+            if (len < 0.001) return;
+            const nx = -dz / len, nz = dx / len, scale = State.vb.w / els.svg.clientWidth, offsetDist = 40 * scale;
+            saveHistory(); State.dimensions.push({ type: "dist", p1: p1, p2: p2, val: len.toFixed(3), lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } });
+            State.dimP1 = null; updatePath(); showToast("Kóta vložena");
+          }
+          return;
+        }
+        if (State.mode === "CHAMFER") { if (snap.t === "point") { State.chamferIdx = State.points.findIndex((p) => Math.abs(p.x - x) < 1e-3 && Math.abs(p.z - z) < 1e-3); openChamferModal(); } return; }
+        if (State.mode === "PICK_START") { openStartModal(x, z); return; }
+        if (State.mode === "PICK_TARGET") { openLineTargetModal(x, z); return; }
+        if (State.mode === "PICK_ARC_TARGET") { completeArcTargetPick(x, z); return; }
+        if (State.mode === "PICK_ARC_TARGET_IK") { setMode("IDLE"); $("ik-target-x").value = formatVal(x); $("ik-target-z").value = z.toFixed(3); $("modal-arc").style.display = "flex"; return; }
+        if (State.mode === "PICK_CIRCLE_CENTER") { completeCircleCenterPick(x, z); return; }
+        if (State.mode === "PICK_CIRCLE_RADIUS") { if (!State.tempCenter) return; const r = Math.hypot(x - State.tempCenter.x, z - State.tempCenter.z); $("circ-val").value = (circMode === "D" ? r * 2 : r).toFixed(3); State.tempCenter = null; setMode("IDLE"); $("modal-circle").style.display = "flex"; updatePath(); return; }
+        if (State.mode === "PICK_ARC_CENTER") { setMode("IDLE"); $("center-x").value = formatVal(x); $("center-z").value = z.toFixed(3); $("modal-arc").style.display = "flex"; return; }
+        if (snap.t === "point") { const idx = State.points.findIndex((p) => Math.abs(p.x - x) < 1e-3 && Math.abs(p.z - z) < 1e-3); if (idx !== -1) onPointClick(idx); } else if (snap.t === "center") { onCenterClick(x, z); }
+      }
+
       function addDimension() {
         if (!State.lastMeasured) return;
         saveHistory(); const scale = State.vb.w / els.svg.clientWidth; const offsetDist = 40 * scale;
@@ -622,11 +974,10 @@
         const p2x = x + Math.cos(angle + 0.4) * -s, p2z = z + Math.sin(angle + 0.4) * -s;
         parent.append(svgEl("polygon", { points: `${x},${z} ${p1x},${p1z} ${p2x},${p2z}`, class: "dim-arrow" }));
       }
-
+      
       function updateViewBox() { els.svg.setAttribute("viewBox", `${State.vb.x} ${State.vb.y} ${State.vb.w} ${State.vb.h}`); }
       function requestRender() { requestAnimationFrame(() => { updateViewBox(); drawDynamicGrid(); }); }
 
-      // --- OPRAVENÁ MŘÍŽKA (Pravítko + 5 dílků) ---
       function drawDynamicGrid() {
         if (!els.svg.clientWidth) return;
         const vw = State.vb.w; const scale = vw / els.svg.clientWidth;
@@ -635,7 +986,7 @@
         let step = Math.pow(10, Math.floor(Math.log10(vw / 5)));
         if (vw / 5 / step < 2) step *= 1; else if (vw / 5 / step < 5) step *= 2; else step *= 5;
         
-        const subStep = step / 5; // 5 dílků
+        const subStep = step / 5; 
         const fs = Math.max(vw / 40, step / 3.5);
 
         const axisFrag = document.createDocumentFragment();
@@ -652,7 +1003,6 @@
         const startY = Math.floor(-(State.vb.y + State.vb.h) / subStep) * subStep;
         const endY = -State.vb.y + subStep;
 
-        // Sticky positions
         const textYPos = State.vb.y + State.vb.h - (scale * 15);
         const textXPos = State.vb.x + (scale * 10);
 
@@ -786,206 +1136,6 @@
       els.svg.addEventListener("wheel", (e) => { e.preventDefault(); const z = e.deltaY > 1 ? 1.1 : 0.9; const m = els.svg.getScreenCTM(), mx = (e.clientX - m.e) / m.a, my = (e.clientY - m.f) / m.d; State.vb.x = mx - (mx - State.vb.x) * z; State.vb.y = my - (my - State.vb.y) * z; State.vb.w *= z; State.vb.h *= z; requestRender(); scheduleUpdatePath(); }, { passive: false });
       function getMouseCoords(e) { const m = els.svg.getScreenCTM(); return { x: (e.clientX - m.e) / m.a, y: (e.clientY - m.f) / m.d }; }
       function updateMobileCursor(t) { const m = els.svg.getScreenCTM(), s = 20 * (State.vb.w / els.svg.clientWidth); const fx = (t.clientX - m.e) / m.a, fy = (t.clientY - m.f) / m.d; const cx = fx, cy = fy - TOUCH_OFFSET_Y / m.d; lastVirtualSnap = handleMouseSnap({ x: cx, y: cy }); els.mob.innerHTML = ""; els.mob.append(svgEl("circle", { cx: fx, cy: fy, r: (8 * s) / 20, class: "mobile-finger-pos" }), svgEl("path", { d: `M ${fx} ${fy} L ${cx} ${cy}`, class: "mobile-cursor-crosshair" }), svgEl("path", { d: `M ${cx - s} ${cy} L ${cx + s} ${cy} M ${cx} ${cy - s} L ${cx} ${cy + s}`, class: "mobile-cursor-crosshair" })); }
-
-      function deletePoint(x, z) {
-        const idx = State.points.findIndex((p) => Math.abs(p.x - x) < 1e-3 && Math.abs(p.z - z) < 1e-3);
-        if (idx === -1) return; saveHistory(); State.points.splice(idx, 1);
-        if (State.points.length === 0) { State.points = [{ x: 0, z: 0, break: false, type: "line", id: 0 }]; pointIdCounter = 1; } else if (idx === 0) { State.points[0].break = false; State.points[0].type = "line"; }
-        updatePath(); showToast("Bod smazán");
-      }
-
-      function handleActionClick(snap) {
-        if (!snap) return;
-        if (State.measureMode === "radius" && snap.t === "segment_stick") {
-          const p = State.points[snap.index + 1]; if (p.type === "arc") { State.lastMeasured = { type: "rad", c: { x: p.cx, z: p.cz }, p: { x: p.x, z: p.z }, val: p.r.toFixed(3) }; showMeasureResult(`Rádius: ${p.r.toFixed(3)}`); return; }
-        }
-        // OPRAVA MĚŘENÍ DÉLKY NA KLIKNUTÍ
-        if (State.measureMode === "distance" && snap.t === "segment_stick") { handleMeasureClick(snap, true); return; }
-
-        const x = snap.x, z = snap.z;
-        if (State.mode === "TRIM") {
-          if (snap.t === "point") deletePoint(x, z); else if (snap.t === "segment_stick") performTrim(snap); else if (snap.t === "intersection") showToast("Průsečík nelze smazat přímo"); return;
-        }
-        if (State.mode === "MANUAL_DIMENSION") {
-          if (snap.t === "segment_stick") {
-            const p1 = State.points[snap.index], p2 = State.points[snap.index + 1];
-            if (p2.type === "arc") {
-              const midAng = Math.atan2(z - p2.cz, x - p2.cx), mx = p2.cx + Math.cos(midAng) * p2.r, mz = p2.cz + Math.sin(midAng) * p2.r;
-              saveHistory(); State.dimensions.push({ type: "rad", c: { x: p2.cx, z: p2.cz }, p: { x: mx, z: mz }, val: p2.r.toFixed(3) }); updatePath(); showToast("Rádius vložen");
-            } else {
-              const dx = p2.x - p1.x, dz = p2.z - p1.z, len = Math.sqrt(dx*dx + dz*dz), nx = -dz / len, nz = dx / len, offsetDist = 30 * (State.vb.w / els.svg.clientWidth);
-              saveHistory(); State.dimensions.push({ type: "dist", p1: { x: p1.x, z: p1.z }, p2: { x: p2.x, z: p2.z }, val: len.toFixed(3), lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } }); updatePath(); showToast("Kóta vložena");
-            }
-            return;
-          }
-          if (!State.dimP1) { State.dimP1 = { x, z }; showToast("Vyberte druhý bod"); updatePath(); } else {
-            const p1 = State.dimP1, p2 = { x, z }, dx = p2.x - p1.x, dz = p2.z - p1.z, len = Math.sqrt(dx * dx + dz * dz);
-            if (len < 0.001) return;
-            const nx = -dz / len, nz = dx / len, scale = State.vb.w / els.svg.clientWidth, offsetDist = 40 * scale;
-            saveHistory(); State.dimensions.push({ type: "dist", p1: p1, p2: p2, val: len.toFixed(3), lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } });
-            State.dimP1 = null; updatePath(); showToast("Kóta vložena");
-          }
-          return;
-        }
-        if (State.mode === "CHAMFER") { if (snap.t === "point") { State.chamferIdx = State.points.findIndex((p) => Math.abs(p.x - x) < 1e-3 && Math.abs(p.z - z) < 1e-3); openChamferModal(); } return; }
-        if (State.mode === "PICK_START") { openStartModal(x, z); return; }
-        if (State.mode === "PICK_TARGET") { openLineTargetModal(x, z); return; }
-        if (State.mode === "PICK_ARC_TARGET") { completeArcTargetPick(x, z); return; }
-        if (State.mode === "PICK_ARC_TARGET_IK") { setMode("IDLE"); $("ik-target-x").value = formatVal(x); $("ik-target-z").value = z.toFixed(3); $("modal-arc").style.display = "flex"; return; }
-        if (State.mode === "PICK_CIRCLE_CENTER") { completeCircleCenterPick(x, z); return; }
-        if (State.mode === "PICK_CIRCLE_RADIUS") { if (!State.tempCenter) return; const r = Math.hypot(x - State.tempCenter.x, z - State.tempCenter.z); $("circ-val").value = (circMode === "D" ? r * 2 : r).toFixed(3); State.tempCenter = null; setMode("IDLE"); $("modal-circle").style.display = "flex"; updatePath(); return; }
-        if (State.mode === "PICK_ARC_CENTER") { setMode("IDLE"); $("center-x").value = formatVal(x); $("center-z").value = z.toFixed(3); $("modal-arc").style.display = "flex"; return; }
-        if (snap.t === "point") { const idx = State.points.findIndex((p) => Math.abs(p.x - x) < 1e-3 && Math.abs(p.z - z) < 1e-3); if (idx !== -1) onPointClick(idx); } else if (snap.t === "center") { onCenterClick(x, z); }
-      }
-
-      function commitMove() {
-        const lS = getNum("inp-len"), xS = getNum("inp-x"), zS = getNum("inp-z"), aS = getNum("inp-angle");
-        if (isNaN(lS) && isNaN(xS) && isNaN(zS) && isNaN(aS)) { alert("Hodnoty?"); return; }
-        saveHistory(); const l = State.points[State.points.length - 1]; let nx = l.x, nz = l.z;
-        if (!isNaN(aS)) {
-          let ang = aS; if ($("chk-rel-angle").checked && State.points.length > 1) { const prev = State.points[State.points.length - 2]; ang += Math.atan2(l.z - prev.z, l.x - prev.x) * (180 / Math.PI); }
-          const rad = ang * (Math.PI / 180);
-          if (!isNaN(lS)) { nx += lS * Math.cos(rad); nz += lS * Math.sin(rad); } else if (!isNaN(xS)) { let tx = State.isDiameter ? xS / 2 : xS; nx = tx; nz += ((tx - l.x) / Math.cos(rad)) * Math.sin(rad); } else if (!isNaN(zS)) { nz = zS; nx += ((zS - l.z) / Math.sin(rad)) * Math.cos(rad); }
-        } else if (!isNaN(xS) || !isNaN(zS)) { if (!isNaN(xS)) nx = State.isDiameter ? xS / 2 : xS; if (!isNaN(zS)) nz = zS; } else if (!isNaN(lS)) {
-          if (currentDir === "TANGENT") { let a; if (l.type === "arc" && l.cx !== undefined) { a = Math.atan2(l.z - l.cz, l.x - l.cx) + (l.cw ? -Math.PI / 2 : Math.PI / 2); } else if (State.points.length > 1) { const prev = State.points[State.points.length - 2]; a = Math.atan2(l.z - prev.z, l.x - prev.x); } else { a = 0; } nx += lS * Math.cos(a); nz += lS * Math.sin(a); } else { const diag = Math.SQRT1_2; const D = { U: [0, 1], D: [0, -1], L: [-1, 0], R: [1, 0], UL: [-diag, diag], UR: [diag, diag], DL: [-diag, -diag], DR: [diag, -diag] }; if (D[currentDir]) { nx += D[currentDir][0] * lS; nz += D[currentDir][1] * lS; } }
-        }
-        State.points.push({ x: nx, z: nz, break: false, type: "line", id: pointIdCounter++ }); centerViewOnPoint({ x: nx, z: nz }); updatePath(); $("inp-len").value = ""; $("inp-x").value = ""; $("inp-z").value = ""; $("inp-angle").value = ""; closeModals();
-      }
-
-      function commitArc() {
-        saveHistory(); const l = State.points[State.points.length - 1]; let ex, ez, cx, cz, r;
-        if (arcMethod === "R" && $("chk-back-tangent").checked) { alert("Neimplementováno"); return; }
-        if (arcMethod === "IK") {
-          const cX = getNum("center-x"), cZ = getNum("center-z"); if (isNaN(cX)) { alert("Střed?"); return; }
-          cx = (State.isDiameter ? cX / 2 : cX) + (isIncIK ? l.x : 0); cz = cZ + (isIncIK ? l.z : 0); r = dist(l, { x: cx, z: cz });
-          const tA = getNum("ik-target-angle");
-          if (!isNaN(tA)) { const a = Math.atan2(l.z - cz, l.x - cx) + tA * (Math.PI / 180) * (isG2 ? 1 : -1); ex = cx + r * Math.cos(a); ez = cz + r * Math.sin(a); } else { alert("Použijte úhel"); return; }
-        } else {
-          r = Math.abs(getNum("arc-r"));
-          if (!$("chk-tangent").checked) {
-            let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; ex = tx; ez = tz;
-            const d = dist(l, { x: ex, z: ez }); if (d > 2 * r) { alert("Malé R"); return; }
-            const h = Math.sqrt(r * r - (d / 2) * (d / 2)), a = Math.atan2(ez - l.z, ex - l.x), mx = (l.x + ex) / 2, mz = (l.z + ez) / 2;
-            const c1x = mx + h * Math.sin(a), c1z = mz - h * Math.cos(a), c2x = mx - h * Math.sin(a), c2z = mz + h * Math.cos(a);
-            const cr = (ex - l.x) * (c1z - l.z) - (ez - l.z) * (c1x - l.x); cx = isG2 ? (cr > 0 ? c1x : c2x) : cr < 0 ? c1x : c2x; cz = isG2 ? (cr > 0 ? c1z : c2z) : cr < 0 ? c1z : c2z;
-          } else {
-            let pA = 0; if (l.type === "arc") { const ra = Math.atan2(l.z - l.cz, l.x - l.cx); pA = l.cw ? ra + Math.PI / 2 : ra - Math.PI / 2; } else if (State.points.length > 1) { const prev = State.points[State.points.length - 2]; pA = Math.atan2(l.z - prev.z, l.x - prev.x); }
-            const nA = isG2 ? pA + Math.PI / 2 : pA - Math.PI / 2; cx = l.x + Math.cos(nA) * r; cz = l.z + Math.sin(nA) * r;
-            if (tanTarget === "cone") { const ang = getNum("arc-cone-angle"); const eA = Math.atan2(l.z - cz, l.x - cx) + ang * (Math.PI / 180) * (isG2 ? 1 : -1); ex = cx + r * Math.cos(eA); ez = cz + r * Math.sin(eA); } else { alert("Vyberte bod nebo úhel"); return; }
-          }
-        }
-        State.points.push({ x: ex, z: ez, type: "arc", r, cw: isG2, break: false, cx, cz, id: pointIdCounter++ }); updatePath(); closeModals();
-      }
-
-      function applyChamfer() {
-        const val = getNum("chamfer-val"); if (!val || val <= 0) { alert("Hodnota?"); return; }
-        const idx = State.chamferIdx, pCurr = State.points[idx], pPrev = State.points[idx - 1], pNext = State.points[idx + 1];
-        if (idx <= 0 || idx >= State.points.length - 1 || pCurr.type === "arc" || pNext.type === "arc") { alert("Nelze"); return; }
-        saveHistory(); const v1 = { x: pPrev.x - pCurr.x, z: pPrev.z - pCurr.z }, v2 = { x: pNext.x - pCurr.x, z: pNext.z - pCurr.z };
-        const l1 = Math.sqrt(v1.x * v1.x + v1.z * v1.z), l2 = Math.sqrt(v2.x * v2.x + v2.z * v2.z);
-        const u1 = { x: v1.x / l1, z: v1.z / l1 }, u2 = { x: v2.x / l2, z: v2.z / l2 };
-        const angle = Math.acos(Math.max(-1, Math.min(1, u1.x * u2.x + u1.z * u2.z)));
-        if (Math.abs(angle - Math.PI) < 0.01 || Math.abs(angle) < 0.01) { alert("Rovná přímka"); return; }
-        const distC = chamferType === "C" ? val : val / Math.tan(angle / 2);
-        if (distC > l1 || distC > l2) { alert("Velké"); return; }
-        State.points[idx] = { x: pCurr.x + u1.x * distC, z: pCurr.z + u1.z * distC, type: "line", break: false, id: pCurr.id };
-        if (chamferType === "C") { State.points.splice(idx + 1, 0, { x: pCurr.x + u2.x * distC, z: pCurr.z + u2.z * distC, type: "line", break: false, id: pointIdCounter++ }); }
-        else { const cross = v1.x * u2.z - v1.z * u2.x, isCW = cross > 0, cx = State.points[idx].x + (isCW ? -u1.z : u1.z) * val, cz = State.points[idx].z + (isCW ? u1.x : -u1.x) * val; State.points.splice(idx + 1, 0, { x: pCurr.x + u2.x * distC, z: pCurr.z + u2.z * distC, type: "arc", r: val, cw: isCW, cx, cz, break: false, id: pointIdCounter++ }); if (State.points[idx + 2]) State.points[idx + 2].type = "line"; }
-        updatePath(); closeModals(); setMode("IDLE");
-      }
-
-      function performTrim(seg) {
-        const idx = seg.index, pS = State.points[idx], pE = State.points[idx + 1];
-        let validCuts = [];
-        State.activeIntersections.forEach((i) => { if (i.s1 === idx || i.s2 === idx) validCuts.push({ x: i.x, z: i.z }); });
-        State.points.forEach((pt, k) => { if (k === idx || k === idx + 1) return; const snap = getClosestOnSeg({ x: pt.x, z: pt.z }, pS, pE); if (snap.dist < 0.1) validCuts.push({ x: pt.x, z: pt.z }); });
-
-        if (validCuts.length === 0) {
-          saveHistory();
-          if (idx === State.points.length - 2) { State.points.pop(); updatePath(); showToast("Smazáno (Konec)"); }
-          else { if (State.points[idx + 1]) { State.points[idx + 1].break = true; updatePath(); showToast("Smazáno (Guma)"); } }
-          return;
-        }
-        let bestCut = validCuts[0], minClickDist = Infinity;
-        validCuts.forEach((cut) => { const d = Math.hypot(seg.x - cut.x, seg.z - cut.z); if (d < minClickDist) { minClickDist = d; bestCut = cut; } });
-        saveHistory();
-        if (dist(seg, pS) > dist(seg, pE)) { State.points[idx + 1].x = bestCut.x; State.points[idx + 1].z = bestCut.z; }
-        else { State.points[idx].x = bestCut.x; State.points[idx].z = bestCut.z; State.points[idx].break = true; }
-        updatePath(); showToast("Oříznuto");
-      }
-
-      function openJoypad() { closeModals(); $("modal-joypad").style.display = "flex"; const l = State.points[State.points.length - 1]; if (l.type !== "arc") $("btn-joy-tangent").classList.add("disabled"); else $("btn-joy-tangent").classList.remove("disabled"); }
-      function prepMove(d) { currentDir = d; closeModals(); $("modal-input").style.display = "flex"; $("input-title").innerText = d === "TANGENT" ? "Tečna" : `Posun ${d}`; $("inp-len").value = ""; $("inp-x").value = ""; $("inp-z").value = ""; $("inp-angle").value = ""; $("inp-len").focus(); }
-      function openArcModal() { closeModals(); $("modal-arc").style.display = "flex"; $("arc-r").value = 100; switchArcMethod("R"); setArcDir(true); }
-      function switchArcMethod(m) { arcMethod = m; $("tab-r").classList.toggle("active", m === "R"); $("tab-ik").classList.toggle("active", m === "IK"); $("method-r").style.display = m === "R" ? "block" : "none"; $("method-ik").style.display = m === "IK" ? "block" : "none"; $("arc-targets").style.display = m === "R" ? "block" : "none"; }
-      function setArcDir(cw) { isG2 = cw; $("seg-g2").classList.toggle("active", cw); $("seg-g3").classList.toggle("active", !cw); }
-      function toggleIKMode(i) { isIncIK = i; $("ik-abs-btn").classList.toggle("active", !i); $("ik-inc-btn").classList.toggle("active", i); }
-      function toggleTangentMode() { $("tangent-target-selector").style.display = $("chk-tangent").checked ? "block" : "none"; if (!$("chk-tangent").checked) { $("target-coord-inputs").style.display = "block"; $("target-cone-input").style.display = "none"; } }
-      function openCircleModal() { closeModals(); $("modal-circle").style.display = "flex"; setCircleMode("R"); }
-      function setCircleMode(m) { circMode = m; $("circ-rad-btn").classList.toggle("active", m === "R"); $("circ-dia-btn").classList.toggle("active", m === "D"); $("lbl-circ-val").innerText = m === "R" ? "Poloměr R:" : "Průměr D:"; }
-      function commitCircle() {
-        const v = getNum("circ-val"), cX = getNum("circ-cx"), cZ = getNum("circ-cz");
-        if (isNaN(v) || isNaN(cX)) return; saveHistory();
-        const r = circMode === "R" ? v : v / 2, cx = State.isDiameter ? cX / 2 : cX;
-        State.points.push({ x: cx + r, z: cZ, break: true, type: "line", id: pointIdCounter++ }, { x: cx - r, z: cZ, type: "arc", r, cw: true, cx, cz: cZ, id: pointIdCounter++ }, { x: cx + r, z: cZ, type: "arc", r, cw: true, cx, cz: cZ, id: pointIdCounter++ });
-        updatePath(); closeModals();
-      }
-      function openChamferModal() { closeModals(); $("modal-chamfer").style.display = "flex"; $("chamfer-val").value = ""; $("chamfer-val").focus(); }
-      function setChamferType(t) { chamferType = t; $("chamfer-type-c").classList.toggle("active", t === "C"); $("chamfer-type-r").classList.toggle("active", t === "R"); }
-      function openStartModal(x, z) { closeModals(); $("modal-start").style.display = "flex"; if (x !== undefined) { $("start-x").value = formatVal(x); $("start-z").value = z.toFixed(3); } else { $("start-x").value = ""; $("start-z").value = ""; } setMode("IDLE"); }
-      function actionMoveOnly() { confirmNewStart(); }
-      function actionMoveAndLine() { confirmNewStart(); openJoypad(); }
-      function actionCircleCenter() { const x = $("start-x").value, z = $("start-z").value; closeModals(); openCircleModal(); $("circ-cx").value = x; $("circ-cz").value = z; }
-      function confirmNewStart() { saveHistory(); const x = getNum("start-x") / (State.isDiameter ? 2 : 1), z = getNum("start-z"); State.points.push({ x, z, break: true, type: "line", id: pointIdCounter++ }); centerViewOnPoint({ x, z }); updatePath(); closeModals(); }
-      function openLineTargetModal(x, z) { setMode("IDLE"); $("modal-input").style.display = "flex"; $("input-title").innerText = "Cíl"; $("inp-len").value = ""; $("inp-x").value = formatVal(x); $("inp-z").value = z.toFixed(3); }
-      function completeArcTargetPick(x, z) { setMode("IDLE"); $("arc-x").value = formatVal(x); $("arc-z").value = z.toFixed(3); $("modal-arc").style.display = "flex"; }
-      function completeCircleCenterPick(x, z) { setMode("IDLE"); $("circ-cx").value = formatVal(x); $("circ-cz").value = z.toFixed(3); $("modal-circle").style.display = "flex"; }
-      function openMeasureModal() { closeModals(); $("modal-measure").style.display = "flex"; setMode("MEASURE"); selectMeasure("distance", true); }
-      function selectMeasure(m, keepOpen = false) {
-        State.measureMode = m; State.measurePoints = []; els.meas.innerHTML = "";
-        ["meas-dist-btn", "meas-angle-btn", "meas-coord-btn"].forEach((id) => $(id).classList.remove("active"));
-        $(m === "distance" ? "meas-dist-btn" : m === "angle" ? "meas-angle-btn" : "meas-coord-btn").classList.add("active");
-        const msg = m === "distance" ? "Vyberte 2 body nebo čáru" : m === "angle" ? "Vyberte 3 body" : "Vyberte oblouk"; $("measure-instructions").innerText = msg; if (!keepOpen) { closeModals(); showToast(msg); }
-      }
-      function handleMeasureClick(p, isLine) {
-        if (isLine && State.measureMode === "distance") { const next = State.points[p.index + 1], start = State.points[p.index]; if (!next || !start) return; const dx = next.x - start.x, dz = next.z - start.z, distVal = Math.sqrt(dx * dx + dz * dz); State.lastMeasured = { type: "dist", p1: {x: start.x, z: start.z}, p2: {x: next.x, z: next.z}, val: distVal.toFixed(3) }; showMeasureResult(`Délka: ${distVal.toFixed(3)}<br>dX: ${formatVal(dx)} dZ: ${dz.toFixed(3)}`); return; }
-        State.measurePoints.push(p); renderMeasure();
-        if ((State.measureMode === "distance" && State.measurePoints.length === 2) || (State.measureMode === "angle" && State.measurePoints.length === 3)) {
-          const P = State.measurePoints;
-          if (State.measureMode === "distance") { const dx = P[1].x - P[0].x, dz = P[1].z - P[0].z, distVal = Math.sqrt(dx * dx + dz * dz); State.lastMeasured = { type: "dist", p1: {x: P[0].x, z: P[0].z}, p2: {x: P[1].x, z: P[1].z}, val: distVal.toFixed(3) }; showMeasureResult(`Délka: ${distVal.toFixed(3)}<br>dX: ${formatVal(dx)} dZ: ${dz.toFixed(3)}`); }
-          else { const v1 = { x: P[0].x - P[1].x, z: P[0].z - P[1].z }, v2 = { x: P[2].x - P[1].x, z: P[2].z - P[1].z }; const mag1 = Math.sqrt(v1.x*v1.x + v1.z*v1.z), mag2 = Math.sqrt(v2.x*v2.x + v2.z*v2.z); if (mag1 * mag2 === 0) showMeasureResult("Chyba"); else { const ang = Math.acos(Math.max(-1, Math.min(1, (v1.x * v2.x + v1.z * v2.z) / (mag1 * mag2)))) * (180 / Math.PI); showMeasureResult(`Úhel: ${ang.toFixed(3)}°`); } }
-          State.measurePoints = [];
-        }
-      }
-      function renderMeasure() { els.meas.innerHTML = ""; State.measurePoints.forEach((p) => els.meas.append(svgEl("circle", { cx: p.x, cy: p.z, r: 4, class: "measure-point" }))); }
-      function showMeasureResult(html) { $("measure-output").innerHTML = html; $("modal-measure").style.display = "flex"; $("measure-result").style.display = "block"; }
-      function stopMeasure(clearUI = true) { State.measureMode = null; State.measurePoints = []; els.meas.innerHTML = ""; if (clearUI) { closeModals(); $("btn-meas").classList.remove("active-mode"); } }
-      function closeModals() { document.querySelectorAll(".modal").forEach((m) => (m.style.display = "none")); }
-      function toggleHelpers() { document.body.classList.toggle("helpers-hidden"); $("btn-helpers").classList.toggle("active-mode", document.body.classList.contains("helpers-hidden")); }
-      function toggleDiameterMode() {
-        State.isDiameter = !State.isDiameter; localStorage.setItem("cnc_diameter_mode", State.isDiameter);
-        $("btn-toggle-dia").querySelector("span").innerText = State.isDiameter ? "Ø Průměr" : "R Poloměr";
-        ["lbl-arc-x", "lbl-center-x", "lbl-start-x", "lbl-inp-x", "lbl-circ-cx", "lbl-circ-val"].forEach((id) => { const e = $(id); if (e) e.innerText = e.innerText.replace(/Průměr|Poloměr/, State.isDiameter ? "Průměr" : "Poloměr"); });
-        requestRender(); updatePath();
-      }
-      function centerViewOnPoint(p) { State.vb.x = p.x - State.vb.w / 2; State.vb.y = -p.z - State.vb.h / 2; requestRender(); }
-      function setHomeView() { State.vb.w = 800; State.vb.h = 800 * (els.svg.clientHeight / els.svg.clientWidth); State.vb.x = -50; State.vb.y = -600; requestRender(); updatePath(); }
-      function fitToScreen() {
-        if (State.points.length < 2) return setHomeView();
-        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-        State.points.forEach((p) => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); });
-        const ratio = els.svg.clientHeight / els.svg.clientWidth, w = maxX - minX, h = maxZ - minZ;
-        State.vb.w = Math.max(w, h / ratio) * 1.4 || 50; State.vb.h = State.vb.w * ratio;
-        State.vb.x = (minX + maxX) / 2 - State.vb.w / 2; State.vb.y = -(minZ + maxZ) / 2 - State.vb.h / 2;
-        requestRender();
-      }
-      function confirmClearAll() { if (confirm("Smazat vše?")) { State.points = [{ x: 0, z: 0, break: false, type: "line", id: 0 }]; pointIdCounter = 1; saveHistory(); setHomeView(); } }
-      function onPointClick(i) {
-        if (State.isDragging || State.touch.timer) return; const p = State.points[i];
-        if (State.measureMode) { handleMeasureClick(p); return; } copyToClipboard(`X${formatVal(p.x)} Z${p.z.toFixed(3)}`); if (i === State.points.length - 1) centerViewOnPoint(p);
-      }
-      function onCenterClick(cx, cz) { if (State.measureMode) { handleMeasureClick({ x: cx, z: cz }); return; } copyToClipboard(`I${formatVal(cx)} K${cz.toFixed(3)}`); }
-      function openMainMenu() { closeModals(); $("modal-main-menu").style.display = "flex"; }
 
       function addEnterSupport(modalId, actionFunc) {
         const modal = document.getElementById(modalId);
