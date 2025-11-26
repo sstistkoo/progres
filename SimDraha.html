@@ -70,6 +70,7 @@
         const Icon = ({ path, size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>
         );
+        
         const Icons = {
             Menu: (p) => <Icon {...p} path={<><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></>} />,
             Close: (p) => <Icon {...p} path={<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>} />,
@@ -89,21 +90,34 @@
             Layers: (p) => <Icon {...p} path={<><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></>} />,
             CheckCircle: (p) => <Icon {...p} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></>} />,
             Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></>} />,
-            ArrowUp: (p) => <Icon {...p} path={<line x1="12" y1="19" x2="12" y2="5" />}><polyline points="5 12 12 5 19 12" /></Icon>,
-            ArrowDown: (p) => <Icon {...p} path={<line x1="12" y1="5" x2="12" y2="19" />}><polyline points="19 12 12 19 5 12" /></Icon>,
-            ArrowLeft: (p) => <Icon {...p} path={<line x1="19" y1="12" x2="5" y2="12" />}><polyline points="12 19 5 12 12 5" /></Icon>,
-            ArrowRight: (p) => <Icon {...p} path={<line x1="5" y1="12" x2="19" y2="12" />}><polyline points="12 5 19 12 12 19" /></Icon>,
+            ArrowUp: (p) => <Icon {...p} path={<><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></>} />,
+            ArrowDown: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19" /><polyline points="19 12 12 19 5 12" /></>} />,
+            ArrowLeft: (p) => <Icon {...p} path={<><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></>} />,
+            ArrowRight: (p) => <Icon {...p} path={<><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></>} />,
             ArrowUpRight: (p) => <Icon {...p} path={<><line x1="7" y1="17" x2="17" y2="7" /><polyline points="7 7 17 7 17 17" /></>} />,
             ArrowUpLeft: (p) => <Icon {...p} path={<><line x1="17" y1="17" x2="7" y2="7" /><polyline points="7 17 7 7 17 7" /></>} />,
             ArrowDownRight: (p) => <Icon {...p} path={<><line x1="7" y1="7" x2="17" y2="17" /><polyline points="17 7 17 17 7 17" /></>} />,
             ArrowDownLeft: (p) => <Icon {...p} path={<><line x1="17" y1="7" x2="7" y2="17" /><polyline points="17 17 7 17 7 7" /></>} />,
+            Tool: (p) => <Icon {...p} path={<><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></>} />,
         };
 
         // --- KONFIGURACE ---
-        const DEFAULT_SETTINGS = { feedRate: 200, spindleSpeed: 800, toolDiameter: 0, safeZ: 10, feedMode: 'MM_MIN', offsetValue: 1.2 };
+        // finishAllowance - přídavek na hotovo
+        const DEFAULT_SETTINGS = { feedRate: 200, spindleSpeed: 800, toolDiameter: 0, safeZ: 10, feedMode: 'MM_MIN', offsetValue: 1.2, finishAllowance: 0.2 };
         const INITIAL_VB = { x: -50, y: -200, w: 400, h: 300 };
 
-        // DEMO OBROBEK
+        const DEFAULT_MACHINING = {
+            startX: 150,
+            startZ: 250,
+            direction: 'HORIZONTAL', 
+            depth: 2.0,
+            angle: 15, 
+            retract: 0.5,
+            safetyDist: 2.0, // Bezpečnostní vzdálenost
+            maxRPM: 2500,    // Limit otáček G50
+            coolant: false   // Chlazení M08
+        };
+
         const DEMO_POINTS = [
             { id: 1, x: 0, z: 200, type: 'line', break: true },
             { id: 2, x: 50, z: 200, type: 'line', break: false },
@@ -205,15 +219,28 @@
             return points;
         };
 
-        const generateGCode = (points, settings) => {
-            const { feedRate, spindleSpeed, safeZ, feedMode } = settings;
+        const generateGCode = (points, settings, machiningSettings) => {
+            const { feedRate, spindleSpeed, feedMode } = settings;
+            const { safetyDist, maxRPM, coolant } = machiningSettings || DEFAULT_MACHINING; // Fallback
             const date = new Date().toLocaleDateString('cs-CZ');
             const feedCmd = feedMode === 'MM_REV' ? 'G95' : 'G94';
-            let gcode = `%; Program: ${date}\n${feedCmd} S${spindleSpeed} M03\nG00 Z${safeZ}\n`;
             
+            let gcode = `%; Program: ${date}\n`;
+            gcode += `G21 (Metric)\n`;
+            gcode += `G50 S${maxRPM} (Max RPM)\n`; // G50 Limit
+            gcode += `${feedCmd} S${spindleSpeed} M03\n`;
+            if (coolant) gcode += `M08 (Coolant ON)\n`;
+            
+            // Nájezd na bezpečný bod (z Machining Settings nebo default)
+            const startX = machiningSettings?.startX || 150;
+            const startZ = machiningSettings?.startZ || 250;
+            gcode += `G00 X${startX} Z${startZ}\n`;
+
             points.forEach((p, index) => {
                 if (p.type === 'axis') return;
                 if (p.break || index === 0) {
+                    // Aplikovat bezpečnostní vzdálenost před první bod?
+                    // Pro jednoduchost zatím přímo na bod, ale v reálu by se jelo G00 kousek před
                     gcode += `G00 X${p.x.toFixed(3)} Z${p.z.toFixed(3)}\n`;
                 } else {
                     if (p.type === 'line') gcode += `G01 X${p.x.toFixed(3)} Z${p.z.toFixed(3)} F${feedRate}\n`;
@@ -224,7 +251,10 @@
                     }
                 }
             });
-            gcode += `G00 Z${safeZ * 2}\nM30\n%`;
+
+            if (coolant) gcode += `M09 (Coolant OFF)\n`;
+            gcode += `G00 X${startX} Z${startZ}\n`; // Odjezd
+            gcode += `M30\n%`;
             return gcode;
         };
 
@@ -239,9 +269,15 @@
         );
 
         // --- MODAL KOREKCE ---
-        const OffsetModal = ({ isOpen, onClose, value, onConfirm, onDisable }) => {
-            const [localValue, setLocalValue] = useState(value);
-            useEffect(() => setLocalValue(value), [value, isOpen]);
+        const OffsetModal = ({ isOpen, onClose, toolRadius, finishAllowance, onConfirm, onDisable }) => {
+            const [localRadius, setLocalRadius] = useState(toolRadius);
+            const [localAllowance, setLocalAllowance] = useState(finishAllowance);
+
+            useEffect(() => {
+                setLocalRadius(toolRadius);
+                setLocalAllowance(finishAllowance);
+            }, [toolRadius, finishAllowance, isOpen]);
+
             if (!isOpen) return null;
             return (
                 <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -250,13 +286,90 @@
                             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Icons.Layers className="text-blue-600" size={24} /> Korekce</h3>
                             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><Icons.Close size={20} /></button>
                         </div>
-                        <div className="mb-6">
-                            <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Poloměr špičky (mm)</label>
-                            <input type="number" value={localValue} onChange={(e) => setLocalValue(parseFloat(e.target.value) || 0)} className="w-full bg-blue-50 border border-blue-200 rounded-lg p-3 text-2xl font-mono font-bold text-blue-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-center" step={0.1} />
+                        
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Rádius Plátku (mm)</label>
+                                <input type="number" value={localRadius} onChange={(e) => setLocalRadius(parseFloat(e.target.value) || 0)} className="w-full bg-blue-50 border border-blue-200 rounded-lg p-2 text-xl font-mono font-bold text-blue-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none text-center" step={0.1} />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Přídavek na hotovo (mm)</label>
+                                <input type="number" value={localAllowance} onChange={(e) => setLocalAllowance(parseFloat(e.target.value) || 0)} className="w-full bg-orange-50 border border-orange-200 rounded-lg p-2 text-xl font-mono font-bold text-orange-800 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none text-center" step={0.1} />
+                            </div>
                         </div>
+
                         <div className="flex flex-col gap-3">
-                            <button onClick={() => onConfirm(localValue)} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"><Icons.CheckCircle size={18} /> Použít Korekci</button>
+                            <button onClick={() => onConfirm(localRadius, localAllowance)} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"><Icons.CheckCircle size={18} /> Použít Korekci</button>
                             <button onClick={onDisable} className="w-full py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 font-bold rounded-lg transition-colors active:scale-95 text-xs uppercase tracking-wide">Vypnout Zobrazení</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MODAL OBRÁBĚNÍ ---
+        const MachiningModal = ({ isOpen, onClose, settings, onSave, machineType }) => {
+            const [localSettings, setLocalSettings] = useState(settings);
+            useEffect(() => { if(isOpen) setLocalSettings(settings); }, [isOpen, settings]);
+            const handleChange = (key, val) => setLocalSettings(prev => ({ ...prev, [key]: val }));
+            if (!isOpen) return null;
+            const isKarusel = machineType === 'KARUSEL';
+
+            return (
+                <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Icons.Tool className="text-orange-600" size={24} /> Nastavení Obrábění</h3>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><Icons.Close size={20} /></button>
+                        </div>
+                        <div className="space-y-4">
+                            {/* BEZPEČNOSTNÍ SEKY */}
+                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                <label className="text-xs font-bold text-blue-700 uppercase mb-2 block">Bezpečnost & Limity</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-blue-500 uppercase mb-1">Max Otáčky (G50)</label>
+                                        <input type="number" value={localSettings.maxRPM} onChange={(e) => handleChange('maxRPM', parseFloat(e.target.value))} className="w-full bg-white border border-blue-200 rounded p-2 text-sm font-bold" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-blue-500 uppercase mb-1">Bezpečná Vzdál. (mm)</label>
+                                        <input type="number" value={localSettings.safetyDist} onChange={(e) => handleChange('safetyDist', parseFloat(e.target.value))} className="w-full bg-white border border-blue-200 rounded p-2 text-sm font-bold" step={0.5} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Startovní bod nože</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">Osa {isKarusel ? 'X (Průměr)' : 'X (Průměr)'}</label><input type="number" value={localSettings.startX} onChange={(e) => handleChange('startX', parseFloat(e.target.value))} className="w-full border rounded p-2 text-sm font-bold" /></div>
+                                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">Osa {isKarusel ? 'Z (Délka)' : 'Z (Délka)'}</label><input type="number" value={localSettings.startZ} onChange={(e) => handleChange('startZ', parseFloat(e.target.value))} className="w-full border rounded p-2 text-sm font-bold" /></div>
+                                </div>
+                            </div>
+                            
+                            {/* SMĚR & CHLAZENÍ */}
+                            <div className="flex gap-3">
+                                <div className="flex-1">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Směr</label>
+                                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                                        <button onClick={() => handleChange('direction', 'HORIZONTAL')} className={`flex-1 py-2 text-[10px] font-bold rounded ${localSettings.direction==='HORIZONTAL' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>Podélně</button>
+                                        <button onClick={() => handleChange('direction', 'VERTICAL')} className={`flex-1 py-2 text-[10px] font-bold rounded ${localSettings.direction==='VERTICAL' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>Čelně</button>
+                                    </div>
+                                </div>
+                                <div className="w-1/3">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Chlazení</label>
+                                    <button onClick={() => handleChange('coolant', !localSettings.coolant)} className={`w-full py-2 rounded-lg border font-bold text-xs ${localSettings.coolant ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-white border-gray-300 text-gray-400'}`}>
+                                        {localSettings.coolant ? 'ZAP M08' : 'VYP'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Hloubka (Ap)</label><input type="number" value={localSettings.depth} onChange={(e) => handleChange('depth', parseFloat(e.target.value))} className="w-full border border-gray-300 rounded p-2 text-sm font-bold" step={0.1} /></div>
+                                <div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Odskok (mm)</label><input type="number" value={localSettings.retract} onChange={(e) => handleChange('retract', parseFloat(e.target.value))} className="w-full border border-gray-300 rounded p-2 text-sm font-bold" step={0.1} /></div>
+                            </div>
+                            <div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Max úhel zanoření (°)</label><input type="number" value={localSettings.angle} onChange={(e) => handleChange('angle', parseFloat(e.target.value))} className="w-full border border-gray-300 rounded p-2 text-sm font-bold" /></div>
+                            
+                            <button onClick={() => onSave(localSettings)} className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg shadow-md mt-2 flex items-center justify-center gap-2"><Icons.CheckCircle size={18} /> Uložit Nastavení</button>
                         </div>
                     </div>
                 </div>
@@ -268,45 +381,22 @@
             const [marginX, setMarginX] = useState(2);
             const [marginZ, setMarginZ] = useState(2);
             const [marginZBack, setMarginZBack] = useState(10);
-            const [mode, setMode] = useState('AUTO'); // AUTO | MANUAL
-
-            // Manual Mode State
-            const [activeDirection, setActiveDirection] = useState(null); // UP, DOWN, LEFT, RIGHT, UR, UL, DR, DL
-            const [inputValue1, setInputValue1] = useState(''); // Délka nebo X
-            const [inputValue2, setInputValue2] = useState(''); // Z
-            const [inputType, setInputType] = useState('LENGTH'); // LENGTH | COORD
-
-            // Osi názvosloví
+            const [mode, setMode] = useState('AUTO'); 
+            const [activeDirection, setActiveDirection] = useState(null); 
+            const [inputValue1, setInputValue1] = useState(''); 
+            const [inputValue2, setInputValue2] = useState(''); 
+            const [inputType, setInputType] = useState('LENGTH'); 
             const isKarusel = machineType === 'KARUSEL';
-            const labelVertical = isKarusel ? 'Z' : 'X'; // Osa nahoru/dolu
-            const labelHorizontal = isKarusel ? 'X' : 'Z'; // Osa doleva/doprava
+            const labelVertical = isKarusel ? 'Z' : 'X'; 
+            const labelHorizontal = isKarusel ? 'X' : 'Z'; 
 
-            const handleDirectionClick = (dir) => {
-                setActiveDirection(dir);
-                setInputValue1('');
-                setInputValue2('');
-                // Reset to default logical input type
-                if (['UP','DOWN','LEFT','RIGHT'].includes(dir)) {
-                    setInputType('LENGTH');
-                } else {
-                    setInputType('LENGTH'); // 45deg length
-                }
-            };
-
+            const handleDirectionClick = (dir) => { setActiveDirection(dir); setInputValue1(''); setInputValue2(''); if (['UP','DOWN','LEFT','RIGHT'].includes(dir)) { setInputType('LENGTH'); } else { setInputType('LENGTH'); } };
             const confirmSegment = () => {
                 if (!activeDirection) return;
                 const v1 = parseFloat(inputValue1);
                 const v2 = parseFloat(inputValue2);
-                
-                if (isNaN(v1)) return; // Basic validation
-
-                // Pokud je to startovací bod (žádný předchozí bod), musí to být souřadnice
-                if (!lastStockPoint) {
-                    onAddSegment(activeDirection, 'COORD', { x: v1, z: v2 }); // Zde logika v App musí pochopit, že první bod bere jako absolutní Start X, Start Z
-                } else {
-                    // Standardní přidání
-                    onAddSegment(activeDirection, inputType, { val1: v1, val2: v2 });
-                }
+                if (isNaN(v1)) return; 
+                if (!lastStockPoint) { onAddSegment(activeDirection, 'COORD', { x: v1, z: v2 }); } else { onAddSegment(activeDirection, inputType, { val1: v1, val2: v2 }); }
                 setActiveDirection(null);
             };
 
@@ -315,126 +405,53 @@
             return (
                 <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Icons.Box className="text-purple-600" size={24} /> Polotovar</h3>
-                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><Icons.Close size={20} /></button>
-                        </div>
-
-                        <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
-                            <button onClick={() => setMode('AUTO')} className={`flex-1 py-1 text-xs font-bold rounded ${mode==='AUTO' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>Automaticky</button>
-                            <button onClick={() => setMode('MANUAL')} className={`flex-1 py-1 text-xs font-bold rounded ${mode==='MANUAL' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>Ručně</button>
-                        </div>
-
+                        <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Icons.Box className="text-purple-600" size={24} /> Polotovar</h3><button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><Icons.Close size={20} /></button></div>
+                        <div className="flex bg-gray-100 p-1 rounded-lg mb-4"><button onClick={() => setMode('AUTO')} className={`flex-1 py-1 text-xs font-bold rounded ${mode==='AUTO' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>Automaticky</button><button onClick={() => setMode('MANUAL')} className={`flex-1 py-1 text-xs font-bold rounded ${mode==='MANUAL' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>Ručně</button></div>
                         {mode === 'AUTO' ? (
                             <div className="space-y-3 mb-6">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Přídavek X (na Ø)</label>
-                                        <input type="number" value={marginX} onChange={(e) => setMarginX(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm font-bold" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Přídavek Z+ (Čelo)</label>
-                                        <input type="number" value={marginZ} onChange={(e) => setMarginZ(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm font-bold" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Přídavek Z- (Upnutí)</label>
-                                    <input type="number" value={marginZBack} onChange={(e) => setMarginZBack(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm font-bold" placeholder="Konec polotovaru" />
-                                </div>
+                                <div className="grid grid-cols-2 gap-3"><div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Přídavek X (na Ø)</label><input type="number" value={marginX} onChange={(e) => setMarginX(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm font-bold" /></div><div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Přídavek Z+ (Čelo)</label><input type="number" value={marginZ} onChange={(e) => setMarginZ(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm font-bold" /></div></div>
+                                <div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Přídavek Z- (Upnutí)</label><input type="number" value={marginZBack} onChange={(e) => setMarginZBack(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm font-bold" placeholder="Konec polotovaru" /></div>
                                 <button onClick={() => onGenerate(marginX, marginZ, marginZBack)} className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-md mt-2"><Icons.CheckCircle size={18} className="inline mr-2" /> Vypočítat</button>
                             </div>
                         ) : (
                             <div className="space-y-4 mb-6">
-                                {/* D-PAD */}
                                 <div className="grid grid-cols-3 gap-2 w-48 mx-auto">
-                                    <button onClick={()=>handleDirectionClick('UL')} className={`p-3 rounded-lg border ${activeDirection==='UL'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowUpLeft size={20} /></button>
-                                    <button onClick={()=>handleDirectionClick('UP')} className={`p-3 rounded-lg border ${activeDirection==='UP'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowUp size={20} /></button>
-                                    <button onClick={()=>handleDirectionClick('UR')} className={`p-3 rounded-lg border ${activeDirection==='UR'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowUpRight size={20} /></button>
-                                    
-                                    <button onClick={()=>handleDirectionClick('LEFT')} className={`p-3 rounded-lg border ${activeDirection==='LEFT'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowLeft size={20} /></button>
-                                    <div className="flex items-center justify-center"><div className="w-2 h-2 bg-purple-300 rounded-full"></div></div>
-                                    <button onClick={()=>handleDirectionClick('RIGHT')} className={`p-3 rounded-lg border ${activeDirection==='RIGHT'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowRight size={20} /></button>
-                                    
-                                    <button onClick={()=>handleDirectionClick('DL')} className={`p-3 rounded-lg border ${activeDirection==='DL'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowDownLeft size={20} /></button>
-                                    <button onClick={()=>handleDirectionClick('DOWN')} className={`p-3 rounded-lg border ${activeDirection==='DOWN'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowDown size={20} /></button>
-                                    <button onClick={()=>handleDirectionClick('DR')} className={`p-3 rounded-lg border ${activeDirection==='DR'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowDownRight size={20} /></button>
+                                    <button onClick={()=>handleDirectionClick('UL')} className={`p-3 rounded-lg border ${activeDirection==='UL'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowUpLeft size={20} /></button><button onClick={()=>handleDirectionClick('UP')} className={`p-3 rounded-lg border ${activeDirection==='UP'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowUp size={20} /></button><button onClick={()=>handleDirectionClick('UR')} className={`p-3 rounded-lg border ${activeDirection==='UR'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowUpRight size={20} /></button>
+                                    <button onClick={()=>handleDirectionClick('LEFT')} className={`p-3 rounded-lg border ${activeDirection==='LEFT'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowLeft size={20} /></button><div className="flex items-center justify-center"><div className="w-2 h-2 bg-purple-300 rounded-full"></div></div><button onClick={()=>handleDirectionClick('RIGHT')} className={`p-3 rounded-lg border ${activeDirection==='RIGHT'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowRight size={20} /></button>
+                                    <button onClick={()=>handleDirectionClick('DL')} className={`p-3 rounded-lg border ${activeDirection==='DL'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowDownLeft size={20} /></button><button onClick={()=>handleDirectionClick('DOWN')} className={`p-3 rounded-lg border ${activeDirection==='DOWN'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowDown size={20} /></button><button onClick={()=>handleDirectionClick('DR')} className={`p-3 rounded-lg border ${activeDirection==='DR'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowDownRight size={20} /></button>
                                 </div>
-
-                                {/* INPUTS */}
                                 {activeDirection && (
                                     <div className="bg-purple-50 p-3 rounded-lg border border-purple-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        {/* Start Point Handling */}
                                         {!lastStockPoint ? (
                                             <div className="space-y-2">
                                                 <p className="text-xs font-bold text-purple-700 text-center mb-2">Startovní Bod</p>
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    <div>
-                                                        <label className="text-[9px] font-bold text-gray-500">{labelHorizontal} (mm)</label>
-                                                        <input type="number" value={inputValue2} onChange={e=>setInputValue2(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" autoFocus />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[9px] font-bold text-gray-500">{labelVertical} (mm)</label>
-                                                        <input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" />
-                                                    </div>
+                                                    <div><label className="text-[9px] font-bold text-gray-500">{labelHorizontal} (mm)</label><input type="number" value={inputValue2} onChange={e=>setInputValue2(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" autoFocus /></div>
+                                                    <div><label className="text-[9px] font-bold text-gray-500">{labelVertical} (mm)</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" /></div>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <>
-                                                {/* CARDINAL DIRECTIONS */}
-                                                {['UP','DOWN','LEFT','RIGHT'].includes(activeDirection) ? (
-                                                    <div className="space-y-2">
-                                                        <div className="flex text-[10px] bg-white rounded border overflow-hidden">
-                                                            <button onClick={()=>setInputType('LENGTH')} className={`flex-1 py-1 ${inputType==='LENGTH'?'bg-purple-100 text-purple-700 font-bold':'text-gray-500'}`}>Délka</button>
-                                                            <button onClick={()=>setInputType('COORD')} className={`flex-1 py-1 ${inputType==='COORD'?'bg-purple-100 text-purple-700 font-bold':'text-gray-500'}`}>Souřadnice</button>
-                                                        </div>
-                                                        <div>
-                                                            <label className="text-[10px] font-bold text-gray-500 block mb-1">
-                                                                {inputType === 'LENGTH' ? 'Délka úseku (mm)' : 
-                                                                 (activeDirection === 'UP' || activeDirection === 'DOWN') ? `Cílové ${labelVertical}` : `Cílové ${labelHorizontal}`}
-                                                            </label>
-                                                            <input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full bg-white border rounded p-2 text-sm font-bold" autoFocus />
-                                                        </div>
-                                                    </div>
+                                            <div className="space-y-2">
+                                                <div className="flex text-[10px] bg-white rounded border overflow-hidden">
+                                                    <button onClick={()=>setInputType('LENGTH')} className={`flex-1 py-1 ${inputType==='LENGTH'?'bg-purple-100 text-purple-700 font-bold':'text-gray-500'}`}>{['UP','DOWN','LEFT','RIGHT'].includes(activeDirection)?'Délka':'Délka (45°)'}</button>
+                                                    <button onClick={()=>setInputType('COORD')} className={`flex-1 py-1 ${inputType==='COORD'?'bg-purple-100 text-purple-700 font-bold':'text-gray-500'}`}>Souřadnice</button>
+                                                </div>
+                                                {inputType === 'LENGTH' ? (
+                                                    <div><label className="text-[10px] font-bold text-gray-500 block mb-1">{['UP','DOWN','LEFT','RIGHT'].includes(activeDirection) ? 'Délka úseku (mm)' : 'Délka šikminy (mm)'}</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full bg-white border rounded p-2 text-sm font-bold" autoFocus /></div>
                                                 ) : (
-                                                    /* DIAGONAL DIRECTIONS */
-                                                    <div className="space-y-2">
-                                                        <div className="flex text-[10px] bg-white rounded border overflow-hidden">
-                                                            <button onClick={()=>setInputType('LENGTH')} className={`flex-1 py-1 ${inputType==='LENGTH'?'bg-purple-100 text-purple-700 font-bold':'text-gray-500'}`}>Délka (45°)</button>
-                                                            <button onClick={()=>setInputType('COORD')} className={`flex-1 py-1 ${inputType==='COORD'?'bg-purple-100 text-purple-700 font-bold':'text-gray-500'}`}>Souřadnice</button>
-                                                        </div>
-                                                        {inputType === 'LENGTH' ? (
-                                                            <div>
-                                                                <label className="text-[10px] font-bold text-gray-500 block mb-1">Délka šikminy (mm)</label>
-                                                                <input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full bg-white border rounded p-2 text-sm font-bold" autoFocus />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                <div>
-                                                                    <label className="text-[9px] font-bold text-gray-500">{labelHorizontal}</label>
-                                                                    <input type="number" value={inputValue2} onChange={e=>setInputValue2(e.target.value)} className="w-full bg-white border rounded p-1 text-sm font-bold" />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[9px] font-bold text-gray-500">{labelVertical}</label>
-                                                                    <input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full bg-white border rounded p-1 text-sm font-bold" />
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div><label className="text-[9px] font-bold text-gray-500">{labelHorizontal}</label><input type="number" value={inputValue2} onChange={e=>setInputValue2(e.target.value)} className="w-full bg-white border rounded p-1 text-sm font-bold" /></div>
+                                                        <div><label className="text-[9px] font-bold text-gray-500">{labelVertical}</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full bg-white border rounded p-1 text-sm font-bold" /></div>
                                                     </div>
                                                 )}
-                                            </>
+                                            </div>
                                         )}
                                         <button onClick={confirmSegment} className="w-full mt-2 py-2 bg-purple-600 text-white rounded font-bold text-sm hover:bg-purple-700">Přidat</button>
                                     </div>
                                 )}
-
-                                <div className="border-t border-gray-100 pt-2 mt-2">
-                                    <button onClick={onDrawMode} className="w-full py-2 bg-white border border-purple-200 text-purple-600 font-bold rounded-lg text-xs hover:bg-purple-50 flex items-center justify-center gap-2">
-                                        <Icons.Play size={14} /> Nebo kreslit myší
-                                    </button>
-                                </div>
+                                <div className="border-t border-gray-100 pt-2 mt-2"><button onClick={onDrawMode} className="w-full py-2 bg-white border border-purple-200 text-purple-600 font-bold rounded-lg text-xs hover:bg-purple-50 flex items-center justify-center gap-2"><Icons.Play size={14} /> Nebo kreslit myší</button></div>
                             </div>
                         )}
-                        
                         <button onClick={onClear} className="w-full py-2 bg-white border border-gray-200 hover:bg-gray-50 text-red-500 font-bold rounded-lg text-xs uppercase mt-4">Smazat Polotovar</button>
                     </div>
                 </div>
@@ -478,7 +495,8 @@
                                 <button onClick={onClear} className="flex flex-col items-center justify-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 shadow-sm"><Icons.Trash2 size={20} className="text-red-500 mb-1" /><span className="text-[9px] font-bold text-gray-600">Smazat Vše</span></button>
                             </div>
                             <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                <div><label className="text-xs text-gray-500 font-semibold block mb-1">Hodnota Korekce (mm)</label><input type="number" value={settings.offsetValue} onChange={(e) => handleSettingChange('offsetValue', e.target.value)} className="w-full bg-white border border-gray-300 rounded p-2 text-gray-800 font-mono text-right text-sm shadow-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" step={0.1} /></div>
+                                <div><label className="text-xs text-gray-500 font-semibold block mb-1">Rádius Plátku (mm)</label><input type="number" value={settings.offsetValue} onChange={(e) => handleSettingChange('offsetValue', e.target.value)} className="w-full bg-white border border-gray-300 rounded p-2 text-gray-800 font-mono text-right text-sm shadow-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" step={0.1} /></div>
+                                <div><label className="text-xs text-gray-500 font-semibold block mb-1">Přídavek na hotovo (mm)</label><input type="number" value={settings.finishAllowance} onChange={(e) => handleSettingChange('finishAllowance', e.target.value)} className="w-full bg-orange-50 border border-orange-300 rounded p-2 text-gray-800 font-mono text-right text-sm shadow-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" step={0.1} /></div>
                                 <div><div className="flex justify-between items-center mb-1"><label className="text-xs text-gray-500 font-semibold">Posuv (F)</label><div className="flex text-[9px] bg-white border border-gray-200 rounded overflow-hidden shadow-sm"><button onClick={() => toggleFeedMode('MM_MIN')} className={`px-2 py-1 ${settings.feedMode === 'MM_MIN' ? 'bg-orange-100 text-orange-700 font-bold' : 'text-gray-500'}`}>mm/min</button><button onClick={() => toggleFeedMode('MM_REV')} className={`px-2 py-1 ${settings.feedMode === 'MM_REV' ? 'bg-orange-100 text-orange-700 font-bold' : 'text-gray-500'}`}>mm/ot</button></div></div><input type="number" value={settings.feedRate} onChange={(e) => handleSettingChange('feedRate', e.target.value)} className="w-full bg-white border border-gray-300 rounded p-2 text-gray-800 font-mono text-right text-sm shadow-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" step={settings.feedMode==='MM_REV'?0.01:1} /></div>
                                 <div><label className="text-xs text-gray-500 font-semibold block mb-1">Otáčky (S)</label><input type="number" value={settings.spindleSpeed} onChange={(e) => handleSettingChange('spindleSpeed', e.target.value)} className="w-full bg-white border border-gray-300 rounded p-2 text-gray-800 font-mono text-right text-sm shadow-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" /></div>
                             </div>
@@ -490,7 +508,7 @@
             );
         };
 
-        const Canvas = ({ points, stockPoints, isDrawingStock, machineType, viewBox, setViewBox, onCanvasClick, showOffset, offsetValue, diameterMode, onCenter }) => {
+        const Canvas = ({ points, stockPoints, isDrawingStock, machineType, viewBox, setViewBox, onCanvasClick, showOffset, offsetValue, finishAllowance, diameterMode, onCenter }) => {
             const containerRef = useRef(null);
             const [dragStart, setDragStart] = useState(null);
             
@@ -643,6 +661,8 @@
                 }
                 
                 let offsetPathData = null;
+                let roughingPathData = null; 
+
                 if (showOffset && offsetValue !== 0) {
                     const offsetPts = calculateOffsetPath(points, offsetValue);
                     if (offsetPts.length > 0) {
@@ -652,6 +672,18 @@
                             if (i === 0 || p.break) return `M ${x} ${y}`;
                             return `L ${x} ${y}`;
                         }).join(" ");
+                    }
+
+                    if (finishAllowance > 0) {
+                        const roughOffsetPts = calculateOffsetPath(points, offsetValue + finishAllowance);
+                        if (roughOffsetPts.length > 0) {
+                            roughingPathData = roughOffsetPts.map((p, i) => {
+                                const x = mapX(p.x, p.z);
+                                const y = mapY(p.x, p.z);
+                                if (i === 0 || p.break) return `M ${x} ${y}`;
+                                return `L ${x} ${y}`;
+                            }).join(" ");
+                        }
                     }
                 }
 
@@ -664,8 +696,8 @@
                     }).join(" ") + " Z";
                 }
 
-                return { mainPath, axisLines, offsetPathData, stockPathData };
-            }, [points, stockPoints, machineType, showOffset, offsetValue]);
+                return { mainPath, axisLines, offsetPathData, roughingPathData, stockPathData };
+            }, [points, stockPoints, machineType, showOffset, offsetValue, finishAllowance]);
 
             return (
                 <div 
@@ -687,6 +719,7 @@
                             <path d={paths.stockPathData} fill="rgba(100, 100, 100, 0.15)" stroke="gray" strokeWidth={1} strokeDasharray="5,5" vectorEffect="non-scaling-stroke" />
                         )}
                         {paths.axisLines}
+                        {paths.roughingPathData && <path d={paths.roughingPathData} stroke="#d97706" strokeWidth={2} strokeDasharray="6,3" fill="none" vectorEffect="non-scaling-stroke" className="opacity-80" />}
                         {paths.offsetPathData && <path d={paths.offsetPathData} stroke="#2563eb" strokeWidth={2} strokeDasharray="4,2" fill="none" vectorEffect="non-scaling-stroke" className="opacity-70" />}
                         <path d={paths.mainPath} stroke="#16a34a" strokeWidth={3} fill="none" vectorEffect="non-scaling-stroke" />
                         
@@ -717,7 +750,7 @@
                     </div>
 
                     <div className="absolute bottom-2 left-2 text-[10px] text-gray-400 pointer-events-none font-mono font-bold bg-white/80 px-2 py-1 rounded shadow-sm border border-gray-100">
-                        {machineType} | Korekce: {showOffset ? `${offsetValue}mm` : 'VYP'} | Ø Režim: {diameterMode ? 'ZAP' : 'VYP'}
+                        {machineType} | Korekce: {showOffset ? `${offsetValue}mm + ${finishAllowance}mm` : 'VYP'} | Ø Režim: {diameterMode ? 'ZAP' : 'VYP'}
                     </div>
                 </div>
             );
@@ -728,6 +761,7 @@
             const [stockPoints, setStockPoints] = useState([]);
             const [isDrawingStock, setIsDrawingStock] = useState(false);
             const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+            const [machiningSettings, setMachiningSettings] = useState(DEFAULT_MACHINING);
             const [viewBox, setViewBox] = useState(INITIAL_VB);
             const [machineType, setMachineType] = useState('SOUSTRUH'); 
             const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -738,6 +772,7 @@
             const [confirmState, setConfirmState] = useState(null);
             const [offsetModalOpen, setOffsetModalOpen] = useState(false);
             const [stockModalOpen, setStockModalOpen] = useState(false);
+            const [machiningModalOpen, setMachiningModalOpen] = useState(false); 
 
             const showToast = (msg) => setToast(msg);
             
@@ -819,7 +854,23 @@
 
             const handleCenter = () => setViewBox(INITIAL_VB);
 
-            // Logika generování polotovaru (Obdélník) - NYNÍ UPRAVENÁ
+            const updateMachiningStart = (currentStockPoints) => {
+                if (currentStockPoints && currentStockPoints.length > 0) {
+                    let maxX = -Infinity;
+                    let maxZ = -Infinity;
+                    currentStockPoints.forEach(p => {
+                        if (p.x > maxX) maxX = p.x;
+                        if (p.z > maxZ) maxZ = p.z;
+                    });
+                    
+                    setMachiningSettings(prev => ({
+                        ...prev,
+                        startX: maxX + 5,
+                        startZ: maxZ + 5
+                    }));
+                }
+            };
+
             const handleGenerateStock = (mx, mz, mzBack) => {
                 if (points.length === 0) { showToast("Chybí body obrobku"); return; }
                 const validPoints = points.filter(p => p.type !== 'axis');
@@ -841,6 +892,7 @@
                     { x: 0, z: stockZFront }
                 ];
                 setStockPoints(newStock);
+                updateMachiningStart(newStock); 
                 setStockModalOpen(false);
                 showToast("Polotovar vygenerován");
             };
@@ -849,10 +901,7 @@
                 setStockPoints(prev => [...prev, pt]);
             };
 
-            // Logika D-Padu (přidávání segmentů)
             const handleAddStockSegment = (direction, type, values) => {
-                // values = { val1 (Length or Target 1), val2 (Target 2) }
-                
                 if (stockPoints.length === 0 && type === 'COORD' && values.x !== undefined) {
                     setStockPoints([{x: values.x, z: values.z}]);
                     showToast("Startovní bod přidán");
@@ -863,12 +912,7 @@
                 if (!last) return;
 
                 let nextPoint = { ...last };
-                const { val1, val2 } = values; // val1 is primary input, val2 is secondary
-
-                // Directions: UP (X+), DOWN (X-), RIGHT (Z+), LEFT (Z-) for Lathe
-                // Logic: 
-                // Soustruh: X=Vertical, Z=Horizontal. Up=X+, Right=Z+.
-                // Karusel: Z=Vertical, X=Horizontal. Up=Z+, Right=X+.
+                const { val1, val2 } = values; 
                 
                 const isKarusel = machineType === 'KARUSEL';
                 
@@ -879,12 +923,10 @@
 
                 if (type === 'LENGTH') {
                     const L = val1;
-                    // Orthogonal
                     if (direction === 'UP') isKarusel ? moveZ(L) : moveX(L);
                     else if (direction === 'DOWN') isKarusel ? moveZ(-L) : moveX(-L);
                     else if (direction === 'RIGHT') isKarusel ? moveX(L) : moveZ(L);
                     else if (direction === 'LEFT') isKarusel ? moveX(-L) : moveZ(-L);
-                    // Diagonal (45 deg -> L / sqrt(2))
                     else {
                         const d = L / Math.sqrt(2);
                         if (direction === 'UR') { isKarusel ? (moveZ(d), moveX(d)) : (moveX(d), moveZ(d)); }
@@ -893,14 +935,12 @@
                         else if (direction === 'DL') { isKarusel ? (moveZ(-d), moveX(-d)) : (moveX(-d), moveZ(-d)); }
                     }
                 } else {
-                    // COORD (Absolute target)
                     const targetVert = val1;
                     const targetHoriz = val2;
 
                     if (direction === 'UP' || direction === 'DOWN') isKarusel ? setZ(targetVert) : setX(targetVert);
                     else if (direction === 'LEFT' || direction === 'RIGHT') isKarusel ? setX(targetVert) : setZ(targetVert); 
                     else {
-                        // Diagonal needs both
                         if (isKarusel) { setZ(targetVert); setX(targetHoriz); }
                         else { setX(targetVert); setZ(targetHoriz); }
                     }
@@ -913,6 +953,7 @@
             const toggleStockDrawing = () => {
                 if (isDrawingStock) {
                     setIsDrawingStock(false);
+                    updateMachiningStart(stockPoints); 
                     showToast("Kreslení polotovaru ukončeno");
                 } else {
                     if (stockPoints.length > 0 && !confirm("Smazat stávající polotovar?")) return;
@@ -937,6 +978,7 @@
                                 onCanvasClick={isDrawingStock ? handleDrawStockClick : ()=>{}}
                                 showOffset={showOffset}
                                 offsetValue={settings.offsetValue}
+                                finishAllowance={settings.finishAllowance}
                                 diameterMode={diameterMode}
                                 onCenter={handleCenter}
                             />
@@ -965,6 +1007,12 @@
                                         label="Korekce" 
                                         onClick={() => setOffsetModalOpen(true)} 
                                         active={showOffset} 
+                                    />
+                                    <ToolbarButton 
+                                        icon={Icons.Tool} 
+                                        label="Obrábění" 
+                                        onClick={() => setMachiningModalOpen(true)} 
+                                        active={false} 
                                     />
                                 </>
                             )}
@@ -996,12 +1044,13 @@
                     <OffsetModal 
                         isOpen={offsetModalOpen}
                         onClose={() => setOffsetModalOpen(false)}
-                        value={settings.offsetValue}
-                        onConfirm={(val) => {
-                            setSettings({...settings, offsetValue: val});
+                        toolRadius={settings.offsetValue}
+                        finishAllowance={settings.finishAllowance}
+                        onConfirm={(r, a) => {
+                            setSettings({...settings, offsetValue: r, finishAllowance: a});
                             setShowOffset(true);
                             setOffsetModalOpen(false);
-                            showToast(`Korekce ${val}mm aktivní`);
+                            showToast(`Korekce R${r}mm + ${a}mm aktivní`);
                         }}
                         onDisable={() => {
                             setShowOffset(false);
@@ -1022,6 +1071,18 @@
                         }}
                         lastStockPoint={stockPoints[stockPoints.length-1]}
                         onAddSegment={handleAddStockSegment}
+                        machineType={machineType}
+                    />
+
+                    <MachiningModal 
+                        isOpen={machiningModalOpen}
+                        onClose={() => setMachiningModalOpen(false)}
+                        settings={machiningSettings}
+                        onSave={(newSettings) => {
+                            setMachiningSettings(newSettings);
+                            setMachiningModalOpen(false);
+                            showToast("Technologie uložena");
+                        }}
                         machineType={machineType}
                     />
 
