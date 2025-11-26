@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Karusel CNC SmartGrid v13.7 (Back Tangent)</title>
+    <title>Karusel CNC SmartGrid v13.9 (Measure Fix)</title>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -298,7 +298,7 @@
           <button id="btn-dim" class="icon-btn btn-util" onclick="setMode('MANUAL_DIMENSION')" style="background: #795548; border-color: #8d6e63"><i class="fas fa-arrows-alt-h"></i><span>Kóta</span></button>
           <button id="btn-menu" class="icon-btn btn-menu" onclick="openMainMenu()"><i class="fas fa-bars"></i><span>MENU</span></button>
         </div>
-        <div style="margin-top: 15px; text-align: center; font-size: 10px; color: #555;">v13.7 Back Tangent</div>
+        <div style="margin-top: 15px; text-align: center; font-size: 10px; color: #555;">v13.9 (Measure Fix)</div>
       </div>
     </div>
 <div id="modal-main-menu" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label" style="margin-top: 0">Editační Nástroje</label><div class="menu-grid"><button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button><button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button><button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button><button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button><button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button><button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button><button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button><button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button></div><div class="separator"></div><label class="section-label">Data / Fusion 360</label><div class="menu-grid"><button class="icon-btn btn-export" onclick="exportToDXF()"><i class="fas fa-file-export"></i><span>Export DXF</span></button><button class="icon-btn btn-import" onclick="triggerImportDXF()"><i class="fas fa-file-import"></i><span>Import DXF</span></button></div><p style="font-size: 10px; color: #777; text-align: center; margin-top: 10px;">Importuje DXF jako geometrii. Podporuje LINE, ARC, LWPOLYLINE.</p></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
@@ -433,6 +433,7 @@
              if (type === "SECTION") {
                 // Check next code
                 if (i < lines.length && lines[i].trim() === "2") {
+                    if (i + 1 >= lines.length) break;
                     if (lines[i+1].trim() === "ENTITIES") inEntities = true;
                     i += 2;
                 }
@@ -724,17 +725,20 @@
            return;
         }
         
-        // Měření délky úsečky
-        if (isLine && State.measureMode === "distance") { 
-            const next = State.points[p.index + 1], start = State.points[p.index]; 
-            const dx = next.x - start.x, dz = next.z - start.z, distVal = Math.sqrt(dx * dx + dz * dz); 
-            State.lastMeasured = { type: "dist", p1: {x: start.x, z: start.z}, p2: {x: next.x, z: next.z}, val: formatDimVal(distVal) }; 
-            showMeasureResult(`Délka: ${formatDimVal(distVal)}<br>dX: ${formatVal(dx)} dZ: ${dz.toFixed(3)}`); 
-            return; 
-        }
-
+        // Měření délky úsečky - OPRAVENO: Už nebere "celou čáru" v distance módu, aby se dalo klikat 2 body
+        // Pokud je isLine=true a jsme v Distance modu, zpracujeme to jako bod na čáře, ne jako celou čáru.
+        
         // Měření bodů
-        State.measurePoints.push(p); renderMeasure();
+        if (State.measurePoints.length > 0) {
+            const last = State.measurePoints[State.measurePoints.length - 1];
+            // Debounce: pokud kliknul na stejné místo (nebo velmi blízko) podruhé, ignorujeme
+            if (Math.abs(last.x - p.x) < 0.001 && Math.abs(last.z - p.z) < 0.001) {
+                return;
+            }
+        }
+        
+        State.measurePoints.push(p); 
+        renderMeasure();
         
         if (State.measureMode === "distance" && State.measurePoints.length === 2) {
              const P = State.measurePoints;
@@ -783,9 +787,15 @@
 
            if (isNaN(rInput) || isNaN(tx) || isNaN(tz)) { alert("Pro Zpětnou tangentu zadejte R a Cíl."); return; }
            
-           // Musíme mít předchozí prvek jako úsečku (pro zjednodušení)
            if (State.points.length < 2 || l.break) { alert("Nelze navázat (žádný předchozí prvek)."); return; }
            const prevPt = State.points[State.points.length - 2];
+
+           // **CRITICAL FIX: Check if previous element is a Line, not an Arc**
+           // Modifying an arc endpoint breaks its radius geometry.
+           if (l.type === "arc") {
+             alert("Zpětná tangenta funguje pouze, pokud je předchozí prvek ÚSEČKA.");
+             return;
+           }
            
            // Směrnice úsečky
            const dx = l.x - prevPt.x;
@@ -797,26 +807,11 @@
            const ux = dx / len;
            const uz = dz / len;
 
-           // Normálový vektor (kolmý na úsečku) - Záleží na isG2
-           // G2 (CW): Normála vpravo
-           // G3 (CCW): Normála vlevo
+           // Normálový vektor (kolmý na úsečku)
            let nx, nz;
            if (isG2) { nx = uz; nz = -ux; } // Vpravo
            else { nx = -uz; nz = ux; } // Vlevo
 
-           // Střed kružnice musí ležet na přímce odsazené o R od původní úsečky
-           // C = P(t) + R * N
-           // P(t) = L + t * U (kde L je konec úsečky, t je posun)
-           // C = (L + t*U) + R*N
-           
-           // Zároveň kružnice musí procházet cílem T: |C - T|^2 = R^2
-           // |(L + R*N - T) + t*U|^2 = R^2
-           // Nechť M = L + R*N - T
-           // |M + t*U|^2 = R^2
-           // (Mx + t*ux)^2 + (Mz + t*uz)^2 = R^2
-           // Mx^2 + 2*Mx*t*ux + t^2*ux^2 + Mz^2 + 2*Mz*t*uz + t^2*uz^2 = R^2
-           // Protože ux^2 + uz^2 = 1 (jednotkový vektor) -> t^2 + 2*t*(Mx*ux + Mz*uz) + (Mx^2 + Mz^2 - R^2) = 0
-           
            const Mx = l.x + rInput * nx - tx;
            const Mz = l.z + rInput * nz - tz;
            
@@ -827,37 +822,25 @@
            
            if (disc < 0) { alert("Rádius je příliš malý, nedosáhne na cíl."); return; }
            
-           // Dvě řešení pro t (posun podél úsečky)
            const t1 = (-B + Math.sqrt(disc)) / 2;
            const t2 = (-B - Math.sqrt(disc)) / 2;
            
-           // Vybereme řešení, které dává menší oblouk (skalární součin)
-           // Střed pro t1:
            const cx1 = (l.x + t1*ux) + rInput*nx;
            const cz1 = (l.z + t1*uz) + rInput*nz;
-           // Střed pro t2:
            const cx2 = (l.x + t2*ux) + rInput*nx;
            const cz2 = (l.z + t2*uz) + rInput*nz;
            
-           // Vektory od středu k tečnému bodu (V1) a k cíli (V2)
-           // Chceme, aby úhel byl menší -> cosinus větší
-           
-           // Vybereme t1 jako default, zkontrolujeme t2
            let finalT = t1;
            let finalCx = cx1, finalCz = cz1;
            
-           // Vektor C->Target
            const vCt1x = tx - cx1, vCt1z = tz - cz1;
            const vCt2x = tx - cx2, vCt2z = tz - cz2;
-           // Vektor C->TangentPoint
            const vCp1x = (l.x + t1*ux) - cx1, vCp1z = (l.z + t1*uz) - cz1;
            const vCp2x = (l.x + t2*ux) - cx2, vCp2z = (l.z + t2*uz) - cz2;
            
-           // Dot products
            const dot1 = vCt1x*vCp1x + vCt1z*vCp1z;
            const dot2 = vCt2x*vCp2x + vCt2z*vCp2z;
            
-           // Větší dot product = menší úhel
            if (dot2 > dot1) {
                finalT = t2;
                finalCx = cx2;
@@ -866,12 +849,9 @@
            
            saveHistory();
            
-           // Úprava předchozího bodu (zkrácení/prodloužení)
-           // State.points[length-1] je aktuální konec. Posuneme ho o finalT
            State.points[State.points.length - 1].x += finalT * ux;
            State.points[State.points.length - 1].z += finalT * uz;
            
-           // Přidáme nový oblouk
            State.points.push({ 
                x: tx, z: tz, 
                type: "arc", 
@@ -929,7 +909,6 @@
             const Vx = ex - l.x, Vz = ez - l.z;
             const cross = Tx * Vz - Tz * Vx;
             cw = cross < 0; 
-            // Pozn: Pro klasickou tangentu bez zpětné úpravy
           } else {
             r = Math.abs(getNum("arc-r"));
             let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; ex = tx; ez = tz;
@@ -1059,9 +1038,23 @@
         if (State.measureMode === "radius" && snap.t === "segment_stick") {
           const p = State.points[snap.index + 1]; if (p.type === "arc") { State.lastMeasured = { type: "rad", c: { x: p.cx, z: p.cz }, p: { x: p.x, z: p.z }, val: formatDimVal(p.r) }; showMeasureResult(`Rádius: ${formatDimVal(p.r)}`); return; }
         }
-        if ((State.measureMode === "distance" || State.measureMode === "angle") && snap.t === "segment_stick") { handleMeasureClick(snap, true); return; }
+        
+        // Zde byla chyba - v režimu "Distance" to bralo čáru jako objekt k změření délky a nedovolilo vybrat 2. bod.
+        // Nyní povolíme "segment_stick" jen pro úhel (vektor) nebo v režimu distance to ignorujeme a necháme propadnout níže (jako klik na bod)
+        if (State.measureMode === "angle" && snap.t === "segment_stick") { 
+            handleMeasureClick(snap, true); return; 
+        }
 
         const x = snap.x, z = snap.z;
+        
+        // Pokud jsme v režimu měření a klikneme na čáru nebo do prostoru, pošleme souřadnice jako bod
+        if (State.measureMode === "distance") {
+           // Pokud to byl snap na čáru, vezmeme souřadnice kliku na čáře (snap.x, snap.z)
+           // Pokud free, vezmeme x,z
+           handleMeasureClick({x, z}, false);
+           return;
+        }
+
         if (State.mode === "TRIM") {
           if (snap.t === "point") deletePoint(x, z); else if (snap.t === "segment_stick") performTrim(snap); else if (snap.t === "intersection") showToast("Průsečík nelze smazat přímo"); return;
         }
