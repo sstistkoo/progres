@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CNC SmartGrid CAM Pro</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -19,15 +18,12 @@
         }
     </script>
     
-    <!-- React & Babel -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Fonty -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
@@ -497,18 +493,18 @@
                                 </div>
                                 {activeDirection && (
                                     <div className="bg-purple-50 p-3 rounded-lg border border-purple-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        {!lastStockPoint ? (
-                                            <div className="space-y-2">
-                                                <p className="text-xs font-bold text-purple-700 text-center mb-2">Startovní Bod</p>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div><label className="text-[9px] font-bold text-gray-900">{labelHorizontal} (mm)</label><input type="number" value={inputValue2} onChange={e=>setInputValue2(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" autoFocus /></div>
-                                                    <div><label className="text-[9px] font-bold text-gray-900">{labelVertical} (mm)</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" /></div>
+                                            {!lastStockPoint ? (
+                                                <div className="space-y-2">
+                                                    <p className="text-xs font-bold text-purple-700 text-center mb-2">Startovní Bod</p>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div><label className="text-[9px] font-bold text-gray-900">{labelHorizontal} (mm)</label><input type="number" value={inputValue2} onChange={e=>setInputValue2(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" autoFocus /></div>
+                                                        <div><label className="text-[9px] font-bold text-gray-900">{labelVertical} (mm)</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" /></div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            <div><label className="text-[10px] font-bold text-gray-900 block mb-1">Délka (mm)</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full bg-white border rounded p-2 text-sm font-bold" autoFocus /></div>
-                                        )}
-                                        <button onClick={confirmSegment} className="w-full mt-2 py-2 bg-purple-600 text-white rounded font-bold text-sm hover:bg-purple-700">Přidat</button>
+                                            ) : (
+                                                <div><label className="text-[10px] font-bold text-gray-900 block mb-1">Délka (mm)</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full bg-white border rounded p-2 text-sm font-bold" autoFocus /></div>
+                                            )}
+                                            <button onClick={confirmSegment} className="w-full mt-2 py-2 bg-purple-600 text-white rounded font-bold text-sm hover:bg-purple-700">Přidat</button>
                                     </div>
                                 )}
                                 <div className="border-t border-gray-100 pt-2 mt-2"><button onClick={onDrawMode} className="w-full py-3 bg-white border border-purple-200 text-purple-600 font-bold rounded-xl text-xs hover:bg-purple-50 flex items-center justify-center gap-2"><Icons.Play size={14} /> Kreslit myší</button></div>
@@ -1075,9 +1071,10 @@
                 }));
             };
 
-            // --- SIMULATION LOGIC ---
+            // --- SIMULATION LOGIC (OPRAVENÁ) ---
             const generateSimulationSegments = () => {
                 const segs = [];
+                // Výchozí bod stroje (Home)
                 const home = { x: machiningSettings.startX, z: machiningSettings.startZ };
                 
                 // Limity Zony
@@ -1086,30 +1083,41 @@
 
                 let current = { ...home };
 
-                // 1. Move Home -> First Point (Rapid)
-                const pathPoints = points.filter(p => p.type !== 'axis');
+                // --- ZMĚNA ZDE: VÝBĚR DRÁHY ---
+                // Pokud je zapnutý offset a má nějakou hodnotu, vypočítáme dráhu offsetu.
+                // Jinak bereme původní body obrobku.
+                let pathPoints = points.filter(p => p.type !== 'axis');
+
+                if (showOffset && settings.offsetValue !== 0) {
+                    // Vypočítáme body offsetu pomocí stejné funkce, která to kreslí na plátno
+                    const offsetPts = calculateOffsetPath(points, settings.offsetValue);
+                    // Pokud se výpočet povedl a máme body, použijeme je pro simulaci
+                    if (offsetPts && offsetPts.length > 0) {
+                        pathPoints = offsetPts;
+                    }
+                }
+                // -----------------------------
+
                 if(pathPoints.length === 0) return [];
                 
+                // 1. Move Home -> First Point (Rapid / G00)
                 const first = pathPoints[0];
                 segs.push({ x1: current.x, z1: current.z, x2: first.x, z2: first.z, type: 'G00' });
                 current = { x: first.x, z: first.z };
 
-                // Funkce pro ořezání segmentu podle limitů Z
+                // Funkce pro ořezání segmentu podle limitů Z (zůstává stejná)
                 const clipSegment = (p1, p2) => {
-                    // Pokud jsou oba body mimo bezpecnou zonu (za sklicidlem), ignorovat
                     if (p1.z < limitBack && p2.z < limitBack) return null;
                     
                     let finalP1 = { ...p1 };
                     let finalP2 = { ...p2 };
 
-                    // Orezani startu
                     if (finalP1.z < limitBack) {
                         const t = (limitBack - p1.z) / (p2.z - p1.z);
                         finalP1.z = limitBack;
                         finalP1.x = p1.x + t * (p2.x - p1.x);
                     }
                     
-                    // Orezani konce
                     if (finalP2.z < limitBack) {
                          const t = (limitBack - p1.z) / (p2.z - p1.z);
                          finalP2.z = limitBack;
@@ -1119,10 +1127,13 @@
                     return { x1: finalP1.x, z1: finalP1.z, x2: finalP2.x, z2: finalP2.z };
                 };
 
-                // 2. Iterate points
+                // 2. Iterate points (Generování drah)
                 for(let i=1; i<pathPoints.length; i++) {
                     const next = pathPoints[i];
                     const prev = pathPoints[i-1];
+                    
+                    // Pokud má bod příznak "break" (nebo je to offset), je to přejezd, jinak řezání
+                    // U offsetu calculateOffsetPath nastavuje 'break: true' tam, kde se skáče
                     const type = prev.break ? 'G00' : 'G01';
                     
                     const p1 = { x: current.x, z: current.z };
@@ -1135,13 +1146,13 @@
                         current = { x: clipped.x2, z: clipped.z2 };
                     } 
                     
-                    if (next.z < limitBack) {
-                    } else {
+                    // Aktualizace pozice i když byl segment oříznut (pro návaznost)
+                    if (next.z >= limitBack) {
                          current = { x: next.x, z: next.z };
                     }
                 }
 
-                // 3. Move Last -> Home (Rapid)
+                // 3. Move Last -> Home (Rapid / G00)
                 segs.push({ x1: current.x, z1: current.z, x2: home.x, z2: home.z, type: 'G00' });
                 
                 return segs;
