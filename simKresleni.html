@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Karusel CNC SmartGrid v13.6 (Final Full)</title>
+    <title>Karusel CNC SmartGrid v13.7 (Back Tangent)</title>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -298,10 +298,10 @@
           <button id="btn-dim" class="icon-btn btn-util" onclick="setMode('MANUAL_DIMENSION')" style="background: #795548; border-color: #8d6e63"><i class="fas fa-arrows-alt-h"></i><span>Kóta</span></button>
           <button id="btn-menu" class="icon-btn btn-menu" onclick="openMainMenu()"><i class="fas fa-bars"></i><span>MENU</span></button>
         </div>
-        <div style="margin-top: 15px; text-align: center; font-size: 10px; color: #555;">v13.6 FinalFull + DXF Fix + Smart Dim</div>
+        <div style="margin-top: 15px; text-align: center; font-size: 10px; color: #555;">v13.7 Back Tangent</div>
       </div>
     </div>
-<div id="modal-main-menu" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label" style="margin-top: 0">Editační Nástroje</label><div class="menu-grid"><button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button><button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button><button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button><button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button><button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button><button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button><button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button><button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button></div><div class="separator"></div><label class="section-label">Data / Fusion 360</label><div class="menu-grid"><button class="icon-btn btn-export" onclick="exportToDXF()"><i class="fas fa-file-export"></i><span>Export DXF</span></button><button class="icon-btn btn-import" onclick="triggerImportDXF()"><i class="fas fa-file-import"></i><span>Import DXF</span></button></div><p style="font-size: 10px; color: #777; text-align: center; margin-top: 10px;">Importuje DXF jako geometrii. Podporuje Úsečky a Oblouky.</p></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
+<div id="modal-main-menu" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label" style="margin-top: 0">Editační Nástroje</label><div class="menu-grid"><button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button><button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button><button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button><button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button><button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button><button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button><button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button><button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button></div><div class="separator"></div><label class="section-label">Data / Fusion 360</label><div class="menu-grid"><button class="icon-btn btn-export" onclick="exportToDXF()"><i class="fas fa-file-export"></i><span>Export DXF</span></button><button class="icon-btn btn-import" onclick="triggerImportDXF()"><i class="fas fa-file-import"></i><span>Import DXF</span></button></div><p style="font-size: 10px; color: #777; text-align: center; margin-top: 10px;">Importuje DXF jako geometrii. Podporuje LINE, ARC, LWPOLYLINE.</p></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
     <input type="file" id="dxf-loader" style="display: none" accept=".dxf" onchange="loadDXF(this)" />
     
     <div id="modal-joypad" class="modal"><div class="modal-content"><div class="modal-header"><h3>Vyberte směr</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><div class="joypad-grid"><div class="joy-btn" onclick="prepMove('UL')"><i class="fas fa-arrow-up" style="transform: rotate(-45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('U')"><i class="fas fa-arrow-up"></i><span class="joy-desc">Z+</span></div><div class="joy-btn" onclick="prepMove('UR')"><i class="fas fa-arrow-up" style="transform: rotate(45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('L')"><i class="fas fa-arrow-left"></i><span class="joy-desc">X-</span></div><div id="btn-joy-tangent" class="joy-btn" onclick="prepMove('TANGENT')"><i class="fas fa-long-arrow-alt-up" style="transform: rotate(45deg)"></i><span class="joy-desc">TEČNA</span></div><div class="joy-btn" onclick="prepMove('R')"><i class="fas fa-arrow-right"></i><span class="joy-desc">X+</span></div><div class="joy-btn" onclick="prepMove('DL')"><i class="fas fa-arrow-down" style="transform: rotate(45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('D')"><i class="fas fa-arrow-down"></i><span class="joy-desc">Z-</span></div><div class="joy-btn" onclick="prepMove('DR')"><i class="fas fa-arrow-down" style="transform: rotate(-45deg)"></i><span class="joy-desc">Kužel</span></div></div><div style="margin-top: 15px"><button class="m-btn btn-primary-util" onclick="setMode('PICK_TARGET')"><i class="fas fa-crosshairs"></i> Vybrat bod na mapě</button></div></div></div></div>
@@ -310,7 +310,7 @@
     
     <div id="modal-input" class="modal"><div class="modal-content"><div class="modal-header"><h3 id="input-title">Parametry pohybu</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Délka pohybu (mm):</label><input type="number" id="inp-len" placeholder="Např. 50" inputmode="decimal" /><div class="separator"></div><label class="section-label" style="color: #0097a7">Cílové souřadnice:</label><label id="lbl-inp-x" class="section-label">Cílové X:</label><input type="number" id="inp-x" placeholder="Prázdné = beze změny" inputmode="decimal" /><label class="section-label">Cílové Z:</label><input type="number" id="inp-z" placeholder="Prázdné = beze změny" inputmode="decimal" /><div class="separator"></div><label class="section-label" style="color: #ef6c00">Polární zadání (Kužel):</label><label class="section-label">Úhel (°):</label><input type="number" id="inp-angle" placeholder="Úhel sklonu" inputmode="decimal" /><div class="chk-row" onclick="$('chk-rel-angle').click()"><input type="checkbox" id="chk-rel-angle" onclick="event.stopPropagation()" /><label for="chk-rel-angle">Úhel od předchozí čáry</label></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="openJoypad()">Zpět</button><button class="m-btn btn-primary-draw" onclick="commitMove()">Vypočítat</button></div></div></div></div>
     
-    <div id="modal-arc" class="modal"><div class="modal-content"><div class="modal-header"><h3>Radius</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span><div class="arc-tabs"><div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius</div><div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed</div></div></div><div class="modal-body"><div class="segmented-control"><div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2</div><div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3</div></div><div id="method-r"><div class="chk-row" onclick="$('chk-tangent').click()"><input type="checkbox" id="chk-tangent" onchange="toggleTangentMode()" onclick="event.stopPropagation()" /><label for="chk-tangent">Tangenciální napojení (Auto R)</label></div><div class="chk-row" style="background: #fff3e0; border-color: #ffe0b2" onclick="$('chk-back-tangent').click()"><input type="checkbox" id="chk-back-tangent" onchange="toggleBackTangentMode()" onclick="event.stopPropagation()" /><label for="chk-back-tangent" style="color: #e65100">Zpětná tangenta</label></div><label class="section-label">Rádius:</label><input type="number" id="arc-r" inputmode="decimal" placeholder="Auto pokud je Tangenta" /></div><div id="method-ik" style="display: none"><div class="segmented-control mode-toggle"><div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div><div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div></div><label class="section-label">Střed I:</label><input type="number" id="center-x" inputmode="decimal" /><label class="section-label">Střed K:</label><input type="number" id="center-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 15px;" onclick="setMode('PICK_ARC_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button><div class="separator"></div><label class="section-label">Cíl X:</label><input type="number" id="ik-target-x" inputmode="decimal" /><label class="section-label">Cíl Z:</label><input type="number" id="ik-target-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 5px;" onclick="setMode('PICK_ARC_TARGET_IK')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button><label class="section-label">Úhel:</label><input type="number" id="ik-target-angle" inputmode="decimal" /><div class="chk-row"><input type="checkbox" id="chk-ik-long-arc" /><label for="chk-ik-long-arc">Delší oblouk</label></div></div><div id="arc-targets"><div id="tangent-target-selector" style="display: none"><label class="section-label">Cíl:</label><div class="segmented-control tangent-target-toggle"><div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div><div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div></div></div><div id="target-coord-inputs"><label id="lbl-arc-x" class="section-label">X:</label><input type="number" id="arc-x" inputmode="decimal" /><label class="section-label">Z:</label><input type="number" id="arc-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_ARC_TARGET')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button></div><div id="target-cone-input" style="display: none"><label class="section-label">Úhel (°):</label><input type="number" id="arc-cone-angle" inputmode="decimal" /></div></div><div id="tangent-choices" style="display: none"><div id="choices-container"></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button></div></div></div></div>
+    <div id="modal-arc" class="modal"><div class="modal-content"><div class="modal-header"><h3>Radius</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span><div class="arc-tabs"><div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius</div><div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed</div></div></div><div class="modal-body"><div class="segmented-control"><div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2</div><div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3</div></div><div id="method-r"><div class="chk-row" onclick="$('chk-tangent').click()"><input type="checkbox" id="chk-tangent" onchange="toggleTangentMode()" onclick="event.stopPropagation()" /><label for="chk-tangent">Tangenciální napojení (Auto R)</label></div><div class="chk-row" style="background: #fff3e0; border-color: #ffe0b2" onclick="$('chk-back-tangent').click()"><input type="checkbox" id="chk-back-tangent" onchange="toggleBackTangentMode()" onclick="event.stopPropagation()" /><label for="chk-back-tangent" style="color: #e65100">Zpětná tangenta (Úprava délky)</label></div><label class="section-label">Rádius:</label><input type="number" id="arc-r" inputmode="decimal" placeholder="Auto pokud je Tangenta" /></div><div id="method-ik" style="display: none"><div class="segmented-control mode-toggle"><div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div><div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div></div><label class="section-label">Střed I:</label><input type="number" id="center-x" inputmode="decimal" /><label class="section-label">Střed K:</label><input type="number" id="center-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 15px;" onclick="setMode('PICK_ARC_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button><div class="separator"></div><label class="section-label">Cíl X:</label><input type="number" id="ik-target-x" inputmode="decimal" /><label class="section-label">Cíl Z:</label><input type="number" id="ik-target-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 5px;" onclick="setMode('PICK_ARC_TARGET_IK')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button><label class="section-label">Úhel:</label><input type="number" id="ik-target-angle" inputmode="decimal" /><div class="chk-row"><input type="checkbox" id="chk-ik-long-arc" /><label for="chk-ik-long-arc">Delší oblouk</label></div></div><div id="arc-targets"><div id="tangent-target-selector" style="display: none"><label class="section-label">Cíl:</label><div class="segmented-control tangent-target-toggle"><div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div><div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div></div></div><div id="target-coord-inputs"><label id="lbl-arc-x" class="section-label">X:</label><input type="number" id="arc-x" inputmode="decimal" /><label class="section-label">Z:</label><input type="number" id="arc-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_ARC_TARGET')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button></div><div id="target-cone-input" style="display: none"><label class="section-label">Úhel (°):</label><input type="number" id="arc-cone-angle" inputmode="decimal" /></div></div><div id="tangent-choices" style="display: none"><div id="choices-container"></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button></div></div></div></div>
     
     <div id="modal-circle" class="modal"><div class="modal-content"><div class="modal-header"><h3>Celá Kružnice</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Velikost zadat jako:</label><div class="segmented-control circle-toggle"><div class="seg-opt active" id="circ-rad-btn" onclick="setCircleMode('R')">Rádius (R)</div><div class="seg-opt" id="circ-dia-btn" onclick="setCircleMode('D')">Průměr (D)</div></div><label id="lbl-circ-val" class="section-label">Hodnota R:</label><input type="number" id="circ-val" placeholder="Zadejte velikost" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 15px;" onclick="setMode('PICK_CIRCLE_RADIUS')"><i class="fas fa-ruler-horizontal"></i> Určit R na mapě</button><div class="separator"></div><label class="section-label" style="color: #6a1b9a">Souřadnice Středu:</label><label id="lbl-circ-cx" class="section-label">Střed X:</label><input type="number" id="circ-cx" placeholder="Absolutní X" inputmode="decimal" /><label class="section-label">Střed Z:</label><input type="number" id="circ-cz" placeholder="Absolutní Z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_CIRCLE_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-circ" onclick="commitCircle()">Vykreslit</button></div></div></div></div>
     
@@ -405,9 +405,9 @@
             if (pts.length > 0) {
               saveHistory(); 
               State.points = pts; 
-              // Reset dimensions on new import
               State.dimensions = [];
               pointIdCounter = State.points.reduce((max, p) => Math.max(max, p.id || 0), 0) + 1;
+              updatePath(); // Vykreslení geometrie ihned po načtení
               fitToScreen(); showToast("DXF Importováno");
             } else { alert("Žádné entity (LINES/ARCS/LWPOLYLINE) nenalezeny nebo chyba formátu."); }
           } catch (err) { console.error(err); alert("Chyba importu DXF: " + err.message); }
@@ -418,132 +418,152 @@
 
       function parseDXF(text) {
         const lines = text.split(/\r\n|\r|\n/);
-        let points = []; 
-        points.push({ x: 0, z: 0, break: false, type: "line", id: 0 });
-        
+        let points = []; points.push({ x: 0, z: 0, break: false, type: "line", id: 0 });
         let inEntities = false;
         let currentEntity = null;
+        
         let i = 0;
-
-        function getVal() { return lines[i+1].trim(); }
-        function getCode() { return parseInt(lines[i].trim()); }
-
-        // Rychlý sken pro sekci ENTITIES
-        for (; i < lines.length - 1; i += 2) {
-            const code = getCode();
-            const val = getVal();
-            
-            if (code === 0 && val === "SECTION") {
-               // Zkontrolovat jméno sekce
-               if (lines[i+2] && parseInt(lines[i+2].trim()) === 2 && lines[i+3].trim() === "ENTITIES") {
-                   inEntities = true;
-                   i += 2; // Přeskočit SECTION a 2 ENTITIES
-                   continue;
-               }
-            }
-            if (code === 0 && val === "ENDSEC") {
-                if (inEntities) { inEntities = false; break; }
-            }
-
-            if (inEntities && code === 0) {
-                // Uložit předchozí entitu
-                if (currentEntity) { processDXFEntity(currentEntity, points); currentEntity = null; }
-                // Začít novou
-                if (val === "LINE" || val === "ARC" || val === "LWPOLYLINE") {
-                    currentEntity = { type: val };
+        while (i < lines.length) {
+          let line = lines[i].trim();
+          if (line === "0") {
+             if (i + 1 >= lines.length) break;
+             let type = lines[i + 1].trim();
+             i += 2;
+             
+             if (type === "SECTION") {
+                // Check next code
+                if (i < lines.length && lines[i].trim() === "2") {
+                    if (lines[i+1].trim() === "ENTITIES") inEntities = true;
+                    i += 2;
                 }
-            } else if (inEntities && currentEntity) {
-                // Parsovat data entity
-                if (currentEntity.type === "LWPOLYLINE") {
-                   if (!currentEntity.verts) currentEntity.verts = [];
-                   if (code === 10) currentEntity.nextX = parseFloat(val);
-                   if (code === 20) {
-                       // Máme pár X, Z (v DXF je Y, pro nás Z)
-                       let v = { x: currentEntity.nextX, z: parseFloat(val), bulge: 0 };
-                       currentEntity.verts.push(v);
-                   }
-                   if (code === 42) {
-                       // Bulge pro poslední vertex
-                       if (currentEntity.verts.length > 0) {
-                           currentEntity.verts[currentEntity.verts.length - 1].bulge = parseFloat(val);
-                       }
-                   }
-                   if (code === 70) currentEntity.closed = (parseInt(val) & 1) === 1;
-                } else {
-                   // LINE a ARC
-                   if (code === 10) currentEntity.x1 = parseFloat(val);
-                   if (code === 20) currentEntity.z1 = parseFloat(val);
-                   if (code === 11) currentEntity.x2 = parseFloat(val);
-                   if (code === 21) currentEntity.z2 = parseFloat(val);
-                   if (code === 40) currentEntity.r = parseFloat(val);
-                   if (code === 50) currentEntity.a1 = parseFloat(val);
-                   if (code === 51) currentEntity.a2 = parseFloat(val);
-                }
-            }
+             } else if (type === "ENDSEC") {
+                inEntities = false;
+             } else if (inEntities) {
+                 if (currentEntity) { processDXFEntity(currentEntity, points); }
+                 
+                 if (type === "LINE" || type === "ARC") {
+                     currentEntity = { type: type };
+                 } else if (type === "LWPOLYLINE") {
+                     currentEntity = { type: type, vertices: [] };
+                 } else {
+                     currentEntity = null;
+                 }
+             }
+             continue;
+          }
+          
+          if (inEntities && currentEntity) {
+             let code = parseInt(line);
+             if (i + 1 >= lines.length) break;
+             let val = lines[i + 1].trim();
+             i += 2;
+             
+             if (currentEntity.type === "LWPOLYLINE") {
+                 if (code === 10) { currentEntity.vertices.push({ x: parseFloat(val) }); }
+                 else if (code === 20) { 
+                     let v = currentEntity.vertices[currentEntity.vertices.length - 1];
+                     if(v) v.z = parseFloat(val);
+                 }
+                 else if (code === 42) {
+                     let v = currentEntity.vertices[currentEntity.vertices.length - 1];
+                     if(v) v.bulge = parseFloat(val);
+                 }
+                 else if (code === 70) { currentEntity.closed = (parseInt(val) & 1) !== 0; }
+             } else {
+                 if (code === 10) currentEntity.x1 = parseFloat(val);
+                 if (code === 20) currentEntity.z1 = parseFloat(val);
+                 if (code === 11) currentEntity.x2 = parseFloat(val);
+                 if (code === 21) currentEntity.z2 = parseFloat(val);
+                 if (code === 40) currentEntity.r = parseFloat(val);
+                 if (code === 50) currentEntity.a1 = parseFloat(val);
+                 if (code === 51) currentEntity.a2 = parseFloat(val);
+             }
+          } else {
+             i += 2;
+          }
         }
-        // Uložit poslední
         if (currentEntity) processDXFEntity(currentEntity, points);
-
+        
+        // Clean up first point if needed
         if (points.length > 1 && points[1].break) { points.shift(); }
+        
         return points;
       }
 
       function processDXFEntity(e, points) {
-        if (e.type === "LWPOLYLINE") {
-            // Rozpadnout polyline na úsečky a oblouky
-            if (!e.verts || e.verts.length < 2) return;
-            const verts = e.verts;
-            
-            // Startovní bod
-            let last = points[points.length - 1];
-            // Posun na start
-            const startDist = Math.hypot(verts[0].x - last.x, verts[0].z - last.z);
-            if (startDist > 0.001) {
-                points.push({ x: verts[0].x, z: verts[0].z, type: "line", break: true, id: pointIdCounter++ });
-            }
+        const last = points[points.length - 1];
+        
+        if (e.type === "LINE") {
+          // Check continuity
+          const distStart = Math.hypot(e.x1 - last.x, e.z1 - last.z);
+          const distEnd = Math.hypot(e.x2 - last.x, e.z2 - last.z);
+          
+          if (distStart < 0.001) {
+              points.push({ x: e.x2, z: e.z2, type: "line", break: false, id: pointIdCounter++ });
+          } else if (distEnd < 0.001) {
+              // Reversed line
+              points.push({ x: e.x1, z: e.z1, type: "line", break: false, id: pointIdCounter++ });
+          } else {
+              // Gap
+              points.push({ x: e.x1, z: e.z1, type: "line", break: true, id: pointIdCounter++ });
+              points.push({ x: e.x2, z: e.z2, type: "line", break: false, id: pointIdCounter++ });
+          }
+          
+        } else if (e.type === "ARC") {
+          const r = e.r, cx = e.x1, cz = e.z1;
+          const a1 = (e.a1 * Math.PI) / 180;
+          const a2 = (e.a2 * Math.PI) / 180;
+          const sx = cx + r * Math.cos(a1), sz = cz + r * Math.sin(a1);
+          const ex = cx + r * Math.cos(a2), ez = cz + r * Math.sin(a2);
+          
+          const distStart = Math.hypot(sx - last.x, sz - last.z);
+          if (distStart > 0.001) {
+             points.push({ x: sx, z: sz, type: "line", break: true, id: pointIdCounter++ });
+          }
+          // DXF arcs are CCW (G3). Our app: cw=true (G2), cw=false (G3).
+          // DXF a1 is start angle, a2 is end angle.
+          points.push({ x: ex, z: ez, type: "arc", r: r, cw: false, cx: cx, cz: cz, break: false, id: pointIdCounter++ });
 
-            for (let k = 0; k < verts.length; k++) {
-                const nextIdx = (k + 1) % verts.length;
-                if (nextIdx === 0 && !e.closed) break;
+        } else if (e.type === "LWPOLYLINE") {
+            if (!e.vertices || e.vertices.length < 2) return;
+            
+            // Start point
+            let v0 = e.vertices[0];
+            const distStart = Math.hypot(v0.x - last.x, v0.z - last.z);
+            if (distStart > 0.001) {
+                points.push({ x: v0.x, z: v0.z, type: "line", break: true, id: pointIdCounter++ });
+            }
+            
+            for (let k = 0; k < e.vertices.length; k++) {
+                let curr = e.vertices[k];
+                let next = e.vertices[(k + 1) % e.vertices.length];
                 
-                const p1 = verts[k];
-                const p2 = verts[nextIdx];
+                if (k === e.vertices.length - 1 && !e.closed) break;
                 
-                if (p1.bulge === 0) {
-                    // Line
-                    points.push({ x: p2.x, z: p2.z, type: "line", break: false, id: pointIdCounter++ });
+                if (curr.bulge && Math.abs(curr.bulge) > 1e-6) {
+                    // Arc segment
+                    const b = curr.bulge;
+                    const cot = 0.5 * ((1 / b) - b);
+                    const dx = next.x - curr.x;
+                    const dz = next.z - curr.z;
+                    const len = Math.hypot(dx, dz);
+                    const r = (len / 2) * (1 + b * b) / Math.abs(b); // Radius
+                    
+                    const mx = (curr.x + next.x) / 2;
+                    const mz = (curr.z + next.z) / 2;
+                    // Center calculation
+                    const cx = mx - cot * dz / 2;
+                    const cz = mz + cot * dx / 2;
+                    
+                    // Bulge > 0 is CCW (cw=false), Bulge < 0 is CW (cw=true)
+                    const isCW = b < 0;
+                    
+                    points.push({ x: next.x, z: next.z, type: "arc", r: r, cw: isCW, cx: cx, cz: cz, break: false, id: pointIdCounter++ });
                 } else {
-                    // Arc from bulge
-                    // b = tan(theta/4) => theta = 4 * atan(b)
-                    const b = p1.bulge;
-                    const dx = p2.x - p1.x;
-                    const dy = p2.z - p1.z;
-                    const dist = Math.sqrt(dx*dx + dy*dy);
-                    const theta = 4 * Math.atan(b);
-                    const radius = dist / (2 * Math.sin(theta/2));
-                    // Center calculation logic omitted for brevity in simple version, approximating with line for complex bulges or implementing arc if needed.
-                    // Pro jednoduchost a robustnost v tuto chvíli LWPOLYLINE s bulges aproximujeme nebo bychom museli dopočítat střed.
-                    // Zde pro jistotu vložíme Line, abychom neztratili tvar, pokud by výpočet středu selhal. 
-                    // V plné implementaci by se zde spočítal střed a vložil ARC.
-                    // Pro teď: LINE (TODO: Full Bulge Support)
-                    points.push({ x: p2.x, z: p2.z, type: "line", break: false, id: pointIdCounter++ }); 
+                    // Line segment
+                    points.push({ x: next.x, z: next.z, type: "line", break: false, id: pointIdCounter++ });
                 }
             }
-            return;
-        }
-
-        const last = points[points.length - 1];
-        if (e.type === "LINE") {
-          const distStart = Math.hypot(e.x1 - last.x, e.z1 - last.z), distEnd = Math.hypot(e.x2 - last.x, e.z2 - last.z);
-          if (distStart < 0.001) { points.push({ x: e.x2, z: e.z2, type: "line", break: false, id: pointIdCounter++ }); } 
-          else if (distEnd < 0.001) { points.push({ x: e.x1, z: e.z1, type: "line", break: false, id: pointIdCounter++ }); } 
-          else { points.push({ x: e.x1, z: e.z1, type: "line", break: true, id: pointIdCounter++ }); points.push({ x: e.x2, z: e.z2, type: "line", break: false, id: pointIdCounter++ }); }
-        } else if (e.type === "ARC") {
-          const r = e.r, cx = e.x1, cz = e.z1, a1 = (e.a1 * Math.PI) / 180, a2 = (e.a2 * Math.PI) / 180;
-          const sx = cx + r * Math.cos(a1), sz = cz + r * Math.sin(a1), ex = cx + r * Math.cos(a2), ez = cz + r * Math.sin(a2);
-          const distStart = Math.hypot(sx - last.x, sz - last.z);
-          if (distStart > 0.001) { points.push({ x: sx, z: sz, type: "line", break: true, id: pointIdCounter++ }); }
-          points.push({ x: ex, z: ez, type: "arc", r: r, cw: false, cx: cx, cz: cz, break: false, id: pointIdCounter++ });
         }
       }
 
@@ -557,6 +577,11 @@
       function showToast(msg) { const t = $("toast-msg"); t.innerText = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2000); }
       function getNum(id) { const el = $(id); if (!el) return NaN; return parseFloat(el.value.replace(",", ".")); }
       function formatVal(v) { return (State.isDiameter ? v * 2 : v).toFixed(3); }
+      function formatDimVal(n) { 
+         const num = parseFloat(n);
+         if (Math.abs(num % 1) < 0.001) return num.toFixed(0); 
+         return parseFloat(num.toFixed(2)).toString();
+      }
       function copyToClipboard(text) {
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => showToast("Zkopírováno: " + text)).catch(() => fallbackCopy(text)); else fallbackCopy(text);
       }
@@ -628,15 +653,29 @@
         else { $("target-coord-inputs").style.display = "none"; $("target-cone-input").style.display = "block"; }
       }
 
-      function toggleBackTangentMode() { /* Jen placeholder pro UI */ }
+      function toggleBackTangentMode() {
+        const isBackTan = $("chk-back-tangent").checked;
+        if (isBackTan) {
+           $("chk-tangent").checked = false;
+           $("tangent-target-selector").style.display = "block";
+           // Zpětná tangenta potřebuje Rádius, takže ho povolíme
+           $("arc-r").disabled = false;
+           $("arc-r").placeholder = "Povinné R";
+           $("arc-r").value = "10";
+           $("target-coord-inputs").style.display = "block";
+           $("target-cone-input").style.display = "none";
+        }
+      }
 
       function toggleTangentMode() {
         const isTan = $("chk-tangent").checked;
+        if (isTan) { $("chk-back-tangent").checked = false; }
+        
         $("tangent-target-selector").style.display = isTan ? "block" : "none";
         if(isTan) { 
             $("arc-r").disabled = true; $("arc-r").placeholder = "Dopočítá se"; $("arc-r").value = "";
             $("target-coord-inputs").style.display = "block"; 
-        } else {
+        } else if (!$("chk-back-tangent").checked) {
             $("arc-r").disabled = false; $("arc-r").placeholder = ""; $("arc-r").value = "100";
             if (!$("chk-tangent").checked) { $("target-coord-inputs").style.display = "block"; $("target-cone-input").style.display = "none"; }
         }
@@ -672,16 +711,13 @@
            const pStart = State.points[idx], pEnd = State.points[idx+1];
            State.measurePoints.push({ x: pEnd.x - pStart.x, z: pEnd.z - pStart.z, type: 'vector' });
            showToast(`Vybrána čára ${State.measurePoints.length}/2`);
-           
            if(State.measurePoints.length === 2) {
                const v1 = State.measurePoints[0], v2 = State.measurePoints[1];
                const mag1 = Math.sqrt(v1.x*v1.x + v1.z*v1.z), mag2 = Math.sqrt(v2.x*v2.x + v2.z*v2.z);
                if(mag1 === 0 || mag2 === 0) { showMeasureResult("Chyba: Nulová délka"); State.measurePoints = []; return; }
-               
                const dot = v1.x * v2.x + v1.z * v2.z;
                const angRad = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2))));
                const angDeg = angRad * (180 / Math.PI);
-               
                showMeasureResult(`Úhel mezi čarami:<br>${angDeg.toFixed(3)}°<br>Doplněk: ${(180-angDeg).toFixed(3)}°`);
                State.measurePoints = [];
            }
@@ -692,8 +728,8 @@
         if (isLine && State.measureMode === "distance") { 
             const next = State.points[p.index + 1], start = State.points[p.index]; 
             const dx = next.x - start.x, dz = next.z - start.z, distVal = Math.sqrt(dx * dx + dz * dz); 
-            State.lastMeasured = { type: "dist", p1: {x: start.x, z: start.z}, p2: {x: next.x, z: next.z}, val: distVal.toFixed(3) }; 
-            showMeasureResult(`Délka: ${distVal.toFixed(3)}<br>dX: ${formatVal(dx)} dZ: ${dz.toFixed(3)}`); 
+            State.lastMeasured = { type: "dist", p1: {x: start.x, z: start.z}, p2: {x: next.x, z: next.z}, val: formatDimVal(distVal) }; 
+            showMeasureResult(`Délka: ${formatDimVal(distVal)}<br>dX: ${formatVal(dx)} dZ: ${dz.toFixed(3)}`); 
             return; 
         }
 
@@ -703,29 +739,24 @@
         if (State.measureMode === "distance" && State.measurePoints.length === 2) {
              const P = State.measurePoints;
              const dx = P[1].x - P[0].x, dz = P[1].z - P[0].z, distVal = Math.sqrt(dx * dx + dz * dz);
-             State.lastMeasured = { type: "dist", p1: {x: P[0].x, z: P[0].z}, p2: {x: P[1].x, z: P[1].z}, val: distVal.toFixed(3) };
-             showMeasureResult(`Délka: ${distVal.toFixed(3)}<br>dX: ${formatVal(dx)} dZ: ${dz.toFixed(3)}`);
+             State.lastMeasured = { type: "dist", p1: {x: P[0].x, z: P[0].z}, p2: {x: P[1].x, z: P[1].z}, val: formatDimVal(distVal) };
+             showMeasureResult(`Délka: ${formatDimVal(distVal)}<br>dX: ${formatVal(dx)} dZ: ${dz.toFixed(3)}`);
              State.measurePoints = [];
         } else if (State.measureMode === "angle" && State.measurePoints.length === 3) {
              const P = State.measurePoints;
              const v1 = { x: P[0].x - P[1].x, z: P[0].z - P[1].z }; 
              const v2 = { x: P[2].x - P[1].x, z: P[2].z - P[1].z }; 
-             
-             const mag1 = Math.sqrt(v1.x*v1.x + v1.z*v1.z);
-             const mag2 = Math.sqrt(v2.x*v2.x + v2.z*v2.z);
-             
-             if (mag1 === 0 || mag2 === 0) {
-                 showMeasureResult("Chyba: Body se překrývají");
-             } else {
+             const mag1 = Math.sqrt(v1.x*v1.x + v1.z*v1.z), mag2 = Math.sqrt(v2.x*v2.x + v2.z*v2.z);
+             if (mag1 === 0 || mag2 === 0) { showMeasureResult("Chyba: Body se překrývají"); } else {
                  const dot = v1.x * v2.x + v1.z * v2.z;
                  const ang = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI);
-                 showMeasureResult(`Úhel (vrchol bod 2): ${ang.toFixed(3)}°`);
+                 showMeasureResult(`Úhel: ${ang.toFixed(3)}°`);
              }
              State.measurePoints = [];
         }
       }
 
-      // --- HLAVNÍ LOGIKA: POHYB A OBLOUKY ---
+      // --- HLAVNÍ LOGIKA ---
       function commitMove() {
         const lS = getNum("inp-len"), xS = getNum("inp-x"), zS = getNum("inp-z"), aS = getNum("inp-angle");
         if (isNaN(lS) && isNaN(xS) && isNaN(zS) && isNaN(aS)) { alert("Hodnoty?"); return; }
@@ -741,10 +772,125 @@
       }
 
       function commitArc() {
-        saveHistory(); 
         const l = State.points[State.points.length - 1]; 
         let ex, ez, cx, cz, r, cw;
 
+        // --- ZPĚTNÁ TANGENTA (Back Tangent) ---
+        if ($("chk-back-tangent").checked && arcMethod === "R") {
+           let rInput = getNum("arc-r");
+           let tx = getNum("arc-x"), tz = getNum("arc-z");
+           if (State.isDiameter) tx /= 2;
+
+           if (isNaN(rInput) || isNaN(tx) || isNaN(tz)) { alert("Pro Zpětnou tangentu zadejte R a Cíl."); return; }
+           
+           // Musíme mít předchozí prvek jako úsečku (pro zjednodušení)
+           if (State.points.length < 2 || l.break) { alert("Nelze navázat (žádný předchozí prvek)."); return; }
+           const prevPt = State.points[State.points.length - 2];
+           
+           // Směrnice úsečky
+           const dx = l.x - prevPt.x;
+           const dz = l.z - prevPt.z;
+           const len = Math.hypot(dx, dz);
+           if (len < 0.001) { alert("Předchozí úsečka je příliš krátká."); return; }
+           
+           // Jednotkový vektor úsečky
+           const ux = dx / len;
+           const uz = dz / len;
+
+           // Normálový vektor (kolmý na úsečku) - Záleží na isG2
+           // G2 (CW): Normála vpravo
+           // G3 (CCW): Normála vlevo
+           let nx, nz;
+           if (isG2) { nx = uz; nz = -ux; } // Vpravo
+           else { nx = -uz; nz = ux; } // Vlevo
+
+           // Střed kružnice musí ležet na přímce odsazené o R od původní úsečky
+           // C = P(t) + R * N
+           // P(t) = L + t * U (kde L je konec úsečky, t je posun)
+           // C = (L + t*U) + R*N
+           
+           // Zároveň kružnice musí procházet cílem T: |C - T|^2 = R^2
+           // |(L + R*N - T) + t*U|^2 = R^2
+           // Nechť M = L + R*N - T
+           // |M + t*U|^2 = R^2
+           // (Mx + t*ux)^2 + (Mz + t*uz)^2 = R^2
+           // Mx^2 + 2*Mx*t*ux + t^2*ux^2 + Mz^2 + 2*Mz*t*uz + t^2*uz^2 = R^2
+           // Protože ux^2 + uz^2 = 1 (jednotkový vektor) -> t^2 + 2*t*(Mx*ux + Mz*uz) + (Mx^2 + Mz^2 - R^2) = 0
+           
+           const Mx = l.x + rInput * nx - tx;
+           const Mz = l.z + rInput * nz - tz;
+           
+           const B = 2 * (Mx * ux + Mz * uz);
+           const C = (Mx * Mx + Mz * Mz) - (rInput * rInput);
+           
+           const disc = B*B - 4*C;
+           
+           if (disc < 0) { alert("Rádius je příliš malý, nedosáhne na cíl."); return; }
+           
+           // Dvě řešení pro t (posun podél úsečky)
+           const t1 = (-B + Math.sqrt(disc)) / 2;
+           const t2 = (-B - Math.sqrt(disc)) / 2;
+           
+           // Vybereme řešení, které dává menší oblouk (skalární součin)
+           // Střed pro t1:
+           const cx1 = (l.x + t1*ux) + rInput*nx;
+           const cz1 = (l.z + t1*uz) + rInput*nz;
+           // Střed pro t2:
+           const cx2 = (l.x + t2*ux) + rInput*nx;
+           const cz2 = (l.z + t2*uz) + rInput*nz;
+           
+           // Vektory od středu k tečnému bodu (V1) a k cíli (V2)
+           // Chceme, aby úhel byl menší -> cosinus větší
+           
+           // Vybereme t1 jako default, zkontrolujeme t2
+           let finalT = t1;
+           let finalCx = cx1, finalCz = cz1;
+           
+           // Vektor C->Target
+           const vCt1x = tx - cx1, vCt1z = tz - cz1;
+           const vCt2x = tx - cx2, vCt2z = tz - cz2;
+           // Vektor C->TangentPoint
+           const vCp1x = (l.x + t1*ux) - cx1, vCp1z = (l.z + t1*uz) - cz1;
+           const vCp2x = (l.x + t2*ux) - cx2, vCp2z = (l.z + t2*uz) - cz2;
+           
+           // Dot products
+           const dot1 = vCt1x*vCp1x + vCt1z*vCp1z;
+           const dot2 = vCt2x*vCp2x + vCt2z*vCp2z;
+           
+           // Větší dot product = menší úhel
+           if (dot2 > dot1) {
+               finalT = t2;
+               finalCx = cx2;
+               finalCz = cz2;
+           }
+           
+           saveHistory();
+           
+           // Úprava předchozího bodu (zkrácení/prodloužení)
+           // State.points[length-1] je aktuální konec. Posuneme ho o finalT
+           State.points[State.points.length - 1].x += finalT * ux;
+           State.points[State.points.length - 1].z += finalT * uz;
+           
+           // Přidáme nový oblouk
+           State.points.push({ 
+               x: tx, z: tz, 
+               type: "arc", 
+               r: rInput, 
+               cw: isG2, 
+               cx: finalCx, 
+               cz: finalCz, 
+               break: false, 
+               id: pointIdCounter++ 
+           });
+           
+           updatePath();
+           closeModals();
+           showToast(`Úsečka upravena o ${finalT.toFixed(2)}mm`);
+           return;
+        }
+
+        saveHistory(); 
+        
         if (arcMethod === "IK") {
           const cX = getNum("center-x"), cZ = getNum("center-z"); if (isNaN(cX)) { alert("Střed?"); return; }
           cx = (State.isDiameter ? cX / 2 : cX) + (isIncIK ? l.x : 0); cz = cZ + (isIncIK ? l.z : 0); r = dist(l, { x: cx, z: cz });
@@ -759,9 +905,8 @@
           cw = isG2;
         } else {
           if ($("chk-tangent").checked) {
-            let tx = getNum("arc-x"), tz = getNum("arc-z");
-            if (State.isDiameter) tx /= 2;
-            if (isNaN(tx) || isNaN(tz)) { alert("Zadejte cílový bod (X/Z)"); return; }
+            let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2;
+            if (isNaN(tx) || isNaN(tz)) { alert("Zadejte cílový bod"); return; }
             ex = tx; ez = tz;
             let prevAngle = 0;
             if (State.points.length > 1) {
@@ -769,35 +914,30 @@
                 if (l.type === "arc") {
                      const angleToCenter = Math.atan2(l.z - l.cz, l.x - l.cx);
                      prevAngle = l.cw ? angleToCenter - Math.PI/2 : angleToCenter + Math.PI/2;
-                } else {
-                     prevAngle = Math.atan2(l.z - prevPt.z, l.x - prevPt.x);
-                }
+                } else { prevAngle = Math.atan2(l.z - prevPt.z, l.x - prevPt.x); }
             }
             const midX = (l.x + ex) / 2, midZ = (l.z + ez) / 2;
             const bisectorAngle = Math.atan2(ez - l.z, ex - l.x) + Math.PI / 2; 
             const normalAngle = prevAngle + Math.PI / 2;
             const D = Math.cos(normalAngle) * Math.sin(bisectorAngle) - Math.sin(normalAngle) * Math.cos(bisectorAngle);
-            if (Math.abs(D) < 1e-5) { alert("Body leží v přímce, použijte Linku."); return; }
+            if (Math.abs(D) < 1e-5) { alert("Rovná přímka"); return; }
             const dx = midX - l.x, dz = midZ - l.z;
             const t = (dx * Math.sin(bisectorAngle) - dz * Math.cos(bisectorAngle)) / D; 
-            cx = l.x + t * Math.cos(normalAngle);
-            cz = l.z + t * Math.sin(normalAngle);
+            cx = l.x + t * Math.cos(normalAngle); cz = l.z + t * Math.sin(normalAngle);
             r = Math.sqrt(Math.pow(l.x - cx, 2) + Math.pow(l.z - cz, 2));
             const Tx = Math.cos(prevAngle), Tz = Math.sin(prevAngle);
             const Vx = ex - l.x, Vz = ez - l.z;
             const cross = Tx * Vz - Tz * Vx;
             cw = cross < 0; 
-            if ($("chk-back-tangent").checked) cw = !cw;
+            // Pozn: Pro klasickou tangentu bez zpětné úpravy
           } else {
             r = Math.abs(getNum("arc-r"));
             let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; ex = tx; ez = tz;
-            const d = dist(l, { x: ex, z: ez }); if (d > 2 * r) { alert("Malé R (nedosáhne)"); return; }
+            const d = dist(l, { x: ex, z: ez }); if (d > 2 * r) { alert("Malé R"); return; }
             const h = Math.sqrt(r * r - (d / 2) * (d / 2)), a = Math.atan2(ez - l.z, ex - l.x), mx = (l.x + ex) / 2, mz = (l.z + ez) / 2;
             const c1x = mx + h * Math.sin(a), c1z = mz - h * Math.cos(a), c2x = mx - h * Math.sin(a), c2z = mz + h * Math.cos(a);
             const cr = (ex - l.x) * (c1z - l.z) - (ez - l.z) * (c1x - l.x); 
-            cw = isG2;
-            if (cw) { cx = cr > 0 ? c1x : c2x; cz = cr > 0 ? c1z : c2z; }
-            else { cx = cr < 0 ? c1x : c2x; cz = cr < 0 ? c1z : c2z; }
+            cw = isG2; cx = (cw === (cr > 0)) ? c1x : c2x; cz = (cw === (cr > 0)) ? c1z : c2z;
           }
         }
         State.points.push({ x: ex, z: ez, type: "arc", r, cw: cw, break: false, cx, cz, id: pointIdCounter++ }); 
@@ -829,8 +969,8 @@
 
         if (validCuts.length === 0) {
           saveHistory();
-          if (idx === State.points.length - 2) { State.points.pop(); updatePath(); showToast("Smazáno (Konec)"); }
-          else { if (State.points[idx + 1]) { State.points[idx + 1].break = true; updatePath(); showToast("Smazáno (Guma)"); } }
+          if (idx === State.points.length - 2) { State.points.pop(); updatePath(); showToast("Smazáno"); }
+          else { if (State.points[idx + 1]) { State.points[idx + 1].break = true; updatePath(); showToast("Smazáno"); } }
           return;
         }
         let bestCut = validCuts[0], minClickDist = Infinity;
@@ -917,7 +1057,7 @@
       function handleActionClick(snap) {
         if (!snap) return;
         if (State.measureMode === "radius" && snap.t === "segment_stick") {
-          const p = State.points[snap.index + 1]; if (p.type === "arc") { State.lastMeasured = { type: "rad", c: { x: p.cx, z: p.cz }, p: { x: p.x, z: p.z }, val: p.r.toFixed(3) }; showMeasureResult(`Rádius: ${p.r.toFixed(3)}`); return; }
+          const p = State.points[snap.index + 1]; if (p.type === "arc") { State.lastMeasured = { type: "rad", c: { x: p.cx, z: p.cz }, p: { x: p.x, z: p.z }, val: formatDimVal(p.r) }; showMeasureResult(`Rádius: ${formatDimVal(p.r)}`); return; }
         }
         if ((State.measureMode === "distance" || State.measureMode === "angle") && snap.t === "segment_stick") { handleMeasureClick(snap, true); return; }
 
@@ -928,31 +1068,42 @@
         if (State.mode === "MANUAL_DIMENSION") {
           if (snap.t === "segment_stick") {
             const p1 = State.points[snap.index], p2 = State.points[snap.index + 1];
-            
-            // Check stack count for single segment dimension
-            const stackCount = getDimStackCount(p1, p2);
-            const scale = State.vb.w / els.svg.clientWidth;
-            const offsetDist = (30 + (stackCount * 15)) * scale;
-
             if (p2.type === "arc") {
               const midAng = Math.atan2(z - p2.cz, x - p2.cx), mx = p2.cx + Math.cos(midAng) * p2.r, mz = p2.cz + Math.sin(midAng) * p2.r;
-              saveHistory(); State.dimensions.push({ type: "rad", c: { x: p2.cx, z: p2.cz }, p: { x: mx, z: mz }, val: formatDimText(p2.r) }); updatePath(); showToast("Rádius vložen");
+              saveHistory(); State.dimensions.push({ type: "rad", c: { x: p2.cx, z: p2.cz }, p: { x: mx, z: mz }, val: formatDimVal(p2.r) }); updatePath(); showToast("Rádius vložen");
             } else {
               const dx = p2.x - p1.x, dz = p2.z - p1.z, len = Math.sqrt(dx*dx + dz*dz), nx = -dz / len, nz = dx / len;
-              saveHistory(); State.dimensions.push({ type: "dist", p1: { x: p1.x, z: p1.z }, p2: { x: p2.x, z: p2.z }, val: formatDimText(len), lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } }); updatePath(); showToast("Kóta vložena");
+              
+              // STACKING LOGIC
+              const scale = State.vb.w / els.svg.clientWidth;
+              let level = 0;
+              const centerX = (p1.x + p2.x) / 2; const centerZ = (p1.z + p2.z) / 2;
+              State.dimensions.filter(d => d.type === 'dist').forEach(d => {
+                  const dcx = (d.p1.x + d.p2.x) / 2; const dcz = (d.p1.z + d.p2.z) / 2;
+                  if (Math.hypot(centerX - dcx, centerZ - dcz) < 5 * scale) level++;
+              });
+              const offsetDist = (30 + level * 20) * scale;
+              
+              saveHistory(); 
+              State.dimensions.push({ type: "dist", p1: { x: p1.x, z: p1.z }, p2: { x: p2.x, z: p2.z }, val: formatDimVal(len), lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } }); updatePath(); showToast("Kóta vložena");
             }
             return;
           }
           if (!State.dimP1) { State.dimP1 = { x, z }; showToast("Vyberte druhý bod"); updatePath(); } else {
             const p1 = State.dimP1, p2 = { x, z }, dx = p2.x - p1.x, dz = p2.z - p1.z, len = Math.sqrt(dx * dx + dz * dz);
             if (len < 0.001) return;
+            const nx = -dz / len, nz = dx / len, scale = State.vb.w / els.svg.clientWidth;
             
-            const stackCount = getDimStackCount(p1, p2);
-            const scale = State.vb.w / els.svg.clientWidth; 
-            const offsetDist = (40 + (stackCount * 15)) * scale;
+            // STACKING LOGIC
+            let level = 0;
+            const centerX = (p1.x + p2.x) / 2; const centerZ = (p1.z + p2.z) / 2;
+            State.dimensions.filter(d => d.type === 'dist').forEach(d => {
+                 const dcx = (d.p1.x + d.p2.x) / 2; const dcz = (d.p1.z + d.p2.z) / 2;
+                 if (Math.hypot(centerX - dcx, centerZ - dcz) < 5 * scale) level++;
+            });
+            const offsetDist = (40 + level * 20) * scale;
             
-            const nx = -dz / len, nz = dx / len;
-            saveHistory(); State.dimensions.push({ type: "dist", p1: p1, p2: p2, val: formatDimText(len), lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } });
+            saveHistory(); State.dimensions.push({ type: "dist", p1: p1, p2: p2, val: formatDimVal(len), lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } });
             State.dimP1 = null; updatePath(); showToast("Kóta vložena");
           }
           return;
@@ -968,58 +1119,36 @@
         if (snap.t === "point") { const idx = State.points.findIndex((p) => Math.abs(p.x - x) < 1e-3 && Math.abs(p.z - z) < 1e-3); if (idx !== -1) onPointClick(idx); } else if (snap.t === "center") { onCenterClick(x, z); }
       }
 
-      function formatDimText(val) {
-        const v = typeof val === 'string' ? parseFloat(val) : val;
-        if (isNaN(v)) return val;
-        return parseFloat(v.toFixed(2)).toString();
-      }
-
-      function getDimStackCount(p1, p2) {
-        let count = 0;
-        State.dimensions.forEach(d => {
-            if (d.type === 'dist') {
-                const d1 = Math.hypot(d.p1.x - p1.x, d.p1.z - p1.z);
-                const d2 = Math.hypot(d.p2.x - p2.x, d.p2.z - p2.z);
-                const d3 = Math.hypot(d.p1.x - p2.x, d.p1.z - p2.z);
-                const d4 = Math.hypot(d.p2.x - p1.x, d.p2.z - p1.z);
-                if ((d1 < 0.1 && d2 < 0.1) || (d3 < 0.1 && d4 < 0.1)) {
-                    count++;
-                }
-            }
-        });
-        return count;
-      }
-
       function addDimension() {
         if (!State.lastMeasured) return;
-        saveHistory(); const scale = State.vb.w / els.svg.clientWidth;
+        saveHistory(); const scale = State.vb.w / els.svg.clientWidth; 
         
         if (State.lastMeasured.type === "dist") {
           const p1 = State.lastMeasured.p1, p2 = State.lastMeasured.p2;
           const dx = p2.x - p1.x, dz = p2.z - p1.z;
           let nx = -dz / Math.sqrt(dx * dx + dz * dz), nz = dx / Math.sqrt(dx * dx + dz * dz);
           
-          const stackCount = getDimStackCount(p1, p2);
-          const offsetDist = (40 + (stackCount * 15)) * scale;
+          // STACKING
+          let level = 0;
+          const centerX = (p1.x + p2.x) / 2; const centerZ = (p1.z + p2.z) / 2;
+          State.dimensions.filter(d => d.type === 'dist').forEach(d => {
+             const dcx = (d.p1.x + d.p2.x) / 2; const dcz = (d.p1.z + d.p2.z) / 2;
+             if (Math.hypot(centerX - dcx, centerZ - dcz) < 5 * scale) level++;
+          });
+          const offsetDist = (40 + level * 20) * scale;
 
-          State.dimensions.push({ 
-              type: "dist", p1: p1, p2: p2, 
-              val: formatDimText(State.lastMeasured.val),
-              lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, 
-              lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } 
-          });
+          State.dimensions.push({ type: "dist", p1: p1, p2: p2, val: State.lastMeasured.val, lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } });
         } else if (State.lastMeasured.type === "rad") {
-          State.dimensions.push({ 
-              type: "rad", c: State.lastMeasured.c, p: State.lastMeasured.p, 
-              val: formatDimText(State.lastMeasured.val) 
-          });
+          State.dimensions.push({ type: "rad", c: State.lastMeasured.c, p: State.lastMeasured.p, val: State.lastMeasured.val });
         }
         updatePath(); stopMeasure(false); closeModals();
       }
 
       function autoDimensionAll() {
         if (State.points.length < 2) return;
-        saveHistory(); State.dimensions = []; const offsetDist = 25;
+        saveHistory(); State.dimensions = []; 
+        const baseOffset = 25;
+        
         for (let i = 0; i < State.points.length - 1; i++) {
           const p1 = State.points[i], p2 = State.points[i + 1];
           if (p2.break) continue;
@@ -1027,20 +1156,12 @@
             const dx = p2.x - p1.x, dz = p2.z - p1.z, len = Math.sqrt(dx * dx + dz * dz);
             if (len < 0.001) continue;
             let nx = -dz / len, nz = dx / len;
-            State.dimensions.push({ 
-                type: "dist", p1: { x: p1.x, z: p1.z }, p2: { x: p2.x, z: p2.z }, 
-                val: formatDimText(len), 
-                lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, 
-                lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } 
-            });
+            State.dimensions.push({ type: "dist", p1: { x: p1.x, z: p1.z }, p2: { x: p2.x, z: p2.z }, val: formatDimVal(len), lineP1: { x: p1.x + nx * baseOffset, z: p1.z + nz * baseOffset }, lineP2: { x: p2.x + nx * baseOffset, z: p2.z + nz * baseOffset } });
           } else if (p2.type === "arc") {
             const ang1 = Math.atan2(p1.z - p2.cz, p1.x - p2.cx); let ang2 = Math.atan2(p2.z - p2.cz, p2.x - p2.cx);
             if (p2.cw) { if (ang2 > ang1) ang2 -= 2 * Math.PI; } else { if (ang2 < ang1) ang2 += 2 * Math.PI; }
             const midAng = (ang1 + ang2) / 2, midX = p2.cx + Math.cos(midAng) * p2.r, midZ = p2.cz + Math.sin(midAng) * p2.r;
-            State.dimensions.push({ 
-                type: "rad", c: { x: p2.cx, z: p2.cz }, p: { x: midX, z: midZ }, 
-                val: formatDimText(p2.r) 
-            });
+            State.dimensions.push({ type: "rad", c: { x: p2.cx, z: p2.cz }, p: { x: midX, z: midZ }, val: formatDimVal(p2.r) });
           }
         }
         updatePath(); closeModals(); showToast("Vše okótováno");
