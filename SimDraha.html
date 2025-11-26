@@ -3,10 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CNC SmartGrid CAM</title>
+    <title>CNC SmartGrid CAM Pro</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cnc: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' }
+                    }
+                }
+            }
+        }
+    </script>
     
     <!-- React & Babel -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -20,11 +31,13 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #374151; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #0f172a; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: #e5e7eb; }
-        ::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 4px; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
         .no-select { user-select: none; -webkit-touch-callout: none; }
         
         @keyframes slideIn {
@@ -47,20 +60,21 @@
                 return () => clearTimeout(timer);
             }, [onClose]);
             return (
-                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-[90] text-sm font-semibold toast-enter flex items-center gap-2 pointer-events-none">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-xl z-[90] text-sm font-semibold toast-enter flex items-center gap-2 pointer-events-none border border-gray-700">
+                    <Icons.Info size={16} className="text-blue-400"/>
                     <span>{message}</span>
                 </div>
             );
         };
 
         const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
-            <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-                <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">Potvrzení</h3>
-                    <p className="text-gray-600 mb-6">{message}</p>
+            <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 border border-gray-100">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Potvrzení</h3>
+                    <p className="text-gray-900 mb-8 font-medium">{message}</p>
                     <div className="flex justify-end gap-3">
-                        <button onClick={onCancel} className="px-4 py-2 text-gray-600 font-semibold hover:bg-gray-100 rounded-lg transition-colors">Zrušit</button>
-                        <button onClick={onConfirm} className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 shadow-md transition-colors">Ano, provést</button>
+                        <button onClick={onCancel} className="px-5 py-2.5 text-gray-700 font-bold hover:bg-gray-100 rounded-xl transition-colors">Zrušit</button>
+                        <button onClick={onConfirm} className="px-5 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 transition-colors">Ano, provést</button>
                     </div>
                 </div>
             </div>
@@ -81,8 +95,6 @@
             Download: (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>} />,
             Plus: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />,
             Target: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></>} />,
-            Diameter: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></>} />,
-            Radius: (p) => <Icon {...p} path={<><path d="M19 12a7 7 0 0 0-7-7" /><circle cx="12" cy="12" r="1" /><line x1="12" y1="12" x2="12" y2="5" /></>} />,
             FileJson: (p) => <Icon {...p} path={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></>} />,
             Save: (p) => <Icon {...p} path={<><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></>} />,
             CloudDownload: (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></>} />,
@@ -90,6 +102,20 @@
             Layers: (p) => <Icon {...p} path={<><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></>} />,
             CheckCircle: (p) => <Icon {...p} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></>} />,
             Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></>} />,
+            Tool: (p) => <Icon {...p} path={<><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></>} />,
+            Activity: (p) => <Icon {...p} path={<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />} />,
+            Eye: (p) => <Icon {...p} path={<><path d="M1 12s4-8 11-8 11 8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>} />,
+            EyeOff: (p) => <Icon {...p} path={<><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>} />,
+            Info: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>} />,
+            PlayCircle: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></>} />,
+            Pause: (p) => <Icon {...p} path={<><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></>} />,
+            Square: (p) => <Icon {...p} path={<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />} />,
+            FastForward: (p) => <Icon {...p} path={<><polygon points="13 19 22 12 13 5 13 19" /><polygon points="2 19 11 12 2 5 2 19" /></>} />,
+            ScanLine: (p) => <Icon {...p} path={<><path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><line x1="7" y1="12" x2="17" y2="12" /></>} />,
+            Code: (p) => <Icon {...p} path={<><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></>} />,
+            Copy: (p) => <Icon {...p} path={<><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>} />,
+            
+            // Arrows
             ArrowUp: (p) => <Icon {...p} path={<><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></>} />,
             ArrowDown: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19" /><polyline points="19 12 12 19 5 12" /></>} />,
             ArrowLeft: (p) => <Icon {...p} path={<><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></>} />,
@@ -98,16 +124,12 @@
             ArrowUpLeft: (p) => <Icon {...p} path={<><line x1="17" y1="17" x2="7" y2="7" /><polyline points="7 17 7 7 17 7" /></>} />,
             ArrowDownRight: (p) => <Icon {...p} path={<><line x1="7" y1="7" x2="17" y2="17" /><polyline points="17 7 17 17 7 17" /></>} />,
             ArrowDownLeft: (p) => <Icon {...p} path={<><line x1="17" y1="7" x2="7" y2="17" /><polyline points="17 17 7 17 7 7" /></>} />,
-            Tool: (p) => <Icon {...p} path={<><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></>} />,
-            Activity: (p) => <Icon {...p} path={<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />} />,
-            Eye: (p) => <Icon {...p} path={<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>} />,
-            EyeOff: (p) => <Icon {...p} path={<><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>} />,
         };
 
         // --- 3. KONFIGURACE ---
-        const DEFAULT_SETTINGS = { feedRate: 200, spindleSpeed: 800, toolDiameter: 0, safeZ: 10, feedMode: 'MM_MIN', offsetValue: 1.2, finishAllowance: 0.2 };
+        const DEFAULT_SETTINGS = { feedRate: 200, spindleSpeed: 800, toolDiameter: 0, safeZ: 10, feedMode: 'MM_MIN', offsetValue: 0.8, finishAllowance: 0.2 };
         const INITIAL_VB = { x: -50, y: -200, w: 400, h: 300 };
-        const DEFAULT_MACHINING = { startX: 150, startZ: 250, direction: 'HORIZONTAL', depth: 2.0, angle: 15, retract: 0.5, safetyDist: 2.0, maxRPM: 2500, coolant: false };
+        const DEFAULT_MACHINING = { startX: 150, startZ: 250, direction: 'HORIZONTAL', depth: 2.0, angle: 15, retract: 0.5, safetyDist: 2.0, maxRPM: 2500, coolant: false, limitZ_Front: 220, limitZ_Back: 0 };
 
         const DEMO_POINTS = [
             { id: 1, x: 0, z: 200, type: 'line', break: true },
@@ -123,12 +145,16 @@
         ];
 
         // --- 4. LOGIKA VÝPOČTŮ ---
+        
+        // Jednoduchý offset pro ukázku. Pro profi použití je potřeba Clipper lib.
         const calculateOffsetPath = (points, offset) => {
             if (!points || points.length < 2) return [];
             const offsetPoints = [];
             let i = 0;
             const normalize = (v) => { const len = Math.hypot(v.x, v.z); return len === 0 ? {x:0, z:0} : { x: v.x / len, z: v.z / len }; };
-            const getNormal = (p1, p2) => { const dx = p2.x - p1.x; const dz = p2.z - p1.z; return normalize({ x: -dz, z: dx }); };
+            const getNormal = (p1, p2) => { 
+                const dx = p2.x - p1.x; const dz = p2.z - p1.z; return normalize({ x: -dz, z: dx }); 
+            };
             const add = (p1, p2) => ({ x: p1.x + p2.x, z: p1.z + p2.z });
 
             while (i < points.length) {
@@ -141,22 +167,33 @@
 
                 for (let k = 0; k < chain.length; k++) {
                     const curr = chain[k];
+                    if(curr.type === 'arc') {
+                         offsetPoints.push({...curr}); // Placeholder
+                         continue;
+                    }
+
                     if (k === 0) {
                         const next = chain[k+1];
-                        const n = getNormal(curr, next);
-                        offsetPoints.push({ x: curr.x + n.x * offset, z: curr.z + n.z * offset, break: true });
+                        if(next) {
+                            const n = getNormal(curr, next);
+                            offsetPoints.push({ x: curr.x + n.x * offset, z: curr.z + n.z * offset, break: true, type: 'line' });
+                        }
                     } else if (k === chain.length - 1) {
                         const prev = chain[k-1];
-                        const n = getNormal(prev, curr);
-                        offsetPoints.push({ x: curr.x + n.x * offset, z: curr.z + n.z * offset, break: false });
+                        if(prev) {
+                            const n = getNormal(prev, curr);
+                            offsetPoints.push({ x: curr.x + n.x * offset, z: curr.z + n.z * offset, break: false, type: 'line' });
+                        }
                     } else {
                         const prev = chain[k-1];
                         const next = chain[k+1];
                         const n1 = getNormal(prev, curr);
                         const n2 = getNormal(curr, next);
                         const tangent = normalize(add(n1, n2));
-                        const finalLen = Math.min(offset / ((n1.x * tangent.x + n1.z * tangent.z) || 1), offset * 5); 
-                        offsetPoints.push({ x: curr.x + tangent.x * finalLen, z: curr.z + tangent.z * finalLen, break: false });
+                        const dot = (n1.x * tangent.x + n1.z * tangent.z);
+                        const miter = dot === 0 ? offset : offset / dot;
+                        const finalLen = Math.min(Math.abs(miter), offset * 3); 
+                        offsetPoints.push({ x: curr.x + tangent.x * finalLen, z: curr.z + tangent.z * finalLen, break: false, type: 'line' });
                     }
                 }
                 i = j;
@@ -167,11 +204,19 @@
         const parseDXF = (text) => {
             const lines = text.split(/\r\n|\r|\n/).map(l => l.trim());
             let points = [], i = 0, idCounter = 1;
-            while (i < lines.length) { if (lines[i] === "2" && lines[i + 1] === "ENTITIES") { i += 2; break; } i++; }
+            
+            while (i < lines.length) { 
+                if (lines[i] === "2" && lines[i + 1] === "ENTITIES") { i += 2; break; } 
+                i++; 
+            }
+
             while (i < lines.length) {
                 if (lines[i] === "0" && lines[i + 1] === "ENDSEC") break;
+                
                 if (lines[i] === "0") {
-                    const type = lines[i + 1]; i += 2;
+                    const type = lines[i + 1]; 
+                    i += 2;
+
                     if (type === "LINE") {
                         let x1=0, z1=0, x2=0, z2=0;
                         while (lines[i] !== "0" && i < lines.length) {
@@ -181,8 +226,41 @@
                         }
                         points.push({ id: idCounter++, x: x1, z: z1, type: 'line', break: true });
                         points.push({ id: idCounter++, x: x2, z: z2, type: 'line', break: false });
-                    } else { while (lines[i] !== "0" && i < lines.length) i += 2; }
-                } else { i++; }
+                    } 
+                    else if (type === "ARC" || type === "CIRCLE") {
+                        let cx=0, cz=0, r=0, startAngle=0, endAngle=360;
+                        while (lines[i] !== "0" && i < lines.length) {
+                            const code = parseInt(lines[i]); const val = lines[i + 1]; i += 2;
+                            if (code === 10) cx = parseFloat(val);
+                            else if (code === 20) cz = parseFloat(val);
+                            else if (code === 40) r = parseFloat(val);
+                            else if (code === 50) startAngle = parseFloat(val);
+                            else if (code === 51) endAngle = parseFloat(val);
+                        }
+                        
+                        const rad = (deg) => deg * Math.PI / 180;
+                        const sx = cx + r * Math.cos(rad(startAngle));
+                        const sz = cz + r * Math.sin(rad(startAngle));
+                        const ex = cx + r * Math.cos(rad(endAngle));
+                        const ez = cz + r * Math.sin(rad(endAngle));
+
+                        points.push({ id: idCounter++, x: sx, z: sz, type: 'line', break: true });
+                        points.push({ 
+                            id: idCounter++, 
+                            x: ex, 
+                            z: ez, 
+                            type: 'arc', 
+                            break: false,
+                            cx: cx, cz: cz, r: r,
+                            cw: false 
+                        });
+                    }
+                    else { 
+                        while (lines[i] !== "0" && i < lines.length) i += 2; 
+                    }
+                } else { 
+                    i++; 
+                }
             }
             return points;
         };
@@ -203,15 +281,19 @@
 
             points.forEach((p, index) => {
                 if (p.type === 'axis') return;
+                
+                const X = p.x.toFixed(3);
+                const Z = p.z.toFixed(3);
+
                 if (p.break || index === 0) {
-                    gcode += `G00 X${p.x.toFixed(3)} Z${p.z.toFixed(3)}\n`;
+                    gcode += `G00 X${X} Z${Z}\n`;
                 } else {
                     if (p.type === 'line') {
-                        gcode += `G01 X${p.x.toFixed(3)} Z${p.z.toFixed(3)} F${feedRate}\n`;
+                        gcode += `G01 X${X} Z${Z} F${feedRate}\n`;
                     } else if (p.type === 'arc') {
-                         const r = p.r !== undefined ? `R${p.r.toFixed(3)}` : '';
+                         const R = p.r !== undefined ? `R${p.r.toFixed(3)}` : '';
                          const cmd = p.cw ? 'G02' : 'G03';
-                         gcode += `${cmd} X${p.x.toFixed(3)} Z${p.z.toFixed(3)} ${r} F${feedRate}\n`;
+                         gcode += `${cmd} X${X} Z${Z} ${R} F${feedRate}\n`;
                     }
                 }
             });
@@ -224,14 +306,14 @@
 
         // --- 5. KOMPONENTY APLIKACE ---
 
-        const ToolbarButton = ({ icon: IconComp, label, onClick, active, color = "text-gray-500" }) => (
-            <button onClick={onClick} className={`flex flex-col items-center justify-center p-3 m-1 rounded-xl shadow-sm border transition-transform active:scale-95 ${active ? 'bg-orange-50 border-orange-500' : 'bg-white border-gray-200'}`}>
-                <IconComp size={26} className={`mb-1 ${active ? 'text-orange-600' : color}`} />
-                <span className={`text-[9px] font-bold uppercase tracking-wider ${active ? 'text-orange-600' : 'text-gray-500'}`}>{label}</span>
+        const ToolbarButton = ({ icon: IconComp, label, onClick, active, color = "text-gray-700", highlight = false, compact = false }) => (
+            <button onClick={onClick} className={`flex flex-col items-center justify-center ${compact ? 'p-2 m-0.5' : 'p-3 m-1'} rounded-xl shadow-sm border transition-all active:scale-95 duration-200 ${active ? 'bg-sky-50 border-sky-500 ring-1 ring-sky-200' : 'bg-white border-gray-200 hover:border-sky-300 hover:shadow-md'} ${highlight ? 'bg-gradient-to-b from-sky-600 to-sky-700 border-none shadow-lg shadow-sky-200' : ''}`}>
+                <IconComp size={compact ? 20 : 24} className={`mb-1 ${highlight ? 'text-white' : (active ? 'text-sky-600' : color)}`} />
+                <span className={`text-[9px] font-bold uppercase tracking-wider ${highlight ? 'text-sky-100' : (active ? 'text-sky-700' : 'text-gray-700')}`}>{label}</span>
             </button>
         );
 
-        const MachiningModal = ({ isOpen, onClose, settings, feedSettings, onUpdateFeedSettings, onSave, onGenerate, machineType, showOffset, toggleShowOffset }) => {
+        const MachiningModal = ({ isOpen, onClose, settings, feedSettings, onUpdateFeedSettings, onSave, onGenerate, machineType, showOffset, toggleShowOffset, onSimulate }) => {
             const [localSettings, setLocalSettings] = useState(settings);
             const [activeTab, setActiveTab] = useState(0);
             
@@ -244,111 +326,122 @@
                  onGenerate();
                  onClose();
             };
+            
+            const handleSimulate = () => {
+                onSave(localSettings);
+                onClose();
+                onSimulate();
+            };
 
             if (!isOpen) return null;
             const isKarusel = machineType === 'KARUSEL';
 
             return (
                 <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Icons.Tool className="text-orange-600" size={24} /> Nastavení Obrábění</h3>
-                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><Icons.Close size={20} /></button>
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2"><Icons.Tool className="text-sky-600" size={24} /> Obrábění</h3>
+                            <button onClick={onClose} className="text-gray-500 hover:text-gray-800 p-2 hover:bg-gray-100 rounded-full transition-colors"><Icons.Close size={20} /></button>
                         </div>
 
-                        <div className="flex border-b border-gray-200 mb-4">
-                            <button onClick={() => setActiveTab(0)} className={`flex-1 py-2 text-xs font-bold uppercase ${activeTab === 0 ? 'text-orange-600 border-b-2 border-orange-600' : 'text-gray-400 hover:text-gray-600'}`}>Nástroj & Geometrie</button>
-                            <button onClick={() => setActiveTab(1)} className={`flex-1 py-2 text-xs font-bold uppercase ${activeTab === 1 ? 'text-orange-600 border-b-2 border-orange-600' : 'text-gray-400 hover:text-gray-600'}`}>Řezné Podmínky</button>
+                        <div className="flex border-b border-gray-200 mb-6">
+                            <button onClick={() => setActiveTab(0)} className={`flex-1 py-3 text-xs font-bold uppercase transition-colors ${activeTab === 0 ? 'text-sky-600 border-b-2 border-sky-600' : 'text-gray-500 hover:text-gray-800'}`}>Geometrie</button>
+                            <button onClick={() => setActiveTab(1)} className={`flex-1 py-3 text-xs font-bold uppercase transition-colors ${activeTab === 1 ? 'text-sky-600 border-b-2 border-sky-600' : 'text-gray-500 hover:text-gray-800'}`}>Technologie</button>
                         </div>
 
                         {activeTab === 0 ? (
-                            <div className="space-y-4">
-                                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Startovní bod nože</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div><label className="text-[10px] font-bold text-gray-400 block mb-1">Osa {isKarusel ? 'X (Průměr)' : 'X (Průměr)'}</label><input type="number" value={localSettings.startX} onChange={(e) => handleChange('startX', parseFloat(e.target.value))} className="w-full border rounded p-2 text-sm font-bold" /></div>
-                                        <div><label className="text-[10px] font-bold text-gray-400 block mb-1">Osa {isKarusel ? 'Z (Délka)' : 'Z (Délka)'}</label><input type="number" value={localSettings.startZ} onChange={(e) => handleChange('startZ', parseFloat(e.target.value))} className="w-full border rounded p-2 text-sm font-bold" /></div>
-                                    </div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <div className="flex-1">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Obrábění</label>
-                                        <div className="flex bg-gray-100 p-1 rounded-lg">
-                                            <button onClick={() => handleChange('direction', 'HORIZONTAL')} className={`flex-1 py-2 text-[9px] font-bold rounded ${localSettings.direction==='HORIZONTAL' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>Podélně</button>
-                                            <button onClick={() => handleChange('direction', 'VERTICAL')} className={`flex-1 py-2 text-[9px] font-bold rounded ${localSettings.direction==='VERTICAL' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>Čelně</button>
-                                            <button onClick={() => handleChange('direction', 'GROOVE')} className={`flex-1 py-2 text-[9px] font-bold rounded ${localSettings.direction==='GROOVE' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>Zápich</button>
-                                            <button onClick={() => handleChange('direction', 'PATTERN')} className={`flex-1 py-2 text-[9px] font-bold rounded ${localSettings.direction==='PATTERN' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>Kopírování</button>
+                            <div className="space-y-5">
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                    <label className="text-xs font-bold text-gray-900 uppercase mb-3 block flex items-center gap-2"><Icons.Target size={14}/> Startovní bod</label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-900 block mb-1">X (Průměr)</label>
+                                            <input type="number" value={localSettings.startX} onChange={(e) => handleChange('startX', parseFloat(e.target.value))} className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-sky-500 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-900 block mb-1">Z (Délka)</label>
+                                            <input type="number" value={localSettings.startZ} onChange={(e) => handleChange('startZ', parseFloat(e.target.value))} className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-sky-500 outline-none" />
                                         </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Hloubka (Ap)</label><input type="number" value={localSettings.depth} onChange={(e) => handleChange('depth', parseFloat(e.target.value))} className="w-full border border-gray-300 rounded p-2 text-sm font-bold" step={0.1} /></div>
-                                    <div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Odskok (mm)</label><input type="number" value={localSettings.retract} onChange={(e) => handleChange('retract', parseFloat(e.target.value))} className="w-full border border-gray-300 rounded p-2 text-sm font-bold" step={0.1} /></div>
+
+                                {/* OMEZENI ZONY */}
+                                <div className="bg-teal-50 p-4 rounded-xl border border-teal-200">
+                                    <label className="text-xs font-bold text-teal-700 uppercase mb-3 block flex items-center gap-2"><Icons.ScanLine size={14}/> Pracovní Zóna (Omezení)</label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-900 uppercase mb-1">Limit Z- (Sklíčidlo)</label>
+                                            <input type="number" value={localSettings.limitZ_Back} onChange={(e) => handleChange('limitZ_Back', parseFloat(e.target.value))} className="w-full bg-white text-gray-900 border border-teal-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-teal-400 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-900 uppercase mb-1">Limit Z+ (Čelo)</label>
+                                            <input type="number" value={localSettings.limitZ_Front} onChange={(e) => handleChange('limitZ_Front', parseFloat(e.target.value))} className="w-full bg-white text-gray-900 border border-teal-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-teal-400 outline-none" />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                     <div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Zanoření (°)</label><input type="number" value={localSettings.angle} onChange={(e) => handleChange('angle', parseFloat(e.target.value))} className="w-full border border-gray-300 rounded p-2 text-sm font-bold" /></div>
-                                     <div><label className="text-[10px] font-bold text-blue-500 uppercase mb-1">Bezpečná Vzdál. (mm)</label><input type="number" value={localSettings.safetyDist} onChange={(e) => handleChange('safetyDist', parseFloat(e.target.value))} className="w-full bg-white border border-blue-200 rounded p-2 text-sm font-bold" step={0.5} /></div>
-                                </div>
-                                <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 mt-2">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <label className="text-xs font-bold text-orange-700 uppercase flex items-center gap-1"><Icons.Layers size={14}/> Korekce Nástroje</label>
-                                        <button onClick={toggleShowOffset} className="flex items-center gap-1 text-[10px] text-orange-600 hover:text-orange-800 font-bold bg-white px-2 py-1 rounded border border-orange-200 shadow-sm">
-                                            {showOffset ? <Icons.Eye size={12} /> : <Icons.EyeOff size={12} />}
-                                            {showOffset ? 'Skrýt' : 'Zobrazit v grafu'}
+
+                                <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <label className="text-xs font-bold text-orange-700 uppercase flex items-center gap-2"><Icons.Layers size={14}/> Offset</label>
+                                        <button onClick={toggleShowOffset} className={`flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md border shadow-sm transition-all ${showOffset ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'}`}>
+                                            {showOffset ? <Icons.CheckCircle size={12} /> : <Icons.EyeOff size={12} />}
+                                            {showOffset ? 'ZAPNUTO (Zobrazit)' : 'VYPNUTO'}
                                         </button>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-[10px] font-bold text-orange-600 uppercase mb-1">Rádius Plátku</label>
-                                            <input type="number" value={feedSettings.offsetValue} onChange={(e) => onUpdateFeedSettings('offsetValue', e.target.value)} className="w-full bg-white border border-orange-200 rounded p-2 text-sm font-bold" step={0.1} />
+                                            <label className="text-[10px] font-bold text-gray-900 uppercase mb-1">Rádius (R)</label>
+                                            <input type="number" value={feedSettings.offsetValue} onChange={(e) => onUpdateFeedSettings('offsetValue', e.target.value)} className="w-full bg-white text-gray-900 border border-orange-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-orange-400 outline-none" step={0.1} />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-bold text-orange-600 uppercase mb-1">Konečný přídavek</label>
-                                            <input type="number" value={feedSettings.finishAllowance} onChange={(e) => onUpdateFeedSettings('finishAllowance', e.target.value)} className="w-full bg-white border border-orange-200 rounded p-2 text-sm font-bold" step={0.1} />
+                                            <label className="text-[10px] font-bold text-gray-900 uppercase mb-1">Přídavek</label>
+                                            <input type="number" value={feedSettings.finishAllowance} onChange={(e) => onUpdateFeedSettings('finishAllowance', e.target.value)} className="w-full bg-white text-gray-900 border border-orange-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-orange-400 outline-none" step={0.1} />
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="space-y-4">
-                                <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                    <label className="text-xs font-bold text-gray-700 uppercase mb-2 block">Řezné Parametry</label>
-                                    <div className="space-y-3">
-                                        <div>
-                                            <div className="flex justify-between items-center mb-1">
-                                                <label className="text-[10px] font-bold text-gray-500 uppercase">Posuv (F)</label>
-                                                <div className="flex text-[9px] bg-white border border-gray-200 rounded overflow-hidden shadow-sm">
-                                                    <button onClick={() => onUpdateFeedSettings('feedMode', 'MM_MIN')} className={`px-2 py-1 ${feedSettings.feedMode === 'MM_MIN' ? 'bg-gray-800 text-white font-bold' : 'text-gray-500'}`}>mm/min</button>
-                                                    <button onClick={() => onUpdateFeedSettings('feedMode', 'MM_REV')} className={`px-2 py-1 ${feedSettings.feedMode === 'MM_REV' ? 'bg-gray-800 text-white font-bold' : 'text-gray-500'}`}>mm/ot</button>
-                                                </div>
+                            <div className="space-y-5">
+                                <div className="space-y-4">
+                                    <div>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <label className="text-[10px] font-bold text-gray-900 uppercase">Posuv (F)</label>
+                                            <div className="flex text-[9px] bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+                                                <button onClick={() => onUpdateFeedSettings('feedMode', 'MM_MIN')} className={`px-3 py-1 rounded-md transition-all ${feedSettings.feedMode === 'MM_MIN' ? 'bg-white text-sky-600 shadow-sm font-bold' : 'text-gray-500'}`}>mm/min</button>
+                                                <button onClick={() => onUpdateFeedSettings('feedMode', 'MM_REV')} className={`px-3 py-1 rounded-md transition-all ${feedSettings.feedMode === 'MM_REV' ? 'bg-white text-sky-600 shadow-sm font-bold' : 'text-gray-500'}`}>mm/ot</button>
                                             </div>
-                                            <input type="number" value={feedSettings.feedRate} onChange={(e) => onUpdateFeedSettings('feedRate', e.target.value)} className="w-full bg-white border border-gray-300 rounded p-2 text-right text-sm font-mono font-bold" />
+                                        </div>
+                                        <input type="number" value={feedSettings.feedRate} onChange={(e) => onUpdateFeedSettings('feedRate', e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-right text-sm font-mono font-bold focus:ring-2 focus:ring-sky-500 outline-none text-gray-900" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-900 uppercase mb-1 block">Otáčky (S)</label>
+                                            <input type="number" value={feedSettings.spindleSpeed} onChange={(e) => onUpdateFeedSettings('spindleSpeed', e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-right text-sm font-mono font-bold text-gray-900" />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Otáčky (S)</label>
-                                            <input type="number" value={feedSettings.spindleSpeed} onChange={(e) => onUpdateFeedSettings('spindleSpeed', e.target.value)} className="w-full bg-white border border-gray-300 rounded p-2 text-right text-sm font-mono font-bold" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-blue-500 uppercase mb-1 block">Max Otáčky (G50)</label>
-                                            <input type="number" value={localSettings.maxRPM} onChange={(e) => handleChange('maxRPM', parseFloat(e.target.value))} className="w-full bg-white border border-blue-200 rounded p-2 text-right text-sm font-mono font-bold" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-blue-500 uppercase mb-1 block">Chlazení</label>
-                                            <button onClick={() => handleChange('coolant', !localSettings.coolant)} className={`w-full py-2 rounded-lg border font-bold text-xs ${localSettings.coolant ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-white border-gray-300 text-gray-400'}`}>
-                                                {localSettings.coolant ? 'ZAP (M08)' : 'VYP'}
-                                            </button>
+                                            <label className="text-[10px] font-bold text-gray-900 uppercase mb-1 block">Max (G50)</label>
+                                            <input type="number" value={localSettings.maxRPM} onChange={(e) => handleChange('maxRPM', parseFloat(e.target.value))} className="w-full bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-2.5 text-right text-sm font-mono font-bold" />
                                         </div>
                                     </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-900 uppercase mb-1 block">Chlazení</label>
+                                        <button onClick={() => handleChange('coolant', !localSettings.coolant)} className={`w-full py-2.5 rounded-lg border font-bold text-xs flex items-center justify-center gap-2 transition-colors ${localSettings.coolant ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                                            <span className={`w-3 h-3 rounded-full ${localSettings.coolant ? 'bg-blue-500 animate-pulse' : 'bg-gray-300'}`}></span>
+                                            {localSettings.coolant ? 'ZAPNUTO (M08)' : 'VYPNUTO'}
+                                        </button>
+                                    </div>
                                 </div>
-                                <button onClick={handleGenerate} className="w-full py-4 bg-gradient-to-r from-green-600 to-green-500 text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 hover:shadow-xl active:scale-95 transition-transform">
-                                    <Icons.Play size={24} /> GENEROVAT G-KÓD
-                                </button>
                             </div>
                         )}
 
-                        {activeTab === 0 && (
-                             <button onClick={() => { onSave(localSettings); onClose(); }} className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-lg shadow-md mt-4 flex items-center justify-center gap-2"><Icons.Activity size={18} /> Generovat Dráhy</button>
-                        )}
+                        <div className="mt-8 flex gap-3">
+                             <button onClick={handleSimulate} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 transition-transform active:scale-95">
+                                <Icons.PlayCircle size={20} /> SIMULOVAT
+                            </button>
+                             <button onClick={handleGenerate} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 transition-transform active:scale-95">
+                                <Icons.Download size={20} /> G-KÓD
+                            </button>
+                        </div>
                     </div>
                 </div>
             );
@@ -367,7 +460,7 @@
             const labelVertical = isKarusel ? 'Z' : 'X'; 
             const labelHorizontal = isKarusel ? 'X' : 'Z'; 
 
-            const handleDirectionClick = (dir) => { setActiveDirection(dir); setInputValue1(''); setInputValue2(''); if (['UP','DOWN','LEFT','RIGHT'].includes(dir)) { setInputType('LENGTH'); } else { setInputType('LENGTH'); } };
+            const handleDirectionClick = (dir) => { setActiveDirection(dir); setInputValue1(''); setInputValue2(''); setInputType('LENGTH'); };
             const confirmSegment = () => {
                 if (!activeDirection) return;
                 const v1 = parseFloat(inputValue1);
@@ -381,21 +474,26 @@
 
             return (
                 <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Icons.Box className="text-purple-600" size={24} /> Polotovar</h3><button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><Icons.Close size={20} /></button></div>
-                        <div className="flex bg-gray-100 p-1 rounded-lg mb-4"><button onClick={() => setMode('AUTO')} className={`flex-1 py-1 text-xs font-bold rounded ${mode==='AUTO' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>Automaticky</button><button onClick={() => setMode('MANUAL')} className={`flex-1 py-1 text-xs font-bold rounded ${mode==='MANUAL' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>Ručně</button></div>
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-gray-900 flex items-center gap-2"><Icons.Box className="text-purple-600" size={24} /> Polotovar</h3><button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><Icons.Close size={20} /></button></div>
+                        <div className="flex bg-gray-100 p-1 rounded-xl mb-4 border border-gray-200"><button onClick={() => setMode('AUTO')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${mode==='AUTO' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>Automaticky</button><button onClick={() => setMode('MANUAL')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${mode==='MANUAL' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>Ručně</button></div>
                         {mode === 'AUTO' ? (
-                            <div className="space-y-3 mb-6">
-                                <div className="grid grid-cols-2 gap-3"><div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Přídavek X (na Ø)</label><input type="number" value={marginX} onChange={(e) => setMarginX(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm font-bold" /></div><div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Přídavek Z+ (Čelo)</label><input type="number" value={marginZ} onChange={(e) => setMarginZ(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm font-bold" /></div></div>
-                                <div><label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Přídavek Z- (Upnutí)</label><input type="number" value={marginZBack} onChange={(e) => setMarginZBack(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm font-bold" placeholder="Konec polotovaru" /></div>
-                                <button onClick={() => onGenerate(marginX, marginZ, marginZBack)} className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-md mt-2"><Icons.CheckCircle size={18} className="inline mr-2" /> Vypočítat</button>
+                            <div className="space-y-4 mb-6">
+                                <div className="grid grid-cols-2 gap-4"><div><label className="text-[10px] font-bold text-gray-900 uppercase mb-1">Přídavek X (na Ø)</label><input type="number" value={marginX} onChange={(e) => setMarginX(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-purple-500 outline-none" /></div><div><label className="text-[10px] font-bold text-gray-900 uppercase mb-1">Přídavek Z+ (Čelo)</label><input type="number" value={marginZ} onChange={(e) => setMarginZ(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-purple-500 outline-none" /></div></div>
+                                <div><label className="text-[10px] font-bold text-gray-900 uppercase mb-1">Přídavek Z- (Upnutí)</label><input type="number" value={marginZBack} onChange={(e) => setMarginZBack(parseFloat(e.target.value)||0)} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Konec polotovaru" /></div>
+                                <button onClick={() => onGenerate(marginX, marginZ, marginZBack)} className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg mt-2"><Icons.CheckCircle size={18} className="inline mr-2" /> Vypočítat</button>
                             </div>
                         ) : (
                             <div className="space-y-4 mb-6">
                                 <div className="grid grid-cols-3 gap-2 w-48 mx-auto">
-                                    <button onClick={()=>handleDirectionClick('UL')} className={`p-3 rounded-lg border ${activeDirection==='UL'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowUpLeft size={20} /></button><button onClick={()=>handleDirectionClick('UP')} className={`p-3 rounded-lg border ${activeDirection==='UP'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowUp size={20} /></button><button onClick={()=>handleDirectionClick('UR')} className={`p-3 rounded-lg border ${activeDirection==='UR'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowUpRight size={20} /></button>
-                                    <button onClick={()=>handleDirectionClick('LEFT')} className={`p-3 rounded-lg border ${activeDirection==='LEFT'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowLeft size={20} /></button><div className="flex items-center justify-center"><div className="w-2 h-2 bg-purple-300 rounded-full"></div></div><button onClick={()=>handleDirectionClick('RIGHT')} className={`p-3 rounded-lg border ${activeDirection==='RIGHT'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowRight size={20} /></button>
-                                    <button onClick={()=>handleDirectionClick('DL')} className={`p-3 rounded-lg border ${activeDirection==='DL'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowDownLeft size={20} /></button><button onClick={()=>handleDirectionClick('DOWN')} className={`p-3 rounded-lg border ${activeDirection==='DOWN'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowDown size={20} /></button><button onClick={()=>handleDirectionClick('DR')} className={`p-3 rounded-lg border ${activeDirection==='DR'?'bg-purple-100 border-purple-500 text-purple-700':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}><Icons.ArrowDownRight size={20} /></button>
+                                    {['UL','UP','UR','LEFT','CENTER','RIGHT','DL','DOWN','DR'].map(dir => (
+                                        dir === 'CENTER' ? <div key="c" className="flex items-center justify-center"><div className="w-2 h-2 bg-purple-300 rounded-full"></div></div> :
+                                        <button key={dir} onClick={()=>handleDirectionClick(dir)} className={`p-3 rounded-lg border transition-all ${activeDirection===dir?'bg-purple-100 border-purple-500 text-purple-700 scale-105':'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
+                                            {dir.includes('U') ? (dir.includes('L')?<Icons.ArrowUpLeft size={20}/>:dir.includes('R')?<Icons.ArrowUpRight size={20}/>:<Icons.ArrowUp size={20}/>) :
+                                             dir.includes('D') ? (dir.includes('L')?<Icons.ArrowDownLeft size={20}/>:dir.includes('R')?<Icons.ArrowDownRight size={20}/>:<Icons.ArrowDown size={20}/>) :
+                                             dir === 'LEFT' ? <Icons.ArrowLeft size={20}/> : <Icons.ArrowRight size={20}/>}
+                                        </button>
+                                    ))}
                                 </div>
                                 {activeDirection && (
                                     <div className="bg-purple-50 p-3 rounded-lg border border-purple-100 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -403,89 +501,83 @@
                                             <div className="space-y-2">
                                                 <p className="text-xs font-bold text-purple-700 text-center mb-2">Startovní Bod</p>
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    <div><label className="text-[9px] font-bold text-gray-500">{labelHorizontal} (mm)</label><input type="number" value={inputValue2} onChange={e=>setInputValue2(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" autoFocus /></div>
-                                                    <div><label className="text-[9px] font-bold text-gray-500">{labelVertical} (mm)</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" /></div>
+                                                    <div><label className="text-[9px] font-bold text-gray-900">{labelHorizontal} (mm)</label><input type="number" value={inputValue2} onChange={e=>setInputValue2(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" autoFocus /></div>
+                                                    <div><label className="text-[9px] font-bold text-gray-900">{labelVertical} (mm)</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full border rounded p-1 text-sm" placeholder="0" /></div>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="space-y-2">
-                                                <div className="flex text-[10px] bg-white rounded border overflow-hidden">
-                                                    <button onClick={()=>setInputType('LENGTH')} className={`flex-1 py-1 ${inputType==='LENGTH'?'bg-purple-100 text-purple-700 font-bold':'text-gray-500'}`}>{['UP','DOWN','LEFT','RIGHT'].includes(activeDirection)?'Délka':'Délka (45°)'}</button>
-                                                    <button onClick={()=>setInputType('COORD')} className={`flex-1 py-1 ${inputType==='COORD'?'bg-purple-100 text-purple-700 font-bold':'text-gray-500'}`}>Souřadnice</button>
-                                                </div>
-                                                {inputType === 'LENGTH' ? (
-                                                    <div><label className="text-[10px] font-bold text-gray-500 block mb-1">{['UP','DOWN','LEFT','RIGHT'].includes(activeDirection) ? 'Délka úseku (mm)' : 'Délka šikminy (mm)'}</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full bg-white border rounded p-2 text-sm font-bold" autoFocus /></div>
-                                                ) : (
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <div><label className="text-[9px] font-bold text-gray-500">{labelHorizontal}</label><input type="number" value={inputValue2} onChange={e=>setInputValue2(e.target.value)} className="w-full bg-white border rounded p-1 text-sm font-bold" /></div>
-                                                        <div><label className="text-[9px] font-bold text-gray-500">{labelVertical}</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full bg-white border rounded p-1 text-sm font-bold" /></div>
-                                                    </div>
-                                                )}
-                                            </div>
+                                            <div><label className="text-[10px] font-bold text-gray-900 block mb-1">Délka (mm)</label><input type="number" value={inputValue1} onChange={e=>setInputValue1(e.target.value)} className="w-full bg-white border rounded p-2 text-sm font-bold" autoFocus /></div>
                                         )}
                                         <button onClick={confirmSegment} className="w-full mt-2 py-2 bg-purple-600 text-white rounded font-bold text-sm hover:bg-purple-700">Přidat</button>
                                     </div>
                                 )}
-                                <div className="border-t border-gray-100 pt-2 mt-2"><button onClick={onDrawMode} className="w-full py-2 bg-white border border-purple-200 text-purple-600 font-bold rounded-lg text-xs hover:bg-purple-50 flex items-center justify-center gap-2"><Icons.Play size={14} /> Nebo kreslit myší</button></div>
+                                <div className="border-t border-gray-100 pt-2 mt-2"><button onClick={onDrawMode} className="w-full py-3 bg-white border border-purple-200 text-purple-600 font-bold rounded-xl text-xs hover:bg-purple-50 flex items-center justify-center gap-2"><Icons.Play size={14} /> Kreslit myší</button></div>
                             </div>
                         )}
-                        <button onClick={onClear} className="w-full py-2 bg-white border border-gray-200 hover:bg-gray-50 text-red-500 font-bold rounded-lg text-xs uppercase mt-4">Smazat Polotovar</button>
+                        <button onClick={onClear} className="w-full py-2 bg-white border border-gray-200 hover:bg-red-50 hover:border-red-200 text-red-500 hover:text-red-600 font-bold rounded-lg text-xs uppercase mt-4 transition-colors">Smazat Polotovar</button>
                     </div>
                 </div>
             );
         };
 
-        const Sidebar = ({ isOpen, onClose, settings, setSettings, onImportDxf, onImportJson, onExportJson, onLoadFromDrawing, onGenerateGCode, onClear, machineType, setMachineType, gCodeOutput, onLoadDemo, diameterMode, setDiameterMode }) => {
+        const Sidebar = ({ isOpen, onClose, settings, setSettings, onImportDxf, onImportJson, onExportJson, onLoadFromDrawing, onGenerateGCode, onClear, machineType, setMachineType, onLoadDemo, diameterMode, setDiameterMode }) => {
             const handleSettingChange = (key, val) => setSettings({ ...settings, [key]: parseFloat(val) || 0 });
-            const toggleFeedMode = (mode) => setSettings({...settings, feedMode: mode});
-            const downloadGCode = () => { if(!gCodeOutput) return; const blob = new Blob([gCodeOutput], { type: 'text/plain' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'program.gcode'; a.click(); };
-
+            
             return (
                 <>
                     {isOpen && <div className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm" onClick={onClose} />}
                     <div className={`fixed inset-y-0 left-0 z-50 w-80 bg-white shadow-2xl transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Icons.Settings className="text-orange-500" /> Nastavení</h2>
+                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Icons.Settings className="text-sky-600" /> Nastavení</h2>
                             <button onClick={onClose} className="p-2 bg-white rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100"><Icons.Close /></button>
                         </div>
-                        <div className="p-4 space-y-6 overflow-y-auto h-[calc(100vh-60px)]">
-                            <div>
-                                <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Typ Stroje</label>
-                                <div className="flex bg-gray-100 rounded-lg p-1 border border-gray-200">
-                                    <button onClick={() => setMachineType('KARUSEL')} className={`flex-1 py-2 rounded-md text-xs font-bold uppercase shadow-sm ${machineType === 'KARUSEL' ? 'bg-white text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>Karusel</button>
-                                    <button onClick={() => setMachineType('SOUSTRUH')} className={`flex-1 py-2 rounded-md text-xs font-bold uppercase shadow-sm ${machineType === 'SOUSTRUH' ? 'bg-white text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Soustruh</button>
+                        <div className="p-5 space-y-6 overflow-y-auto h-[calc(100vh-80px)]">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-900 uppercase">Typ Stroje</label>
+                                <div className="flex bg-gray-100 rounded-xl p-1 border border-gray-200">
+                                    <button onClick={() => setMachineType('KARUSEL')} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-all ${machineType === 'KARUSEL' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Karusel</button>
+                                    <button onClick={() => setMachineType('SOUSTRUH')} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-all ${machineType === 'SOUSTRUH' ? 'bg-white text-sky-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Soustruh</button>
                                 </div>
                             </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Režim</label>
-                                <div className="flex bg-gray-100 rounded-lg p-1 border border-gray-200">
-                                    <button onClick={() => setDiameterMode(false)} className={`flex-1 py-2 rounded-md text-xs font-bold uppercase shadow-sm ${!diameterMode ? 'bg-white text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>Poloměr</button>
-                                    <button onClick={() => setDiameterMode(true)} className={`flex-1 py-2 rounded-md text-xs font-bold uppercase shadow-sm ${diameterMode ? 'bg-white text-pink-600' : 'text-gray-500 hover:text-gray-700'}`}>Průměr</button>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-900 uppercase">Režim zobrazení</label>
+                                <div className="flex bg-gray-100 rounded-xl p-1 border border-gray-200">
+                                    <button onClick={() => setDiameterMode(false)} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-all ${!diameterMode ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Poloměr</button>
+                                    <button onClick={() => setDiameterMode(true)} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-all ${diameterMode ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Průměr</button>
                                 </div>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-2">
-                                <button onClick={()=>{onLoadFromDrawing(); onClose();}} className="col-span-2 p-3 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 flex items-center justify-center gap-2 shadow-sm"><Icons.CloudDownload size={20} /><span className="text-[10px] font-bold">NAČÍST Z KRESLENÍ</span></button>
-                                <button onClick={()=>{onLoadDemo(); onClose();}} className="col-span-2 p-3 bg-teal-50 text-teal-700 rounded-lg border border-teal-200 flex items-center justify-center gap-2 shadow-sm"><Icons.Refresh size={20} /><span className="text-[10px] font-bold">DEMO</span></button>
-                                <label className="flex flex-col items-center justify-center p-3 bg-white rounded-lg cursor-pointer border border-gray-200 hover:bg-gray-50 shadow-sm"><Icons.Upload size={20} className="text-blue-500 mb-1" /><span className="text-[9px] font-bold text-gray-600">Import DXF</span><input type="file" accept=".dxf" onChange={(e)=>{onImportDxf(e); onClose();}} className="hidden" /></label>
-                                <label className="flex flex-col items-center justify-center p-3 bg-white rounded-lg cursor-pointer border border-gray-200 hover:bg-gray-50 shadow-sm"><Icons.FileJson size={20} className="text-yellow-500 mb-1" /><span className="text-[9px] font-bold text-gray-600">Nahrát Projekt</span><input type="file" accept=".json" onChange={(e)=>{onImportJson(e); onClose();}} className="hidden" /></label>
-                                <button onClick={onExportJson} className="flex flex-col items-center justify-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 shadow-sm"><Icons.Save size={20} className="text-green-500 mb-1" /><span className="text-[9px] font-bold text-gray-600">Uložit Projekt</span></button>
-                                <button onClick={onClear} className="flex flex-col items-center justify-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 shadow-sm"><Icons.Trash2 size={20} className="text-red-500 mb-1" /><span className="text-[9px] font-bold text-gray-600">Smazat Vše</span></button>
-                            </div>
+                            <hr className="border-gray-100"/>
 
-                            {gCodeOutput && (
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center"><span className="text-xs font-bold text-gray-400">VÝSTUP</span><button onClick={downloadGCode} className="text-blue-600 text-xs font-bold bg-blue-50 border border-blue-100 px-2 py-1 rounded flex items-center gap-1 hover:bg-blue-100"><Icons.Download size={12}/> Uložit soubor</button></div>
-                                    <textarea className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-xs font-mono text-green-400 h-32 resize-none shadow-inner" readOnly value={gCodeOutput} />
-                                </div>
-                            )}
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={()=>{onLoadFromDrawing(); onClose();}} className="col-span-2 p-3 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-200 flex items-center justify-center gap-2 shadow-sm hover:bg-indigo-100 transition-colors"><Icons.CloudDownload size={20} /><span className="text-[10px] font-bold">NAČÍST Z MEZIPAMĚTI</span></button>
+                                <button onClick={()=>{onLoadDemo(); onClose();}} className="col-span-2 p-3 bg-teal-50 text-teal-700 rounded-xl border border-teal-200 flex items-center justify-center gap-2 shadow-sm hover:bg-teal-100 transition-colors"><Icons.Refresh size={20} /><span className="text-[10px] font-bold">NAČÍST DEMO</span></button>
+                                <label className="flex flex-col items-center justify-center p-4 bg-white rounded-xl cursor-pointer border border-gray-200 hover:border-blue-300 hover:bg-blue-50 shadow-sm transition-all group">
+                                    <Icons.Upload size={24} className="text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
+                                    <span className="text-[10px] font-bold text-gray-900">Import DXF</span>
+                                    <input type="file" accept=".dxf" onChange={(e)=>{onImportDxf(e); onClose();}} className="hidden" />
+                                </label>
+                                <label className="flex flex-col items-center justify-center p-4 bg-white rounded-xl cursor-pointer border border-gray-200 hover:border-yellow-300 hover:bg-yellow-50 shadow-sm transition-all group">
+                                    <Icons.FileJson size={24} className="text-yellow-500 mb-2 group-hover:scale-110 transition-transform" />
+                                    <span className="text-[10px] font-bold text-gray-900">Otevřít Projekt</span>
+                                    <input type="file" accept=".json" onChange={(e)=>{onImportJson(e); onClose();}} className="hidden" />
+                                </label>
+                                <button onClick={onExportJson} className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border border-gray-200 hover:border-green-300 hover:bg-green-50 shadow-sm transition-all group">
+                                    <Icons.Save size={24} className="text-green-500 mb-2 group-hover:scale-110 transition-transform" />
+                                    <span className="text-[10px] font-bold text-gray-900">Uložit Projekt</span>
+                                </button>
+                                <button onClick={onClear} className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border border-gray-200 hover:border-red-300 hover:bg-red-50 shadow-sm transition-all group">
+                                    <Icons.Trash2 size={24} className="text-red-500 mb-2 group-hover:scale-110 transition-transform" />
+                                    <span className="text-[10px] font-bold text-gray-900">Smazat Vše</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </>
             );
         };
 
-        const Canvas = React.memo(({ points, stockPoints, isDrawingStock, machineType, viewBox, setViewBox, onCanvasClick, showOffset, offsetValue, finishAllowance, diameterMode, onCenter }) => {
+        const Canvas = React.memo(({ points, stockPoints, isDrawingStock, machineType, viewBox, setViewBox, onCanvasClick, showOffset, offsetValue, finishAllowance, diameterMode, onCenter, isSimulating, simState, setMouseCoords, limitZ_Front, limitZ_Back }) => {
             const containerRef = useRef(null);
             const [dragStart, setDragStart] = useState(null);
             
@@ -526,7 +618,20 @@
             };
 
             const handleMove = (e) => {
-                if (!dragStart || !containerRef.current) return;
+                if (!containerRef.current) return;
+                
+                const rect = containerRef.current.getBoundingClientRect();
+                const { x: cx, y: cy } = getClientCoords(e.touches ? e.touches[0] : e);
+                const mouseX = cx - rect.left;
+                const mouseY = cy - rect.top;
+                const svgX = viewBox.x + (mouseX / rect.width) * viewBox.w;
+                const svgY = viewBox.y + (mouseY / rect.height) * viewBox.h;
+                
+                let logicX, logicZ;
+                if (machineType === 'KARUSEL') { logicX = svgX; logicZ = -svgY; } else { logicZ = svgX; logicX = -svgY; }
+                setMouseCoords({ x: logicX, z: logicZ });
+
+                if (!dragStart) return;
                 e.preventDefault();
                 if (dragStart.mode === 'pinch' && e.touches && e.touches.length === 2) {
                     const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -539,9 +644,8 @@
                     return;
                 }
                 if (dragStart.mode === 'pan') {
-                    const { x, y } = getClientCoords(e);
-                    const dxPx = x - dragStart.x;
-                    const dyPx = y - dragStart.y;
+                    const dxPx = cx - dragStart.x;
+                    const dyPx = cy - dragStart.y;
                     if (Math.abs(dxPx) > 2 || Math.abs(dyPx) > 2) dragStart.hasMoved = true;
                     const scale = viewBox.w / containerRef.current.clientWidth;
                     setViewBox({ ...dragStart.vb, x: dragStart.vb.x - dxPx * scale, y: dragStart.vb.y - dyPx * scale });
@@ -568,7 +672,7 @@
                 const { x: left, y: top, w: width, h: height } = viewBox;
                 const right = left + width;
                 const bottom = top + height;
-                const targetLines = 10;
+                const targetLines = 8;
                 const rawStep = width / targetLines;
                 const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
                 const residual = rawStep / magnitude;
@@ -582,9 +686,9 @@
                     const axisColor = isKarusel ? '#22c55e' : '#ef4444'; 
                     const zeroColor = isKarusel ? '#ef4444' : '#22c55e';
                     if (isZero) {
-                        lines.push(<g key={`v_axis_bg`}><line x1={0} y1={top} x2={0} y2={bottom} stroke={axisColor} strokeWidth={3 * (width/600)} strokeDasharray={isKarusel ? "15, 5, 2, 5" : "none"} vectorEffect="non-scaling-stroke" className="opacity-50"/><text x={4 * scaleFactor} y={top + (20 * scaleFactor)} fontSize={14 * scaleFactor} fill={axisColor} className="select-none font-bold">{isKarusel ? 'Z' : 'X'}</text><text x={4 * scaleFactor} y={bottom - (50 * scaleFactor)} fontSize={12 * scaleFactor} fill={zeroColor} className="select-none font-bold">0</text></g>);
+                        lines.push(<g key={`v_axis_bg`}><line x1={0} y1={top} x2={0} y2={bottom} stroke={axisColor} strokeWidth={2 * (width/600)} strokeDasharray={isKarusel ? "15, 5, 2, 5" : "none"} vectorEffect="non-scaling-stroke" className="opacity-40"/><text x={4 * scaleFactor} y={top + (20 * scaleFactor)} fontSize={14 * scaleFactor} fill={axisColor} className="select-none font-bold">{isKarusel ? 'Z' : 'X'}</text><text x={4 * scaleFactor} y={bottom - (50 * scaleFactor)} fontSize={12 * scaleFactor} fill={zeroColor} className="select-none font-bold">0</text></g>);
                     } else {
-                        lines.push(<g key={`v${v}`}><line x1={v} y1={top} x2={v} y2={bottom} stroke="#e5e7eb" strokeWidth={1} vectorEffect="non-scaling-stroke" /><text x={v + (4 * scaleFactor)} y={bottom - (50 * scaleFactor)} fontSize={12 * scaleFactor} fill="#9ca3af" className="select-none font-bold">{parseFloat(v.toPrecision(6))}</text></g>);
+                        lines.push(<g key={`v${v}`}><line x1={v} y1={top} x2={v} y2={bottom} stroke="#e2e8f0" strokeWidth={1} vectorEffect="non-scaling-stroke" /><text x={v + (4 * scaleFactor)} y={bottom - (50 * scaleFactor)} fontSize={10 * scaleFactor} fill="#cbd5e1" className="select-none font-bold">{parseFloat(v.toPrecision(5))}</text></g>);
                     }
                 }
                 const startY = Math.floor(top / step) * step;
@@ -594,11 +698,11 @@
                     const axisColor = isKarusel ? '#ef4444' : '#22c55e';
                     const zeroColor = isKarusel ? '#22c55e' : '#ef4444';
                     if (isZero) {
-                        lines.push(<g key={`h_axis_bg`}><line x1={left} y1={0} x2={right} y2={0} stroke={axisColor} strokeWidth={3 * (width/600)} strokeDasharray={isKarusel ? "none" : "15, 5, 2, 5"} vectorEffect="non-scaling-stroke" className="opacity-50"/><text x={right - (20 * scaleFactor)} y={-5 * scaleFactor} fontSize={14 * scaleFactor} fill={axisColor} className="select-none font-bold">{isKarusel ? 'X' : 'Z'}</text><text x={left + (5 * scaleFactor)} y={-4 * scaleFactor} fontSize={12 * scaleFactor} fill={zeroColor} className="select-none font-bold">0</text></g>);
+                        lines.push(<g key={`h_axis_bg`}><line x1={left} y1={0} x2={right} y2={0} stroke={axisColor} strokeWidth={2 * (width/600)} strokeDasharray={isKarusel ? "none" : "15, 5, 2, 5"} vectorEffect="non-scaling-stroke" className="opacity-40"/><text x={right - (20 * scaleFactor)} y={-5 * scaleFactor} fontSize={14 * scaleFactor} fill={axisColor} className="select-none font-bold">{isKarusel ? 'X' : 'Z'}</text><text x={left + (5 * scaleFactor)} y={-4 * scaleFactor} fontSize={12 * scaleFactor} fill={zeroColor} className="select-none font-bold">0</text></g>);
                     } else {
-                        let displayVal = parseFloat(val.toPrecision(6));
+                        let displayVal = parseFloat(val.toPrecision(5));
                         if (!isKarusel && diameterMode) displayVal *= 2;
-                        lines.push(<g key={`h${v}`}><line x1={left} y1={v} x2={right} y2={v} stroke="#e5e7eb" strokeWidth={1} vectorEffect="non-scaling-stroke" /><text x={left + (5 * scaleFactor)} y={v - (4 * scaleFactor)} fontSize={12 * scaleFactor} fill="#9ca3af" className="select-none font-bold">{displayVal}</text></g>);
+                        lines.push(<g key={`h${v}`}><line x1={left} y1={v} x2={right} y2={v} stroke="#e2e8f0" strokeWidth={1} vectorEffect="non-scaling-stroke" /><text x={left + (5 * scaleFactor)} y={v - (4 * scaleFactor)} fontSize={10 * scaleFactor} fill="#cbd5e1" className="select-none font-bold">{displayVal}</text></g>);
                     }
                 }
                 return lines;
@@ -614,6 +718,7 @@
                         if (i === 0 || p.break) return `M ${x} ${y}`;
                         return `L ${x} ${y}`;
                     }).join(" ");
+
                     axisLines = points.map((p, i) => {
                         if (p.type === 'axis' && i > 0) {
                             const prev = points[i-1];
@@ -644,33 +749,94 @@
             return (
                 <div 
                     ref={containerRef}
-                    className={`w-full h-full bg-[#fafafa] relative overflow-hidden touch-none ${isDrawingStock ? 'cursor-crosshair' : 'cursor-default'}`}
+                    className={`w-full h-full bg-[#f8fafc] relative overflow-hidden touch-none ${isDrawingStock ? 'cursor-crosshair' : 'cursor-default'}`}
                     onMouseDown={handleStart} onMouseMove={handleMove} onMouseUp={handleEnd} onMouseLeave={handleEnd}
                     onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd}
                     onWheel={handleWheel}
                 >
-                    {isDrawingStock && (<div className="absolute top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-4 py-1 rounded shadow-lg text-xs font-bold z-10 pointer-events-none animate-pulse">REŽIM KRESLENÍ POLOTOVARU</div>)}
+                    {isDrawingStock && (<div className="absolute top-6 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-6 py-2 rounded-full shadow-lg text-xs font-bold z-10 pointer-events-none animate-pulse border border-purple-400">REŽIM KRESLENÍ POLOTOVARU</div>)}
                     <svg width="100%" height="100%" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`} preserveAspectRatio="xMidYMid slice" className="block no-select">
                         {gridLines}
-                        {paths.stockPathData && <path d={paths.stockPathData} fill="rgba(100, 100, 100, 0.15)" stroke="gray" strokeWidth={1} strokeDasharray="5,5" vectorEffect="non-scaling-stroke" />}
+                        
+                        {/* VIZUALIZACE LIMITU ZONY */}
+                        {limitZ_Back !== undefined && (
+                             <line 
+                                x1={mapX(0, limitZ_Back)} y1={viewBox.y} 
+                                x2={mapX(0, limitZ_Back)} y2={viewBox.y + viewBox.h} 
+                                stroke="#0ea5e9" strokeWidth={2} strokeDasharray="10,5" opacity="0.6" vectorEffect="non-scaling-stroke" 
+                             />
+                        )}
+                         {limitZ_Front !== undefined && (
+                             <line 
+                                x1={mapX(0, limitZ_Front)} y1={viewBox.y} 
+                                x2={mapX(0, limitZ_Front)} y2={viewBox.y + viewBox.h} 
+                                stroke="#0ea5e9" strokeWidth={2} strokeDasharray="10,5" opacity="0.6" vectorEffect="non-scaling-stroke" 
+                             />
+                        )}
+
+                        {paths.stockPathData && <path d={paths.stockPathData} fill="rgba(147, 51, 234, 0.05)" stroke="#9333ea" strokeWidth={1} strokeDasharray="5,5" vectorEffect="non-scaling-stroke" />}
                         {paths.axisLines}
-                        {paths.roughingPathData && <path d={paths.roughingPathData} stroke="#d97706" strokeWidth={2} strokeDasharray="6,3" fill="none" vectorEffect="non-scaling-stroke" className="opacity-80" />}
-                        {paths.offsetPathData && <path d={paths.offsetPathData} stroke="#2563eb" strokeWidth={2} strokeDasharray="4,2" fill="none" vectorEffect="non-scaling-stroke" className="opacity-70" />}
-                        <path d={paths.mainPath} stroke="#16a34a" strokeWidth={3} fill="none" vectorEffect="non-scaling-stroke" />
-                        {points.map((p, i) => { const mx = mapX(p.x, p.z); const my = mapY(p.x, p.z); const color = i === 0 ? "#16a34a" : (p.type === 'axis' ? "#94a3b8" : "#ea580c"); return <circle key={i} cx={mx} cy={my} r={4 * (viewBox.w/600)} fill="white" stroke={color} strokeWidth={1} vectorEffect="non-scaling-stroke" />; })}
-                        {isDrawingStock && stockPoints.map((p, i) => (<circle key={`s-${i}`} cx={mapX(p.x, p.z)} cy={mapY(p.x, p.z)} r={3 * (viewBox.w/600)} fill="purple" />))}
+                        {paths.roughingPathData && <path d={paths.roughingPathData} stroke="#f59e0b" strokeWidth={2} strokeDasharray="6,3" fill="none" vectorEffect="non-scaling-stroke" className="opacity-60" />}
+                        {paths.offsetPathData && <path d={paths.offsetPathData} stroke="#3b82f6" strokeWidth={2} strokeDasharray="4,2" fill="none" vectorEffect="non-scaling-stroke" className="opacity-60" />}
+                        
+                        {/* Pokud se simuluje, hlavní geometrii trochu zprůhledníme */}
+                        {/* Změna barvy hlavní geometrie (Kusu) na tmavě šedou/černou (#334155) */}
+                        <path d={paths.mainPath} stroke="#334155" strokeWidth={3} fill="none" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" className={isSimulating ? "opacity-30" : ""} />
+                        
+                        {/* Body geometrie - taky tmavé */}
+                        {points.map((p, i) => { const mx = mapX(p.x, p.z); const my = mapY(p.x, p.z); const color = i === 0 ? "#334155" : (p.type === 'axis' ? "#94a3b8" : "#f97316"); return <circle key={i} cx={mx} cy={my} r={4 * (viewBox.w/600)} fill="white" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" className={isSimulating ? "opacity-30" : ""} />; })}
+                        
+                        {/* Body polotovaru */}
+                        {isDrawingStock && stockPoints.map((p, i) => (<circle key={`s-${i}`} cx={mapX(p.x, p.z)} cy={mapY(p.x, p.z)} r={4 * (viewBox.w/600)} fill="#9333ea" stroke="white" strokeWidth={1} />))}
+
+                        {/* NOVÁ SIMULACE - KRESLENÍ DRAH (Zůstává Zlatá/Červená) */}
+                        {isSimulating && simState && (
+                            <g>
+                                {/* Vykreslení již dokončených segmentů */}
+                                {simState.completed.map((seg, i) => (
+                                    <line 
+                                        key={i} 
+                                        x1={mapX(seg.x1, seg.z1)} y1={mapY(seg.x1, seg.z1)} 
+                                        x2={mapX(seg.x2, seg.z2)} y2={mapY(seg.x2, seg.z2)} 
+                                        stroke={seg.type === 'G00' ? '#dc2626' : '#ca8a04'} // Červená pro G00, Zlatá pro G01
+                                        strokeWidth={seg.type === 'G00' ? 1 : 2.5} 
+                                        strokeDasharray={seg.type === 'G00' ? "4,4" : "none"}
+                                        vectorEffect="non-scaling-stroke" 
+                                        strokeLinecap="round"
+                                    />
+                                ))}
+                                {/* Vykreslení aktuálně kresleného segmentu */}
+                                {simState.current && (
+                                    <line 
+                                        x1={mapX(simState.current.x1, simState.current.z1)} y1={mapY(simState.current.x1, simState.current.z1)} 
+                                        x2={mapX(simState.current.cx, simState.current.cz)} y2={mapY(simState.current.cx, simState.current.cz)} 
+                                        stroke={simState.current.type === 'G00' ? '#dc2626' : '#ca8a04'}
+                                        strokeWidth={simState.current.type === 'G00' ? 1 : 2.5} 
+                                        strokeDasharray={simState.current.type === 'G00' ? "4,4" : "none"}
+                                        vectorEffect="non-scaling-stroke" 
+                                        strokeLinecap="round"
+                                    />
+                                )}
+                                {/* Hrot nástroje */}
+                                {simState.current && (
+                                    <circle 
+                                        cx={mapX(simState.current.cx, simState.current.cz)} 
+                                        cy={mapY(simState.current.cx, simState.current.cz)} 
+                                        r={3 * (viewBox.w/600)} fill="#ca8a04" stroke="white" strokeWidth={1} vectorEffect="non-scaling-stroke"
+                                    />
+                                )}
+                            </g>
+                        )}
                     </svg>
-                    <div className="absolute top-4 right-4 cursor-pointer opacity-90 flex flex-col items-center gap-1 hover:scale-110 transition-transform active:scale-95 z-50" onClick={(e) => { e.stopPropagation(); onCenter(); }} title="Vycentrovat pohled">
-                        <div className="relative w-16 h-16 border-2 border-gray-200 bg-white/90 backdrop-blur shadow-xl rounded-full hover:border-purple-400 transition-colors">
+                    
+                    <div className="absolute top-4 right-4 cursor-pointer flex flex-col items-center gap-1 hover:scale-105 transition-transform active:scale-95 z-50 group" onClick={(e) => { e.stopPropagation(); onCenter(); }} title="Vycentrovat pohled">
+                        <div className="relative w-14 h-14 border-2 border-white bg-white/50 backdrop-blur-md shadow-lg rounded-full group-hover:bg-white transition-colors">
                             <div className={`absolute left-1/2 top-1 bottom-1 w-[2px] -translate-x-1/2 ${machineType === 'KARUSEL' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                             <span className={`absolute top-1 left-1/2 -translate-x-1/2 -translate-y-full text-[10px] font-bold ${machineType === 'KARUSEL' ? 'text-green-600' : 'text-red-600'}`}>{machineType === 'KARUSEL' ? 'Z+' : 'X+'}</span>
                             <div className={`absolute top-1/2 left-1 right-1 h-[2px] -translate-y-1/2 ${machineType === 'KARUSEL' ? 'bg-red-500' : 'bg-green-500'}`}></div>
                             <span className={`absolute top-1/2 right-1 translate-x-full -translate-y-1/2 text-[10px] font-bold ml-1 ${machineType === 'KARUSEL' ? 'text-red-600' : 'text-green-600'}`}>{machineType === 'KARUSEL' ? 'X+' : 'Z+'}</span>
                             <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 border border-gray-400"></div>
                         </div>
-                    </div>
-                    <div className="absolute bottom-2 left-2 text-[10px] text-gray-400 pointer-events-none font-mono font-bold bg-white/80 px-2 py-1 rounded shadow-sm border border-gray-100">
-                        {machineType} | Korekce: {showOffset ? `${offsetValue}mm + ${finishAllowance}mm` : 'VYP'} | Ø Režim: {diameterMode ? 'ZAP' : 'VYP'}
                     </div>
                 </div>
             );
@@ -691,7 +857,19 @@
             const [toast, setToast] = useState(null);
             const [confirmState, setConfirmState] = useState(null);
             const [stockModalOpen, setStockModalOpen] = useState(false);
-            const [machiningModalOpen, setMachiningModalOpen] = useState(false); 
+            const [machiningModalOpen, setMachiningModalOpen] = useState(false);
+            
+            // --- SIMULATION STATES ---
+            const [isSimulating, setIsSimulating] = useState(false);
+            const [simState, setSimState] = useState({ completed: [], current: null });
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [simSpeed, setSimSpeed] = useState(1);
+            const [simTotalProgress, setSimTotalProgress] = useState(0);
+
+            const simEngine = useRef({ segments: [], idx: 0, t: 0 }); // Refs for loop state
+            const reqRef = useRef(null);
+
+            const [mouseCoords, setMouseCoords] = useState({ x: 0, z: 0 });
 
             const showToast = useCallback((msg) => setToast(msg), []);
             
@@ -726,6 +904,9 @@
                     if (pts.length) {
                         setPoints(pts);
                         setViewBox(INITIAL_VB);
+                        showToast("DXF soubor importován");
+                    } else {
+                        showToast("Nepodařilo se načíst entity z DXF");
                     }
                 };
                 reader.readAsText(file);
@@ -741,6 +922,7 @@
                         if (data.points) setPoints(data.points);
                         if (data.settings) setSettings(data.settings);
                         if (data.machineType) setMachineType(data.machineType);
+                        showToast("Projekt načten");
                     } catch (err) {
                         showToast("Chyba při načítání projektu.");
                     }
@@ -759,13 +941,13 @@
 
             const handleClear = () => {
                 setConfirmState({
-                    message: "Opravdu smazat vše?",
+                    message: "Opravdu chcete smazat veškerou geometrii a nastavení? Tuto akci nelze vrátit.",
                     onConfirm: () => {
                         setPoints([]);
                         setStockPoints([]);
                         setGCode("");
                         setConfirmState(null);
-                        showToast("Vše smazáno");
+                        showToast("Pracovní plocha vyčištěna");
                     },
                     onCancel: () => setConfirmState(null)
                 });
@@ -777,15 +959,19 @@
                 if (currentStockPoints && currentStockPoints.length > 0) {
                     let maxX = -Infinity;
                     let maxZ = -Infinity;
+                    let minZ = Infinity;
                     currentStockPoints.forEach(p => {
                         if (p.x > maxX) maxX = p.x;
                         if (p.z > maxZ) maxZ = p.z;
+                        if (p.z < minZ) minZ = p.z;
                     });
                     
                     setMachiningSettings(prev => ({
                         ...prev,
                         startX: maxX + 5,
-                        startZ: maxZ + 5
+                        startZ: maxZ + 5,
+                        limitZ_Back: 0, // Dle požadavku: 0
+                        limitZ_Front: maxZ + 20 // Dle požadavku: maxZ + 20
                     }));
                 }
             };
@@ -813,7 +999,7 @@
                 setStockPoints(newStock);
                 updateMachiningStart(newStock); 
                 setStockModalOpen(false);
-                showToast("Polotovar vygenerován");
+                showToast("Polotovar automaticky vypočten");
             };
 
             const handleDrawStockClick = useCallback((pt) => {
@@ -823,7 +1009,7 @@
             const handleAddStockSegment = (direction, type, values) => {
                 if (stockPoints.length === 0 && type === 'COORD' && values.x !== undefined) {
                     setStockPoints([{x: values.x, z: values.z}]);
-                    showToast("Startovní bod přidán");
+                    showToast("Startovní bod polotovaru nastaven");
                     return;
                 }
 
@@ -866,20 +1052,19 @@
                 }
 
                 setStockPoints([...stockPoints, nextPoint]);
-                showToast("Bod přidán");
             };
 
             const toggleStockDrawing = () => {
                 if (isDrawingStock) {
                     setIsDrawingStock(false);
                     updateMachiningStart(stockPoints); 
-                    showToast("Kreslení polotovaru ukončeno");
+                    showToast("Kreslení polotovaru dokončeno");
                 } else {
-                    if (stockPoints.length > 0 && !confirm("Smazat stávající polotovar?")) return;
+                    if (stockPoints.length > 0 && !confirm("Smazat stávající polotovar a začít kreslit nový?")) return;
                     setStockPoints([]);
                     setIsDrawingStock(true);
                     setStockModalOpen(false);
-                    showToast("Klikáním definujte tvar polotovaru");
+                    showToast("Klikáním do plochy definujte tvar polotovaru");
                 }
             };
 
@@ -890,11 +1075,176 @@
                 }));
             };
 
+            // --- SIMULATION LOGIC ---
+            const generateSimulationSegments = () => {
+                const segs = [];
+                const home = { x: machiningSettings.startX, z: machiningSettings.startZ };
+                
+                // Limity Zony
+                const limitBack = machiningSettings.limitZ_Back; 
+                const limitFront = machiningSettings.limitZ_Front; 
+
+                let current = { ...home };
+
+                // 1. Move Home -> First Point (Rapid)
+                const pathPoints = points.filter(p => p.type !== 'axis');
+                if(pathPoints.length === 0) return [];
+                
+                const first = pathPoints[0];
+                segs.push({ x1: current.x, z1: current.z, x2: first.x, z2: first.z, type: 'G00' });
+                current = { x: first.x, z: first.z };
+
+                // Funkce pro ořezání segmentu podle limitů Z
+                const clipSegment = (p1, p2) => {
+                    // Pokud jsou oba body mimo bezpecnou zonu (za sklicidlem), ignorovat
+                    if (p1.z < limitBack && p2.z < limitBack) return null;
+                    
+                    let finalP1 = { ...p1 };
+                    let finalP2 = { ...p2 };
+
+                    // Orezani startu
+                    if (finalP1.z < limitBack) {
+                        const t = (limitBack - p1.z) / (p2.z - p1.z);
+                        finalP1.z = limitBack;
+                        finalP1.x = p1.x + t * (p2.x - p1.x);
+                    }
+                    
+                    // Orezani konce
+                    if (finalP2.z < limitBack) {
+                         const t = (limitBack - p1.z) / (p2.z - p1.z);
+                         finalP2.z = limitBack;
+                         finalP2.x = p1.x + t * (p2.x - p1.x);
+                    }
+
+                    return { x1: finalP1.x, z1: finalP1.z, x2: finalP2.x, z2: finalP2.z };
+                };
+
+                // 2. Iterate points
+                for(let i=1; i<pathPoints.length; i++) {
+                    const next = pathPoints[i];
+                    const prev = pathPoints[i-1];
+                    const type = prev.break ? 'G00' : 'G01';
+                    
+                    const p1 = { x: current.x, z: current.z };
+                    const p2 = { x: next.x, z: next.z };
+
+                    const clipped = clipSegment(p1, p2);
+                    
+                    if (clipped) {
+                        segs.push({ ...clipped, type });
+                        current = { x: clipped.x2, z: clipped.z2 };
+                    } 
+                    
+                    if (next.z < limitBack) {
+                    } else {
+                         current = { x: next.x, z: next.z };
+                    }
+                }
+
+                // 3. Move Last -> Home (Rapid)
+                segs.push({ x1: current.x, z1: current.z, x2: home.x, z2: home.z, type: 'G00' });
+                
+                return segs;
+            };
+
+            // NEW SIMULATION CONTROL
+            const startSimulation = () => {
+                const segments = generateSimulationSegments();
+                if (segments.length === 0) { showToast("Není definována dráha"); return; }
+                
+                // Initialize engine
+                simEngine.current = { segments, idx: 0, t: 0 };
+                
+                setIsSimulating(true);
+                setIsPlaying(true);
+                setSimState({ completed: [], current: null });
+                setSimTotalProgress(0);
+            };
+
+            const togglePlay = () => setIsPlaying(!isPlaying);
+
+            const stopSimulation = () => {
+                setIsSimulating(false);
+                setIsPlaying(false);
+                setSimState({ completed: [], current: null });
+                setSimTotalProgress(0);
+                cancelAnimationFrame(reqRef.current);
+            };
+
+            const toggleSpeed = () => {
+                setSimSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 5 : 1));
+            };
+
+            // Animation Loop
+            useEffect(() => {
+                if (!isSimulating || !isPlaying) {
+                    cancelAnimationFrame(reqRef.current);
+                    return;
+                }
+
+                const loop = () => {
+                    const state = simEngine.current;
+                    if (state.idx >= state.segments.length) {
+                        setIsPlaying(false);
+                        showToast("Simulace dokončena");
+                        return;
+                    }
+
+                    // Speed logic: 0.02 base * multiplier
+                    const speed = 0.02 * simSpeed;
+                    state.t += speed;
+
+                    if (state.t >= 1) {
+                        // Segment finished
+                        const finishedSeg = state.segments[state.idx];
+                        setSimState(prev => ({
+                            completed: [...prev.completed, finishedSeg],
+                            current: null
+                        }));
+                        state.idx++;
+                        state.t = 0;
+                    } else {
+                        // Interpolate current segment
+                        const seg = state.segments[state.idx];
+                        if (seg) {
+                            const curX = seg.x1 + (seg.x2 - seg.x1) * state.t;
+                            const curZ = seg.z1 + (seg.z2 - seg.z1) * state.t;
+                            setSimState(prev => ({
+                                ...prev,
+                                current: { ...seg, cx: curX, cz: curZ }
+                            }));
+                        }
+                    }
+
+                    // Update UI Progress
+                    const total = state.segments.length;
+                    const currentProgress = state.idx + state.t;
+                    setSimTotalProgress(Math.min((currentProgress / total) * 100, 100));
+
+                    if (state.idx < state.segments.length) {
+                        reqRef.current = requestAnimationFrame(loop);
+                    } else {
+                         setIsPlaying(false);
+                         showToast("Simulace dokončena");
+                    }
+                };
+
+                reqRef.current = requestAnimationFrame(loop);
+                return () => cancelAnimationFrame(reqRef.current);
+            }, [isSimulating, isPlaying, simSpeed]);
+
+
+            const copyGCode = () => {
+                navigator.clipboard.writeText(gCode);
+                showToast("G-Kód zkopírován do schránky");
+            };
+
             return (
-                <div className="flex flex-col h-screen w-screen overflow-hidden">
-                    <div className="flex-1 relative flex flex-col md:flex-row overflow-hidden">
-                        <div className="flex-1 relative order-1 md:order-2">
-                            <Canvas 
+                <div className="flex h-screen w-screen overflow-hidden bg-gray-50">
+                    {/* LEVÁ STRANA - GRAFICKÁ PLOCHA */}
+                    <div className="flex-1 flex flex-col relative overflow-hidden items-center justify-center p-4">
+                        <div className="relative w-full h-full max-w-full md:aspect-square md:max-h-[95vh] bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-200">
+                             <Canvas 
                                 points={points} 
                                 stockPoints={stockPoints}
                                 isDrawingStock={isDrawingStock}
@@ -907,34 +1257,107 @@
                                 finishAllowance={settings.finishAllowance}
                                 diameterMode={diameterMode}
                                 onCenter={handleCenter}
+                                isSimulating={isSimulating}
+                                simState={simState}
+                                setMouseCoords={setMouseCoords}
+                                limitZ_Front={machiningSettings.limitZ_Front}
+                                limitZ_Back={machiningSettings.limitZ_Back}
                             />
-                        </div>
-                        <div className="bg-white border-t md:border-t-0 md:border-r border-gray-200 p-2 z-30 shrink-0 order-2 md:order-1 flex flex-row md:flex-col justify-center md:justify-start gap-1 overflow-x-auto md:overflow-x-visible md:overflow-y-auto w-full md:w-20">
-                            <ToolbarButton icon={Icons.Menu} label="Menu" onClick={() => setSidebarOpen(true)} />
                             
-                            {isDrawingStock ? (
-                                <ToolbarButton 
-                                    icon={Icons.CheckCircle} 
-                                    label="Hotovo" 
-                                    onClick={toggleStockDrawing} 
-                                    active={true} 
-                                    color="text-green-600"
-                                />
+                            {/* Souřadnice myši */}
+                            <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm text-[10px] font-mono font-bold text-gray-700 tabular-nums z-10 pointer-events-none">
+                                X: {mouseCoords.x.toFixed(2)} | Z: {mouseCoords.z.toFixed(2)}
+                            </div>
+
+                             {isSimulating && (
+                                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-600 text-white px-4 py-1.5 rounded-full shadow-lg font-bold text-xs z-50 animate-pulse border border-indigo-400 flex items-center gap-2">
+                                    <Icons.Activity size={14} />
+                                    {isPlaying ? 'SIMULACE BĚŽÍ' : 'POZASTAVENO'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* PRAVÁ STRANA - OVLÁDÁNÍ A G-KÓD */}
+                    <div className="w-96 bg-white border-l border-gray-200 flex flex-col z-30 shadow-2xl shrink-0">
+                        {/* Horní Toolbar */}
+                        <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+                            <div className="flex justify-between items-center mb-3">
+                                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2"><Icons.Menu size={18} className="text-gray-500"/> Nástroje</h2>
+                                <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"><Icons.Settings size={18} /></button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                {isDrawingStock ? (
+                                    <button onClick={toggleStockDrawing} className="col-span-2 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all active:scale-95">
+                                        <Icons.CheckCircle size={18} /> Hotovo
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button onClick={() => setStockModalOpen(true)} className={`py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-all border ${stockPoints.length > 0 ? 'bg-purple-50 border-purple-200 text-purple-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                                            <Icons.Box size={20} /> <span className="text-[10px] uppercase">Polotovar</span>
+                                        </button>
+                                        <button onClick={() => setMachiningModalOpen(true)} className="py-3 bg-white border border-gray-200 hover:border-gray-300 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-gray-600 transition-all">
+                                            <Icons.Tool size={20} /> <span className="text-[10px] uppercase">Obrábění</span>
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Panel G-Kódu */}
+                        <div className="flex-1 flex flex-col bg-slate-900 overflow-hidden">
+                            <div className="px-4 py-2 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                                <span className="text-xs font-bold text-slate-300 flex items-center gap-2"><Icons.Code size={14}/> G-Code Output</span>
+                                {gCode && (
+                                    <button onClick={copyGCode} className="text-[10px] font-bold text-slate-400 hover:text-white flex items-center gap-1 bg-slate-700 px-2 py-1 rounded transition-colors">
+                                        <Icons.Copy size={12}/> Kopírovat
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex-1 overflow-auto p-4 custom-scrollbar">
+                                {gCode ? (
+                                    <pre className="font-mono text-[11px] leading-relaxed text-emerald-400 whitespace-pre-wrap">{gCode}</pre>
+                                ) : (
+                                    <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2 opacity-50">
+                                        <Icons.Code size={32} />
+                                        <span className="text-xs font-bold text-center">G-kód se vygeneruje zde<br/>po nastavení obrábění</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Spodní simulace / Přehrávač */}
+                        <div className="p-4 border-t border-gray-200 bg-white">
+                            {isSimulating ? (
+                                <div className="space-y-3 animate-in slide-in-from-bottom-5 duration-300">
+                                    <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                        <span>Průběh</span>
+                                        <span>{Math.round(simTotalProgress)}%</span>
+                                    </div>
+                                    {/* Progress Bar Visual */}
+                                    <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                                        <div 
+                                            className="h-full bg-indigo-600 transition-all duration-100 ease-linear" 
+                                            style={{ width: `${simTotalProgress}%` }}
+                                        ></div>
+                                    </div>
+                                    
+                                    <div className="flex gap-2 mt-2">
+                                        <button onClick={stopSimulation} className="p-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-colors" title="Ukončit">
+                                            <Icons.Square size={20} fill="currentColor" />
+                                        </button>
+                                        <button onClick={togglePlay} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md flex items-center justify-center transition-transform active:scale-95">
+                                            {isPlaying ? <Icons.Pause size={24} fill="currentColor" /> : <Icons.Play size={24} fill="currentColor" />}
+                                        </button>
+                                        <button onClick={toggleSpeed} className="p-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs w-14 transition-colors">
+                                            {simSpeed}x
+                                        </button>
+                                    </div>
+                                </div>
                             ) : (
-                                <>
-                                    <ToolbarButton 
-                                        icon={Icons.Box} 
-                                        label="Polotovar" 
-                                        onClick={() => setStockModalOpen(true)} 
-                                        active={stockPoints.length > 0} 
-                                    />
-                                    <ToolbarButton 
-                                        icon={Icons.Tool} 
-                                        label="Obrábění" 
-                                        onClick={() => setMachiningModalOpen(true)} 
-                                        active={false} 
-                                    />
-                                </>
+                                <button onClick={startSimulation} disabled={!gCode} className={`w-full py-3 font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${gCode ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
+                                    <Icons.PlayCircle size={20} /> PŘEHRÁT SIMULACI
+                                </button>
                             )}
                         </div>
                     </div>
@@ -951,7 +1374,7 @@
                         onExportJson={handleExportJson}
                         onGenerateGCode={() => {
                             setGCode(generateGCode(points, settings, machiningSettings));
-                            showToast("G-Kód vygenerován");
+                            showToast("G-Kód úspěšně vygenerován");
                         }}
                         onClear={handleClear}
                         machineType={machineType}
@@ -969,7 +1392,7 @@
                         onClear={() => {
                             setStockPoints([]);
                             setStockModalOpen(false);
-                            showToast("Polotovar smazán");
+                            showToast("Geometrie polotovaru smazána");
                         }}
                         lastStockPoint={stockPoints[stockPoints.length-1]}
                         onAddSegment={handleAddStockSegment}
@@ -980,19 +1403,20 @@
                         isOpen={machiningModalOpen}
                         onClose={() => setMachiningModalOpen(false)}
                         settings={machiningSettings}
-                        feedSettings={settings} // Předáváme i nastavení posuvu
-                        onUpdateFeedSettings={handleUpdateFeedSettings} // Callback pro update posuvu
+                        feedSettings={settings}
+                        onUpdateFeedSettings={handleUpdateFeedSettings}
                         onSave={(newSettings) => {
                             setMachiningSettings(newSettings);
-                            showToast("Technologie uložena");
+                            showToast("Technologické parametry uloženy");
                         }}
                         onGenerate={() => {
                              setGCode(generateGCode(points, settings, machiningSettings));
-                             showToast("G-Kód vygenerován");
+                             showToast("G-Kód připraven");
                         }}
                         machineType={machineType}
                         showOffset={showOffset}
                         toggleShowOffset={() => setShowOffset(!showOffset)}
+                        onSimulate={startSimulation}
                     />
 
                     {toast && <Toast message={toast} onClose={() => setToast(null)} />}
