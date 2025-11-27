@@ -1004,15 +1004,24 @@
         if (!snap) return;
         const x = snap.x, z = snap.z;
         if (State.mode === "CHAIN") {
+            const last = State.points[State.points.length-1];
             if(snap.t === "ortho") {
-                const last = State.points[State.points.length-1];
                 const distVal = Math.hypot(x - last.x, z - last.z);
                 prepMove(Math.abs(x-last.x)>Math.abs(z-last.z)? (x>last.x?"R":"L") : (z>last.z?"U":"D"));
                 $("inp-len").value = distVal.toFixed(3); $("inp-x").value = formatVal(x); $("inp-z").value = z.toFixed(3);
                 return;
             }
             if(snap.t === "point") { prepMove("TANGENT"); $("inp-x").value = formatVal(x); $("inp-z").value = z.toFixed(3); return; }
-            saveHistory(); State.points.push({ x, z, break: false, type: "line", id: pointIdCounter++ }); updatePath(); return;
+            
+            // Logika volného kliknutí: Otevřít modální okno místo okamžitého kreslení
+            const distVal = Math.hypot(x - last.x, z - last.z);
+            prepMove('TANGENT'); // 'TANGENT' otevře všechna input pole
+            $("input-title").innerText = "Potvrdit bod";
+            $("inp-len").value = distVal.toFixed(3); 
+            $("inp-x").value = formatVal(x); 
+            $("inp-z").value = z.toFixed(3);
+            $("inp-len").focus();
+            return;
         }
         if (State.measureMode === "radius" && snap.t === "segment_stick") { const p = State.points[snap.index + 1]; if (p.type === "arc") { State.lastMeasured = { type: "rad", c: { x: p.cx, z: p.cz }, p: { x: p.x, z: p.z }, val: p.r.toFixed(3) }; showMeasureResult(`Rádius: ${p.r.toFixed(3)}`); return; } }
         if (State.measureMode && snap.t === "segment_stick") { handleMeasureClick(snap, true); return; }
