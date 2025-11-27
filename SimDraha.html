@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CNC SmartGrid CAM Pro</title>
+    <title>CNC SmartGrid CAM Pro - Sinumerik 840D</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -261,26 +261,40 @@
             return points;
         };
 
-        // --- 4b. GENERÁTOR G-KÓDU (S OŘEZEM A RETRACTEM A POZNÁMKAMI SE STŘEDNÍKEM) ---
+        // --- 4b. GENERÁTOR G-KÓDU (PRO SINUMERIK 840D) ---
         const generateGCode = (points, settings, machiningSettings, useOffset) => {
             const { feedRate, spindleSpeed, feedMode, offsetValue, finishAllowance } = settings;
             const { maxRPM, coolant, startX, startZ, limitZ_Back } = { ...DEFAULT_MACHINING, ...machiningSettings };
             const date = new Date().toLocaleDateString('cs-CZ');
-            const feedCmd = feedMode === 'MM_REV' ? 'G95' : 'G94';
             
-            let gcode = `%; Program: ${date}\n`;
-            gcode += `G21 ; Metric\n`;
-            gcode += `G50 S${maxRPM} ; Max RPM\n`; 
-            gcode += `${feedCmd} S${spindleSpeed} M03\n`;
-            if (coolant) gcode += `M08 ; Coolant ON\n`;
+            // 1. Hlavička pro Siemens (zjednodušená)
+            let gcode = `; Program: ${date} (Sinumerik 840D)\n`;
+            gcode += `G71 ; Metricke jednotky (nebo G21 dle nastaveni stroje)\n`;
+            gcode += `G90 ; Absolutni souradnice\n`;
             
-            // 1. Nájezd na start
+            // 2. Omezení otáček pro Sinumerik
+            gcode += `LIMS=${maxRPM} ; Max Otacky pri G96\n`; 
+            
+            // 3. Režim posuvu
+            if (feedMode === 'MM_REV') {
+                gcode += `G95 ; Posuv na otacku (mm/ot)\n`;
+            } else {
+                gcode += `G94 ; Posuv za minutu (mm/min)\n`;
+            }
+
+            // 4. Start vřetene
+            // Poznámka: Pro Sinumerik se často používá G96 (konstantní řezná rychlost) + LIMS.
+            // Zde necháváme G97 (konstantní otáčky), ale LIMS je připraveno, kdyby obsluha přepla na G96.
+            gcode += `G97 S${spindleSpeed} M03 ; Start vretene (Konstantni otacky)\n`;
+            
+            if (coolant) gcode += `M08 ; Chlazeni ZAP\n`;
+            
+            // 5. Nájezd na start
             gcode += `G00 X${startX} Z${startZ}\n`;
 
-            // 2. Příprava bodů (Offset nebo Originál)
+            // Příprava bodů...
             let pathPoints = points.filter(p => p.type !== 'axis');
             
-            // Pokud je zapnutý offset, vypočítáme ho (stejně jako v simulaci)
             if (useOffset && offsetValue !== 0) {
                 const totalOffset = offsetValue + (finishAllowance || 0);
                 const offsetPts = calculateOffsetPath(points, totalOffset);
@@ -289,35 +303,26 @@
                 }
             }
 
-            // 3. Generování cyklu s kontrolou limitu
+            // 6. Generování cyklu
             let currentX = startX;
             let currentZ = startZ;
 
             for (let i = 0; i < pathPoints.length; i++) {
                 const p = pathPoints[i];
                 
-                // -- KONTROLA LIMITU (SKLÍČIDLA) --
+                // -- KONTROLA LIMITU --
                 if (limitZ_Back !== undefined && p.z < limitZ_Back) {
-                    // Pokud bod leží za limitem (vlevo), musíme dráhu oříznout
                     const prev = i > 0 ? pathPoints[i-1] : { x: startX, z: startZ };
-                    
-                    // Pokud už předchozí bod byl za limitem, končíme úplně
                     if (prev.z < limitZ_Back) break;
-
-                    // Vypočítáme průsečík s limitní čárou
-                    // Lineární interpolace: X na úrovni limitZ_Back
                     const t = (limitZ_Back - prev.z) / (p.z - prev.z);
                     const intersectX = prev.x + t * (p.x - prev.x);
 
-                    // Dojedeme jen k limitu
                     gcode += `G01 X${intersectX.toFixed(3)} Z${limitZ_Back.toFixed(3)} F${feedRate} ; Limit Z\n`;
-                    
-                    // Nastavíme aktuální polohu na limit a ukončíme cyklus generování
                     currentX = intersectX;
                     currentZ = limitZ_Back;
                     break; 
                 }
-                // ----------------------------------
+                // ---------------------
 
                 const X = p.x.toFixed(3);
                 const Z = p.z.toFixed(3);
@@ -328,24 +333,24 @@
                     if (p.type === 'line') {
                         gcode += `G01 X${X} Z${Z} F${feedRate}\n`;
                     } else if (p.type === 'arc') {
-                         const R = p.r !== undefined ? `R${p.r.toFixed(3)}` : '';
+                         // ÚPRAVA PRO SINUMERIK: Místo R používáme CR=
+                         const R = p.r !== undefined ? `CR=${p.r.toFixed(3)}` : '';
                          const cmd = p.cw ? 'G02' : 'G03';
+                         // Sinumerik někdy vyžaduje i střed (I, K), ale moderní verze zvládají CR=
+                         // Pokud by to zlobilo, musí se zapnout G291 (ISO mode), ale CR= je bezpečnější pro Siemens mód.
                          gcode += `${cmd} X${X} Z${Z} ${R} F${feedRate}\n`;
                     }
                 }
-                
                 currentX = p.x;
                 currentZ = p.z;
             }
 
-            // 4. Bezpečný odjezd (RETRACT)
-            // Nejdřív odjedeme v ose X na úroveň startu (nebo o kousek dál), abychom neškrtli o materiál
-            gcode += `G00 X${startX} ; Retract\n`;
+            // 7. Bezpečný odjezd
+            gcode += `G00 X${startX} ; Odjezd\n`;
             
-            // 5. Návrat na start Z
-            if (coolant) gcode += `M09 ; Coolant OFF\n`;
+            if (coolant) gcode += `M09 ; Chlazeni VYP\n`;
             gcode += `G00 Z${startZ}\n`; 
-            gcode += `M30\n%`;
+            gcode += `M30\n`; // Konec programu (bez %)
             return gcode;
         };
 
@@ -358,7 +363,7 @@
             </button>
         );
 
-        const MachiningModal = ({ isOpen, onClose, settings, feedSettings, onUpdateFeedSettings, onSave, onGenerate, machineType, showOffset, toggleShowOffset, onSimulate }) => {
+        const MachiningModal = ({ isOpen, onClose, settings, feedSettings, onUpdateFeedSettings, onSave, onGenerate, machineType, showOffset, toggleShowOffset, onSimulate, selectedPoint }) => {
             const [localSettings, setLocalSettings] = useState(settings);
             const [activeTab, setActiveTab] = useState(0);
             
@@ -376,6 +381,13 @@
                 onSave(localSettings);
                 onClose();
                 onSimulate();
+            };
+
+            // Nová pomocná funkce pro nastavení Z z bodu
+            const setLimitFromPoint = (field) => {
+                if (selectedPoint) {
+                    handleChange(field, selectedPoint.z);
+                }
             };
 
             if (!isOpen) return null;
@@ -416,11 +428,21 @@
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="text-[10px] font-bold text-gray-900 uppercase mb-1">Limit Z- (Sklíčidlo)</label>
-                                            <input type="number" value={localSettings.limitZ_Back} onChange={(e) => handleChange('limitZ_Back', parseFloat(e.target.value))} className="w-full bg-white text-gray-900 border border-teal-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-teal-400 outline-none" />
+                                            <div className="flex gap-2">
+                                                <input type="number" value={localSettings.limitZ_Back} onChange={(e) => handleChange('limitZ_Back', parseFloat(e.target.value))} className="w-full bg-white text-gray-900 border border-teal-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-teal-400 outline-none" />
+                                                <button onClick={() => setLimitFromPoint('limitZ_Back')} disabled={!selectedPoint} className="p-2 rounded-lg border border-teal-200 bg-teal-100 hover:bg-teal-200 text-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" title="Použít Z z vybraného bodu">
+                                                    <Icons.Target size={20} />
+                                                </button>
+                                            </div>
                                         </div>
                                         <div>
                                             <label className="text-[10px] font-bold text-gray-900 uppercase mb-1">Limit Z+ (Čelo)</label>
-                                            <input type="number" value={localSettings.limitZ_Front} onChange={(e) => handleChange('limitZ_Front', parseFloat(e.target.value))} className="w-full bg-white text-gray-900 border border-teal-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-teal-400 outline-none" />
+                                            <div className="flex gap-2">
+                                                <input type="number" value={localSettings.limitZ_Front} onChange={(e) => handleChange('limitZ_Front', parseFloat(e.target.value))} className="w-full bg-white text-gray-900 border border-teal-200 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-teal-400 outline-none" />
+                                                <button onClick={() => setLimitFromPoint('limitZ_Front')} disabled={!selectedPoint} className="p-2 rounded-lg border border-teal-200 bg-teal-100 hover:bg-teal-200 text-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" title="Použít Z z vybraného bodu">
+                                                    <Icons.Target size={20} />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -464,7 +486,7 @@
                                             <input type="number" value={feedSettings.spindleSpeed} onChange={(e) => onUpdateFeedSettings('spindleSpeed', e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-right text-sm font-mono font-bold text-gray-900" />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-bold text-gray-900 uppercase mb-1 block">Max (G50)</label>
+                                            <label className="text-[10px] font-bold text-gray-900 uppercase mb-1 block">Max (LIMS)</label>
                                             <input type="number" value={localSettings.maxRPM} onChange={(e) => handleChange('maxRPM', parseFloat(e.target.value))} className="w-full bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-2.5 text-right text-sm font-mono font-bold" />
                                         </div>
                                     </div>
@@ -622,7 +644,7 @@
             );
         };
 
-        const Canvas = React.memo(({ points, stockPoints, isDrawingStock, machineType, viewBox, setViewBox, onCanvasClick, showOffset, offsetValue, finishAllowance, diameterMode, onCenter, isSimulating, simState, setMouseCoords, limitZ_Front, limitZ_Back }) => {
+        const Canvas = React.memo(({ points, stockPoints, isDrawingStock, machineType, viewBox, setViewBox, onCanvasClick, showOffset, offsetValue, finishAllowance, diameterMode, onCenter, isSimulating, simState, setMouseCoords, limitZ_Front, limitZ_Back, selectedPointId, onPointSelect }) => {
             const containerRef = useRef(null);
             const [dragStart, setDragStart] = useState(null);
             
@@ -653,6 +675,9 @@
 
             const handleStart = (e) => {
                 if(e.target.closest('button')) return;
+                // Zabráníme posunu plátna, pokud klikáme přímo na bod (circle)
+                if(e.target.tagName === 'circle' && !isDrawingStock) return;
+
                 const { x, y } = getClientCoords(e);
                 if(e.touches && e.touches.length === 2) {
                     const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -775,12 +800,10 @@
                 
                 let offsetPathData = null, roughingPathData = null;
                 if (showOffset && offsetValue !== 0) {
-                    // 1. Změna pořadí pro "Vypisovaly naopak" - nejdřív ten větší offset (roughing)
                     if (finishAllowance > 0) {
                         const roughOffsetPts = calculateOffsetPath(points, offsetValue + finishAllowance);
                         if (roughOffsetPts.length > 0) roughingPathData = roughOffsetPts.map((p, i) => { const x = mapX(p.x, p.z); const y = mapY(p.x, p.z); return (i === 0 || p.break ? `M ${x} ${y}` : `L ${x} ${y}`); }).join(" ");
                     }
-                    // 2. Potom ten menší offset (jen radius)
                     const offsetPts = calculateOffsetPath(points, offsetValue);
                     if (offsetPts.length > 0) offsetPathData = offsetPts.map((p, i) => { const x = mapX(p.x, p.z); const y = mapY(p.x, p.z); return (i === 0 || p.break ? `M ${x} ${y}` : `L ${x} ${y}`); }).join(" ");
                 }
@@ -826,33 +849,53 @@
                         {paths.roughingPathData && <path d={paths.roughingPathData} stroke="#f59e0b" strokeWidth={2} strokeDasharray="6,3" fill="none" vectorEffect="non-scaling-stroke" className="opacity-60" />}
                         {paths.offsetPathData && <path d={paths.offsetPathData} stroke="#3b82f6" strokeWidth={2} strokeDasharray="4,2" fill="none" vectorEffect="non-scaling-stroke" className="opacity-60" />}
                         
-                        {/* Pokud se simuluje, hlavní geometrii trochu zprůhledníme */}
-                        {/* Změna barvy hlavní geometrie (Kusu) na tmavě šedou/černou (#334155) */}
                         <path d={paths.mainPath} stroke="#334155" strokeWidth={3} fill="none" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" className={isSimulating ? "opacity-30" : ""} />
                         
-                        {/* Body geometrie - taky tmavé */}
-                        {points.map((p, i) => { const mx = mapX(p.x, p.z); const my = mapY(p.x, p.z); const color = i === 0 ? "#334155" : (p.type === 'axis' ? "#94a3b8" : "#f97316"); return <circle key={i} cx={mx} cy={my} r={4 * (viewBox.w/600)} fill="white" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" className={isSimulating ? "opacity-30" : ""} />; })}
+                        {/* Body geometrie - NYNÍ KLIKATELNÉ */}
+                        {points.map((p, i) => { 
+                            const mx = mapX(p.x, p.z); 
+                            const my = mapY(p.x, p.z); 
+                            const isSelected = selectedPointId === (p.id || i);
+                            const color = isSelected ? "#ef4444" : (i === 0 ? "#334155" : (p.type === 'axis' ? "#94a3b8" : "#f97316")); 
+                            const radius = isSelected ? 6 * (viewBox.w/600) : 4 * (viewBox.w/600);
+                            
+                            return (
+                                <circle 
+                                    key={i} 
+                                    cx={mx} 
+                                    cy={my} 
+                                    r={radius} 
+                                    fill={isSelected ? "#ef4444" : "white"} 
+                                    stroke={isSelected ? "white" : color} 
+                                    strokeWidth={isSelected ? 2 : 1.5} 
+                                    vectorEffect="non-scaling-stroke" 
+                                    className={`transition-all duration-200 ${isSimulating ? "opacity-30" : "cursor-pointer hover:r-6 hover:stroke-width-2"}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if(!isDrawingStock && !isSimulating) {
+                                            onPointSelect(p.id || i);
+                                        }
+                                    }}
+                                />
+                            ); 
+                        })}
                         
-                        {/* Body polotovaru */}
                         {isDrawingStock && stockPoints.map((p, i) => (<circle key={`s-${i}`} cx={mapX(p.x, p.z)} cy={mapY(p.x, p.z)} r={4 * (viewBox.w/600)} fill="#9333ea" stroke="white" strokeWidth={1} />))}
 
-                        {/* NOVÁ SIMULACE - KRESLENÍ DRAH (Zůstává Zlatá/Červená) */}
                         {isSimulating && simState && (
                             <g>
-                                {/* Vykreslení již dokončených segmentů */}
                                 {simState.completed.map((seg, i) => (
                                     <line 
                                         key={i} 
                                         x1={mapX(seg.x1, seg.z1)} y1={mapY(seg.x1, seg.z1)} 
                                         x2={mapX(seg.x2, seg.z2)} y2={mapY(seg.x2, seg.z2)} 
-                                        stroke={seg.type === 'G00' ? '#dc2626' : '#ca8a04'} // Červená pro G00, Zlatá pro G01
+                                        stroke={seg.type === 'G00' ? '#dc2626' : '#ca8a04'}
                                         strokeWidth={seg.type === 'G00' ? 1 : 2.5} 
                                         strokeDasharray={seg.type === 'G00' ? "4,4" : "none"}
                                         vectorEffect="non-scaling-stroke" 
                                         strokeLinecap="round"
                                     />
                                 ))}
-                                {/* Vykreslení aktuálně kresleného segmentu */}
                                 {simState.current && (
                                     <line 
                                         x1={mapX(simState.current.x1, simState.current.z1)} y1={mapY(simState.current.x1, simState.current.z1)} 
@@ -864,7 +907,6 @@
                                         strokeLinecap="round"
                                     />
                                 )}
-                                {/* Hrot nástroje */}
                                 {simState.current && (
                                     <circle 
                                         cx={mapX(simState.current.cx, simState.current.cz)} 
@@ -906,6 +948,9 @@
             const [stockModalOpen, setStockModalOpen] = useState(false);
             const [machiningModalOpen, setMachiningModalOpen] = useState(false);
             
+            // --- SELECTION STATE ---
+            const [selectedPointId, setSelectedPointId] = useState(null);
+            
             // --- SIMULATION STATES ---
             const [isSimulating, setIsSimulating] = useState(false);
             const [simState, setSimState] = useState({ completed: [], current: null });
@@ -924,6 +969,7 @@
                 setPoints(DEMO_POINTS);
                 setStockPoints([]);
                 setViewBox(INITIAL_VB);
+                setSelectedPointId(null);
                 showToast("Demo obrobek načten");
             };
 
@@ -936,6 +982,7 @@
                     if(data.machineType) setMachineType(data.machineType);
                     if(data.settings) setSettings({...settings, ...data.settings});
                     setViewBox(INITIAL_VB);
+                    setSelectedPointId(null);
                     showToast("Data úspěšně načtena!");
                 } catch(e) {
                     showToast("Chyba při načítání dat.");
@@ -951,6 +998,7 @@
                     if (pts.length) {
                         setPoints(pts);
                         setViewBox(INITIAL_VB);
+                        setSelectedPointId(null);
                         showToast("DXF soubor importován");
                     } else {
                         showToast("Nepodařilo se načíst entity z DXF");
@@ -969,6 +1017,7 @@
                         if (data.points) setPoints(data.points);
                         if (data.settings) setSettings(data.settings);
                         if (data.machineType) setMachineType(data.machineType);
+                        setSelectedPointId(null);
                         showToast("Projekt načten");
                     } catch (err) {
                         showToast("Chyba při načítání projektu.");
@@ -993,6 +1042,7 @@
                         setPoints([]);
                         setStockPoints([]);
                         setGCode("");
+                        setSelectedPointId(null);
                         setConfirmState(null);
                         showToast("Pracovní plocha vyčištěna");
                     },
@@ -1001,6 +1051,16 @@
             };
 
             const handleCenter = useCallback(() => setViewBox(INITIAL_VB), []);
+
+            const handlePointSelect = (id) => {
+                setSelectedPointId(prevId => prevId === id ? null : id);
+            };
+
+            // Získání vybraného bodu pro zobrazení
+            const selectedPointData = useMemo(() => {
+                if(selectedPointId === null) return null;
+                return points.find((p, i) => (p.id || i) === selectedPointId);
+            }, [points, selectedPointId]);
 
             const updateMachiningStart = (currentStockPoints) => {
                 if (currentStockPoints && currentStockPoints.length > 0) {
@@ -1017,8 +1077,8 @@
                         ...prev,
                         startX: maxX + 5,
                         startZ: maxZ + 5,
-                        limitZ_Back: 0, // Dle požadavku: 0
-                        limitZ_Front: maxZ + 20 // Dle požadavku: maxZ + 20
+                        limitZ_Back: 0, 
+                        limitZ_Front: maxZ + 20
                     }));
                 }
             };
@@ -1209,6 +1269,7 @@
                 setIsPlaying(true);
                 setSimState({ completed: [], current: null });
                 setSimTotalProgress(0);
+                setSelectedPointId(null); // Unselect points
             };
 
             const togglePlay = () => setIsPlaying(!isPlaying);
@@ -1312,8 +1373,32 @@
                                 setMouseCoords={setMouseCoords}
                                 limitZ_Front={machiningSettings.limitZ_Front}
                                 limitZ_Back={machiningSettings.limitZ_Back}
+                                selectedPointId={selectedPointId}
+                                onPointSelect={handlePointSelect}
                             />
                             
+                            {/* INFO PANEL O VYBRANÉM BODU */}
+                            {selectedPointData && (
+                                <div className="absolute top-4 left-4 bg-white/95 backdrop-blur shadow-lg border border-red-200 rounded-xl p-3 z-40 animate-in fade-in zoom-in duration-200 max-w-[200px]">
+                                    <div className="flex justify-between items-center mb-2 pb-2 border-b border-red-100">
+                                        <h4 className="text-xs font-bold text-red-600 uppercase flex items-center gap-1.5">
+                                            <Icons.Target size={14} /> Vybraný bod
+                                        </h4>
+                                        <button onClick={() => setSelectedPointId(null)} className="text-gray-400 hover:text-red-500"><Icons.Close size={14}/></button>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-gray-500 font-bold">X (průměr):</span>
+                                            <span className="font-mono font-bold text-gray-900">{selectedPointData.x.toFixed(3)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-gray-500 font-bold">Z (délka):</span>
+                                            <span className="font-mono font-bold text-gray-900">{selectedPointData.z.toFixed(3)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Souřadnice myši */}
                             <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm text-[10px] font-mono font-bold text-gray-700 tabular-nums z-10 pointer-events-none">
                                 X: {mouseCoords.x.toFixed(2)} | Z: {mouseCoords.z.toFixed(2)}
@@ -1473,6 +1558,7 @@
                         showOffset={showOffset}
                         toggleShowOffset={() => setShowOffset(!showOffset)}
                         onSimulate={startSimulation}
+                        selectedPoint={selectedPointData}
                     />
 
                     {toast && <Toast message={toast} onClose={() => setToast(null)} />}
