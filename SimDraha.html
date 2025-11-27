@@ -261,27 +261,68 @@
             return points;
         };
 
-        const generateGCode = (points, settings, machiningSettings) => {
-            const { feedRate, spindleSpeed, feedMode } = settings;
-            const { safetyDist, maxRPM, coolant, startX, startZ } = { ...DEFAULT_MACHINING, ...machiningSettings };
+        // --- 4b. GENERÁTOR G-KÓDU (S OŘEZEM A RETRACTEM A POZNÁMKAMI SE STŘEDNÍKEM) ---
+        const generateGCode = (points, settings, machiningSettings, useOffset) => {
+            const { feedRate, spindleSpeed, feedMode, offsetValue, finishAllowance } = settings;
+            const { maxRPM, coolant, startX, startZ, limitZ_Back } = { ...DEFAULT_MACHINING, ...machiningSettings };
             const date = new Date().toLocaleDateString('cs-CZ');
             const feedCmd = feedMode === 'MM_REV' ? 'G95' : 'G94';
             
             let gcode = `%; Program: ${date}\n`;
-            gcode += `G21 (Metric)\n`;
-            gcode += `G50 S${maxRPM} (Max RPM)\n`; 
+            gcode += `G21 ; Metric\n`;
+            gcode += `G50 S${maxRPM} ; Max RPM\n`; 
             gcode += `${feedCmd} S${spindleSpeed} M03\n`;
-            if (coolant) gcode += `M08 (Coolant ON)\n`;
+            if (coolant) gcode += `M08 ; Coolant ON\n`;
             
+            // 1. Nájezd na start
             gcode += `G00 X${startX} Z${startZ}\n`;
 
-            points.forEach((p, index) => {
-                if (p.type === 'axis') return;
+            // 2. Příprava bodů (Offset nebo Originál)
+            let pathPoints = points.filter(p => p.type !== 'axis');
+            
+            // Pokud je zapnutý offset, vypočítáme ho (stejně jako v simulaci)
+            if (useOffset && offsetValue !== 0) {
+                const totalOffset = offsetValue + (finishAllowance || 0);
+                const offsetPts = calculateOffsetPath(points, totalOffset);
+                if (offsetPts && offsetPts.length > 0) {
+                    pathPoints = offsetPts;
+                }
+            }
+
+            // 3. Generování cyklu s kontrolou limitu
+            let currentX = startX;
+            let currentZ = startZ;
+
+            for (let i = 0; i < pathPoints.length; i++) {
+                const p = pathPoints[i];
                 
+                // -- KONTROLA LIMITU (SKLÍČIDLA) --
+                if (limitZ_Back !== undefined && p.z < limitZ_Back) {
+                    // Pokud bod leží za limitem (vlevo), musíme dráhu oříznout
+                    const prev = i > 0 ? pathPoints[i-1] : { x: startX, z: startZ };
+                    
+                    // Pokud už předchozí bod byl za limitem, končíme úplně
+                    if (prev.z < limitZ_Back) break;
+
+                    // Vypočítáme průsečík s limitní čárou
+                    // Lineární interpolace: X na úrovni limitZ_Back
+                    const t = (limitZ_Back - prev.z) / (p.z - prev.z);
+                    const intersectX = prev.x + t * (p.x - prev.x);
+
+                    // Dojedeme jen k limitu
+                    gcode += `G01 X${intersectX.toFixed(3)} Z${limitZ_Back.toFixed(3)} F${feedRate} ; Limit Z\n`;
+                    
+                    // Nastavíme aktuální polohu na limit a ukončíme cyklus generování
+                    currentX = intersectX;
+                    currentZ = limitZ_Back;
+                    break; 
+                }
+                // ----------------------------------
+
                 const X = p.x.toFixed(3);
                 const Z = p.z.toFixed(3);
 
-                if (p.break || index === 0) {
+                if (p.break || i === 0) {
                     gcode += `G00 X${X} Z${Z}\n`;
                 } else {
                     if (p.type === 'line') {
@@ -292,10 +333,18 @@
                          gcode += `${cmd} X${X} Z${Z} ${R} F${feedRate}\n`;
                     }
                 }
-            });
+                
+                currentX = p.x;
+                currentZ = p.z;
+            }
 
-            if (coolant) gcode += `M09 (Coolant OFF)\n`;
-            gcode += `G00 X${startX} Z${startZ}\n`; 
+            // 4. Bezpečný odjezd (RETRACT)
+            // Nejdřív odjedeme v ose X na úroveň startu (nebo o kousek dál), abychom neškrtli o materiál
+            gcode += `G00 X${startX} ; Retract\n`;
+            
+            // 5. Návrat na start Z
+            if (coolant) gcode += `M09 ; Coolant OFF\n`;
+            gcode += `G00 Z${startZ}\n`; 
             gcode += `M30\n%`;
             return gcode;
         };
@@ -378,7 +427,7 @@
 
                                 <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
                                     <div className="flex justify-between items-center mb-3">
-                                        <label className="text-xs font-bold text-orange-700 uppercase flex items-center gap-2"><Icons.Layers size={14}/> Offset</label>
+                                        <label className="text-xs font-bold text-orange-700 uppercase flex items-center gap-2"><Icons.Layers size={14}/> Offset (Hrubování)</label>
                                         <button onClick={toggleShowOffset} className={`flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md border shadow-sm transition-all ${showOffset ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'}`}>
                                             {showOffset ? <Icons.CheckCircle size={12} /> : <Icons.EyeOff size={12} />}
                                             {showOffset ? 'ZAPNUTO (Zobrazit)' : 'VYPNUTO'}
@@ -726,12 +775,14 @@
                 
                 let offsetPathData = null, roughingPathData = null;
                 if (showOffset && offsetValue !== 0) {
-                    const offsetPts = calculateOffsetPath(points, offsetValue);
-                    if (offsetPts.length > 0) offsetPathData = offsetPts.map((p, i) => { const x = mapX(p.x, p.z); const y = mapY(p.x, p.z); return (i === 0 || p.break ? `M ${x} ${y}` : `L ${x} ${y}`); }).join(" ");
+                    // 1. Změna pořadí pro "Vypisovaly naopak" - nejdřív ten větší offset (roughing)
                     if (finishAllowance > 0) {
                         const roughOffsetPts = calculateOffsetPath(points, offsetValue + finishAllowance);
                         if (roughOffsetPts.length > 0) roughingPathData = roughOffsetPts.map((p, i) => { const x = mapX(p.x, p.z); const y = mapY(p.x, p.z); return (i === 0 || p.break ? `M ${x} ${y}` : `L ${x} ${y}`); }).join(" ");
                     }
+                    // 2. Potom ten menší offset (jen radius)
+                    const offsetPts = calculateOffsetPath(points, offsetValue);
+                    if (offsetPts.length > 0) offsetPathData = offsetPts.map((p, i) => { const x = mapX(p.x, p.z); const y = mapY(p.x, p.z); return (i === 0 || p.break ? `M ${x} ${y}` : `L ${x} ${y}`); }).join(" ");
                 }
 
                 let stockPathData = null;
@@ -1071,41 +1122,33 @@
                 }));
             };
 
-            // --- SIMULATION LOGIC (OPRAVENÁ) ---
+            // --- SIMULATION LOGIC (OPRAVENÁ PRO SOUČET OFFSETŮ + LIMIT) ---
             const generateSimulationSegments = () => {
                 const segs = [];
-                // Výchozí bod stroje (Home)
                 const home = { x: machiningSettings.startX, z: machiningSettings.startZ };
-                
-                // Limity Zony
                 const limitBack = machiningSettings.limitZ_Back; 
                 const limitFront = machiningSettings.limitZ_Front; 
 
                 let current = { ...home };
 
-                // --- ZMĚNA ZDE: VÝBĚR DRÁHY ---
-                // Pokud je zapnutý offset a má nějakou hodnotu, vypočítáme dráhu offsetu.
-                // Jinak bereme původní body obrobku.
                 let pathPoints = points.filter(p => p.type !== 'axis');
 
                 if (showOffset && settings.offsetValue !== 0) {
-                    // Vypočítáme body offsetu pomocí stejné funkce, která to kreslí na plátno
-                    const offsetPts = calculateOffsetPath(points, settings.offsetValue);
-                    // Pokud se výpočet povedl a máme body, použijeme je pro simulaci
-                    if (offsetPts && offsetPts.length > 0) {
-                        pathPoints = offsetPts;
+                    const totalOffset = settings.offsetValue + settings.finishAllowance;
+                    if (totalOffset !== 0) {
+                        const offsetPts = calculateOffsetPath(points, totalOffset);
+                        if (offsetPts && offsetPts.length > 0) {
+                            pathPoints = offsetPts;
+                        }
                     }
                 }
-                // -----------------------------
 
                 if(pathPoints.length === 0) return [];
                 
-                // 1. Move Home -> First Point (Rapid / G00)
                 const first = pathPoints[0];
                 segs.push({ x1: current.x, z1: current.z, x2: first.x, z2: first.z, type: 'G00' });
                 current = { x: first.x, z: first.z };
 
-                // Funkce pro ořezání segmentu podle limitů Z (zůstává stejná)
                 const clipSegment = (p1, p2) => {
                     if (p1.z < limitBack && p2.z < limitBack) return null;
                     
@@ -1127,13 +1170,9 @@
                     return { x1: finalP1.x, z1: finalP1.z, x2: finalP2.x, z2: finalP2.z };
                 };
 
-                // 2. Iterate points (Generování drah)
                 for(let i=1; i<pathPoints.length; i++) {
                     const next = pathPoints[i];
                     const prev = pathPoints[i-1];
-                    
-                    // Pokud má bod příznak "break" (nebo je to offset), je to přejezd, jinak řezání
-                    // U offsetu calculateOffsetPath nastavuje 'break: true' tam, kde se skáče
                     const type = prev.break ? 'G00' : 'G01';
                     
                     const p1 = { x: current.x, z: current.z };
@@ -1146,14 +1185,14 @@
                         current = { x: clipped.x2, z: clipped.z2 };
                     } 
                     
-                    // Aktualizace pozice i když byl segment oříznut (pro návaznost)
                     if (next.z >= limitBack) {
                          current = { x: next.x, z: next.z };
                     }
                 }
 
-                // 3. Move Last -> Home (Rapid / G00)
-                segs.push({ x1: current.x, z1: current.z, x2: home.x, z2: home.z, type: 'G00' });
+                // Retract for Simulation
+                segs.push({ x1: current.x, z1: current.z, x2: home.x, z2: current.z, type: 'G00' }); // Up
+                segs.push({ x1: home.x, z1: current.z, x2: home.x, z2: home.z, type: 'G00' }); // Back
                 
                 return segs;
             };
@@ -1315,9 +1354,9 @@
                             </div>
                         </div>
 
-                        {/* Panel G-Kódu */}
+                        {/* Panel G-Kódu - NYNÍ EDITOVATELNÝ */}
                         <div className="flex-1 flex flex-col bg-slate-900 overflow-hidden">
-                            <div className="px-4 py-2 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                            <div className="px-4 py-2 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0">
                                 <span className="text-xs font-bold text-slate-300 flex items-center gap-2"><Icons.Code size={14}/> G-Code Output</span>
                                 {gCode && (
                                     <button onClick={copyGCode} className="text-[10px] font-bold text-slate-400 hover:text-white flex items-center gap-1 bg-slate-700 px-2 py-1 rounded transition-colors">
@@ -1325,11 +1364,17 @@
                                     </button>
                                 )}
                             </div>
-                            <div className="flex-1 overflow-auto p-4 custom-scrollbar">
+                            <div className="flex-1 relative">
                                 {gCode ? (
-                                    <pre className="font-mono text-[11px] leading-relaxed text-emerald-400 whitespace-pre-wrap">{gCode}</pre>
+                                    <textarea 
+                                        className="w-full h-full bg-slate-900 text-emerald-400 font-mono text-[11px] leading-relaxed p-4 outline-none resize-none custom-scrollbar"
+                                        value={gCode}
+                                        onChange={(e) => setGCode(e.target.value)}
+                                        spellCheck="false"
+                                        autoComplete="off"
+                                    />
                                 ) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2 opacity-50">
+                                    <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2 opacity-50 pointer-events-none">
                                         <Icons.Code size={32} />
                                         <span className="text-xs font-bold text-center">G-kód se vygeneruje zde<br/>po nastavení obrábění</span>
                                     </div>
@@ -1384,7 +1429,7 @@
                         onImportJson={handleImportJson}
                         onExportJson={handleExportJson}
                         onGenerateGCode={() => {
-                            setGCode(generateGCode(points, settings, machiningSettings));
+                            setGCode(generateGCode(points, settings, machiningSettings, showOffset));
                             showToast("G-Kód úspěšně vygenerován");
                         }}
                         onClear={handleClear}
@@ -1421,7 +1466,7 @@
                             showToast("Technologické parametry uloženy");
                         }}
                         onGenerate={() => {
-                             setGCode(generateGCode(points, settings, machiningSettings));
+                             setGCode(generateGCode(points, settings, machiningSettings, showOffset));
                              showToast("G-Kód připraven");
                         }}
                         machineType={machineType}
