@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CNC SmartGrid CAM Pro - Fixed & Clean</title>
+    <title>CNC SmartGrid CAM Pro - Ultimate (Skip Button)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -97,6 +97,7 @@
             Code: (p) => <Icon {...p} path={<><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></>} />,
             Copy: (p) => <Icon {...p} path={<><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>} />,
             Route: (p) => <Icon {...p} path={<><circle cx="6" cy="19" r="3" /><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /><circle cx="18" cy="5" r="3" /></>} />,
+            
             ArrowUp: (p) => <Icon {...p} path={<><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></>} />,
             ArrowDown: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19" /><polyline points="19 12 12 19 5 12" /></>} />,
             ArrowLeft: (p) => <Icon {...p} path={<><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></>} />,
@@ -148,7 +149,7 @@
             } return points;
         };
 
-        // --- GENERÁTOR G-KÓDU ---
+        // --- 4b. VYLEPŠENÝ VÝPOČET PRŮSEČÍKŮ (S KONTROLOU KOLIZÍ A KRUŽNIC) ---
         const getIntersectionZ = (pathPoints, targetX) => {
             let maxZ = -Infinity;
             let found = false;
@@ -166,7 +167,6 @@
                     if (targetX >= minX && targetX <= maxX) {
                         let z;
                         if (Math.abs(p2.x - p1.x) < 0.001) {
-                            // Svislá čára - bereme ten bod, který je "více vpravo" (nebo vlevo, dle směru)
                             z = Math.max(p1.z, p2.z); 
                         } else {
                             const t = (targetX - p1.x) / (p2.x - p1.x);
@@ -330,7 +330,7 @@
             return gcode;
         };
 
-        // --- KOMPONENTY (ToolbarButton) ---
+        // --- KOMPONENTY (S OPRAVOU VISUALIZACE) ---
         const ToolbarButton = ({ icon: IconComp, label, onClick, active, color = "text-gray-700", highlight = false, compact = false }) => (
             <button onClick={onClick} className={`flex flex-col items-center justify-center ${compact ? 'p-2 m-0.5' : 'p-3 m-1'} rounded-xl shadow-sm border transition-all active:scale-95 duration-200 ${active ? 'bg-sky-50 border-sky-500 ring-1 ring-sky-200' : 'bg-white border-gray-200 hover:border-sky-300 hover:shadow-md'} ${highlight ? 'bg-gradient-to-b from-sky-600 to-sky-700 border-none shadow-lg shadow-sky-200' : ''}`}>
                 <IconComp size={compact ? 20 : 24} className={`mb-1 ${highlight ? 'text-white' : (active ? 'text-sky-600' : color)}`} />
@@ -338,16 +338,12 @@
             </button>
         );
 
-        // --- KOMPONENTA MachiningModal ---
         const MachiningModal = ({ isOpen, onClose, settings, feedSettings, onUpdateFeedSettings, onSave, onGenerate, machineType, showOffset, toggleShowOffset, onSimulate, selectedPoint, onPickRequest, pathRange, setPathRange, onResetPathRange }) => {
             const [localSettings, setLocalSettings] = useState(settings);
             const [activeTab, setActiveTab] = useState(0);
             const [activeZoneTab, setActiveZoneTab] = useState('Z'); 
-            
             useEffect(() => { if(isOpen) setLocalSettings(settings); }, [isOpen, settings]);
-            
             const handleChange = (key, val) => setLocalSettings(prev => ({ ...prev, [key]: val }));
-            
             const handleGenerate = () => { onSave(localSettings); onGenerate(); onClose(); };
             const handleSimulate = () => { onSave(localSettings); onClose(); onSimulate(); };
             const handlePick = (field) => { onPickRequest(field); };
@@ -391,6 +387,7 @@
                         )}
                         {activeTab === 2 && (
                             <div className="space-y-5 animate-in slide-in-from-right-4 duration-200">
+                                {/* STRATEGIE OBRÁBĚNÍ */}
                                 <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
                                     <label className="text-xs font-bold text-purple-900 uppercase mb-3 block">Strategie Obrábění</label>
                                     <div className="grid grid-cols-2 gap-2">
@@ -400,6 +397,7 @@
                                         <button onClick={() => handleChange('direction', 'FINISHING')} className={`py-2 px-1 text-[10px] font-bold uppercase rounded-lg border transition-all ${localSettings.direction === 'FINISHING' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300'}`}>Hotovení</button>
                                     </div>
                                 </div>
+
                                 <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-200">
                                     <label className="text-xs font-bold text-indigo-900 uppercase mb-3 block flex items-center gap-2"><Icons.Target size={14}/> Bod Příjezdu (Start)</label>
                                     <div className="grid grid-cols-2 gap-4">
@@ -442,18 +440,7 @@
         };
 
         const StockModal = ({ isOpen, onClose, onGenerate, onDrawMode, onClear, lastStockPoint, onAddSegment, machineType }) => {
-            const [marginX, setMarginX] = useState(2);
-            const [marginZ, setMarginZ] = useState(2);
-            const [marginZBack, setMarginZBack] = useState(10);
-            const [mode, setMode] = useState('AUTO');
-            const [activeDirection, setActiveDirection] = useState(null);
-            const [inputValue1, setInputValue1] = useState('');
-            const [inputValue2, setInputValue2] = useState('');
-            const [inputType, setInputType] = useState('LENGTH');
-            const isKarusel = machineType === 'KARUSEL';
-            const labelVertical = isKarusel ? 'Z' : 'X';
-            const labelHorizontal = isKarusel ? 'X' : 'Z';
-
+            const [marginX, setMarginX] = useState(2); const [marginZ, setMarginZ] = useState(2); const [marginZBack, setMarginZBack] = useState(10); const [mode, setMode] = useState('AUTO'); const [activeDirection, setActiveDirection] = useState(null); const [inputValue1, setInputValue1] = useState(''); const [inputValue2, setInputValue2] = useState(''); const [inputType, setInputType] = useState('LENGTH'); const isKarusel = machineType === 'KARUSEL'; const labelVertical = isKarusel ? 'Z' : 'X'; const labelHorizontal = isKarusel ? 'X' : 'Z'; 
             const handleDirectionClick = (dir) => { setActiveDirection(dir); setInputValue1(''); setInputValue2(''); setInputType('LENGTH'); };
             const confirmSegment = () => { if (!activeDirection) return; const v1 = parseFloat(inputValue1); const v2 = parseFloat(inputValue2); if (isNaN(v1)) return; if (!lastStockPoint) { onAddSegment(activeDirection, 'COORD', { x: v1, z: v2 }); } else { onAddSegment(activeDirection, inputType, { val1: v1, val2: v2 }); } setActiveDirection(null); };
 
@@ -516,6 +503,279 @@
                         </div>
                     </div>
                 </>
+            );
+        };
+
+        const Canvas = React.memo(({ points, stockPoints, isDrawingStock, machineType, viewBox, setViewBox, onCanvasClick, showOffset, offsetValue, finishAllowance, diameterMode, onCenter, isSimulating, simState, setMouseCoords, limitZ_Front, limitZ_Back, selectedPointId, onPointSelect, pickingField, useLimitX, limitX_Min, limitX_Max, pathRange }) => {
+            const containerRef = useRef(null); const [dragStart, setDragStart] = useState(null);
+            const mapX = useCallback((x, z) => machineType === 'KARUSEL' ? x : z, [machineType]); const mapY = useCallback((x, z) => machineType === 'KARUSEL' ? -z : -x, [machineType]);
+            const getClientCoords = (e) => { if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY }; return { x: e.clientX, y: e.clientY }; };
+            const handleWheel = (e) => { e.preventDefault(); if (!containerRef.current) return; const { x, y } = getClientCoords(e); const rect = containerRef.current.getBoundingClientRect(); const mouseX = x - rect.left; const mouseY = y - rect.top; const svgX = viewBox.x + (mouseX / rect.width) * viewBox.w; const svgY = viewBox.y + (mouseY / rect.height) * viewBox.h; const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9; const newW = viewBox.w * zoomFactor; const newH = viewBox.h * zoomFactor; const newX = svgX - (mouseX / rect.width) * newW; const newY = svgY - (mouseY / rect.height) * newH; setViewBox({ ...viewBox, x: newX, y: newY, w: newW, h: newH }); };
+            const handleStart = (e) => { if(e.target.closest('button')) return; if(e.target.tagName === 'circle' && !isDrawingStock) return; const { x, y } = getClientCoords(e); if(e.touches && e.touches.length === 2) { const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); setDragStart({ mode: 'pinch', dist, vb: { ...viewBox } }); return; } setDragStart({ mode: 'pan', x, y, vb: { ...viewBox }, hasMoved: false }); };
+            const handleMove = (e) => { if (!containerRef.current) return; const rect = containerRef.current.getBoundingClientRect(); const { x: cx, y: cy } = getClientCoords(e.touches ? e.touches[0] : e); const mouseX = cx - rect.left; const mouseY = cy - rect.top; const svgX = viewBox.x + (mouseX / rect.width) * viewBox.w; const svgY = viewBox.y + (mouseY / rect.height) * viewBox.h; let logicX, logicZ; if (machineType === 'KARUSEL') { logicX = svgX; logicZ = -svgY; } else { logicZ = svgX; logicX = -svgY; } setMouseCoords({ x: logicX, z: logicZ }); if (!dragStart) return; e.preventDefault(); if (dragStart.mode === 'pinch' && e.touches && e.touches.length === 2) { const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); const scale = dragStart.dist / dist; const newW = dragStart.vb.w * scale; const newH = dragStart.vb.h * scale; const dW = newW - dragStart.vb.w; const dH = newH - dragStart.vb.h; setViewBox({ x: dragStart.vb.x - dW / 2, y: dragStart.vb.y - dH / 2, w: newW, h: newH }); return; } if (dragStart.mode === 'pan') { const dxPx = cx - dragStart.x; const dyPx = cy - dragStart.y; if (Math.abs(dxPx) > 2 || Math.abs(dyPx) > 2) dragStart.hasMoved = true; const scale = viewBox.w / containerRef.current.clientWidth; setViewBox({ ...dragStart.vb, x: dragStart.vb.x - dxPx * scale, y: dragStart.vb.y - dyPx * scale }); } };
+            const handleEnd = (e) => { if (dragStart && !dragStart.hasMoved && isDrawingStock && containerRef.current) { const rect = containerRef.current.getBoundingClientRect(); const { x, y } = getClientCoords(e.changedTouches ? e.changedTouches[0] : e); const mouseX = x - rect.left; const mouseY = y - rect.top; const svgX = viewBox.x + (mouseX / rect.width) * viewBox.w; const svgY = viewBox.y + (mouseY / rect.height) * viewBox.h; let logicX, logicZ; if (machineType === 'KARUSEL') { logicX = svgX; logicZ = -svgY; } else { logicZ = svgX; logicX = -svgY; } onCanvasClick({ x: logicX, z: logicZ }); } setDragStart(null); };
+
+            const gridLines = useMemo(() => {
+                const lines = []; const { x: left, y: top, w: width, h: height } = viewBox; const right = left + width; const bottom = top + height;
+                const targetLines = 8; const rawStep = width / targetLines; const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep))); const residual = rawStep / magnitude; let step = residual > 5 ? 10 * magnitude : residual > 2 ? 5 * magnitude : residual > 1 ? 2 * magnitude : 1 * magnitude; const scaleFactor = width / 400; const isKarusel = machineType === 'KARUSEL'; const startX = Math.floor(left / step) * step;
+                for (let v = startX; v <= right; v += step) { const isZero = Math.abs(v) < 1e-10; const axisColor = isKarusel ? '#22c55e' : '#ef4444'; const zeroColor = isKarusel ? '#ef4444' : '#22c55e'; if (isZero) { lines.push(<g key={`v_axis_bg`}><line x1={0} y1={top} x2={0} y2={bottom} stroke={axisColor} strokeWidth={2 * (width/600)} strokeDasharray={isKarusel ? "15, 5, 2, 5" : "none"} vectorEffect="non-scaling-stroke" className="opacity-40"/><text x={4 * scaleFactor} y={top + (20 * scaleFactor)} fontSize={14 * scaleFactor} fill={axisColor} className="select-none font-bold">{isKarusel ? 'Z' : 'X'}</text><text x={4 * scaleFactor} y={bottom - (50 * scaleFactor)} fontSize={12 * scaleFactor} fill={zeroColor} className="select-none font-bold">0</text></g>); } else { lines.push(<g key={`v${v}`}><line x1={v} y1={top} x2={v} y2={bottom} stroke="#e2e8f0" strokeWidth={1} vectorEffect="non-scaling-stroke" /><text x={v + (4 * scaleFactor)} y={bottom - (50 * scaleFactor)} fontSize={10 * scaleFactor} fill="#cbd5e1" className="select-none font-bold">{parseFloat(v.toPrecision(5))}</text></g>); } }
+                const startY = Math.floor(top / step) * step; for (let v = startY; v <= bottom; v += step) { const isZero = Math.abs(v) < 1e-10; const val = -v; const axisColor = isKarusel ? '#ef4444' : '#22c55e'; const zeroColor = isKarusel ? '#22c55e' : '#ef4444'; if (isZero) { lines.push(<g key={`h_axis_bg`}><line x1={left} y1={0} x2={right} y2={0} stroke={axisColor} strokeWidth={2 * (width/600)} strokeDasharray={isKarusel ? "none" : "15, 5, 2, 5"} vectorEffect="non-scaling-stroke" className="opacity-40"/><text x={right - (20 * scaleFactor)} y={-5 * scaleFactor} fontSize={14 * scaleFactor} fill={axisColor} className="select-none font-bold">{isKarusel ? 'X' : 'Z'}</text><text x={left + (5 * scaleFactor)} y={-4 * scaleFactor} fontSize={12 * scaleFactor} fill={zeroColor} className="select-none font-bold">0</text></g>); } else { let displayVal = parseFloat(val.toPrecision(5)); if (!isKarusel && diameterMode) displayVal *= 2; lines.push(<g key={`h${v}`}><line x1={left} y1={v} x2={right} y2={v} stroke="#e2e8f0" strokeWidth={1} vectorEffect="non-scaling-stroke" /><text x={left + (5 * scaleFactor)} y={v - (4 * scaleFactor)} fontSize={10 * scaleFactor} fill="#cbd5e1" className="select-none font-bold">{displayVal}</text></g>); } }
+                return lines;
+            }, [viewBox, machineType, diameterMode]);
+
+            const paths = useMemo(() => {
+                let mainPath = ""; let axisLines = [];
+                if (points.length > 0) {
+                    mainPath = points.filter(p => p.type !== 'axis').map((p, i) => { const x = mapX(p.x, p.z); const y = mapY(p.x, p.z); if (i === 0 || p.break) return `M ${x} ${y}`; return `L ${x} ${y}`; }).join(" ");
+                    axisLines = points.map((p, i) => { if (p.type === 'axis' && i > 0) { const prev = points[i-1]; return <line key={`axis-${i}`} x1={mapX(prev.x, prev.z)} y1={mapY(prev.x, prev.z)} x2={mapX(p.x, p.z)} y2={mapY(p.x, p.z)} stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="15, 5, 2, 5" vectorEffect="non-scaling-stroke" />; } return null; });
+                }
+                let offsetPathData = null, roughingPathData = null;
+                if (showOffset && offsetValue !== 0) {
+                    if (finishAllowance > 0) { const roughOffsetPts = calculateOffsetPath(points, offsetValue + finishAllowance); if (roughOffsetPts.length > 0) roughingPathData = roughOffsetPts.map((p, i) => { const x = mapX(p.x, p.z); const y = mapY(p.x, p.z); return (i === 0 || p.break ? `M ${x} ${y}` : `L ${x} ${y}`); }).join(" "); }
+                    const offsetPts = calculateOffsetPath(points, offsetValue); if (offsetPts.length > 0) offsetPathData = offsetPts.map((p, i) => { const x = mapX(p.x, p.z); const y = mapY(p.x, p.z); return (i === 0 || p.break ? `M ${x} ${y}` : `L ${x} ${y}`); }).join(" ");
+                }
+                let stockPathData = null; if (stockPoints.length > 0) { stockPathData = stockPoints.map((p, i) => { const x = mapX(p.x, p.z); const y = mapY(p.x, p.z); return `${i===0?'M':'L'} ${x} ${y}`; }).join(" ") + " Z"; }
+                return { mainPath, axisLines, offsetPathData, roughingPathData, stockPathData };
+            }, [points, stockPoints, machineType, showOffset, offsetValue, finishAllowance, mapX, mapY]);
+
+            return (
+                <div ref={containerRef} className={`w-full h-full bg-[#f8fafc] relative overflow-hidden touch-none ${isDrawingStock ? 'cursor-crosshair' : 'cursor-default'}`} onMouseDown={handleStart} onMouseMove={handleMove} onMouseUp={handleEnd} onMouseLeave={handleEnd} onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd} onWheel={handleWheel}>
+                    {isDrawingStock && (<div className="absolute top-6 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-6 py-2 rounded-full shadow-lg text-xs font-bold z-10 pointer-events-none animate-pulse border border-purple-400">REŽIM KRESLENÍ POLOTOVARU</div>)}
+                    {pickingField && (<div className="absolute top-6 left-1/2 -translate-x-1/2 bg-fuchsia-600 text-white px-6 py-2 rounded-full shadow-lg text-xs font-bold z-50 animate-pulse border border-fuchsia-400">VYBERTE BOD PRO {pickingField.includes('range') ? (pickingField === 'rangeStart' ? 'ZAČÁTEK DRÁHY' : 'KONEC DRÁHY') : (pickingField.includes('X') ? 'LIMIT X' : 'LIMIT Z')}</div>)}
+                    <svg width="100%" height="100%" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`} preserveAspectRatio="xMidYMid slice" className="block no-select">
+                        {gridLines}
+                        {limitZ_Back !== undefined && (<line x1={mapX(0, limitZ_Back)} y1={viewBox.y} x2={mapX(0, limitZ_Back)} y2={viewBox.y + viewBox.h} stroke="#0ea5e9" strokeWidth={2} strokeDasharray="10,5" opacity="0.6" vectorEffect="non-scaling-stroke" />)}
+                        {limitZ_Front !== undefined && (<line x1={mapX(0, limitZ_Front)} y1={viewBox.y} x2={mapX(0, limitZ_Front)} y2={viewBox.y + viewBox.h} stroke="#0ea5e9" strokeWidth={2} strokeDasharray="10,5" opacity="0.6" vectorEffect="non-scaling-stroke" />)}
+                        {useLimitX && limitX_Min !== undefined && (<line x1={viewBox.x} y1={mapY(limitX_Min, 0)} x2={viewBox.x + viewBox.w} y2={mapY(limitX_Min, 0)} stroke="#a855f7" strokeWidth={2} strokeDasharray="10,5" opacity="0.6" vectorEffect="non-scaling-stroke" />)}
+                        {useLimitX && limitX_Max !== undefined && (<line x1={viewBox.x} y1={mapY(limitX_Max, 0)} x2={viewBox.x + viewBox.w} y2={mapY(limitX_Max, 0)} stroke="#a855f7" strokeWidth={2} strokeDasharray="10,5" opacity="0.6" vectorEffect="non-scaling-stroke" />)}
+                        {paths.stockPathData && <path d={paths.stockPathData} fill="rgba(147, 51, 234, 0.05)" stroke="#9333ea" strokeWidth={1} strokeDasharray="5,5" vectorEffect="non-scaling-stroke" />}
+                        {paths.axisLines}
+                        {paths.roughingPathData && <path d={paths.roughingPathData} stroke="#f59e0b" strokeWidth={2} strokeDasharray="6,3" fill="none" vectorEffect="non-scaling-stroke" className="opacity-60" />}
+                        {paths.offsetPathData && <path d={paths.offsetPathData} stroke="#3b82f6" strokeWidth={2} strokeDasharray="4,2" fill="none" vectorEffect="non-scaling-stroke" className="opacity-60" />}
+                        <path d={paths.mainPath} stroke="#334155" strokeWidth={3} fill="none" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" className={isSimulating ? "opacity-30" : ""} />
+                        {points.map((p, i) => { 
+                            const mx = mapX(p.x, p.z); const my = mapY(p.x, p.z); const isSelected = selectedPointId === (p.id || i);
+                            const isStart = (p.id || p) === pathRange.start; const isEnd = (p.id || p) === pathRange.end;
+                            let color = isSelected ? "#ef4444" : (i === 0 ? "#334155" : (p.type === 'axis' ? "#94a3b8" : "#f97316")); 
+                            if (isStart) color = "#22c55e"; if (isEnd) color = "#dc2626";
+                            const radius = (isSelected || isStart || isEnd) ? 6 * (viewBox.w/600) : 4 * (viewBox.w/600);
+                            return (
+                                <g key={i}>
+                                    {(isStart || isEnd) && (<circle cx={mx} cy={my} r={radius + 4} fill="none" stroke={isStart ? "#22c55e" : "#dc2626"} strokeWidth={2} strokeDasharray="2,2" vectorEffect="non-scaling-stroke" />)}
+                                    <circle cx={mx} cy={my} r={radius} fill={(isSelected || isStart || isEnd) ? color : "white"} stroke={(isSelected || isStart || isEnd) ? "white" : color} strokeWidth={(isSelected || isStart || isEnd) ? 2 : 1.5} vectorEffect="non-scaling-stroke" className={`transition-all duration-200 ${isSimulating ? "opacity-30" : "cursor-pointer hover:r-6 hover:stroke-width-2"}`} onClick={(e) => { e.stopPropagation(); if(!isDrawingStock && !isSimulating) { onPointSelect(p.id || i); } }}/>
+                                </g>
+                            ); 
+                        })}
+                        {isDrawingStock && stockPoints.map((p, i) => (<circle key={`s-${i}`} cx={mapX(p.x, p.z)} cy={mapY(p.x, p.z)} r={4 * (viewBox.w/600)} fill="#9333ea" stroke="white" strokeWidth={1} />))}
+                        {isSimulating && simState && (
+                            <g>
+                                {simState.completed.map((seg, i) => (<line key={i} x1={mapX(seg.x1, seg.z1)} y1={mapY(seg.x1, seg.z1)} x2={mapX(seg.x2, seg.z2)} y2={mapY(seg.x2, seg.z2)} stroke={seg.type === 'G00' ? '#dc2626' : '#2563eb'} strokeWidth={seg.type === 'G00' ? 1.5 : 3} strokeDasharray={seg.type === 'G00' ? "4,4" : "none"} vectorEffect="non-scaling-stroke" strokeLinecap="round"/>))}
+                                {simState.current && (<line x1={mapX(simState.current.x1, simState.current.z1)} y1={mapY(simState.current.x1, simState.current.z1)} x2={mapX(simState.current.cx, simState.current.cz)} y2={mapY(simState.current.cx, simState.current.cz)} stroke={simState.current.type === 'G00' ? '#dc2626' : '#2563eb'} strokeWidth={simState.current.type === 'G00' ? 1.5 : 3} strokeDasharray={simState.current.type === 'G00' ? "4,4" : "none"} vectorEffect="non-scaling-stroke" strokeLinecap="round"/>)}
+                                {simState.current && (<circle cx={mapX(simState.current.cx, simState.current.cz)} cy={mapY(simState.current.cx, simState.current.cz)} r={3 * (viewBox.w/600)} fill="#2563eb" stroke="white" strokeWidth={1} vectorEffect="non-scaling-stroke"/>)}
+                            </g>
+                        )}
+                    </svg>
+                    <div className="absolute top-4 right-4 cursor-pointer flex flex-col items-center gap-1 hover:scale-105 transition-transform active:scale-95 z-50 group" onClick={(e) => { e.stopPropagation(); onCenter(); }} title="Vycentrovat pohled">
+                        <div className="relative w-14 h-14 border-2 border-white bg-white/50 backdrop-blur-md shadow-lg rounded-full group-hover:bg-white transition-colors">
+                            <div className={`absolute left-1/2 top-1 bottom-1 w-[2px] -translate-x-1/2 ${machineType === 'KARUSEL' ? 'bg-green-500' : 'bg-red-500'}`}></div><span className={`absolute top-1 left-1/2 -translate-x-1/2 -translate-y-full text-[10px] font-bold ${machineType === 'KARUSEL' ? 'text-green-600' : 'text-red-600'}`}>{machineType === 'KARUSEL' ? 'Z+' : 'X+'}</span>
+                            <div className={`absolute top-1/2 left-1 right-1 h-[2px] -translate-y-1/2 ${machineType === 'KARUSEL' ? 'bg-red-500' : 'bg-green-500'}`}></div><span className={`absolute top-1/2 right-1 translate-x-full -translate-y-1/2 text-[10px] font-bold ml-1 ${machineType === 'KARUSEL' ? 'text-red-600' : 'text-green-600'}`}>{machineType === 'KARUSEL' ? 'X+' : 'Z+'}</span>
+                            <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 border border-gray-400"></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        });
+
+        const App = () => {
+            const [points, setPoints] = useState(DEMO_POINTS);
+            const [stockPoints, setStockPoints] = useState([]);
+            const [isDrawingStock, setIsDrawingStock] = useState(false);
+            const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+            const [machiningSettings, setMachiningSettings] = useState(DEFAULT_MACHINING);
+            const [viewBox, setViewBox] = useState(INITIAL_VB);
+            const [machineType, setMachineType] = useState('SOUSTRUH'); 
+            const [sidebarOpen, setSidebarOpen] = useState(false);
+            const [gCode, setGCode] = useState("");
+            const [showOffset, setShowOffset] = useState(false); 
+            const [diameterMode, setDiameterMode] = useState(false);
+            const [toast, setToast] = useState(null);
+            const [confirmState, setConfirmState] = useState(null);
+            const [stockModalOpen, setStockModalOpen] = useState(false);
+            const [machiningModalOpen, setMachiningModalOpen] = useState(false);
+            
+            const [selectedPointId, setSelectedPointId] = useState(null);
+            const [pickingField, setPickingField] = useState(null);
+            const [pathRange, setPathRange] = useState({ start: null, end: null });
+            
+            const [isSimulating, setIsSimulating] = useState(false);
+            const [simState, setSimState] = useState({ completed: [], current: null });
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [simSpeed, setSimSpeed] = useState(1);
+            const [simTotalProgress, setSimTotalProgress] = useState(0);
+
+            const simEngine = useRef({ segments: [], idx: 0, t: 0 });
+            const reqRef = useRef(null);
+
+            const [mouseCoords, setMouseCoords] = useState({ x: 0, z: 0 });
+            const showToast = useCallback((msg) => setToast(msg), []);
+            
+            const handleLoadDemo = () => { setPoints(DEMO_POINTS); setStockPoints([]); setViewBox(INITIAL_VB); setSelectedPointId(null); showToast("Demo obrobek načten"); };
+            const handleLoadFromDrawing = () => { const raw = localStorage.getItem('cnc_transfer_data'); if(!raw) { showToast("Žádná data v mezipaměti."); return; } try { const data = JSON.parse(raw); if(data.points) setPoints(data.points); if(data.machineType) setMachineType(data.machineType); if(data.settings) setSettings({...settings, ...data.settings}); setViewBox(INITIAL_VB); setSelectedPointId(null); showToast("Data úspěšně načtena!"); } catch(e) { showToast("Chyba při načítání dat."); } };
+            const handleImportDxf = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (evt) => { const pts = parseDXF(evt.target.result); if (pts.length) { setPoints(pts); setViewBox(INITIAL_VB); setSelectedPointId(null); showToast("DXF soubor importován"); } else { showToast("Nepodařilo se načíst entity z DXF"); } }; reader.readAsText(file); };
+            const handleImportJson = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (evt) => { try { const data = JSON.parse(evt.target.result); if (data.points) setPoints(data.points); if (data.settings) setSettings(data.settings); if (data.machineType) setMachineType(data.machineType); setSelectedPointId(null); showToast("Projekt načten"); } catch (err) { showToast("Chyba při načítání projektu."); } }; reader.readAsText(file); };
+            const handleExportJson = () => { const data = { points, settings, machineType, version: "1.0" }; const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'projekt.json'; a.click(); };
+            const handleClear = () => { setConfirmState({ message: "Opravdu chcete smazat veškerou geometrii a nastavení? Tuto akci nelze vrátit.", onConfirm: () => { setPoints([]); setStockPoints([]); setGCode(""); setSelectedPointId(null); setConfirmState(null); showToast("Pracovní plocha vyčištěna"); }, onCancel: () => setConfirmState(null) }); };
+            const handleCenter = useCallback(() => setViewBox(INITIAL_VB), []);
+            const handlePointSelect = (id) => { const point = points.find((p, i) => (p.id || i) === id); if (pickingField) { if (point) { if (pickingField === 'rangeStart') { setPathRange(prev => ({ ...prev, start: id })); showToast("Startovní bod dráhy nastaven"); } else if (pickingField === 'rangeEnd') { setPathRange(prev => ({ ...prev, end: id })); showToast("Koncový bod dráhy nastaven"); } else { const valToSet = pickingField.includes('limitX') ? point.x : point.z; setMachiningSettings(prev => ({ ...prev, [pickingField]: valToSet })); showToast(`Hodnota pro ${pickingField} načtena`); } setPickingField(null); setSelectedPointId(null); } } else { setSelectedPointId(prevId => prevId === id ? null : id); } };
+            const selectedPointData = useMemo(() => { if(selectedPointId === null) return null; return points.find((p, i) => (p.id || i) === selectedPointId); }, [points, selectedPointId]);
+            const updateMachiningStart = (currentStockPoints) => { if (currentStockPoints && currentStockPoints.length > 0) { let maxX = -Infinity; let maxZ = -Infinity; let minZ = Infinity; currentStockPoints.forEach(p => { if (p.x > maxX) maxX = p.x; if (p.z > maxZ) maxZ = p.z; if (p.z < minZ) minZ = p.z; }); setMachiningSettings(prev => ({ ...prev, startX: maxX + 5, startZ: maxZ + 5, limitZ_Back: 0, limitZ_Front: maxZ + 20 })); } };
+            const handleGenerateStock = (mx, mz, mzBack) => { if (points.length === 0) { showToast("Chybí body obrobku"); return; } const validPoints = points.filter(p => p.type !== 'axis'); let maxX = -Infinity; let maxZ = -Infinity; let minZ = Infinity; validPoints.forEach(p => { if (p.x > maxX) maxX = p.x; if (p.z > maxZ) maxZ = p.z; if (p.z < minZ) minZ = p.z; }); const stockR = maxX + mx; const stockZFront = maxZ + mz; const stockZBack = minZ - mzBack; const newStock = [ { x: 0, z: stockZBack }, { x: stockR, z: stockZBack }, { x: stockR, z: stockZFront }, { x: 0, z: stockZFront } ]; setStockPoints(newStock); updateMachiningStart(newStock); setStockModalOpen(false); showToast("Polotovar automaticky vypočten"); };
+            const handleDrawStockClick = useCallback((pt) => { setStockPoints(prev => [...prev, pt]); }, []);
+            const handleAddStockSegment = (direction, type, values) => { if (stockPoints.length === 0 && type === 'COORD' && values.x !== undefined) { setStockPoints([{x: values.x, z: values.z}]); showToast("Startovní bod polotovaru nastaven"); return; } const last = stockPoints[stockPoints.length - 1]; if (!last) return; let nextPoint = { ...last }; const { val1, val2 } = values; const isKarusel = machineType === 'KARUSEL'; const moveX = (amount) => nextPoint.x += amount; const moveZ = (amount) => nextPoint.z += amount; const setX = (val) => nextPoint.x = val; const setZ = (val) => nextPoint.z = val; if (type === 'LENGTH') { const L = val1; if (direction === 'UP') isKarusel ? moveZ(L) : moveX(L); else if (direction === 'DOWN') isKarusel ? moveZ(-L) : moveX(-L); else if (direction === 'RIGHT') isKarusel ? moveX(L) : moveZ(L); else if (direction === 'LEFT') isKarusel ? moveX(-L) : moveZ(-L); else { const d = L / Math.sqrt(2); if (direction === 'UR') { isKarusel ? (moveZ(d), moveX(d)) : (moveX(d), moveZ(d)); } else if (direction === 'UL') { isKarusel ? (moveZ(d), moveX(-d)) : (moveX(d), moveZ(-d)); } else if (direction === 'DR') { isKarusel ? (moveZ(-d), moveX(d)) : (moveX(-d), moveZ(d)); } else if (direction === 'DL') { isKarusel ? (moveZ(-d), moveX(-d)) : (moveX(-d), moveZ(-d)); } } } else { const targetVert = val1; const targetHoriz = val2; if (direction === 'UP' || direction === 'DOWN') isKarusel ? setZ(targetVert) : setX(targetVert); else if (direction === 'LEFT' || direction === 'RIGHT') isKarusel ? setX(targetVert) : setZ(targetVert); else { if (isKarusel) { setZ(targetVert); setX(targetHoriz); } else { setX(targetVert); setZ(targetHoriz); } } } setStockPoints([...stockPoints, nextPoint]); };
+            const toggleStockDrawing = () => { if (isDrawingStock) { setIsDrawingStock(false); updateMachiningStart(stockPoints); showToast("Kreslení polotovaru dokončeno"); } else { if (stockPoints.length > 0 && !confirm("Smazat stávající polotovar a začít kreslit nový?")) return; setStockPoints([]); setIsDrawingStock(true); setStockModalOpen(false); showToast("Klikáním do plochy definujte tvar polotovaru"); } };
+            const handleUpdateFeedSettings = (key, val) => { setSettings(prev => ({ ...prev, [key]: (key === 'feedMode') ? val : (parseFloat(val) || 0) })); };
+
+            // --- SIMULATION LOGIC ---
+            const parseGCodeToSegments = (code) => {
+                const lines = code.split('\n');
+                const segments = [];
+                let curX = machiningSettings.startX;
+                let curZ = machiningSettings.startZ;
+
+                lines.forEach(line => {
+                    const l = line.trim().toUpperCase();
+                    if (!l || l.startsWith(';')) return;
+                    
+                    let isG0 = l.includes('G00') || l.includes('G0');
+                    let isG1 = l.includes('G01') || l.includes('G1') || l.includes('G02') || l.includes('G03');
+                    
+                    if (!isG0 && !isG1 && segments.length > 0) {
+                        const lastType = segments[segments.length-1].type;
+                        if (lastType === 'G00') isG0 = true; else isG1 = true;
+                    }
+
+                    const xMatch = l.match(/X([-]?\d+\.?\d*)/);
+                    const zMatch = l.match(/Z([-]?\d+\.?\d*)/);
+                    
+                    if (xMatch || zMatch) {
+                        const nextX = xMatch ? parseFloat(xMatch[1]) : curX;
+                        const nextZ = zMatch ? parseFloat(zMatch[1]) : curZ;
+                        
+                        if (Math.abs(nextX - curX) > 0.001 || Math.abs(nextZ - curZ) > 0.001) {
+                            segments.push({
+                                x1: curX, z1: curZ,
+                                x2: nextX, z2: nextZ,
+                                type: isG0 ? 'G00' : 'G01'
+                            });
+                            curX = nextX;
+                            curZ = nextZ;
+                        }
+                    }
+                });
+                return segments;
+            };
+
+            const startSimulation = () => {
+                const code = generateGCode(points, stockPoints, settings, machiningSettings, showOffset, pathRange.start, pathRange.end);
+                setGCode(code); 
+
+                const segments = parseGCodeToSegments(code);
+                if (segments.length === 0) { showToast("Žádná dráha k simulaci (Zkontrolujte G-kód)"); return; }
+                
+                simEngine.current = { segments, idx: 0, t: 0 };
+                setIsSimulating(true);
+                setIsPlaying(true);
+                setSimState({ completed: [], current: null });
+                setSimTotalProgress(0);
+                setSelectedPointId(null);
+            };
+
+            const handleSkipSimulation = () => {
+                 const code = gCode || generateGCode(points, stockPoints, settings, machiningSettings, showOffset, pathRange.start, pathRange.end);
+                 setGCode(code);
+                 const segments = parseGCodeToSegments(code);
+                 if (segments.length === 0) { showToast("Žádná dráha k zobrazení"); return; }
+
+                 setIsSimulating(true);
+                 setIsPlaying(false);
+                 cancelAnimationFrame(reqRef.current);
+                 setSimState({ completed: segments, current: null });
+                 setSimTotalProgress(100);
+                 simEngine.current = { segments, idx: segments.length, t: 0 };
+            };
+
+            const togglePlay = () => setIsPlaying(!isPlaying);
+            const stopSimulation = () => { setIsSimulating(false); setIsPlaying(false); setSimState({ completed: [], current: null }); setSimTotalProgress(0); cancelAnimationFrame(reqRef.current); };
+            const toggleSpeed = () => { setSimSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 5 : 1)); };
+
+            useEffect(() => {
+                if (!isSimulating || !isPlaying) { cancelAnimationFrame(reqRef.current); return; }
+                const loop = () => {
+                    const state = simEngine.current;
+                    if (state.idx >= state.segments.length) { setIsPlaying(false); showToast("Simulace dokončena"); return; }
+                    const speed = 0.02 * simSpeed;
+                    state.t += speed;
+                    if (state.t >= 1) {
+                        const finishedSeg = state.segments[state.idx];
+                        setSimState(prev => ({ completed: [...prev.completed, finishedSeg], current: null }));
+                        state.idx++; state.t = 0;
+                    } else {
+                        const seg = state.segments[state.idx];
+                        if (seg) {
+                            const curX = seg.x1 + (seg.x2 - seg.x1) * state.t;
+                            const curZ = seg.z1 + (seg.z2 - seg.z1) * state.t;
+                            setSimState(prev => ({ ...prev, current: { ...seg, cx: curX, cz: curZ } }));
+                        }
+                    }
+                    const total = state.segments.length; const currentProgress = state.idx + state.t; setSimTotalProgress(Math.min((currentProgress / total) * 100, 100));
+                    if (state.idx < state.segments.length) { reqRef.current = requestAnimationFrame(loop); } else { setIsPlaying(false); showToast("Simulace dokončena"); }
+                };
+                reqRef.current = requestAnimationFrame(loop); return () => cancelAnimationFrame(reqRef.current);
+            }, [isSimulating, isPlaying, simSpeed]);
+            const copyGCode = () => { navigator.clipboard.writeText(gCode); showToast("G-Kód zkopírován do schránky"); };
+
+            return (
+                <div className="flex h-screen w-screen overflow-hidden bg-gray-50">
+                    <div className="flex-1 flex flex-col relative overflow-hidden items-center justify-center p-4">
+                        <div className="relative w-full h-full max-w-full md:aspect-square md:max-h-[95vh] bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-200">
+                             <Canvas points={points} stockPoints={stockPoints} isDrawingStock={isDrawingStock} machineType={machineType} viewBox={viewBox} setViewBox={setViewBox} onCanvasClick={isDrawingStock ? handleDrawStockClick : ()=>{}} showOffset={showOffset} offsetValue={settings.offsetValue} finishAllowance={settings.finishAllowance} diameterMode={diameterMode} onCenter={handleCenter} isSimulating={isSimulating} simState={simState} setMouseCoords={setMouseCoords} limitZ_Front={machiningSettings.limitZ_Front} limitZ_Back={machiningSettings.limitZ_Back} selectedPointId={selectedPointId} onPointSelect={handlePointSelect} pickingField={pickingField} useLimitX={machiningSettings.useLimitX} limitX_Min={machiningSettings.limitX_Min} limitX_Max={machiningSettings.limitX_Max} pathRange={pathRange} />
+                            {selectedPointData && (
+                                <div className="absolute top-4 left-4 bg-white/95 backdrop-blur shadow-lg border border-red-200 rounded-xl p-3 z-40 animate-in fade-in zoom-in duration-200 max-w-[200px]">
+                                    <div className="flex justify-between items-center mb-2 pb-2 border-b border-red-100"><h4 className="text-xs font-bold text-red-600 uppercase flex items-center gap-1.5"><Icons.Target size={14} /> Vybraný bod</h4><button onClick={() => setSelectedPointId(null)} className="text-gray-400 hover:text-red-500"><Icons.Close size={14}/></button></div>
+                                    <div className="space-y-1"><div className="flex justify-between text-xs"><span className="text-gray-500 font-bold">X (průměr):</span><span className="font-mono font-bold text-gray-900">{selectedPointData.x.toFixed(3)}</span></div><div className="flex justify-between text-xs"><span className="text-gray-500 font-bold">Z (délka):</span><span className="font-mono font-bold text-gray-900">{selectedPointData.z.toFixed(3)}</span></div></div>
+                                </div>
+                            )}
+                            <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm text-[10px] font-mono font-bold text-gray-700 tabular-nums z-10 pointer-events-none">X: {mouseCoords.x.toFixed(2)} | Z: {mouseCoords.z.toFixed(2)}</div>
+                             {isSimulating && (<div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-600 text-white px-4 py-1.5 rounded-full shadow-lg font-bold text-xs z-50 animate-pulse border border-indigo-400 flex items-center gap-2"><Icons.Activity size={14} />{isPlaying ? 'SIMULACE BĚŽÍ' : 'POZASTAVENO'}</div>)}
+                        </div>
+                    </div>
+                    <div className="w-96 bg-white border-l border-gray-200 flex flex-col z-30 shadow-2xl shrink-0">
+                        <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+                            <div className="flex justify-between items-center mb-3"><h2 className="text-sm font-bold text-gray-900 flex items-center gap-2"><Icons.Menu size={18} className="text-gray-500"/> Nástroje</h2><button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"><Icons.Settings size={18} /></button></div>
+                            <div className="grid grid-cols-2 gap-2">
+                                {isDrawingStock ? (<button onClick={toggleStockDrawing} className="col-span-2 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all active:scale-95"><Icons.CheckCircle size={18} /> Hotovo</button>) : (<><button onClick={() => setStockModalOpen(true)} className={`py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-all border ${stockPoints.length > 0 ? 'bg-purple-50 border-purple-200 text-purple-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}><Icons.Box size={20} /> <span className="text-[10px] uppercase">Polotovar</span></button><button onClick={() => setMachiningModalOpen(true)} className="py-3 bg-white border border-gray-200 hover:border-gray-300 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-gray-600 transition-all"><Icons.Tool size={20} /> <span className="text-[10px] uppercase">Obrábění</span></button></>)}
+                            </div>
+                        </div>
+                        <div className="flex-1 flex flex-col bg-slate-900 overflow-hidden">
+                            <div className="px-4 py-2 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0"><span className="text-xs font-bold text-slate-300 flex items-center gap-2"><Icons.Code size={14}/> G-Code Output</span>{gCode && (<button onClick={copyGCode} className="text-[10px] font-bold text-slate-400 hover:text-white flex items-center gap-1 bg-slate-700 px-2 py-1 rounded transition-colors"><Icons.Copy size={12}/> Kopírovat</button>)}</div>
+                            <div className="flex-1 relative">
+                                {gCode ? (<textarea className="w-full h-full bg-slate-900 text-emerald-400 font-mono text-[11px] leading-relaxed p-4 outline-none resize-none custom-scrollbar" value={gCode} onChange={(e) => setGCode(e.target.value)} spellCheck="false" autoComplete="off" />) : (<div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2 opacity-50 pointer-events-none"><Icons.Code size={32} /><span className="text-xs font-bold text-center">G-kód se vygeneruje zde<br/>po nastavení obrábění</span></div>)}
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-gray-200 bg-white">
+                            {isSimulating ? (
+                                <div className="space-y-3 animate-in slide-in-from-bottom-5 duration-300"><div className="flex justify-between items-center text-[10px] font-bold text-gray-500 uppercase tracking-wider"><span>Průběh</span><span>{Math.round(simTotalProgress)}%</span></div><div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-600 transition-all duration-100 ease-linear" style={{ width: `${simTotalProgress}%` }}></div></div><div className="flex gap-2 mt-2"><button onClick={stopSimulation} className="p-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-colors" title="Ukončit"><Icons.Square size={20} fill="currentColor" /></button><button onClick={togglePlay} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md flex items-center justify-center transition-transform active:scale-95">{isPlaying ? <Icons.Pause size={24} fill="currentColor" /> : <Icons.Play size={24} fill="currentColor" />}</button><button onClick={handleSkipSimulation} className="p-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-xl font-bold transition-colors" title="Zobrazit vše"><Icons.FastForward size={20} fill="currentColor" /></button><button onClick={toggleSpeed} className="p-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs w-14 transition-colors">{simSpeed}x</button></div></div>
+                            ) : (
+                                <button onClick={startSimulation} disabled={!points.length} className={`w-full py-3 font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${points.length ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}><Icons.PlayCircle size={20} /> PŘEHRÁT SIMULACI</button>
+                            )}
+                        </div>
+                    </div>
+                    <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} settings={settings} setSettings={setSettings} onLoadFromDrawing={handleLoadFromDrawing} onLoadDemo={handleLoadDemo} onImportDxf={handleImportDxf} onImportJson={handleImportJson} onExportJson={handleExportJson} onGenerateGCode={() => { setGCode(generateGCode(points, stockPoints, settings, machiningSettings, showOffset, pathRange.start, pathRange.end)); showToast("G-Kód úspěšně vygenerován"); }} onClear={handleClear} machineType={machineType} setMachineType={setMachineType} gCodeOutput={gCode} diameterMode={diameterMode} setDiameterMode={setDiameterMode} />
+                    <StockModal isOpen={stockModalOpen} onClose={() => setStockModalOpen(false)} onGenerate={handleGenerateStock} onDrawMode={toggleStockDrawing} onClear={() => { setStockPoints([]); setStockModalOpen(false); showToast("Geometrie polotovaru smazána"); }} lastStockPoint={stockPoints[stockPoints.length-1]} onAddSegment={handleAddStockSegment} machineType={machineType} />
+                    <MachiningModal isOpen={machiningModalOpen && !pickingField} onClose={() => setMachiningModalOpen(false)} settings={machiningSettings} feedSettings={settings} onUpdateFeedSettings={handleUpdateFeedSettings} onSave={(newSettings) => { setMachiningSettings(newSettings); showToast("Technologické parametry uloženy"); }} onGenerate={() => { setGCode(generateGCode(points, stockPoints, settings, machiningSettings, showOffset, pathRange.start, pathRange.end)); showToast("G-Kód připraven"); }} machineType={machineType} showOffset={showOffset} toggleShowOffset={() => setShowOffset(!showOffset)} onSimulate={startSimulation} selectedPoint={selectedPointData} onPickRequest={(field) => { setSelectedPointId(null); setPickingField(field); showToast(`Klikněte na bod v grafu pro ${field.includes('range') ? (field === 'rangeStart' ? 'ZAČÁTEK DRÁHY' : 'KONEC DRÁHY') : (field.includes('X') ? 'LIMIT X' : 'LIMIT Z')}`); }} pathRange={pathRange} setPathRange={setPathRange} onResetPathRange={() => { setPathRange({ start: null, end: null }); showToast("Rozsah dráhy resetován (celý obrobek)"); }} />
+                    {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+                    {confirmState && <ConfirmDialog message={confirmState.message} onConfirm={confirmState.onConfirm} onCancel={confirmState.onCancel} />}
+                </div>
             );
         };
 
