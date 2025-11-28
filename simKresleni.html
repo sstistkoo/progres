@@ -6,13 +6,11 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>CNC SmartGrid v19 (Karusel/Soustruh)</title>
+    <title>CNC SmartGrid v19 Lite</title>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <!-- Externí knihovna pro DXF parser -->
-    <script src="https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/dist/dxf-parser.min.js"></script>
     <style>
       :root {
         --bg-canvas: #ffffff;
@@ -130,17 +128,28 @@
       #btn-snap-toggle { position: absolute; top: 10px; right: 64px; width: 40px; height: 40px; background: #fff; color: #333; border-radius: 50%; border: 2px solid #888; display: flex; justify-content: center; align-items: center; font-size: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); z-index: 10; }
       #btn-snap-toggle.snap-off { color: #aaa; border-color: #ccc; background: #f0f0f0; } #btn-snap-toggle.snap-off i { text-decoration: line-through; }
 
-      #coords-hud {
-          position: absolute; top: 10px; left: 10px;
-          background: rgba(255, 255, 255, 0.9); border: 2px solid #333; border-radius: 8px;
-          padding: 6px 12px; font-family: 'Consolas', monospace; font-size: 14px; color: #333; font-weight: bold;
-          display: flex; gap: 10px; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 100;
-          cursor: pointer; transition: 0.2s;
+      /* --- HUD STYLES --- */
+      #hud-container {
+        position: absolute; top: 10px; left: 10px; z-index: 100;
+        display: flex; gap: 8px; flex-wrap: wrap; /* Umožní zalomení na malých displejích */
+        pointer-events: none; /* Kliknutí projde skrz prázdná místa */
+        max-width: calc(100% - 120px); /* Aby nezasahoval do tlačítek vpravo */
       }
-      #coords-hud:active { transform: scale(0.95); background: #e3f2fd; }
-      .hud-label { color: #666; font-size: 10px; margin-right: 4px; vertical-align: top; }
-      .hud-val { font-size: 16px; color: #000; }
-      .hud-snap-indicator { background: #ffeb3b; color: #000; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 800; display: none; }
+      .hud-panel {
+        background: rgba(255, 255, 255, 0.95); border: 2px solid #333; border-radius: 8px;
+        padding: 4px 8px; font-family: 'Consolas', monospace; color: #333;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2); pointer-events: auto; cursor: pointer;
+        display: flex; align-items: center; gap: 8px; transition: 0.2s;
+        white-space: nowrap; /* Zabrání rozlomení textu uvnitř panelu */
+      }
+      .hud-panel:active { transform: scale(0.95); background: #e3f2fd; }
+      
+      .hud-lbl { font-size: 10px; font-weight: bold; color: #666; vertical-align: top; margin-right: 2px; }
+      .hud-val { font-size: 15px; font-weight: 900; color: #000; }
+      .hud-sep { width: 1px; height: 16px; background: #ccc; }
+      .hud-icon { color: var(--accent); font-size: 12px; }
+
+      #hud-snap-info { background: #ffeb3b; color: #000; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 800; display: none; margin-left: auto; }
 
       #toast-msg {
         position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
@@ -232,9 +241,16 @@
           </g>
           <g id="textGroup"></g> <g id="mobileCursorGroup"></g>
         </svg>
-        <div id="coords-hud" onclick="copyHudCoords()" title="Kliknutím zkopírujete souřadnice">
-          <div><span id="hud-lbl-1" class="hud-label">X</span><span class="hud-val" id="hud-x">0.00</span></div><div style="width: 1px; background: #999"></div><div><span id="hud-lbl-2" class="hud-label">Z</span><span class="hud-val" id="hud-z">0.00</span></div><div id="hud-snap-info" class="hud-snap-indicator">SNAP</div>
+        <div id="hud-container">
+            <div id="coords-hud" class="hud-panel" onclick="copyHudCoords()" title="Zkopírovat pozici kurzoru">
+                <div><span id="hud-lbl-1" class="hud-lbl">X</span><span class="hud-val" id="hud-x">0.00</span></div><div class="hud-sep"></div><div><span id="hud-lbl-2" class="hud-lbl">Z</span><span class="hud-val" id="hud-z">0.00</span></div><div id="hud-snap-info">SNAP</div>
+            </div>
+            <div id="sel-hud" class="hud-panel" style="display:none;" onclick="centerOnSelection()" title="Vycentrovat na bod">
+                 <i class="fas fa-crosshairs hud-icon"></i>
+                 <div><span id="sel-lbl-1" class="hud-lbl">X</span><span class="hud-val" id="sel-x">0.00</span></div><div class="hud-sep"></div><div><span id="sel-lbl-2" class="hud-lbl">Z</span><span class="hud-val" id="sel-z">0.00</span></div>
+            </div>
         </div>
+        
         <!-- Dynamický kříž Home -->
         <div id="btn-home" onclick="setHomeView()" title="Reset">
            <svg viewBox="0 0 40 40" style="width:100%; height:100%; display:block;">
@@ -283,8 +299,7 @@
         </div>
     </div>
     
-    <div id="modal-main-menu" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label" style="margin-top: 0">Editační Nástroje</label><div class="menu-grid"><button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button><button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button><button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button><button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button><button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button><button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button><button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button><button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button></div><div class="separator"></div><label class="section-label">Data / Fusion 360</label><div class="menu-grid"><button class="icon-btn btn-export" onclick="saveProjectJSON()" style="background: #43a047"><i class="fas fa-save"></i><span>Uložit Projekt</span></button><button class="icon-btn btn-import" onclick="triggerLoadJSON()" style="background: #fb8c00"><i class="fas fa-folder-open"></i><span>Načíst Projekt</span></button><button class="icon-btn btn-export" onclick="exportToDXF()"><i class="fas fa-file-export"></i><span>Export DXF</span></button><button class="icon-btn btn-import" onclick="triggerImportDXF()"><i class="fas fa-file-import"></i><span>Import DXF</span></button><button class="icon-btn btn-util" style="background: #00796b" onclick="setMode('PICK_MOVE_ORIGIN')"><i class="fas fa-arrows-alt"></i><span>Posunout Model</span></button><button class="icon-btn btn-util" style="background: #004d40" onclick="openAlignModal()"><i class="fas fa-sync-alt"></i><span>Srovnat Rotaci</span></button><button class="icon-btn btn-util" style="background: #283593" onclick="openSimDraha()"><i class="fas fa-play-circle"></i><span>CAM / G-Code</span></button><button id="btn-machine-toggle" class="icon-btn btn-util" style="background: #4527a0" onclick="toggleMachineType()"><i class="fas fa-exchange-alt"></i><span>Karusel</span></button></div><p style="font-size: 10px; color: #777; text-align: center; margin-top: 10px;">Importuje DXF jako geometrii. Podporuje Úsečky a Oblouky.</p></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
-    <input type="file" id="dxf-loader" style="display: none" accept=".dxf" onchange="loadDXF(this)" />
+    <div id="modal-main-menu" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label" style="margin-top: 0">Editační Nástroje</label><div class="menu-grid"><button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button><button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button><button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button><button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button><button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button><button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button><button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button><button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button></div><div class="separator"></div><label class="section-label">Data</label><div class="menu-grid"><button class="icon-btn btn-export" onclick="saveProjectJSON()" style="background: #43a047"><i class="fas fa-save"></i><span>Uložit Projekt</span></button><button class="icon-btn btn-import" onclick="triggerLoadJSON()" style="background: #fb8c00"><i class="fas fa-folder-open"></i><span>Načíst Projekt</span></button><button class="icon-btn btn-util" style="background: #00796b" onclick="setMode('PICK_MOVE_ORIGIN')"><i class="fas fa-arrows-alt"></i><span>Posunout Model</span></button><button class="icon-btn btn-util" style="background: #004d40" onclick="openAlignModal()"><i class="fas fa-sync-alt"></i><span>Srovnat Rotaci</span></button><button class="icon-btn btn-util" style="background: #283593" onclick="openSimDraha()"><i class="fas fa-play-circle"></i><span>CAM / G-Code</span></button><button class="icon-btn btn-util" style="background: #5e35b1" onclick="openSimDxf()"><i class="fas fa-file-import"></i><span>Konvertor DXF</span></button><button id="btn-machine-toggle" class="icon-btn btn-util" style="background: #4527a0" onclick="toggleMachineType()"><i class="fas fa-exchange-alt"></i><span>Karusel</span></button></div></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
     <input type="file" id="json-loader" style="display: none" accept=".json" onchange="loadJSON(this)" />
     
     <div id="modal-align" class="modal"><div class="modal-content"><div class="modal-header"><h3>Srovnat Model</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><button class="m-btn btn-primary-util" style="margin-bottom: 10px; background: #004d40" onclick="setMode('PICK_ALIGN_HORIZ')"><i class="fas fa-arrows-alt-h"></i> Srovnat Vodorovně</button><p style="font-size: 12px; color: #666; margin-bottom: 20px;">Vyberte 2 body na modelu. Model se natočí tak, aby tyto body ležely v rovině.</p><button class="m-btn btn-primary-util" style="background: #006064" onclick="setMode('PICK_ALIGN_2P')"><i class="fas fa-compress-arrows-alt"></i> Srovnat 2 Body (Align)</button><p style="font-size: 12px; color: #666; margin-top: 10px;">Vyberte Bod1 na modelu -> Cíl1, pak Bod2 na modelu -> Cíl2. Model se přesune a natočí.</p></div></div></div>
@@ -311,6 +326,8 @@
         setItem: (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} }
       };
 
+      const MAX_HISTORY = 50;
+
       const State = {
         mode: "IDLE", measureMode: null, points: [{ x: 0, z: 0, break: false, type: "line", id: 0 }],
         history: [], redo: [], vb: { x: -50, y: -600, w: 800, h: 800 },
@@ -321,7 +338,7 @@
         touch: { active: false, x: 0, y: 0, timer: null, pinchDist: 0 },
         tempCenter: null, dimensions: [], lastMeasured: null, dimP1: null,
         intersectionNoticeShown: false, isDragging: false, tempPickList: [],
-        manualSnap: true, moveOrigin: null
+        manualSnap: true, moveOrigin: null, lastSel: null
       };
 
       let pointIdCounter = 1;
@@ -336,7 +353,7 @@
       let updatePathScheduled = false;
       function scheduleUpdatePath() { if (updatePathScheduled) return; updatePathScheduled = true; requestAnimationFrame(() => { updatePathScheduled = false; updatePath(); }); }
 
-      // --- CUSTOM CONFIRM ---
+      // --- CUSTOM CONFIRM (To fix Sandbox issues) ---
       function openConfirm(msg, cb) {
           $("confirm-msg").innerText = msg;
           $("modal-confirm").style.display = "flex";
@@ -363,8 +380,8 @@
       function updateMachineUI() {
           const isKarusel = State.machineType === 'KARUSEL';
           $("btn-machine-toggle").querySelector("span").innerText = isKarusel ? "Karusel" : "Soustruh";
-          if (isKarusel) { $("hud-lbl-1").innerText = "X"; $("hud-lbl-2").innerText = "Z"; } 
-          else { $("hud-lbl-1").innerText = "Z"; $("hud-lbl-2").innerText = "X"; }
+          if (isKarusel) { $("hud-lbl-1").innerText = "X"; $("hud-lbl-2").innerText = "Z"; $("sel-lbl-1").innerText = "X"; $("sel-lbl-2").innerText = "Z"; } 
+          else { $("hud-lbl-1").innerText = "Z"; $("hud-lbl-2").innerText = "X"; $("sel-lbl-1").innerText = "Z"; $("sel-lbl-2").innerText = "X"; }
           
           // Update Home Icon
           $("icon-axis-z").setAttribute("x1", isKarusel ? "5" : "35");
@@ -397,36 +414,14 @@
       function openSimDraha() {
           window.open('SimDraha.html', '_blank');
       }
+      
+      function openSimDxf() {
+          window.open('SimDxf.html', '_blank');
+      }
 
       // --- FILES ---
       function downloadFile(content, fileName, mimeType) { const a = document.createElement("a"); const blob = new Blob([content], { type: mimeType }); a.href = URL.createObjectURL(blob); a.download = fileName; a.click(); URL.revokeObjectURL(a.href); }
-      function exportToDXF() {
-        if (State.points.length < 2) { showToast("Žádná data"); return; }
-        let dxf = "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n";
-        for (let i = 0; i < State.points.length - 1; i++) {
-          const p1 = State.points[i], p2 = State.points[i + 1]; if (p2.break) continue;
-          if (p2.type === "line") { dxf += `0\nLINE\n8\n0\n10\n${p1.x}\n20\n${p1.z}\n30\n0.0\n11\n${p2.x}\n21\n${p2.z}\n31\n0.0\n`; } 
-          else if (p2.type === "arc") { let as = Math.atan2(p1.z - p2.cz, p1.x - p2.cx) * (180 / Math.PI), ae = Math.atan2(p2.z - p2.cz, p2.x - p2.cx) * (180 / Math.PI); if (as < 0) as += 360; if (ae < 0) ae += 360; dxf += `0\nARC\n8\n0\n10\n${p2.cx}\n20\n${p2.cz}\n30\n0.0\n40\n${p2.r}\n`; if (p2.cw) dxf += `50\n${ae}\n51\n${as}\n`; else dxf += `50\n${as}\n51\n${ae}\n`; }
-        }
-        dxf += "0\nENDSEC\n0\nEOF"; downloadFile(dxf, "drawing.dxf", "application/dxf"); showToast("DXF Staženo"); closeModals();
-      }
-      function triggerImportDXF() { $("dxf-loader").click(); }
-      function loadDXF(input) {
-        const file = input.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            if (typeof DxfParser === 'undefined') { alert("Knihovna DxfParser nenalezena (offline?)."); return; }
-            const parser = new DxfParser();
-            try {
-                const dxf = parser.parseSync(e.target.result);
-                // Convert DXF to State.points
-                // TODO: Implement proper parser for entities
-                alert("Import zatím pouze základní."); 
-            } catch (err) { console.error(err); alert("Chyba importu DXF"); }
-            closeModals();
-        }; reader.readAsText(file); input.value = "";
-      }
-
+      
       function saveProjectJSON() {
         if (State.points.length < 1) { showToast("Žádná data"); return; }
         const data = JSON.stringify({
@@ -488,7 +483,14 @@
 
       // --- HISTORY ---
       function updateHistory() { cachedControls.btnUndo && cachedControls.btnUndo.classList.toggle("btn-disabled", !State.history.length); cachedControls.btnRedo && cachedControls.btnRedo.classList.toggle("btn-disabled", !State.redo.length); }
-      function saveHistory() { if (State.points.length) { State.history.push(JSON.parse(JSON.stringify({ points: State.points, dimensions: State.dimensions }))); State.redo = []; updateHistory(); } }
+      function saveHistory() { 
+          if (State.points.length) { 
+              if(State.history.length >= MAX_HISTORY) State.history.shift();
+              State.history.push(JSON.parse(JSON.stringify({ points: State.points, dimensions: State.dimensions }))); 
+              State.redo = []; 
+              updateHistory(); 
+          } 
+      }
       function undoLastMove() { if (!State.history.length) return; State.redo.push(JSON.parse(JSON.stringify({ points: State.points, dimensions: State.dimensions }))); const prev = State.history.pop(); State.points = prev.points; State.dimensions = prev.dimensions || []; pointIdCounter = State.points.reduce((max, p) => Math.max(max, p.id || 0), 0) + 1; updatePath(); if (State.points.length) centerViewOnPoint(State.points[State.points.length - 1]); updateHistory(); State.lastMeasured = null; State.dimP1 = null; stopMeasure(true); }
       function redoLastMove() { if (!State.redo.length) return; State.history.push(JSON.parse(JSON.stringify({ points: State.points, dimensions: State.dimensions }))); const next = State.redo.pop(); State.points = next.points; State.dimensions = next.dimensions || []; pointIdCounter = State.points.reduce((max, p) => Math.max(max, p.id || 0), 0) + 1; updatePath(); if (State.points.length) centerViewOnPoint(State.points[State.points.length - 1]); updateHistory(); }
 
@@ -540,7 +542,6 @@
           } else { 
               $("target-coord-inputs").style.display = "none"; 
               $("target-cone-input").style.display = "block"; 
-              // Enable radius input for Angle mode, because we need R to calculate coord
               $("arc-r").disabled = false;
               $("arc-r").placeholder = "Zadejte R";
               $("lbl-arc-r").innerText = "Rádius (povinné):";
@@ -562,7 +563,6 @@
               $("lbl-arc-r").innerText = "Rádius:";
           } else {
               $("tangent-target-selector").style.display = "block";
-              // Trigger refresh of fields based on target type
               setTangentTarget(tanTarget);
           }
       }
@@ -600,23 +600,84 @@
         } else if (State.measureMode === "angle") {
             if(isLine) {
                 const pStart = State.points[idx], pEnd = State.points[idx+1];
-                State.measurePoints.push({ x: pEnd.x - pStart.x, z: pEnd.z - pStart.z, type: 'vector' });
+                // Store actual points, not just vector
+                State.measurePoints.push({ x: pStart.x, z: pStart.z, x2: pEnd.x, z2: pEnd.z, type: 'lineSegment' });
                 showToast(`Vybrána úsečka ${State.measurePoints.length}/2`);
                 if(State.measurePoints.length === 2) {
-                    const v1 = State.measurePoints[0], v2 = State.measurePoints[1];
-                    const mag1 = Math.sqrt(v1.x*v1.x + v1.z*v1.z), mag2 = Math.sqrt(v2.x*v2.x + v2.z*v2.z);
-                    if(mag1 === 0 || mag2 === 0) { showMeasureResult("Chyba: Nulová délka"); }
-                    else {
-                        const dot = v1.x * v2.x + v1.z * v2.z; const ang = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI);
-                        showMeasureResult(`Úhel: ${ang.toFixed(3)}°`);
-                    } State.measurePoints = [];
+                    const l1 = State.measurePoints[0], l2 = State.measurePoints[1];
+                    
+                    // 1. Calculate Intersection (Vertex)
+                    const d1x = l1.x2 - l1.x, d1z = l1.z2 - l1.z;
+                    const d2x = l2.x2 - l2.x, d2z = l2.z2 - l2.z;
+                    
+                    const det = d1x * -d2z - d1z * -d2x;
+                    let vertex = { x: l1.x, z: l1.z }; // Default fallback
+                    
+                    if (Math.abs(det) > 1e-5) {
+                        const t = ((l2.x - l1.x) * -d2z - (l2.z - l1.z) * -d2x) / det;
+                        vertex = { x: l1.x + t * d1x, z: l1.z + t * d1z };
+                    } else {
+                        // Check touching endpoints for connected lines
+                        if(dist(l1, l2) < 0.001) vertex = {x: l1.x, z: l1.z};
+                        else if(dist(l1, {x:l2.x2, z:l2.z2}) < 0.001) vertex = {x: l1.x, z: l1.z};
+                        else if(dist({x:l1.x2, z:l1.z2}, l2) < 0.001) vertex = {x: l1.x2, z: l1.z2};
+                        else if(dist({x:l1.x2, z:l1.z2}, {x:l2.x2, z:l2.z2}) < 0.001) vertex = {x: l1.x2, z: l1.z2};
+                    }
+
+                    // 2. Determine vectors pointing OUT from vertex
+                    function getFarPoint(seg, v) {
+                         const dStart = Math.hypot(seg.x - v.x, seg.z - v.z);
+                         const dEnd = Math.hypot(seg.x2 - v.x, seg.z2 - v.z);
+                         return dStart > dEnd ? {x: seg.x, z: seg.z} : {x: seg.x2, z: seg.z2};
+                    }
+                    
+                    const p1Out = getFarPoint(l1, vertex);
+                    const p2Out = getFarPoint(l2, vertex);
+                    
+                    const v1x = p1Out.x - vertex.x, v1z = p1Out.z - vertex.z;
+                    const v2x = p2Out.x - vertex.x, v2z = p2Out.z - vertex.z;
+                    
+                    const mag1 = Math.sqrt(v1x*v1x + v1z*v1z);
+                    const mag2 = Math.sqrt(v2x*v2x + v2z*v2z);
+                    
+                    if(mag1 === 0 || mag2 === 0) { 
+                        showMeasureResult("Chyba: Nulová délka"); 
+                    } else {
+                        const dot = v1x * v2x + v1z * v2z; 
+                        const ang = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI);
+                        
+                        State.lastMeasured = { 
+                            type: 'angle', 
+                            vertex: vertex, 
+                            p1: p1Out, 
+                            p2: p2Out, 
+                            val: ang.toFixed(3)
+                        };
+
+                        showMeasureResult(`Úhel: ${ang.toFixed(3)}°<br>Doplněk (360°): ${(360-ang).toFixed(3)}°`);
+                    } 
+                    State.measurePoints = [];
                 }
             } else {
                 State.measurePoints.push(p); renderMeasure();
                 if(State.measurePoints.length === 3) {
-                    const P = State.measurePoints; const v1 = { x: P[0].x - P[1].x, z: P[0].z - P[1].z }, v2 = { x: P[2].x - P[1].x, z: P[2].z - P[1].z };
+                    const P = State.measurePoints; 
+                    const v1 = { x: P[0].x - P[1].x, z: P[0].z - P[1].z }; // 0 to 1
+                    const v2 = { x: P[2].x - P[1].x, z: P[2].z - P[1].z }; // 2 to 1
                     const mag1 = Math.sqrt(v1.x*v1.x + v1.z*v1.z), mag2 = Math.sqrt(v2.x*v2.x + v2.z*v2.z);
-                    if (mag1 === 0 || mag2 === 0) showMeasureResult("Chyba: Body"); else { const dot = v1.x * v2.x + v1.z * v2.z; const ang = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI); showMeasureResult(`Úhel (vrchol bod 2): ${ang.toFixed(3)}°`); } State.measurePoints = [];
+                    if (mag1 === 0 || mag2 === 0) showMeasureResult("Chyba: Body"); 
+                    else { 
+                        const dot = v1.x * v2.x + v1.z * v2.z; 
+                        const ang = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI); 
+                        State.lastMeasured = { 
+                            type: 'angle', 
+                            vertex: P[1], // Middle point is vertex
+                            p1: P[0], 
+                            p2: P[2], 
+                            val: ang.toFixed(3)
+                        };
+                        showMeasureResult(`Úhel (vrchol bod 2): ${ang.toFixed(3)}°<br>Doplněk (360°): ${(360-ang).toFixed(3)}°`); 
+                    } State.measurePoints = [];
                 }
             }
         }
@@ -667,7 +728,6 @@
           shiftAllPoints(dx, dz);
           State.moveOrigin = null;
           closeModals(); showToast("Model posunut");
-          // Reset input fields to normal Move mode defaults
           $("btn-pick-target").style.display = "block"; $("btn-commit-move").onclick = commitMove; $("grp-angle").style.display = "block"; $("inp-len").style.display = "block"; $("input-title").innerText = "Parametry pohybu";
       }
 
@@ -682,11 +742,9 @@
           // Method R
           if (arcMode === 'TAN' || arcMode === 'BACK') {
               if(tanTarget === 'cone') {
-                  // Tangent + Cone Angle
                   r = Math.abs(getNum("arc-r")); if(isNaN(r)) { alert("Zadejte R"); return; }
                   const coneAngle = getNum("arc-cone-angle"); if(isNaN(coneAngle)) { alert("Zadejte úhel"); return; }
                   
-                  // Calculate start angle based on tangent
                   let prevAngle = 0; 
                   if (State.points.length > 1) { 
                       const prevPt = State.points[State.points.length - 2]; 
@@ -698,18 +756,12 @@
                       } 
                   }
                   
-                  // Perpendicular to tangent is the center line
-                  // For G2 (CW), center is to the right of tangent. For G3 (CCW), left.
                   const centerAngle = prevAngle + (isG2 ? -Math.PI/2 : Math.PI/2);
                   cx = l.x + Math.cos(centerAngle) * r;
                   cz = l.z + Math.sin(centerAngle) * r;
                   
-                  // End point is derived from cone angle (sweep)
-                  // Cone angle is absolute change in direction
                   const sweepRad = coneAngle * (Math.PI/180);
-                  // Start angle from center to point
                   const startAngleFromCenter = Math.atan2(l.z - cz, l.x - cx);
-                  // End angle from center
                   const endAngleFromCenter = startAngleFromCenter + (isG2 ? -sweepRad : sweepRad);
                   
                   ex = cx + Math.cos(endAngleFromCenter) * r;
@@ -717,62 +769,34 @@
                   cw = isG2;
 
               } else if (arcMode === 'BACK') {
-                // Back Tangent (Fillet logic - line extension/trim)
                 r = Math.abs(getNum("arc-r")); if(isNaN(r)) { alert("Zadejte R"); return; }
                 let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; if(isNaN(tx)) { alert("Cíl?"); return; }
                 ex = tx; ez = tz;
                 const prev = State.points[State.points.length-2];
                 const dx = l.x - prev.x, dz = l.z - prev.z, len = Math.hypot(dx, dz);
                 const ux = dx/len, uz = dz/len;
-                const nx = -uz, nz = ux; // Normal vector
+                const nx = -uz, nz = ux; 
                 
-                // Offset line parallel to previous segment at distance R
-                // Side depends on CW/CCW. G2 (CW) -> Right side. G3 (CCW) -> Left side.
-                // Assuming normal (nx, nz) points "left". 
                 const side = isG2 ? 1 : -1;
-                const px = l.x + nx * r * side, pz = l.z + nz * r * side; // Point on offset line
+                const px = l.x + nx * r * side, pz = l.z + nz * r * side; 
                 
-                // We need intersection of Line(px, pz, direction=ux,uz) and Circle(ex, ez, radius=R)
-                // Line: P = (px, pz) + t * (ux, uz)
-                // Circle: (x-ex)^2 + (z-ez)^2 = R^2
-                // Sub: (px + t*ux - ex)^2 + (pz + t*uz - ez)^2 = R^2
                 const Ox = px - ex, Oz = pz - ez;
-                const A = 1; // ux^2 + uz^2 = 1
+                const A = 1; 
                 const B = 2 * (Ox * ux + Oz * uz);
                 const C = (Ox*Ox + Oz*Oz) - r*r;
                 const det = B*B - 4*A*C;
                 
                 if(det < 0) { alert("Nelze sestrojit (Rádius nedosáhne)"); return; }
                 
-                // Two solutions for center
                 const t1 = (-B + Math.sqrt(det)) / 2;
                 const t2 = (-B - Math.sqrt(det)) / 2;
                 
                 const c1 = {x: px + t1*ux, z: pz + t1*uz};
                 const c2 = {x: px + t2*ux, z: pz + t2*uz};
                 
-                // Calculate sweep for both solutions to find the shorter arc
-                function getSweep(center) {
-                    const angStart = Math.atan2(prev.z + (center.z-px)*uz/t1*uz - center.z, prev.x + (center.x-px)*ux/t1*ux - center.x); // Approx tangent point
-                    // Tangent point on line is: T = Center - Normal*R*side
-                    const Tx = center.x - nx * r * side;
-                    const Tz = center.z - nz * r * side;
-                    const angS = Math.atan2(Tz - center.z, Tx - center.x);
-                    const angE = Math.atan2(ez - center.z, ex - center.x);
-                    let diff = angE - angS;
-                    if(isG2) { // CW
-                         if(diff > 0) diff -= 2*Math.PI;
-                    } else { // CCW
-                         if(diff < 0) diff += 2*Math.PI;
-                    }
-                    return Math.abs(diff);
-                }
-                
-                // Recalculate exact tangent points for t1 and t2
                 const T1x = c1.x - nx * r * side, T1z = c1.z - nz * r * side;
                 const T2x = c2.x - nx * r * side, T2z = c2.z - nz * r * side;
 
-                // Calculate angles
                 function calcSweep(c, tx, tz) {
                     const angS = Math.atan2(tz - c.z, tx - c.x);
                     const angE = Math.atan2(ez - c.z, ex - c.x);
@@ -785,20 +809,16 @@
                 const sweep1 = calcSweep(c1, T1x, T1z);
                 const sweep2 = calcSweep(c2, T2x, T2z);
                 
-                // Choose the one with smaller sweep (shorter arc)
                 let bestC, bestT;
                 if(sweep1 < sweep2) { bestC = c1; bestT = {x:T1x, z:T1z}; }
                 else { bestC = c2; bestT = {x:T2x, z:T2z}; }
                 
                 cx = bestC.x; cz = bestC.z;
-                
-                // Modify previous line end point to be bestT
                 State.points[State.points.length-1].x = bestT.x;
                 State.points[State.points.length-1].z = bestT.z;
                 cw = isG2;
 
               } else {
-                // Tangent (Normal) logic
                 let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; ex = tx; ez = tz;
                 let prevAngle = 0; if (State.points.length > 1) { const prevPt = State.points[State.points.length - 2]; if (l.type === "arc") { const angleToCenter = Math.atan2(l.z - l.cz, l.x - l.cx); prevAngle = l.cw ? angleToCenter - Math.PI/2 : angleToCenter + Math.PI/2; } else { prevAngle = Math.atan2(l.z - prevPt.z, l.x - prevPt.x); } }
                 const midX = (l.x + ex) / 2, midZ = (l.z + ez) / 2, bisectorAngle = Math.atan2(ez - l.z, ex - l.x) + Math.PI / 2, normalAngle = prevAngle + Math.PI / 2; 
@@ -809,7 +829,6 @@
                 const Tx = Math.cos(prevAngle), Tz = Math.sin(prevAngle), Vx = ex - l.x, Vz = ez - l.z; cw = (Tx * Vz - Tz * Vx) < 0;
             }
           } else {
-            // Normal 2P + R
             r = Math.abs(getNum("arc-r")); let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; ex = tx; ez = tz;
             const d = dist(l, { x: ex, z: ez }); if (d > 2 * r) { alert("Malé R"); return; }
             const h = Math.sqrt(r * r - (d / 2) * (d / 2)), a = Math.atan2(ez - l.z, ex - l.x), mx = (l.x + ex) / 2, mz = (l.z + ez) / 2;
@@ -1122,6 +1141,7 @@
       function closeModals() { document.querySelectorAll(".modal").forEach((m) => (m.style.display = "none")); }
       function toggleHelpers() { document.body.classList.toggle("helpers-hidden"); $("btn-helpers").classList.toggle("active-mode", document.body.classList.contains("helpers-hidden")); }
       function toggleDiameterMode() { State.isDiameter = !State.isDiameter; safeStorage.setItem("cnc_diameter_mode", State.isDiameter); $("btn-toggle-dia").querySelector("span").innerText = State.isDiameter ? "Ø Průměr" : "R Poloměr"; ["lbl-arc-x", "lbl-center-x", "lbl-start-x", "lbl-inp-x", "lbl-circ-cx", "lbl-circ-val"].forEach((id) => { const e = $(id); if (e) e.innerText = e.innerText.replace(/Průměr|Poloměr/, State.isDiameter ? "Průměr" : "Poloměr"); }); requestRender(); updatePath(); }
+      function centerOnSelection() { if(State.lastSel) centerViewOnPoint(State.lastSel); }
       function centerViewOnPoint(p) { 
           const sx = getScreenX(p), sy = getScreenY(p);
           State.vb.x = sx - State.vb.w / 2; State.vb.y = -sy - State.vb.h / 2; requestRender(); 
@@ -1150,6 +1170,11 @@
       function onPointClick(i) {
         if (State.isDragging || State.touch.timer) return;
         const p = State.points[i];
+        State.lastSel = p;
+        const xVal = State.isDiameter ? p.x * 2 : p.x;
+        if(State.machineType === 'KARUSEL') { $("sel-x").innerText = xVal.toFixed(3); $("sel-z").innerText = p.z.toFixed(3); }
+        else { $("sel-x").innerText = p.z.toFixed(3); $("sel-z").innerText = xVal.toFixed(3); }
+        $("sel-hud").style.display = "flex";
         
         if (State.measureMode) {
             handleMeasureClick({ ...p, index: i }, false);
@@ -1170,35 +1195,21 @@
         if(State.mode === "PICK_ALIGN_HORIZ") { State.tempPickList.push(p); showToast(`Vybrán bod ${State.tempPickList.length}/2`); if(State.tempPickList.length === 2) { saveHistory(); const p1 = State.tempPickList[0], p2 = State.tempPickList[1]; const angle = Math.atan2(p2.z - p1.z, p2.x - p1.x); rotateAllPoints(p1, -angle); State.tempPickList = []; setMode("IDLE"); closeModals(); showToast("Model srovnán"); } return; }
         if(State.mode === "PICK_ALIGN_2P") { 
             State.tempPickList.push(p); 
-            // 4 Steps: P1 -> Target1, P2 -> Target2
             const step = State.tempPickList.length;
             if(step === 1) showToast("Nyní vyberte Cíl 1 (klik nebo zadat)");
             if(step === 2) showToast("Vyberte Bod 2 na modelu");
             if(step === 3) showToast("Vyberte Cíl 2");
             
-            if(step === 2 || step === 4) {
-                // Should be handled by generic click handler for target, but here we expect user to click points.
-                // If user clicks a point for target, it's handled here.
-            }
             if(step === 4) {
-               // Exec Align
                const p1 = State.tempPickList[0], t1 = State.tempPickList[1];
                const p2 = State.tempPickList[2], t2 = State.tempPickList[3];
-               
-               // 1. Move p1 to t1
                const dx = t1.x - p1.x, dz = t1.z - p1.z;
                shiftAllPoints(dx, dz);
-               
-               // 2. Rotate around t1 (which is now p1's new pos) to align p2 to t2
-               // Current Angle of p2 relative to p1
-               // Note: p2 coords shifted by dx,dz
                const curP2 = {x: p2.x + dx, z: p2.z + dz};
                const angCur = Math.atan2(curP2.z - t1.z, curP2.x - t1.x);
                const angTgt = Math.atan2(t2.z - t1.z, t2.x - t1.x);
                const rot = angTgt - angCur;
-               
-               rotateAllPoints(t1, -rot); // -rot because rotateAllPoints uses standard math rotation
-               
+               rotateAllPoints(t1, -rot);
                State.tempPickList = []; setMode("IDLE"); closeModals(); showToast("Srovnáno (Align)");
             }
             return; 
@@ -1236,20 +1247,16 @@
       }
 
       function handleActionClick(snap) {
-        // Prevent click if any modal is open (except HUD which is always on top)
         if(document.querySelector(".modal[style*='display: flex']")) return;
         
         if (!snap) return;
         const x = snap.x, z = snap.z;
         
-        // ALIGN Target Picking logic (if clicking empty space or point as target)
         if (State.mode === "PICK_ALIGN_2P" && (State.tempPickList.length === 1 || State.tempPickList.length === 3)) {
-            // User clicked Target 1 or Target 2
             State.tempPickList.push({x, z});
             const step = State.tempPickList.length;
             if(step === 2) showToast("Vyberte Bod 2 na modelu");
             if(step === 4) {
-               // Execute Align
                const p1 = State.tempPickList[0], t1 = State.tempPickList[1];
                const p2 = State.tempPickList[2], t2 = State.tempPickList[3];
                const dx = t1.x - p1.x, dz = t1.z - p1.z;
@@ -1273,7 +1280,6 @@
                 return;
             }
             if(snap.t === "free") {
-                // Click in empty space -> Open Input Modal prefilled
                 const last = State.points[State.points.length-1];
                 const distVal = Math.hypot(x - last.x, z - last.z);
                 prepMove("TANGENT"); 
@@ -1336,7 +1342,6 @@
         let best = null, minDist = md;
         const targets = [];
         
-        // Permanent 0,0 snap target
         targets.push({x: 0, z: 0, t: "origin"});
 
         if(State.mode === "CHAIN") {
@@ -1395,12 +1400,10 @@
             return bestSeg; 
         }
 
-        // TRIM Mode - check dimensions
         if (State.mode === "TRIM") {
              const dimMd = 20 * (State.vb.w / els.svg.clientWidth);
              for(let d of State.dimensions) {
                  if(d.lineP1 && d.lineP2) {
-                     // Approximate check against dimension line
                      const midX = (d.lineP1.x + d.lineP2.x)/2;
                      const midZ = (d.lineP1.z + d.lineP2.z)/2;
                      if(Math.hypot(pWorld.x - midX, pWorld.z - midZ) < dimMd) {
@@ -1437,7 +1440,17 @@
           const p1 = State.lastMeasured.p1, p2 = State.lastMeasured.p2; const dx = p2.x - p1.x, dz = p2.z - p1.z; let nx = -dz / Math.sqrt(dx * dx + dz * dz), nz = dx / Math.sqrt(dx * dx + dz * dz);
           let formatted = parseFloat(State.lastMeasured.val).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
           State.dimensions.push({ type: "dist", p1: p1, p2: p2, val: formatted, lineP1: { x: p1.x + nx * finalOffset, z: p1.z + nz * finalOffset }, lineP2: { x: p2.x + nx * finalOffset, z: p2.z + nz * finalOffset } });
-        } else if (State.lastMeasured.type === "rad") { State.dimensions.push({ type: "rad", c: State.lastMeasured.c, p: State.lastMeasured.p, val: State.lastMeasured.val }); }
+        } else if (State.lastMeasured.type === "rad") { 
+            State.dimensions.push({ type: "rad", c: State.lastMeasured.c, p: State.lastMeasured.p, val: State.lastMeasured.val }); 
+        } else if (State.lastMeasured.type === "angle") {
+            State.dimensions.push({
+                type: "angle",
+                vertex: State.lastMeasured.vertex,
+                p1: State.lastMeasured.p1,
+                p2: State.lastMeasured.p2,
+                val: parseFloat(State.lastMeasured.val).toFixed(1)
+            });
+        }
         updatePath(); stopMeasure(false); closeModals();
       }
 
@@ -1462,21 +1475,63 @@
         els.dim.innerHTML = ""; if (State.dimensions.length === 0) return;
         const frag = document.createDocumentFragment(); const scale = State.vb.w / els.svg.clientWidth; const fs = 24 * scale; const textOffsetDist = 12 * scale;
         State.dimensions.forEach((d) => {
-          const dp1 = d.type==='dist'?{x: getScreenX(d.p1), y: getScreenY(d.p1)} : null;
-          const dp2 = d.type==='dist'?{x: getScreenX(d.p2), y: getScreenY(d.p2)} : null;
-          const dlp1 = d.type==='dist'?{x: getScreenX(d.lineP1), y: getScreenY(d.lineP1)} : null;
-          const dlp2 = d.type==='dist'?{x: getScreenX(d.lineP2), y: getScreenY(d.lineP2)} : null;
           
-          const dcp = d.type==='rad'?{x: getScreenX(d.c), y: getScreenY(d.c)} : null;
-          const dpp = d.type==='rad'?{x: getScreenX(d.p), y: getScreenY(d.p)} : null;
-
           if (d.type === "dist") {
+            const dp1 = {x: getScreenX(d.p1), y: getScreenY(d.p1)};
+            const dp2 = {x: getScreenX(d.p2), y: getScreenY(d.p2)};
+            const dlp1 = {x: getScreenX(d.lineP1), y: getScreenY(d.lineP1)};
+            const dlp2 = {x: getScreenX(d.lineP2), y: getScreenY(d.lineP2)};
             frag.append(svgEl("line", { x1: dp1.x, y1: dp1.y, x2: dlp1.x, y2: dlp1.y, class: "dim-line", stroke: "#795548", "stroke-dasharray": "2,2" }), svgEl("line", { x1: dp2.x, y1: dp2.y, x2: dlp2.x, y2: dlp2.y, class: "dim-line", stroke: "#795548", "stroke-dasharray": "2,2" }), svgEl("line", { x1: dlp1.x, y1: dlp1.y, x2: dlp2.x, y2: dlp2.y, class: "dim-line" }));
             const angle = Math.atan2(dlp2.y - dlp1.y, dlp2.x - dlp1.x); drawArrow(frag, dlp1.x, dlp1.y, angle + Math.PI, scale); drawArrow(frag, dlp2.x, dlp2.y, angle, scale);
             const mx = (dlp1.x + dlp2.x) / 2, mz = (dlp1.y + dlp2.y) / 2, tx = mx - Math.sin(angle) * textOffsetDist, tz = mz + Math.cos(angle) * textOffsetDist;
             let deg = (angle * 180) / Math.PI; if (deg > 90 || deg < -90) deg += 180; const txt = svgEl("text", { x: 0, y: 0, class: "dim-text", "font-size": fs, textContent: d.val }); txt.setAttribute("transform", `translate(${tx}, ${tz}) scale(1, -1) rotate(${-deg})`); frag.append(txt);
           } else if (d.type === "rad") {
+            const dcp = {x: getScreenX(d.c), y: getScreenY(d.c)};
+            const dpp = {x: getScreenX(d.p), y: getScreenY(d.p)};
             frag.append(svgEl("line", { x1: dcp.x, y1: dcp.y, x2: dpp.x, y2: dpp.y, class: "dim-line" })); const angle = Math.atan2(dpp.y - dcp.y, dpp.x - dcp.x); drawArrow(frag, dpp.x, dpp.y, angle, scale); const mx = (dcp.x + dpp.x) / 2, mz = (dcp.y + dpp.y) / 2; let deg = (angle * 180) / Math.PI; if (deg > 90 || deg < -90) deg += 180; const txt = svgEl("text", { x: 0, y: 0, class: "dim-text", "font-size": fs, textContent: "R" + d.val }); txt.setAttribute("transform", `translate(${mx}, ${mz}) scale(1, -1) rotate(${-deg})`); frag.append(txt);
+          } else if (d.type === "angle") {
+            const V = {x: getScreenX(d.vertex), y: getScreenY(d.vertex)};
+            const P1 = {x: getScreenX(d.p1), y: getScreenY(d.p1)};
+            const P2 = {x: getScreenX(d.p2), y: getScreenY(d.p2)};
+            
+            const r = 40 * scale; 
+            const a1 = Math.atan2(P1.y - V.y, P1.x - V.x);
+            const a2 = Math.atan2(P2.y - V.y, P2.x - V.x);
+            
+            let start = a1, end = a2;
+            let diff = end - start;
+            
+            // Normalize diff to -PI to PI
+            while (diff <= -Math.PI) diff += 2*Math.PI;
+            while (diff > Math.PI) diff -= 2*Math.PI;
+
+            // We want the inner angle (absolute diff should be < PI)
+            // If diff is > 0, we go CCW from start to end.
+            // If diff is < 0, we go CW from start to end (or CCW from end to start).
+            
+            let sweep = diff > 0 ? 1 : 0;
+            
+            const sx = V.x + Math.cos(start) * r;
+            const sy = V.y + Math.sin(start) * r;
+            const ex = V.x + Math.cos(end) * r;
+            const ey = V.y + Math.sin(end) * r;
+            
+            frag.append(svgEl("path", {
+                d: `M ${sx} ${sy} A ${r} ${r} 0 0 ${sweep} ${ex} ${ey}`,
+                class: "dim-line", fill: "none"
+            }));
+            
+            drawArrow(frag, sx, sy, start + (sweep? -Math.PI/2 : Math.PI/2), scale);
+            drawArrow(frag, ex, ey, end + (sweep? Math.PI/2 : -Math.PI/2), scale);
+
+            // Text position
+            const midAng = start + diff/2;
+            const tx = V.x + Math.cos(midAng) * (r + 15*scale);
+            const ty = V.y + Math.sin(midAng) * (r + 15*scale);
+            
+            const txt = svgEl("text", { x: 0, y: 0, class: "dim-text", "font-size": fs, textContent: d.val + "°" });
+            txt.setAttribute("transform", `translate(${tx}, ${ty}) scale(1, -1)`);
+            frag.append(txt);
           }
         }); els.dim.appendChild(frag);
       }
@@ -1488,60 +1543,62 @@
       function drawDynamicGrid() {
         if (!els.svg.clientWidth) return;
         const vw = State.vb.w; const scale = vw / els.svg.clientWidth;
-        els.grid.innerHTML = ""; els.text.innerHTML = ""; els.axis.innerHTML = "";
+        els.grid.replaceChildren(); els.text.replaceChildren(); els.axis.replaceChildren();
         
         let step = Math.pow(10, Math.floor(Math.log10(vw / 5))); if (vw / 5 / step < 2) step *= 1; else if (vw / 5 / step < 5) step *= 2; else step *= 5;
         const subStep = step / 5; const fs = Math.max(vw / 40, step / 3.5);
         
         const axisFrag = document.createDocumentFragment(), gridFrag = document.createDocumentFragment(), textFrag = document.createDocumentFragment();
         
-        // Dynamic Dash Array calculation for Z axis
-        // We want the dash to look constant on screen. 
-        // Say 20px dash, 10px gap on screen.
         const dashLen = 25 * scale;
         const gapLen = 10 * scale;
         const smallDash = 5 * scale;
-        // Dash-Dot pattern: Long, Gap, Short, Gap
         const dashArray = `${dashLen},${gapLen},${smallDash},${gapLen}`;
 
-        // Limit axis lines to visible area + buffer
         const buffer = vw * 0.5;
-        const minX = State.vb.x - buffer, maxX = State.vb.x + vw + buffer;
-        const minY = State.vb.y - buffer, maxY = State.vb.y + State.vb.h + buffer;
-
-        // X Axis (Always Black solid) - Horizontal in Karusel(X is X), Vertical in Soustruh(X is Z)
-        // Z Axis (Red Dashed) - Vertical in Karusel(Z is Z), Horizontal in Soustruh(Z is X)
         
+        // X Limits (Standard)
+        const minX = State.vb.x - buffer;
+        const maxX = State.vb.x + vw + buffer;
+        
+        // Y Limits (Correctly Inverted for scale(1, -1))
+        // Visual Top (vb.y) -> World Max Y (-vb.y)
+        // Visual Bottom (vb.y + vb.h) -> World Min Y (-(vb.y + vb.h))
+        const minY = -(State.vb.y + State.vb.h + buffer);
+        const maxY = -(State.vb.y - buffer);
+
         const isKarusel = State.machineType === 'KARUSEL';
         
         if (isKarusel) {
-             // Karusel: X is Horizontal, Z is Vertical
-             // Horizontal Axis (Z=0) -> X Axis
              axisFrag.append(svgEl("line", { x1: minX, y1: 0, x2: maxX, y2: 0, class: "axis-line" }));
-             // Vertical Axis (X=0) -> Z Axis
              axisFrag.append(svgEl("line", { x1: 0, y1: minY, x2: 0, y2: maxY, class: "axis-line-red", "stroke-dasharray": dashArray }));
         } else {
-             // Soustruh: Z is Horizontal, X is Vertical
-             // Horizontal Axis (X=0) -> Z Axis (Red)
              axisFrag.append(svgEl("line", { x1: minX, y1: 0, x2: maxX, y2: 0, class: "axis-line-red", "stroke-dasharray": dashArray }));
-             // Vertical Axis (Z=0) -> X Axis
              axisFrag.append(svgEl("line", { x1: 0, y1: minY, x2: 0, y2: maxY, class: "axis-line" }));
         }
         
-        const startX = Math.floor(State.vb.x / subStep) * subStep, endX = State.vb.x + vw + subStep, startY = Math.floor(-(State.vb.y + State.vb.h) / subStep) * subStep, endY = -State.vb.y + subStep;
-        const textYPos = State.vb.y + State.vb.h - (scale * 15), textXPos = State.vb.x + (scale * 10);
-        
-        for (let v = startY; v < endY; v += subStep) { 
-            const rem = Math.abs(v % step); const isMain = rem < 0.001 || Math.abs(rem - step) < 0.001; 
-            gridFrag.append(svgEl("line", { x1: State.vb.x, y1: v, x2: State.vb.x + State.vb.w, y2: v, class: isMain ? "grid-line" : "grid-sub-line" })); 
+        // Use integer math for loops
+        const startYi = Math.floor(minY / subStep);
+        const endYi = Math.floor(maxY / subStep);
+        const startXi = Math.floor(minX / subStep);
+        const endXi = Math.floor(maxX / subStep);
+
+        const textYPos = State.vb.y + State.vb.h - (scale * 15);
+        const textXPos = State.vb.x + (scale * 10);
+
+        for (let i = startYi; i <= endYi; i++) { 
+            const v = i * subStep;
+            const isMain = i % 5 === 0;
+            gridFrag.append(svgEl("line", { x1: minX, y1: v, x2: maxX, y2: v, class: isMain ? "grid-line" : "grid-sub-line" })); 
             if (isMain) {
                 const val = isKarusel ? v : (State.isDiameter ? v * 2 : v);
                 textFrag.append(svgEl("text", { x: textXPos, y: -v, fill: "#444", "font-size": fs, "text-anchor": "start", "dominant-baseline": "middle", "font-weight": "bold", textContent: val.toFixed(step < 1 ? Math.ceil(-Math.log10(step)) : 0) })); 
             }
         }
-        for (let v = startX; v < endX; v += subStep) { 
-            const rem = Math.abs(v % step); const isMain = rem < 0.001 || Math.abs(rem - step) < 0.001; 
-            gridFrag.append(svgEl("line", { x1: v, y1: -(State.vb.y + State.vb.h), x2: v, y2: -State.vb.y, class: isMain ? "grid-line" : "grid-sub-line" })); 
+        for (let i = startXi; i <= endXi; i++) { 
+            const v = i * subStep;
+            const isMain = i % 5 === 0;
+            gridFrag.append(svgEl("line", { x1: v, y1: minY, x2: v, y2: maxY, class: isMain ? "grid-line" : "grid-sub-line" })); 
             if (isMain) {
                 const val = isKarusel ? (State.isDiameter ? v * 2 : v) : v;
                 textFrag.append(svgEl("text", { x: v, y: textYPos, fill: "#444", "font-size": fs, "text-anchor": "middle", "font-weight": "bold", textContent: val.toFixed(step < 1 ? Math.ceil(-Math.log10(step)) : 0) })); 
@@ -1621,6 +1678,7 @@
       });
       window.addEventListener("mousemove", (e) => { 
           if(dragStart) {
+             if(e.buttons === 0) { State.isDragging = false; dragStart = null; return; }
              if(Math.hypot(e.clientX - dragStart.x, e.clientY - dragStart.y) > DRAG_THRESHOLD) State.isDragging = true;
           }
           if (State.isDragging) { const s = State.vb.w / els.svg.clientWidth; State.vb.x -= e.movementX * s; State.vb.y -= e.movementY * s; requestRender(); } 
