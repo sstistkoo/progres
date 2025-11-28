@@ -126,7 +126,7 @@
       .btn-menu { background: #424242; border: 1px solid #555; } .btn-menu i { color: #fff; }
       .btn-export { background: #2e7d32; color: white; } .btn-import { background: #ef6c00; color: white; }
 
-      #btn-home { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; background: #fff; color: #333; border-radius: 8px; border: 2px solid #888; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); z-index: 10; padding: 0; overflow: hidden; }
+      #btn-home { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; background: #fff; color: #333; border-radius: 8px; border: 2px solid #888; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); z-index: 10; padding: 2px; }
       #btn-snap-toggle { position: absolute; top: 10px; right: 64px; width: 40px; height: 40px; background: #fff; color: #333; border-radius: 50%; border: 2px solid #888; display: flex; justify-content: center; align-items: center; font-size: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); z-index: 10; }
       #btn-snap-toggle.snap-off { color: #aaa; border-color: #ccc; background: #f0f0f0; } #btn-snap-toggle.snap-off i { text-decoration: line-through; }
 
@@ -151,38 +151,26 @@
       }
       #toast-msg.show { opacity: 1; bottom: 120px; }
 
-      /* MODALS */
-      .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); z-index: 300; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
-      .modal-content { background: #fff; width: 90%; max-width: 350px; max-height: 90vh; border-radius: 12px; border: 1px solid #999; color: #000; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); position: relative; animation: popIn 0.2s ease-out; }
-      @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-      .modal-header { padding: 12px 15px; border-bottom: 1px solid #ddd; flex-shrink: 0; background: #f5f5f5; display: flex; justify-content: space-between; align-items: center; }
-      .modal-header h3 { margin: 0; font-size: 18px; color: #333; font-weight: 700; }
-      .close-icon { font-size: 20px; color: #666; cursor: pointer; padding: 5px; } .close-icon:hover { color: #d32f2f; }
-      .modal-body { padding: 15px; overflow-y: auto; flex-grow: 1; background: #fff; }
-      .modal-footer { padding: 10px 15px; border-top: 1px solid #ddd; background: #f5f5f5; flex-shrink: 0; display: flex; justify-content: flex-end; gap: 10px; }
-
-      /* Custom Alert Modal */
-      #modal-alert { z-index: 400; }
-      #modal-alert .modal-content { max-width: 300px; text-align: center; }
-      #modal-alert .modal-body { font-size: 16px; font-weight: 500; padding: 20px; }
-      #modal-alert .modal-footer { justify-content: center; }
-
-      /* Custom Confirm Modal */
-      #modal-confirm { z-index: 400; }
-      #modal-confirm .modal-content { max-width: 300px; text-align: center; }
-      #modal-confirm .modal-body { font-size: 16px; font-weight: 500; padding: 20px; }
-      #modal-confirm .modal-footer { justify-content: center; }
-
+      .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 100; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+      .modal-content { background: #fff; width: 90%; max-width: 350px; max-height: 90vh; border-radius: 16px; border: 1px solid #999; color: #000; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); position: relative; }
+      .modal-header { padding: 15px 20px 10px; border-bottom: 2px solid #eee; flex-shrink: 0; background: #fff; display: flex; justify-content: space-between; align-items: center; }
+      .modal-header h3 { margin: 0; font-size: 20px; color: #000; font-weight: 800; }
+      .close-icon { font-size: 24px; color: #555; cursor: pointer; padding: 0 5px; transition: color 0.2s; } .close-icon:hover { color: #d32f2f; }
+      .modal-body { padding: 15px 20px; overflow-y: auto; flex-grow: 1; background: #fff; }
+      .modal-footer { padding: 15px 20px; border-top: 2px solid #eee; background: #f8f8f8; flex-shrink: 0; }
+      
+      .confirm-content { text-align: center; }
+      .confirm-msg { font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #333; }
 
       .segmented-control { display: flex; width: 100%; margin-bottom: 15px; border: 2px solid #666; border-radius: 8px; overflow: hidden; background: #fff; }
-      .seg-opt { flex: 1; padding: 10px; text-align: center; cursor: pointer; background: #fff; color: #333; font-weight: bold; font-size: 13px; transition: 0.1s; border-right: 1px solid #ccc; display: flex; align-items: center; justify-content: center; }
-      .seg-opt:last-child { border-right: none; } .seg-opt:hover { background: #eee; }
-      .seg-opt.active { background: var(--c-arc); color: #fff; }
+      .seg-opt { flex: 1; padding: 12px; text-align: center; cursor: pointer; background: #fff; color: #333; font-weight: bold; font-size: 14px; transition: 0.1s; border-right: 1px solid #ccc; display: flex; align-items: center; justify-content: center; }
+      .seg-opt:last-child { border-right: none; } .seg-opt:hover { background: #eee; color: #000; }
+      .seg-opt.active { background: var(--c-arc); color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); }
       .mode-toggle .seg-opt.active { background: var(--c-util); } .tangent-target-toggle .seg-opt.active { background: var(--c-meas); } .circle-toggle .seg-opt.active { background: var(--c-circle); }
+      .tangent-type-toggle .seg-opt.active { background: #e65100; }
 
-      input { width: 100%; padding: 10px; font-size: 18px; text-align: right; font-weight: bold; font-family: "Consolas", monospace; border: 2px solid #777; border-radius: 6px; margin-bottom: 12px; box-sizing: border-box; background: #fff; color: #000; }
+      input { width: 100%; padding: 12px; font-size: 20px; text-align: right; font-weight: bold; font-family: "Consolas", monospace; border: 2px solid #777; border-radius: 6px; margin-bottom: 15px; box-sizing: border-box; background: #fff; color: #000; }
       input:focus { border-color: var(--c-arc); outline: none; background: #f0f8ff; }
-      input:disabled { background: #e0e0e0; color: #888; border-color: #ccc; }
 
       .joypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; aspect-ratio: 1/0.8; margin-top: 5px; }
       .joy-btn { background: #f0f0f0; border: 2px solid #ccc; border-radius: 8px; color: #222; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 3px 0 #bbb; transition: 0.1s; }
@@ -190,24 +178,25 @@
       .joy-btn.disabled { opacity: 0.4; cursor: default; background: #e0e0e0; border-color: #ddd; box-shadow: none; }
 
       .modal-btn-row { display: flex; gap: 10px; width: 100%; flex-wrap: wrap; }
-      .m-btn { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 5px; color: #fff; min-width: 80px; }
-      .m-cancel { background: #ddd; color: #333; border: 1px solid #bbb; flex: 0 0 auto; }
-      .btn-primary-arc { background: var(--c-arc); box-shadow: 0 2px 0 #0d47a1; }
-      .btn-primary-circ { background: var(--c-circle); box-shadow: 0 2px 0 #4a148c; }
-      .btn-primary-draw { background: var(--c-draw); box-shadow: 0 2px 0 #1b5e20; }
-      .btn-primary-util { background: var(--c-util); box-shadow: 0 2px 0 #006064; }
+      .m-btn { flex: 1; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 5px; color: #fff; }
+      .m-cancel { background: #ddd; color: #000; border: 1px solid #bbb; }
+      .btn-primary-arc { background: var(--c-arc); box-shadow: 0 3px 0 #0d47a1; }
+      .btn-primary-circ { background: var(--c-circle); box-shadow: 0 3px 0 #4a148c; }
+      .btn-primary-draw { background: var(--c-draw); box-shadow: 0 3px 0 #1b5e20; }
+      .btn-primary-util { background: var(--c-util); box-shadow: 0 3px 0 #006064; }
 
-      .chk-row { display: flex; align-items: center; margin-bottom: 15px; background: #e3f2fd; padding: 10px; border-radius: 8px; border: 1px solid #90caf9; cursor: pointer; }
-      .chk-row input { width: 20px; height: 20px; margin: 0 10px 0 0; }
-      .arc-tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 15px; }
-      .arc-tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: 700; font-size: 14px; color: #888; border-bottom: 3px solid transparent; }
+      .chk-row { display: flex; align-items: center; margin-bottom: 15px; background: #e3f2fd; padding: 12px; border-radius: 8px; border: 2px solid #90caf9; cursor: pointer; }
+      .chk-row input { width: 24px; height: 24px; margin: 0 15px 0 0; }
+      .arc-tabs { display: flex; border-bottom: 3px solid #eee; margin-bottom: 20px; }
+      .arc-tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; font-weight: 800; font-size: 15px; color: #888; border-bottom: 3px solid transparent; margin-bottom: -3px; }
       .arc-tab.active { color: var(--c-arc); border-bottom-color: var(--c-arc); }
-      .section-label { font-size: 12px; color: #555; text-transform: uppercase; font-weight: 800; margin-bottom: 4px; display: block; letter-spacing: 0.5px; }
-      .separator { width: 100%; height: 1px; background: #ddd; margin: 15px 0; }
+      .choice-btn { width: 100%; padding: 12px; margin-bottom: 8px; background: #fff8e1; border: 2px solid #ffecb3; border-radius: 6px; text-align: left; cursor: pointer; font-family: monospace; font-size: 14px; font-weight: bold; color: #000; }
+      .section-label { font-size: 13px; color: #111; text-transform: uppercase; font-weight: 900; margin-bottom: 6px; display: block; letter-spacing: 0.5px; }
+      .separator { width: 100%; height: 2px; background: #ddd; margin: 15px 0; }
 
       /* SVG Styl */
-      .axis-line { stroke: #000; stroke-width: 2px; vector-effect: non-scaling-stroke; }
-      .axis-line-red { stroke: #d32f2f; stroke-width: 2px; vector-effect: non-scaling-stroke; }
+      .axis-line { stroke: #000; stroke-width: 3px; opacity: 1; vector-effect: non-scaling-stroke; z-index: 10; }
+      .axis-line-red { stroke: #d32f2f; stroke-width: 3px; opacity: 1; vector-effect: non-scaling-stroke; z-index: 11; }
       .grid-line { stroke: #888; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
       .grid-sub-line { stroke: #e0e0e0; stroke-width: 1px; vector-effect: non-scaling-stroke; }
       .path-draw { stroke: #00c853; fill: none; stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
@@ -215,6 +204,7 @@
       .point-current { fill: var(--accent); }
       .point-temp { fill: transparent; stroke: #9c27b0; stroke-width: 2px; vector-effect: non-scaling-stroke; }
       .point-center { fill: yellow; stroke: #333; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+      .origin-marker { fill: none; stroke: #00bcd4; stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: none; opacity: 0.8; }
       .helper-full-circle { fill: none; stroke: rgba(0, 0, 0, 0.4); stroke-width: 1px; stroke-dasharray: 4, 4; vector-effect: non-scaling-stroke; }
       .helper-radius-line { stroke: rgba(33, 150, 243, 0.8); stroke-width: 1px; stroke-dasharray: 2, 2; vector-effect: non-scaling-stroke; }
       .intersection-marker { fill: none; stroke: #666; stroke-width: 2px; vector-effect: non-scaling-stroke; opacity: 0.7; }
@@ -229,7 +219,6 @@
       .dim-line { stroke: #5d4037; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
       .dim-arrow { fill: #5d4037; vector-effect: non-scaling-stroke; }
       .dim-text { fill: #3e2723; font-weight: 900; font-family: "Segoe UI", Roboto, sans-serif; text-anchor: middle; dominant-baseline: middle; vector-effect: non-scaling-stroke; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 4px; stroke-linejoin: round; }
-      .origin-marker { fill: none; stroke: #00bcd4; stroke-width: 2px; vector-effect: non-scaling-stroke; opacity: 0.8; pointer-events: none; }
     </style>
   </head>
   <body>
@@ -246,8 +235,18 @@
         <div id="coords-hud" onclick="copyHudCoords()" title="Kliknutím zkopírujete souřadnice">
           <div><span id="hud-lbl-1" class="hud-label">X</span><span class="hud-val" id="hud-x">0.00</span></div><div style="width: 1px; background: #999"></div><div><span id="hud-lbl-2" class="hud-label">Z</span><span class="hud-val" id="hud-z">0.00</span></div><div id="hud-snap-info" class="hud-snap-indicator">SNAP</div>
         </div>
+        <!-- Dynamický kříž Home -->
         <div id="btn-home" onclick="setHomeView()" title="Reset">
-           <!-- Dynamic SVG Icon inserted by JS -->
+           <svg viewBox="0 0 40 40" style="width:100%; height:100%; display:block;">
+              <!-- X axis (black) -->
+              <line id="icon-axis-x" x1="5" y1="35" x2="35" y2="35" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+              <!-- Z axis (red dashed) -->
+              <line id="icon-axis-z" x1="5" y1="35" x2="5" y2="5" stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrowhead-red)" />
+              
+              <!-- Labels -->
+              <text id="icon-lbl-x" x="32" y="32" font-family="sans-serif" font-size="10" font-weight="bold" fill="#333">Z</text>
+              <text id="icon-lbl-z" x="8" y="10" font-family="sans-serif" font-size="10" font-weight="bold" fill="#d32f2f">X</text>
+           </svg>
         </div>
         <div id="btn-snap-toggle" onclick="toggleManualSnap()" title="Magnet"><i id="icon-snap" class="fas fa-magnet"></i></div>
         <div id="toast-msg">Zkopírováno</div>
@@ -265,37 +264,30 @@
           <button id="btn-dim" class="icon-btn btn-util" onclick="setMode('MANUAL_DIMENSION')" style="background: #795548; border-color: #8d6e63"><i class="fas fa-arrows-alt-h"></i><span>Kóta</span></button>
           <button id="btn-menu" class="icon-btn btn-menu" onclick="openMainMenu()"><i class="fas fa-bars"></i><span>MENU</span></button>
         </div>
-        <div style="margin-top: 15px; text-align: center; font-size: 10px; color: #555;">v19.1 Fixed</div>
-      </div>
-    </div>
-
-    <!-- CUSTOM ALERT MODAL -->
-    <div id="modal-alert" class="modal">
-      <div class="modal-content">
-        <div class="modal-header"><h3>Upozornění</h3></div>
-        <div class="modal-body" id="alert-msg">Text upozornění</div>
-        <div class="modal-footer"><button class="m-btn btn-primary-util" onclick="closeAlert()">OK</button></div>
-      </div>
-    </div>
-
-    <!-- CUSTOM CONFIRM MODAL -->
-    <div id="modal-confirm" class="modal">
-      <div class="modal-content">
-        <div class="modal-header"><h3>Potvrzení</h3></div>
-        <div class="modal-body" id="confirm-msg">Opravdu?</div>
-        <div class="modal-footer">
-            <button class="m-btn m-cancel" onclick="closeConfirm(false)">Ne</button>
-            <button class="m-btn btn-primary-util" onclick="closeConfirm(true)">Ano</button>
-        </div>
+        <div style="margin-top: 15px; text-align: center; font-size: 10px; color: #555;">v19.4 Fixed</div>
       </div>
     </div>
 
     <!-- MODALS -->
-    <div id="modal-main-menu" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label" style="margin-top: 0">Editační Nástroje</label><div class="menu-grid"><button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button><button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button><button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button><button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button><button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button><button class="icon-btn btn-del" onclick="openConfirm('Smazat vše?', confirmClearAll)"><i class="fas fa-trash-alt"></i><span>Smazat</span></button><button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button><button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button></div><div class="separator"></div><label class="section-label">Data / Fusion 360</label><div class="menu-grid"><button class="icon-btn btn-export" onclick="saveProjectJSON()" style="background: #43a047"><i class="fas fa-save"></i><span>Uložit Projekt</span></button><button class="icon-btn btn-import" onclick="triggerLoadJSON()" style="background: #fb8c00"><i class="fas fa-folder-open"></i><span>Načíst Projekt</span></button><button class="icon-btn btn-export" onclick="exportToDXF()"><i class="fas fa-file-export"></i><span>Export DXF</span></button><button class="icon-btn btn-import" onclick="triggerImportDXF()"><i class="fas fa-file-import"></i><span>Import DXF</span></button><button class="icon-btn btn-util" style="background: #00796b" onclick="setMode('PICK_MOVE_ORIGIN')"><i class="fas fa-arrows-alt"></i><span>Posunout Model</span></button><button class="icon-btn btn-util" style="background: #004d40" onclick="openAlignModal()"><i class="fas fa-sync-alt"></i><span>Srovnat Rotaci</span></button><button class="icon-btn btn-util" style="background: #283593" onclick="openSimDraha()"><i class="fas fa-play-circle"></i><span>CAM / G-Code</span></button><button id="btn-machine-toggle" class="icon-btn btn-util" style="background: #4527a0" onclick="toggleMachineType()"><i class="fas fa-exchange-alt"></i><span>Karusel</span></button></div><p style="font-size: 10px; color: #777; text-align: center; margin-top: 10px;">Importuje DXF jako geometrii. Podporuje Úsečky a Oblouky.</p></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
+    
+    <!-- CUSTOM CONFIRM (To fix Sandbox issues) -->
+    <div id="modal-confirm" class="modal" style="z-index: 9999;">
+        <div class="modal-content" style="max-width: 300px;">
+            <div class="modal-body confirm-content">
+                <div class="confirm-msg" id="confirm-msg">Otázka?</div>
+                <div class="modal-btn-row">
+                    <button class="m-btn m-cancel" onclick="closeConfirm()">Ne</button>
+                    <button class="m-btn btn-primary-util" onclick="confirmYes()">Ano</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal-main-menu" class="modal"><div class="modal-content"><div class="modal-header"><h3>Nástroje</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label" style="margin-top: 0">Editační Nástroje</label><div class="menu-grid"><button class="icon-btn btn-util" onclick="fitToScreen()"><i class="fas fa-compress-arrows-alt"></i><span>Centrovat</span></button><button id="btn-toggle-dia" class="icon-btn btn-util" onclick="toggleDiameterMode()"><i class="fas fa-expand-arrows-alt"></i><span>Ø Průměr</span></button><button id="btn-helpers" class="icon-btn btn-util" onclick="toggleHelpers()"><i class="fas fa-eye-slash"></i><span>Pomocné</span></button><button id="btn-undo" class="icon-btn btn-disabled" onclick="undoLastMove()"><i class="fas fa-undo"></i><span>Zpět</span></button><button id="btn-redo" class="icon-btn btn-disabled" onclick="redoLastMove()"><i class="fas fa-redo"></i><span>Vpřed</span></button><button class="icon-btn btn-del" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i><span>Smazat</span></button><button class="icon-btn btn-del" style="background: #5d4037" onclick="clearDimensions()"><i class="fas fa-eraser"></i><span>Smazat Kóty</span></button><button class="icon-btn btn-util" style="background: #e65100; border-color: #ff9800" onclick="autoDimensionAll()"><i class="fas fa-ruler-combined"></i><span>Auto Kóty</span></button></div><div class="separator"></div><label class="section-label">Data / Fusion 360</label><div class="menu-grid"><button class="icon-btn btn-export" onclick="saveProjectJSON()" style="background: #43a047"><i class="fas fa-save"></i><span>Uložit Projekt</span></button><button class="icon-btn btn-import" onclick="triggerLoadJSON()" style="background: #fb8c00"><i class="fas fa-folder-open"></i><span>Načíst Projekt</span></button><button class="icon-btn btn-export" onclick="exportToDXF()"><i class="fas fa-file-export"></i><span>Export DXF</span></button><button class="icon-btn btn-import" onclick="triggerImportDXF()"><i class="fas fa-file-import"></i><span>Import DXF</span></button><button class="icon-btn btn-util" style="background: #00796b" onclick="setMode('PICK_MOVE_ORIGIN')"><i class="fas fa-arrows-alt"></i><span>Posunout Model</span></button><button class="icon-btn btn-util" style="background: #004d40" onclick="openAlignModal()"><i class="fas fa-sync-alt"></i><span>Srovnat Rotaci</span></button><button class="icon-btn btn-util" style="background: #283593" onclick="openSimDraha()"><i class="fas fa-play-circle"></i><span>CAM / G-Code</span></button><button id="btn-machine-toggle" class="icon-btn btn-util" style="background: #4527a0" onclick="toggleMachineType()"><i class="fas fa-exchange-alt"></i><span>Karusel</span></button></div><p style="font-size: 10px; color: #777; text-align: center; margin-top: 10px;">Importuje DXF jako geometrii. Podporuje Úsečky a Oblouky.</p></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
     <input type="file" id="dxf-loader" style="display: none" accept=".dxf" onchange="loadDXF(this)" />
     <input type="file" id="json-loader" style="display: none" accept=".json" onchange="loadJSON(this)" />
     
-    <div id="modal-align" class="modal"><div class="modal-content"><div class="modal-header"><h3>Srovnat / Rotovat</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><button class="m-btn btn-primary-util" style="width:100%; margin-bottom:10px" onclick="setMode('PICK_ALIGN_HORIZ')"><i class="fas fa-ruler-horizontal"></i> Srovnat Vodorovně (2 body)</button><p style="font-size:12px; color:#666; margin-bottom:20px">Vyberte 2 body na modelu. Model se natočí tak, aby tyto body ležely na vodorovné přímce.</p><button class="m-btn btn-primary-util" style="width:100%; margin-bottom:10px" onclick="setMode('PICK_ALIGN_2P')"><i class="fas fa-compress-arrows-alt"></i> Srovnat 2 Body (Align)</button><p style="font-size:12px; color:#666">Vyberte Bod1 na modelu -> Bod1 Cíl, pak Bod2 na modelu -> Bod2 Cíl. Model se přesune a natočí.</p></div><div class="modal-footer"><button class="m-btn m-cancel" onclick="closeModals()">Zavřít</button></div></div></div>
+    <div id="modal-align" class="modal"><div class="modal-content"><div class="modal-header"><h3>Srovnat Model</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><button class="m-btn btn-primary-util" style="margin-bottom: 10px; background: #004d40" onclick="setMode('PICK_ALIGN_HORIZ')"><i class="fas fa-arrows-alt-h"></i> Srovnat Vodorovně</button><p style="font-size: 12px; color: #666; margin-bottom: 20px;">Vyberte 2 body na modelu. Model se natočí tak, aby tyto body ležely v rovině.</p><button class="m-btn btn-primary-util" style="background: #006064" onclick="setMode('PICK_ALIGN_2P')"><i class="fas fa-compress-arrows-alt"></i> Srovnat 2 Body (Align)</button><p style="font-size: 12px; color: #666; margin-top: 10px;">Vyberte Bod1 na modelu -> Cíl1, pak Bod2 na modelu -> Cíl2. Model se přesune a natočí.</p></div></div></div>
 
     <div id="modal-joypad" class="modal"><div class="modal-content"><div class="modal-header"><h3>Vyberte směr</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><div class="joypad-grid"><div class="joy-btn" onclick="prepMove('UL')"><i class="fas fa-arrow-up" style="transform: rotate(-45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('U')"><i class="fas fa-arrow-up"></i><span class="joy-desc">Z+</span></div><div class="joy-btn" onclick="prepMove('UR')"><i class="fas fa-arrow-up" style="transform: rotate(45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('L')"><i class="fas fa-arrow-left"></i><span class="joy-desc">X-</span></div><div id="btn-joy-tangent" class="joy-btn" onclick="prepMove('TANGENT')"><i class="fas fa-long-arrow-alt-up" style="transform: rotate(45deg)"></i><span class="joy-desc">TEČNA</span></div><div class="joy-btn" onclick="prepMove('R')"><i class="fas fa-arrow-right"></i><span class="joy-desc">X+</span></div><div class="joy-btn" onclick="prepMove('DL')"><i class="fas fa-arrow-down" style="transform: rotate(45deg)"></i><span class="joy-desc">Kužel</span></div><div class="joy-btn" onclick="prepMove('D')"><i class="fas fa-arrow-down"></i><span class="joy-desc">Z-</span></div><div class="joy-btn" onclick="prepMove('DR')"><i class="fas fa-arrow-down" style="transform: rotate(-45deg)"></i><span class="joy-desc">Kužel</span></div></div><div style="margin-top: 15px"><button class="m-btn btn-primary-util" onclick="setMode('PICK_TARGET_INP')"><i class="fas fa-crosshairs"></i> Vybrat bod na mapě</button><button class="m-btn btn-primary-draw" style="margin-top: 8px" onclick="closeModals(); setMode('CHAIN')"><i class="fas fa-project-diagram"></i> Pokračovat Řetězcem</button></div></div></div></div>
     
@@ -303,16 +295,7 @@
     
     <div id="modal-input" class="modal"><div class="modal-content"><div class="modal-header"><h3 id="input-title">Parametry pohybu</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span></div><div class="modal-body"><label class="section-label">Délka pohybu (mm):</label><input type="text" id="inp-len" placeholder="Např. 50" inputmode="decimal" /><div class="separator"></div><div id="grp-x"><label id="lbl-inp-x" class="section-label">Cílové X:</label><input type="text" id="inp-x" placeholder="Prázdné = beze změny" inputmode="decimal" /></div><div id="grp-z"><label class="section-label">Cílové Z:</label><input type="text" id="inp-z" placeholder="Prázdné = beze změny" inputmode="decimal" /></div><div id="grp-angle"><div class="separator"></div><label class="section-label">Úhel (°):</label><input type="text" id="inp-angle" placeholder="Úhel sklonu" inputmode="decimal" /><div class="chk-row" onclick="$('chk-rel-angle').click()"><input type="checkbox" id="chk-rel-angle" onclick="event.stopPropagation()" /><label for="chk-rel-angle">Úhel od předchozí čáry</label></div></div><button id="btn-pick-target" class="m-btn btn-primary-util" style="margin-top: 10px; font-size: 12px; padding: 8px;" onclick="setMode('PICK_TARGET_INP')"><i class="fas fa-crosshairs"></i> Vybrat bod na mapě</button></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="openJoypad()">Zpět</button><button id="btn-commit-move" class="m-btn btn-primary-draw" onclick="commitMove()">Vykreslit</button></div></div></div></div>
     
-    <div id="modal-arc" class="modal"><div class="modal-content"><div class="modal-header"><h3>Radius</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span><div class="arc-tabs"><div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius</div><div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed</div></div></div><div class="modal-body"><div class="segmented-control"><div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2</div><div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3</div></div><div id="method-r">
-        <label class="section-label">Typ napojení:</label>
-        <div class="segmented-control">
-            <div class="seg-opt active" id="arc-tan-normal" onclick="setArcMode('NORMAL')">Běžný</div>
-            <div class="seg-opt" id="arc-tan-forward" onclick="setArcMode('FORWARD')">Tečna</div>
-            <div class="seg-opt" id="arc-tan-back" onclick="setArcMode('BACK')">Zpětná</div>
-        </div>
-        
-        <label class="section-label">Rádius:</label><input type="text" id="arc-r" inputmode="decimal" placeholder="Auto (pokud Tečna+Souřadnice)" />
-    </div><div id="method-ik" style="display: none"><div class="segmented-control mode-toggle"><div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div><div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div></div><label class="section-label">Střed I:</label><input type="text" id="center-x" inputmode="decimal" /><label class="section-label">Střed K:</label><input type="text" id="center-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 15px;" onclick="setMode('PICK_ARC_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button><div class="separator"></div><label class="section-label">Cíl X:</label><input type="text" id="ik-target-x" inputmode="decimal" /><label class="section-label">Cíl Z:</label><input type="text" id="ik-target-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 5px;" onclick="setMode('PICK_ARC_TARGET_IK')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button><label class="section-label">Úhel:</label><input type="text" id="ik-target-angle" inputmode="decimal" /><div class="chk-row"><input type="checkbox" id="chk-ik-long-arc" /><label for="chk-ik-long-arc">Delší oblouk</label></div></div><div id="arc-targets"><div id="tangent-target-selector" style="display: none"><label class="section-label">Cíl:</label><div class="segmented-control tangent-target-toggle"><div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div><div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div></div></div><div id="target-coord-inputs"><label id="lbl-arc-x" class="section-label">X:</label><input type="text" id="arc-x" inputmode="decimal" /><label class="section-label">Z:</label><input type="text" id="arc-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_ARC_TARGET')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button></div><div id="target-cone-input" style="display: none"><label class="section-label">Úhel rozevření (°):</label><input type="text" id="arc-cone-angle" inputmode="decimal" /></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button></div></div></div></div>
+    <div id="modal-arc" class="modal"><div class="modal-content"><div class="modal-header"><h3>Radius</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span><div class="arc-tabs"><div class="arc-tab active" id="tab-r" onclick="switchArcMethod('R')">Rádius</div><div class="arc-tab" id="tab-ik" onclick="switchArcMethod('IK')">Střed</div></div></div><div class="modal-body"><div class="segmented-control"><div class="seg-opt active" id="seg-g2" onclick="setArcDir(true)">G2</div><div class="seg-opt" id="seg-g3" onclick="setArcDir(false)">G3</div></div><div id="method-r"><div class="segmented-control tangent-type-toggle"><div class="seg-opt active" id="type-norm" onclick="setArcMode('NORM')">Běžný</div><div class="seg-opt" id="type-tan" onclick="setArcMode('TAN')">Tečna</div><div class="seg-opt" id="type-back" onclick="setArcMode('BACK')">Zpátky</div></div><label id="lbl-arc-r" class="section-label">Rádius:</label><input type="text" id="arc-r" inputmode="decimal" placeholder="Auto pokud je Tangenta" /></div><div id="method-ik" style="display: none"><div class="segmented-control mode-toggle"><div class="seg-opt active" id="ik-abs-btn" onclick="toggleIKMode(false)">Absolutní</div><div class="seg-opt" id="ik-inc-btn" onclick="toggleIKMode(true)">Přírůstkové</div></div><label id="lbl-center-x" class="section-label">Střed I:</label><input type="text" id="center-x" inputmode="decimal" /><label class="section-label">Střed K:</label><input type="text" id="center-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 15px;" onclick="setMode('PICK_ARC_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button><div class="separator"></div><label class="section-label">Cíl X:</label><input type="text" id="ik-target-x" inputmode="decimal" /><label class="section-label">Cíl Z:</label><input type="text" id="ik-target-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px; margin-bottom: 5px;" onclick="setMode('PICK_ARC_TARGET_IK')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button><label class="section-label">Úhel:</label><input type="text" id="ik-target-angle" inputmode="decimal" /><div class="chk-row"><input type="checkbox" id="chk-ik-long-arc" /><label for="chk-ik-long-arc">Delší oblouk</label></div></div><div id="arc-targets"><div id="tangent-target-selector" style="display: none"><label class="section-label">Cíl definován jako:</label><div class="segmented-control tangent-target-toggle"><div class="seg-opt active" id="target-coord-btn" onclick="setTangentTarget('coord')">X / Z</div><div class="seg-opt" id="target-cone-btn" onclick="setTangentTarget('cone')">Úhel</div></div></div><div id="target-coord-inputs"><label id="lbl-arc-x" class="section-label">Cíl X:</label><input type="text" id="arc-x" inputmode="decimal" /><label class="section-label">Cíl Z:</label><input type="text" id="arc-z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_ARC_TARGET')"><i class="fas fa-crosshairs"></i> Vybrat Cíl na mapě</button></div><div id="target-cone-input" style="display: none"><label class="section-label">Úhel rozevření (°):</label><input type="text" id="arc-cone-angle" inputmode="decimal" /></div></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-arc" onclick="commitArc()">Vykreslit</button></div></div></div></div>
     
     <div id="modal-circle" class="modal"><div class="modal-content"><div class="modal-header"><h3>Celá Kružnice</h3><span class="close-icon" onclick="closeModals()"><i class="fas fa-times"></i></span><div class="arc-tabs"><div class="arc-tab active" id="tab-cr" onclick="setCircTab('CR')">Střed+R</div><div class="arc-tab" id="tab-2p" onclick="setCircTab('2P')">2 Body + R</div><div class="arc-tab" id="tab-3p" onclick="setCircTab('3P')">3 Body</div></div></div><div class="modal-body"><div id="circ-cr"><label class="section-label">Velikost zadat jako:</label><div class="segmented-control circle-toggle"><div class="seg-opt active" id="circ-rad-btn" onclick="setCircleMode('R')">Rádius (R)</div><div class="seg-opt" id="circ-dia-btn" onclick="setCircleMode('D')">Průměr (D)</div></div><label id="lbl-circ-val" class="section-label">Hodnota R:</label><input type="text" id="circ-val" placeholder="Zadejte velikost" inputmode="decimal" /><div class="separator"></div><label class="section-label" style="color: #6a1b9a">Souřadnice Středu:</label><label id="lbl-circ-cx" class="section-label">Střed X:</label><input type="text" id="circ-cx" placeholder="Absolutní X" inputmode="decimal" /><label class="section-label">Střed Z:</label><input type="text" id="circ-cz" placeholder="Absolutní Z" inputmode="decimal" /><button class="m-btn btn-primary-util" style="padding: 8px; margin-top: 5px; font-size: 12px" onclick="setMode('PICK_CIRCLE_CENTER')"><i class="fas fa-crosshairs"></i> Vybrat Střed na mapě</button></div><div id="circ-2p" style="display: none"><label class="section-label">Rádius:</label><input type="text" id="circ-2p-r" inputmode="decimal" /><button class="m-btn btn-primary-util" style="margin-bottom: 10px" onclick="setMode('PICK_CIRC_2P')"><i class="fas fa-mouse-pointer"></i> Vybrat 2 Body / Úsečky</button><div class="chk-row" style="margin-top: 10px" onclick="$('chk-circ-alt').click()"><input type="checkbox" id="chk-circ-alt" onclick="event.stopPropagation()" /><label for="chk-circ-alt">Varianta 1 / Varianta 2</label></div><p style="font-size: 12px; color: #555">Vyberte 2 body nebo 2 úsečky. V případě úseček se vypočítá tečná kružnice (Fillet).</p></div><div id="circ-3p" style="display: none"><button class="m-btn btn-primary-util" onclick="setMode('PICK_CIRC_3P')"><i class="fas fa-mouse-pointer"></i> Vybrat 3 Body</button><p style="font-size: 12px; color: #555; margin-top: 10px">Postupně vyberte 3 body v mapě.</p></div></div><div class="modal-footer"><div class="modal-btn-row"><button class="m-btn m-cancel" onclick="closeModals()">Zrušit</button><button class="m-btn btn-primary-circ" onclick="commitCircle()">Vykreslit</button></div></div></div></div>
     
@@ -342,7 +325,8 @@
       };
 
       let pointIdCounter = 1;
-      let currentDir = "", isG2 = true, arcMethod = "R", isIncIK = false, tanTarget = "cone", circMode = "R", chamferType = "C", circTab = "CR", arcTanMode = "NORMAL";
+      let currentDir = "", isG2 = true, arcMethod = "R", isIncIK = false, tanTarget = "coord", circMode = "R", chamferType = "C", circTab = "CR";
+      let arcMode = 'NORM'; // NORM, TAN, BACK
       let lastVirtualSnap = null;
       let confirmCallback = null;
       const LONG_PRESS = 600, TOUCH_OFFSET_Y = 100, DRAG_THRESHOLD = 5;
@@ -352,11 +336,20 @@
       let updatePathScheduled = false;
       function scheduleUpdatePath() { if (updatePathScheduled) return; updatePathScheduled = true; requestAnimationFrame(() => { updatePathScheduled = false; updatePath(); }); }
 
-      // --- CUSTOM ALERTS/CONFIRMS ---
-      function openAlert(msg) { $("alert-msg").innerText = msg; $("modal-alert").style.display = "flex"; }
-      function closeAlert() { $("modal-alert").style.display = "none"; }
-      function openConfirm(msg, callback) { $("confirm-msg").innerText = msg; confirmCallback = callback; $("modal-confirm").style.display = "flex"; }
-      function closeConfirm(res) { $("modal-confirm").style.display = "none"; if(res && confirmCallback) confirmCallback(); confirmCallback = null; }
+      // --- CUSTOM CONFIRM ---
+      function openConfirm(msg, cb) {
+          $("confirm-msg").innerText = msg;
+          $("modal-confirm").style.display = "flex";
+          confirmCallback = cb;
+      }
+      function closeConfirm() {
+          $("modal-confirm").style.display = "none";
+          confirmCallback = null;
+      }
+      function confirmYes() {
+          if(confirmCallback) confirmCallback();
+          closeConfirm();
+      }
 
       // --- MACHINE TOGGLE ---
       function toggleMachineType() {
@@ -373,38 +366,26 @@
           if (isKarusel) { $("hud-lbl-1").innerText = "X"; $("hud-lbl-2").innerText = "Z"; } 
           else { $("hud-lbl-1").innerText = "Z"; $("hud-lbl-2").innerText = "X"; }
           
-          const btnHome = $("btn-home");
-          btnHome.innerHTML = "";
-          // Generate dynamic SVG icon
-          // Karusel: Z vertical (red), X horizontal
-          // Soustruh: X vertical, Z horizontal (red)
-          const zColor = "#d32f2f";
-          const xColor = "#000";
-          const styleZ = "stroke-dasharray: 4,2,1,2";
-          let svgContent = `<svg viewBox="0 0 40 40" style="width:100%; height:100%">`;
-          if(isKarusel) {
-              // Z vertical RED
-              svgContent += `<line x1="20" y1="5" x2="20" y2="35" stroke="${zColor}" stroke-width="2" style="${styleZ}" />`;
-              // X horizontal BLACK
-              svgContent += `<line x1="5" y1="20" x2="35" y2="20" stroke="${xColor}" stroke-width="2" />`;
-              // Text
-              svgContent += `<text x="25" y="10" font-size="10" fill="${zColor}" font-weight="bold">Z</text>`;
-              svgContent += `<text x="32" y="16" font-size="10" fill="${xColor}" font-weight="bold">X</text>`;
-          } else {
-              // X vertical BLACK
-              svgContent += `<line x1="20" y1="5" x2="20" y2="35" stroke="${xColor}" stroke-width="2" />`;
-              // Z horizontal RED
-              svgContent += `<line x1="5" y1="20" x2="35" y2="20" stroke="${zColor}" stroke-width="2" style="${styleZ}" />`;
-              // Text
-              svgContent += `<text x="25" y="10" font-size="10" fill="${xColor}" font-weight="bold">X</text>`;
-              svgContent += `<text x="32" y="16" font-size="10" fill="${zColor}" font-weight="bold">Z</text>`;
-          }
-          svgContent += `</svg>`;
-          btnHome.innerHTML = svgContent;
+          // Update Home Icon
+          $("icon-axis-z").setAttribute("x1", isKarusel ? "5" : "35");
+          $("icon-axis-z").setAttribute("y1", isKarusel ? "35" : "5");
+          $("icon-axis-z").setAttribute("x2", isKarusel ? "5" : "5");
+          $("icon-axis-z").setAttribute("y2", isKarusel ? "5" : "5");
           
+          $("icon-axis-x").setAttribute("x1", isKarusel ? "5" : "5");
+          $("icon-axis-x").setAttribute("y1", isKarusel ? "35" : "5");
+          $("icon-axis-x").setAttribute("x2", isKarusel ? "35" : "35");
+          $("icon-axis-x").setAttribute("y2", isKarusel ? "35" : "35");
+          
+          $("icon-lbl-x").textContent = isKarusel ? "X" : "Z";
+          $("icon-lbl-x").setAttribute("fill", isKarusel ? "#333" : "#d32f2f");
+          
+          $("icon-lbl-z").textContent = isKarusel ? "Z" : "X";
+          $("icon-lbl-z").setAttribute("fill", isKarusel ? "#d32f2f" : "#333");
+
           requestRender();
       }
-      updateMachineUI();
+      setTimeout(updateMachineUI, 100);
 
       // --- COORDINATES ---
       function getScreenX(p) { return State.machineType === 'KARUSEL' ? p.x : p.z; }
@@ -434,12 +415,14 @@
         const file = input.files[0]; if (!file) return;
         const reader = new FileReader();
         reader.onload = function (e) {
-            if (typeof DxfParser === 'undefined') { openAlert("Knihovna DxfParser nenalezena (offline?)."); return; }
+            if (typeof DxfParser === 'undefined') { alert("Knihovna DxfParser nenalezena (offline?)."); return; }
             const parser = new DxfParser();
             try {
                 const dxf = parser.parseSync(e.target.result);
-                openAlert("Import zatím pouze základní."); 
-            } catch (err) { console.error(err); openAlert("Chyba importu DXF"); }
+                // Convert DXF to State.points
+                // TODO: Implement proper parser for entities
+                alert("Import zatím pouze základní."); 
+            } catch (err) { console.error(err); alert("Chyba importu DXF"); }
             closeModals();
         }; reader.readAsText(file); input.value = "";
       }
@@ -480,11 +463,11 @@
                     updatePath();
                     showToast("Projekt načten");
                 } else {
-                    openAlert("Neplatný formát souboru.");
+                    alert("Neplatný formát souboru.");
                 }
             } catch(err) {
                 console.error(err);
-                openAlert("Chyba při čtení souboru.");
+                alert("Chyba při čtení souboru.");
             }
             closeModals();
         };
@@ -535,7 +518,7 @@
         else if (mode === "PICK_MOVE_ORIGIN") { closeModals(); showToast("Vyberte referenční bod na modelu"); }
         else if (mode === "PICK_MOVE_DEST") { closeModals(); $("input-title").innerText = "Cílová poloha"; $("btn-pick-target").style.display = "none"; $("btn-commit-move").onclick = commitShift; $("modal-input").style.display = "flex"; $("grp-angle").style.display = "none"; $("inp-len").style.display = "none"; $("inp-x").value = "0"; $("inp-z").value = "0"; $("inp-x").focus(); }
         else if (mode === "PICK_ALIGN_HORIZ") { closeModals(); showToast("Vyberte 2 body pro srovnání do roviny"); }
-        else if (mode === "PICK_ALIGN_2P") { closeModals(); showToast("1/4: Bod 1 na modelu"); }
+        else if (mode === "PICK_ALIGN_2P") { closeModals(); showToast("Bod 1: Vyberte bod na modelu"); }
         
         if (["TRIM", "CHAMFER", "PICK_START", "PICK_MOVE_ORIGIN", "PICK_ALIGN_HORIZ", "PICK_ALIGN_2P"].includes(mode)) stopMeasure(false);
         if (mode === "TRIM") scheduleUpdatePath();
@@ -545,58 +528,48 @@
           tanTarget = val; 
           $("target-coord-btn").classList.toggle("active", val === "coord"); 
           $("target-cone-btn").classList.toggle("active", val === "cone"); 
+          
           if (val === "coord") { 
               $("target-coord-inputs").style.display = "block"; 
-              $("target-cone-input").style.display = "none";
-              // Disable Radius input only if Forward Tangent is active AND using coords (auto calc)
-              if (arcTanMode === 'FORWARD') {
-                  $("arc-r").disabled = true; 
-                  $("arc-r").placeholder = "Dopočítá se";
-                  $("arc-r").value = "";
-              } else {
-                  $("arc-r").disabled = false;
-                  $("arc-r").placeholder = "";
+              $("target-cone-input").style.display = "none"; 
+              $("lbl-arc-r").innerText = "Rádius:";
+              if(arcMode === 'TAN' || arcMode === 'BACK') {
+                   $("arc-r").disabled = true; 
+                   $("arc-r").placeholder = "Dopočítá se"; 
               }
           } else { 
               $("target-coord-inputs").style.display = "none"; 
-              $("target-cone-input").style.display = "block";
-              // If Cone Angle is selected, we MUST input Radius, so enable it
+              $("target-cone-input").style.display = "block"; 
+              // Enable radius input for Angle mode, because we need R to calculate coord
               $("arc-r").disabled = false;
               $("arc-r").placeholder = "Zadejte R";
+              $("lbl-arc-r").innerText = "Rádius (povinné):";
           } 
       }
       
-      function setArcMode(m) {
-          arcTanMode = m;
-          $("arc-tan-normal").classList.toggle("active", m === 'NORMAL');
-          $("arc-tan-forward").classList.toggle("active", m === 'FORWARD');
-          $("arc-tan-back").classList.toggle("active", m === 'BACK');
+      function setArcMode(mode) {
+          arcMode = mode;
+          $("type-norm").classList.toggle("active", mode === 'NORM');
+          $("type-tan").classList.toggle("active", mode === 'TAN');
+          $("type-back").classList.toggle("active", mode === 'BACK');
           
-          if (m === 'BACK') {
-             if(State.points.length > 1 && State.points[State.points.length-1].type === 'arc') {
-                 openAlert("Zpětná tangenta funguje pouze pokud předchozí prvek je ÚSEČKA.");
-                 setArcMode('NORMAL'); return;
-             }
-          }
-
-          if (m === 'FORWARD') {
-              $("tangent-target-selector").style.display = "block";
-              // Trigger update to set inputs state
-              setTangentTarget(tanTarget);
-          } else {
+          if(mode === 'NORM') {
               $("tangent-target-selector").style.display = "none";
               $("target-coord-inputs").style.display = "block";
               $("target-cone-input").style.display = "none";
               $("arc-r").disabled = false;
               $("arc-r").placeholder = "";
+              $("lbl-arc-r").innerText = "Rádius:";
+          } else {
+              $("tangent-target-selector").style.display = "block";
+              // Trigger refresh of fields based on target type
+              setTangentTarget(tanTarget);
           }
       }
 
       function toggleTrimMode() { if(State.mode === "TRIM") setMode("IDLE"); else setMode("TRIM"); }
       function toggleChainMode() { if(State.mode === "CHAIN") setMode("IDLE"); else setMode("CHAIN"); }
       function toggleManualSnap() { State.manualSnap = !State.manualSnap; $("btn-snap-toggle").classList.toggle("snap-off", !State.manualSnap); showToast(State.manualSnap ? "Magnet ZAPNUT" : "Magnet VYPNUT"); }
-      
-      function openAlignModal() { closeModals(); $("modal-align").style.display = "flex"; }
 
       // --- GEOMETRY ---
       function calculateIntersection(p1, p2, p3, p4) { const d = (p1.x - p2.x) * (p3.z - p4.z) - (p1.z - p2.z) * (p3.x - p4.x); if (d === 0) return null; const t = ((p1.x - p3.x) * (p3.z - p4.z) - (p1.z - p3.z) * (p3.x - p4.x)) / d; const u = -((p1.x - p2.x) * (p1.z - p3.z) - (p1.z - p2.z) * (p1.x - p3.x)) / d; if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return { x: p1.x + t * (p2.x - p1.x), z: p1.z + t * (p2.z - p1.z) }; return null; }
@@ -651,7 +624,7 @@
 
       function commitMove() {
         const lS = getNum("inp-len"), xS = getNum("inp-x"), zS = getNum("inp-z"), aS = getNum("inp-angle");
-        if (isNaN(lS) && isNaN(xS) && isNaN(zS) && isNaN(aS)) { openAlert("Hodnoty?"); return; }
+        if (isNaN(lS) && isNaN(xS) && isNaN(zS) && isNaN(aS)) { alert("Hodnoty?"); return; }
         saveHistory(); const l = State.points[State.points.length - 1]; let nx = l.x, nz = l.z;
         if (!isNaN(aS)) {
           let ang = aS; if ($("chk-rel-angle").checked && State.points.length > 1) { const prev = State.points[State.points.length - 2]; ang += Math.atan2(l.z - prev.z, l.x - prev.x) * (180 / Math.PI); }
@@ -701,130 +674,144 @@
       function commitArc() {
         saveHistory(); const l = State.points[State.points.length - 1]; let ex, ez, cx, cz, r, cw;
         if (arcMethod === "IK") {
-          const cX = getNum("center-x"), cZ = getNum("center-z"); if (isNaN(cX)) { openAlert("Střed?"); return; }
+          const cX = getNum("center-x"), cZ = getNum("center-z"); if (isNaN(cX)) { alert("Střed?"); return; }
           cx = (State.isDiameter ? cX / 2 : cX) + (isIncIK ? l.x : 0); cz = cZ + (isIncIK ? l.z : 0); r = dist(l, { x: cx, z: cz });
           const tA = getNum("ik-target-angle");
-          if (!isNaN(tA)) { const a = Math.atan2(l.z - cz, l.x - cx) + tA * (Math.PI / 180) * (isG2 ? 1 : -1); ex = cx + r * Math.cos(a); ez = cz + r * Math.sin(a); } else { const tx = getNum("ik-target-x"), tz = getNum("ik-target-z"); if (!isNaN(tx) && !isNaN(tz)) { ex = State.isDiameter ? tx/2 : tx; ez = tz; } else { openAlert("Cíl?"); return; } } cw = isG2;
+          if (!isNaN(tA)) { const a = Math.atan2(l.z - cz, l.x - cx) + tA * (Math.PI / 180) * (isG2 ? 1 : -1); ex = cx + r * Math.cos(a); ez = cz + r * Math.sin(a); } else { const tx = getNum("ik-target-x"), tz = getNum("ik-target-z"); if (!isNaN(tx) && !isNaN(tz)) { ex = State.isDiameter ? tx/2 : tx; ez = tz; } else { alert("Cíl?"); return; } } cw = isG2;
         } else {
-          if (arcTanMode !== 'NORMAL') {
-            if (arcTanMode === 'BACK') {
-                // --- BACK TANGENT (FILLET LOGIC) ---
-                r = Math.abs(getNum("arc-r")); if(isNaN(r)) { openAlert("Zadejte R"); return; }
-                let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; if(isNaN(tx)) { openAlert("Cíl?"); return; }
+          // Method R
+          if (arcMode === 'TAN' || arcMode === 'BACK') {
+              if(tanTarget === 'cone') {
+                  // Tangent + Cone Angle
+                  r = Math.abs(getNum("arc-r")); if(isNaN(r)) { alert("Zadejte R"); return; }
+                  const coneAngle = getNum("arc-cone-angle"); if(isNaN(coneAngle)) { alert("Zadejte úhel"); return; }
+                  
+                  // Calculate start angle based on tangent
+                  let prevAngle = 0; 
+                  if (State.points.length > 1) { 
+                      const prevPt = State.points[State.points.length - 2]; 
+                      if (l.type === "arc") { 
+                          const angleToCenter = Math.atan2(l.z - l.cz, l.x - l.cx); 
+                          prevAngle = l.cw ? angleToCenter - Math.PI/2 : angleToCenter + Math.PI/2; 
+                      } else { 
+                          prevAngle = Math.atan2(l.z - prevPt.z, l.x - prevPt.x); 
+                      } 
+                  }
+                  
+                  // Perpendicular to tangent is the center line
+                  // For G2 (CW), center is to the right of tangent. For G3 (CCW), left.
+                  const centerAngle = prevAngle + (isG2 ? -Math.PI/2 : Math.PI/2);
+                  cx = l.x + Math.cos(centerAngle) * r;
+                  cz = l.z + Math.sin(centerAngle) * r;
+                  
+                  // End point is derived from cone angle (sweep)
+                  // Cone angle is absolute change in direction
+                  const sweepRad = coneAngle * (Math.PI/180);
+                  // Start angle from center to point
+                  const startAngleFromCenter = Math.atan2(l.z - cz, l.x - cx);
+                  // End angle from center
+                  const endAngleFromCenter = startAngleFromCenter + (isG2 ? -sweepRad : sweepRad);
+                  
+                  ex = cx + Math.cos(endAngleFromCenter) * r;
+                  ez = cz + Math.sin(endAngleFromCenter) * r;
+                  cw = isG2;
+
+              } else if (arcMode === 'BACK') {
+                // Back Tangent (Fillet logic - line extension/trim)
+                r = Math.abs(getNum("arc-r")); if(isNaN(r)) { alert("Zadejte R"); return; }
+                let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; if(isNaN(tx)) { alert("Cíl?"); return; }
                 ex = tx; ez = tz;
+                const prev = State.points[State.points.length-2];
+                const dx = l.x - prev.x, dz = l.z - prev.z, len = Math.hypot(dx, dz);
+                const ux = dx/len, uz = dz/len;
+                const nx = -uz, nz = ux; // Normal vector
                 
-                // Previous Segment definition
-                const prev = State.points[State.points.length-2]; 
+                // Offset line parallel to previous segment at distance R
+                // Side depends on CW/CCW. G2 (CW) -> Right side. G3 (CCW) -> Left side.
+                // Assuming normal (nx, nz) points "left". 
+                const side = isG2 ? 1 : -1;
+                const px = l.x + nx * r * side, pz = l.z + nz * r * side; // Point on offset line
                 
-                const dx = l.x - prev.x;
-                const dz = l.z - prev.z;
-                const len = Math.hypot(dx, dz);
-                if (len < 1e-5) { openAlert("Předchozí úsečka je příliš krátká."); return; }
+                // We need intersection of Line(px, pz, direction=ux,uz) and Circle(ex, ez, radius=R)
+                // Line: P = (px, pz) + t * (ux, uz)
+                // Circle: (x-ex)^2 + (z-ez)^2 = R^2
+                // Sub: (px + t*ux - ex)^2 + (pz + t*uz - ez)^2 = R^2
+                const Ox = px - ex, Oz = pz - ez;
+                const A = 1; // ux^2 + uz^2 = 1
+                const B = 2 * (Ox * ux + Oz * uz);
+                const C = (Ox*Ox + Oz*Oz) - r*r;
+                const det = B*B - 4*A*C;
                 
-                // Unit vector of the line
-                const ux = dx / len;
-                const uz = dz / len;
-
-                // Offset direction normal vector (Perpendicular to line)
-                let ox, oz;
-                if (isG2) { ox = uz; oz = -ux; } // Right
-                else { ox = -uz; oz = ux; } // Left
-
-                // Calculate Origin of the Offset Line (Shift start point by R in normal direction)
-                const shiftedStartX = prev.x + ox * r;
-                const shiftedStartZ = prev.z + oz * r;
-
-                // Solve Intersection: Line(shiftedStart, u) vs Circle(End, R)
-                const Vx = shiftedStartX - ex;
-                const Vz = shiftedStartZ - ez;
-
-                // Quadratic: t^2 + 2(V.u)t + (V^2 - R^2) = 0
-                const B = 2 * (Vx * ux + Vz * uz);
-                const C_quad = (Vx * Vx + Vz * Vz) - (r * r);
-                const det = B * B - 4 * C_quad;
-
-                if (det < 0) { openAlert("Nelze sestrojit: Rádius je příliš malý nebo cíl je příliš daleko."); return; }
-
-                // Two possible centers (positions on the offset line)
+                if(det < 0) { alert("Nelze sestrojit (Rádius nedosáhne)"); return; }
+                
+                // Two solutions for center
                 const t1 = (-B + Math.sqrt(det)) / 2;
                 const t2 = (-B - Math.sqrt(det)) / 2;
-
-                // Calculate the two possible tangent points on the ORIGINAL line
-                const Tan1 = { x: prev.x + t1 * ux, z: prev.z + t1 * uz };
-                const Tan2 = { x: prev.x + t2 * ux, z: prev.z + t2 * uz };
-
-                // Calculate Centers for both solutions
-                const Center1 = { x: shiftedStartX + t1 * ux, z: shiftedStartZ + t1 * uz };
-                const Center2 = { x: shiftedStartX + t2 * ux, z: shiftedStartZ + t2 * uz };
-
-                // Helper to calculate Sweep Angle (opening angle of the arc)
-                // We want the solution that results in a smaller sweep angle (Minor Arc)
-                const getSweep = (c, start) => {
-                    const as = Math.atan2(start.z - c.z, start.x - c.x);
-                    const ae = Math.atan2(ez - c.z, ex - c.x);
-                    let diff = ae - as;
-                    if (isG2) { // CW
-                        if (diff > 0) diff -= 2 * Math.PI;
+                
+                const c1 = {x: px + t1*ux, z: pz + t1*uz};
+                const c2 = {x: px + t2*ux, z: pz + t2*uz};
+                
+                // Calculate sweep for both solutions to find the shorter arc
+                function getSweep(center) {
+                    const angStart = Math.atan2(prev.z + (center.z-px)*uz/t1*uz - center.z, prev.x + (center.x-px)*ux/t1*ux - center.x); // Approx tangent point
+                    // Tangent point on line is: T = Center - Normal*R*side
+                    const Tx = center.x - nx * r * side;
+                    const Tz = center.z - nz * r * side;
+                    const angS = Math.atan2(Tz - center.z, Tx - center.x);
+                    const angE = Math.atan2(ez - center.z, ex - center.x);
+                    let diff = angE - angS;
+                    if(isG2) { // CW
+                         if(diff > 0) diff -= 2*Math.PI;
                     } else { // CCW
-                        if (diff < 0) diff += 2 * Math.PI;
+                         if(diff < 0) diff += 2*Math.PI;
                     }
                     return Math.abs(diff);
-                };
-
-                const sweep1 = getSweep(Center1, Tan1);
-                const sweep2 = getSweep(Center2, Tan2);
-
-                // Choose the solution with the smaller sweep angle
-                const use1 = sweep1 < sweep2;
-                
-                const finalT = use1 ? Tan1 : Tan2;
-                const finaltVal = use1 ? t1 : t2;
-
-                // Calculate final Center
-                cx = shiftedStartX + finaltVal * ux;
-                cz = shiftedStartZ + finaltVal * uz;
-
-                // UPDATE THE PREVIOUS LINE ENDPOINT (Trim/Extend)
-                State.points[State.points.length - 1].x = finalT.x;
-                State.points[State.points.length - 1].z = finalT.z;
-
-                cw = isG2;
-
-            } else if (arcTanMode === 'FORWARD' && tanTarget === 'cone') {
-                r = Math.abs(getNum("arc-r")); if(isNaN(r)) { openAlert("Zadejte Rádius"); return; }
-                const angDeg = getNum("arc-cone-angle"); if(isNaN(angDeg)) { openAlert("Zadejte Úhel"); return; }
-                let prevAngle = 0; 
-                if (State.points.length > 1) { 
-                    const prevPt = State.points[State.points.length - 2]; 
-                    if (l.type === "arc") { 
-                        const angleToCenter = Math.atan2(l.z - l.cz, l.x - l.cx); 
-                        prevAngle = l.cw ? angleToCenter - Math.PI/2 : angleToCenter + Math.PI/2; 
-                    } else { 
-                        prevAngle = Math.atan2(l.z - prevPt.z, l.x - prevPt.x); 
-                    } 
                 }
+                
+                // Recalculate exact tangent points for t1 and t2
+                const T1x = c1.x - nx * r * side, T1z = c1.z - nz * r * side;
+                const T2x = c2.x - nx * r * side, T2z = c2.z - nz * r * side;
+
+                // Calculate angles
+                function calcSweep(c, tx, tz) {
+                    const angS = Math.atan2(tz - c.z, tx - c.x);
+                    const angE = Math.atan2(ez - c.z, ex - c.x);
+                    let diff = angE - angS;
+                    if(isG2) { if(diff > 0) diff -= 2*Math.PI; } 
+                    else { if(diff < 0) diff += 2*Math.PI; }
+                    return Math.abs(diff);
+                }
+
+                const sweep1 = calcSweep(c1, T1x, T1z);
+                const sweep2 = calcSweep(c2, T2x, T2z);
+                
+                // Choose the one with smaller sweep (shorter arc)
+                let bestC, bestT;
+                if(sweep1 < sweep2) { bestC = c1; bestT = {x:T1x, z:T1z}; }
+                else { bestC = c2; bestT = {x:T2x, z:T2z}; }
+                
+                cx = bestC.x; cz = bestC.z;
+                
+                // Modify previous line end point to be bestT
+                State.points[State.points.length-1].x = bestT.x;
+                State.points[State.points.length-1].z = bestT.z;
                 cw = isG2;
-                const centerAngle = prevAngle + (cw ? -Math.PI/2 : Math.PI/2);
-                cx = l.x + r * Math.cos(centerAngle);
-                cz = l.z + r * Math.sin(centerAngle);
-                const startAngleC = Math.atan2(l.z - cz, l.x - cx);
-                const sweep = angDeg * (Math.PI/180) * (cw ? -1 : 1);
-                const endAngleC = startAngleC + sweep;
-                ex = cx + r * Math.cos(endAngleC);
-                ez = cz + r * Math.sin(endAngleC);
-            } else {
+
+              } else {
+                // Tangent (Normal) logic
                 let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; ex = tx; ez = tz;
                 let prevAngle = 0; if (State.points.length > 1) { const prevPt = State.points[State.points.length - 2]; if (l.type === "arc") { const angleToCenter = Math.atan2(l.z - l.cz, l.x - l.cx); prevAngle = l.cw ? angleToCenter - Math.PI/2 : angleToCenter + Math.PI/2; } else { prevAngle = Math.atan2(l.z - prevPt.z, l.x - prevPt.x); } }
                 const midX = (l.x + ex) / 2, midZ = (l.z + ez) / 2, bisectorAngle = Math.atan2(ez - l.z, ex - l.x) + Math.PI / 2, normalAngle = prevAngle + Math.PI / 2; 
                 const D = Math.cos(normalAngle) * Math.sin(bisectorAngle) - Math.sin(normalAngle) * Math.cos(bisectorAngle);
-                if (Math.abs(D) < 1e-5) { openAlert("Body v přímce"); return; }
+                if (Math.abs(D) < 1e-5) { alert("Body v přímce"); return; }
                 const dx = midX - l.x, dz = midZ - l.z; const t = (dx * Math.sin(bisectorAngle) - dz * Math.cos(bisectorAngle)) / D; 
                 cx = l.x + t * Math.cos(normalAngle); cz = l.z + t * Math.sin(normalAngle); r = Math.hypot(l.x - cx, l.z - cz);
                 const Tx = Math.cos(prevAngle), Tz = Math.sin(prevAngle), Vx = ex - l.x, Vz = ez - l.z; cw = (Tx * Vz - Tz * Vx) < 0;
             }
           } else {
+            // Normal 2P + R
             r = Math.abs(getNum("arc-r")); let tx = getNum("arc-x"), tz = getNum("arc-z"); if (State.isDiameter) tx /= 2; ex = tx; ez = tz;
-            const d = dist(l, { x: ex, z: ez }); if (d > 2 * r) { openAlert("Malé R"); return; }
+            const d = dist(l, { x: ex, z: ez }); if (d > 2 * r) { alert("Malé R"); return; }
             const h = Math.sqrt(r * r - (d / 2) * (d / 2)), a = Math.atan2(ez - l.z, ex - l.x), mx = (l.x + ex) / 2, mz = (l.z + ez) / 2;
             const c1x = mx + h * Math.sin(a), c1z = mz - h * Math.cos(a), c2x = mx - h * Math.sin(a), c2z = mz + h * Math.cos(a);
             const cr = (ex - l.x) * (c1z - l.z) - (ez - l.z) * (c1x - l.x); cw = isG2;
@@ -835,16 +822,16 @@
       }
 
       function applyChamfer() {
-        const val = getNum("chamfer-val"); if (!val || val <= 0) { openAlert("Hodnota?"); return; }
+        const val = getNum("chamfer-val"); if (!val || val <= 0) { alert("Hodnota?"); return; }
         const idx = State.chamferIdx, pCurr = State.points[idx], pPrev = State.points[idx - 1], pNext = State.points[idx + 1];
-        if (idx <= 0 || idx >= State.points.length - 1 || pCurr.type === "arc" || pNext.type === "arc") { openAlert("Nelze"); return; }
+        if (idx <= 0 || idx >= State.points.length - 1 || pCurr.type === "arc" || pNext.type === "arc") { alert("Nelze"); return; }
         saveHistory(); const v1 = { x: pPrev.x - pCurr.x, z: pPrev.z - pCurr.z }, v2 = { x: pNext.x - pCurr.x, z: pNext.z - pCurr.z };
         const l1 = Math.sqrt(v1.x * v1.x + v1.z * v1.z), l2 = Math.sqrt(v2.x * v2.x + v2.z * v2.z);
         const u1 = { x: v1.x / l1, z: v1.z / l1 }, u2 = { x: v2.x / l2, z: v2.z / l2 };
         const angle = Math.acos(Math.max(-1, Math.min(1, u1.x * u2.x + u1.z * u2.z)));
-        if (Math.abs(angle - Math.PI) < 0.01 || Math.abs(angle) < 0.01) { openAlert("Rovná přímka"); return; }
+        if (Math.abs(angle - Math.PI) < 0.01 || Math.abs(angle) < 0.01) { alert("Rovná přímka"); return; }
         const distC = chamferType === "C" ? val : val / Math.tan(angle / 2);
-        if (distC > l1 || distC > l2) { openAlert("Velké"); return; }
+        if (distC > l1 || distC > l2) { alert("Velké"); return; }
         State.points[idx] = { x: pCurr.x + u1.x * distC, z: pCurr.z + u1.z * distC, type: "line", break: false, id: pCurr.id };
         if (chamferType === "C") { State.points.splice(idx + 1, 0, { x: pCurr.x + u2.x * distC, z: pCurr.z + u2.z * distC, type: "line", break: false, id: pointIdCounter++ }); }
         else { const cross = v1.x * u2.z - v1.z * u2.x, isCW = cross > 0, cx = State.points[idx].x + (isCW ? -u1.z : u1.z) * val, cz = State.points[idx].z + (isCW ? u1.x : -u1.x) * val; State.points.splice(idx + 1, 0, { x: pCurr.x + u2.x * distC, z: pCurr.z + u2.z * distC, type: "arc", r: val, cw: isCW, cx, cz, break: false, id: pointIdCounter++ }); if (State.points[idx + 2]) State.points[idx + 2].type = "line"; }
@@ -860,11 +847,8 @@
         const pEnd = State.points[idx+1];
         const isArc = pEnd.type === 'arc';
 
-        // 1. Find all cuts on this segment
-        // Filter intersections where s1 or s2 matches current segment index
         let cuts = State.activeIntersections.filter(i => i.s1 === idx || i.s2 === idx);
 
-        // 2. Helper for metrics (distance for lines, angle for arcs)
         function getMetric(p) {
             if (!isArc) {
                 return Math.hypot(p.x - pStart.x, p.z - pStart.z);
@@ -872,7 +856,6 @@
                 const angStart = Math.atan2(pStart.z - pEnd.cz, pStart.x - pEnd.cx);
                 let angP = Math.atan2(p.z - pEnd.cz, p.x - pEnd.cx);
                 let diff = angP - angStart;
-                // Normalize based on CW/CCW
                 if (pEnd.cw) { 
                      if(diff > 0) diff -= 2*Math.PI;
                      return Math.abs(diff); 
@@ -886,17 +869,13 @@
         const clickMetric = getMetric({x: seg.x, z: seg.z});
         const lenMetric = getMetric({x: pEnd.x, z: pEnd.z});
 
-        // 3. Map cuts to metrics and filter bounds
         let pointsOnSeg = cuts.map(c => ({x: c.x, z: c.z, m: getMetric(c)}));
-        // Filter precision errors (points too close to start/end)
         pointsOnSeg = pointsOnSeg.filter(p => p.m > 0.001 && p.m < lenMetric - 0.001);
         pointsOnSeg.sort((a,b) => a.m - b.m);
 
-        // 4. Find the interval [Bound1, Bound2] containing the click
         let bound1 = { x: pStart.x, z: pStart.z, isStart: true };
         let bound2 = { x: pEnd.x, z: pEnd.z, isEnd: true };
         
-        // Add End to list for iteration
         const loopList = [...pointsOnSeg, {x: pEnd.x, z: pEnd.z, m: lenMetric, isEnd: true}];
         
         let prev = bound1;
@@ -909,33 +888,17 @@
         }
         bound1 = prev;
 
-        // 5. Construct new segments
         const newSegments = [];
-
-        // Segment 1: Start -> Bound1 (Only if Bound1 is not Start)
         if (!bound1.isStart) {
-            // Inherit pEnd properties (type, r, center) but use bound1 coords
             newSegments.push({ ...pEnd, x: bound1.x, z: bound1.z, id: pointIdCounter++ });
         }
-
-        // Gap is created here implicitly (we don't create a segment for Bound1 -> Bound2)
-
-        // Segment 2: Bound2 -> End (Only if Bound2 is not End)
-        // This segment starts at Bound2 (so it needs a break point) and goes to pEnd
         if (!bound2.isEnd) {
-            // Jump to Bound2
             newSegments.push({ x: bound2.x, z: bound2.z, break: true, type: 'line', id: pointIdCounter++ });
-            // Draw from Bound2 to pEnd (keep original pEnd geometry)
             newSegments.push({ ...pEnd, id: pointIdCounter++ });
         } else {
-            // If we trimmed up to the end, we MUST insert the End point as a break 
-            // so the NEXT segment in the chain (idx+2) starts from the correct position.
             newSegments.push({ x: pEnd.x, z: pEnd.z, break: true, type: 'line', id: pointIdCounter++ });
         }
-
-        // Replace original segment with new structure
         State.points.splice(idx+1, 1, ...newSegments);
-        
         updatePath(); 
         showToast("Oříznuto");
       }
@@ -944,16 +907,8 @@
       function prepMove(d) { currentDir = d; closeModals(); $("modal-input").style.display = "flex"; $("input-title").innerText = d === "TANGENT" ? "Tečna" : `Posun ${d}`; $("inp-len").value = ""; $("inp-x").value = ""; $("inp-z").value = ""; $("inp-angle").value = ""; 
         $("grp-x").style.display = (d==="U"||d==="D") ? "none" : "block"; $("grp-z").style.display = (d==="L"||d==="R") ? "none" : "block"; $("grp-angle").style.display = (d.length>1 || d==="TANGENT") ? "block" : "none";
         $("btn-pick-target").style.display = "block"; $("btn-commit-move").onclick = commitMove; $("inp-len").style.display = "block";
-        
-        if (d === 'TANGENT' && State.mode === 'CHAIN') {
-            const l = State.points[State.points.length - 1];
-            // If we came from click-in-space, we have values in inputs, keep them
-            // Otherwise reset or calc defaults
-            if($("inp-x").value === "") { $("inp-x").value = formatVal(l.x); $("inp-z").value = l.z.toFixed(3); }
-        }
-        
         $("inp-len").focus(); }
-      function openArcModal() { closeModals(); $("modal-arc").style.display = "flex"; $("arc-r").value = 100; switchArcMethod("R"); setArcDir(true); setArcMode('NORMAL'); }
+      function openArcModal() { closeModals(); $("modal-arc").style.display = "flex"; $("arc-r").value = 100; switchArcMethod("R"); setArcDir(true); setArcMode('NORM'); }
       function switchArcMethod(m) { arcMethod = m; $("tab-r").classList.toggle("active", m === "R"); $("tab-ik").classList.toggle("active", m === "IK"); $("method-r").style.display = m === "R" ? "block" : "none"; $("method-ik").style.display = m === "IK" ? "block" : "none"; $("arc-targets").style.display = m === "R" ? "block" : "none"; }
       function setArcDir(cw) { isG2 = cw; $("seg-g2").classList.toggle("active", cw); $("seg-g3").classList.toggle("active", !cw); }
       function toggleIKMode(i) { isIncIK = i; $("ik-abs-btn").classList.toggle("active", !i); $("ik-inc-btn").classList.toggle("active", i); }
@@ -971,7 +926,7 @@
             updatePath(); closeModals();
         } else if (circTab === "2P") {
             const r = getNum("circ-2p-r");
-            if(isNaN(r) || State.tempPickList.length !== 2) { openAlert("Zadejte R a vyberte 2 prvky"); return; }
+            if(isNaN(r) || State.tempPickList.length !== 2) { alert("Zadejte R a vyberte 2 prvky"); return; }
             saveHistory();
             const p1 = State.tempPickList[0]; const p2 = State.tempPickList[1];
             let success = false;
@@ -980,7 +935,7 @@
             else { success = createCircleFrom2P(p1, p2, r); }
             if(success) { State.tempPickList = []; updatePath(); closeModals(); } else { State.history.pop(); }
         } else if (circTab === "3P") {
-            if(State.tempPickList.length !== 3) { openAlert("Vyberte 3 body nebo úsečky"); return; }
+            if(State.tempPickList.length !== 3) { alert("Vyberte 3 body nebo úsečky"); return; }
             saveHistory();
             const lst = State.tempPickList;
             const lines = lst.filter(x => x.type === 'line'), points = lst.filter(x => x.type === 'point');
@@ -988,7 +943,7 @@
             if (lines.length === 3) { success = createCircleFrom3L(lines[0], lines[1], lines[2]); }
             else if (lines.length === 1 && points.length === 2) { success = createCircleFrom2P1L(points[0], points[1], lines[0]); }
             else if (lines.length === 0) { success = createCircleFrom3P(lst[0], lst[1], lst[2]); }
-            else { openAlert("Tato kombinace (1 Bod + 2 Úsečky) zatím není podporována."); }
+            else { alert("Tato kombinace (1 Bod + 2 Úsečky) zatím není podporována."); }
             if(success) { State.tempPickList = []; updatePath(); closeModals(); } else { State.history.pop(); }
         }
       }
@@ -1020,7 +975,7 @@
                   if(dTotal < minD) { minD = dTotal; bestC = {x: cx, z: cz, s1: s1_sign, s2: s2_sign}; }
               }
           }
-          if (!bestC || isNaN(bestC.x)) { openAlert("Nelze vypočítat"); return false; }
+          if (!bestC || isNaN(bestC.x)) { alert("Nelze vypočítat"); return false; }
           const cx = bestC.x, cz = bestC.z;
           State.points.push({ x: cx + r, z: cz, break: true, type: "line", id: pointIdCounter++ });
           State.points.push({ x: cx - r, z: cz, type: "arc", r, cw: true, cx, cz, break: false, id: pointIdCounter++ });
@@ -1038,7 +993,7 @@
           const ox = s.x + nx * r * side, oz = s.z + nz * r * side;
           const Dx = ox - point.x, Dz = oz - point.z;
           const A = 1, B = 2 * (Dx * ux + Dz * uz), C = (Dx * Dx + Dz * Dz) - r * r;
-          const disc = B*B - 4*A*C; if(disc < 0) { openAlert("Rádius nedosáhne"); return false; }
+          const disc = B*B - 4*A*C; if(disc < 0) { alert("Rádius nedosáhne"); return false; }
           const t1 = (-B + Math.sqrt(disc)) / 2, t2 = (-B - Math.sqrt(disc)) / 2;
           const c1 = { x: ox + t1 * ux, z: oz + t1 * uz }, c2 = { x: ox + t2 * ux, z: oz + t2 * uz };
           const dist1 = Math.hypot(c1.x - seg.x, c1.z - seg.z), dist2 = Math.hypot(c2.x - seg.x, c2.z - seg.z);
@@ -1053,7 +1008,7 @@
       }
       
       function createCircleFrom2P(p1, p2, r) {
-          const d = dist(p1, p2); if (d > 2 * r || d === 0) { openAlert("Rádius je příliš malý"); return false; }
+          const d = dist(p1, p2); if (d > 2 * r || d === 0) { alert("Rádius je příliš malý"); return false; }
           const h = Math.sqrt(r * r - (d / 2) * (d / 2));
           const mx = (p1.x + p2.x) / 2, mz = (p1.z + p2.z) / 2;
           const dx = p2.x - p1.x, dz = p2.z - p1.z;
@@ -1076,7 +1031,7 @@
           }
           const d1 = getLineDef(l1), d2 = getLineDef(l2), d3 = getLineDef(l3);
           const V12 = intersect(d1, d2), V23 = intersect(d2, d3), V31 = intersect(d3, d1);
-          if(!V12 || !V23 || !V31) { openAlert("Paralelní úsečky"); return false; }
+          if(!V12 || !V23 || !V31) { alert("Paralelní úsečky"); return false; }
           const a = dist(V31, V12), b = dist(V12, V23), c = dist(V23, V31);
           const P = a+b+c;
           const incenter = { x: (a*V23.x + b*V31.x + c*V12.x)/P, z: (a*V23.z + b*V31.z + c*V12.z)/P };
@@ -1138,7 +1093,7 @@
       function createCircleFrom3P(p1, p2, p3) {
           const x1=p1.x, z1=p1.z, x2=p2.x, z2=p2.z, x3=p3.x, z3=p3.z;
           const D = 2 * (x1 * (z2 - z3) + x2 * (z3 - z1) + x3 * (z1 - z2));
-          if (Math.abs(D) < 1e-5) { openAlert("Body v přímce"); return false; }
+          if (Math.abs(D) < 1e-5) { alert("Body v přímce"); return false; }
           const cx = ((x1*x1 + z1*z1) * (z2 - z3) + (x2*x2 + z2*z2) * (z3 - z1) + (x3*x3 + z3*z3) * (z1 - z2)) / D;
           const cz = ((x1*x1 + z1*z1) * (x3 - x2) + (x2*x2 + z2*z2) * (x1 - x3) + (x3*x3 + z3*z3) * (x2 - x1)) / D;
           const r = Math.sqrt(Math.pow(cx - x1, 2) + Math.pow(cz - z1, 2));
@@ -1182,7 +1137,16 @@
         const clientRatio = els.svg.clientHeight / els.svg.clientWidth || 1;
         const w = maxX - minX, h = maxZ - minZ; 
         State.vb.w = Math.max(w, h / clientRatio) * 1.4 || 50; State.vb.h = State.vb.w * clientRatio; State.vb.x = (minX + maxX) / 2 - State.vb.w / 2; State.vb.y = -(minZ + maxZ) / 2 - State.vb.h / 2; requestRender(); }
-      function confirmClearAll() { State.points = [{ x: 0, z: 0, break: false, type: "line", id: 0 }]; pointIdCounter = 1; saveHistory(); setHomeView(); closeConfirm(true); }
+      
+      function confirmClearAll() { 
+          openConfirm("Smazat vše?", () => {
+              State.points = [{ x: 0, z: 0, break: false, type: "line", id: 0 }]; 
+              pointIdCounter = 1; 
+              saveHistory(); 
+              setHomeView();
+          });
+      }
+
       function onPointClick(i) {
         if (State.isDragging || State.touch.timer) return;
         const p = State.points[i];
@@ -1200,62 +1164,45 @@
             return; 
         } 
         
-        if (State.mode === "PICK_ALIGN_2P") {
-            // Wait for user to pick point, then open dialog to input target
-            State.tempPickList.push(p);
-            // Now we need target coords. Reuse input modal
-            $("modal-input").style.display = "flex";
-            $("input-title").innerText = `Cíl pro bod ${State.tempPickList.length}`;
-            $("btn-pick-target").style.display = "none";
-            $("grp-angle").style.display = "none"; 
-            $("inp-len").style.display = "none";
-            $("inp-x").value = formatVal(p.x); $("inp-z").value = p.z.toFixed(3);
-            
-            // Override commit to handle align logic
-            $("btn-commit-move").onclick = () => {
-                 const tx = getNum("inp-x"), tz = getNum("inp-z");
-                 if(isNaN(tx) || isNaN(tz)) { openAlert("Hodnoty?"); return; }
-                 const tX = State.isDiameter ? tx/2 : tx;
-                 // Store target in the point object temporarily or separate list
-                 State.tempPickList[State.tempPickList.length-1].target = {x: tX, z: tz};
-                 closeModals();
-                 
-                 if(State.tempPickList.length === 2) {
-                     // Perform Align
-                     saveHistory();
-                     const p1 = State.tempPickList[0], t1 = p1.target;
-                     const p2 = State.tempPickList[1], t2 = p2.target;
-                     
-                     // 1. Move everything so p1 matches t1
-                     const dx = t1.x - p1.x, dz = t1.z - p1.z;
-                     shiftAllPoints(dx, dz);
-                     
-                     // 2. Rotate everything around t1 (which is now p1's new pos)
-                     // Current vector p1->p2
-                     // We shifted p1 to t1. p2 also shifted by (dx,dz).
-                     const p2_new = { x: p2.x + dx, z: p2.z + dz };
-                     const curAngle = Math.atan2(p2_new.z - t1.z, p2_new.x - t1.x);
-                     const targetAngle = Math.atan2(t2.z - t1.z, t2.x - t1.x);
-                     const rotAngle = curAngle - targetAngle; // Rotate back
-                     
-                     rotateAllPoints(t1, rotAngle);
-                     
-                     State.tempPickList = [];
-                     setMode("IDLE");
-                     showToast("Zarovnáno");
-                     // Restore commit button
-                     $("btn-commit-move").onclick = commitMove;
-                 } else {
-                     showToast("2/4: Bod 2 na modelu");
-                 }
-            };
-            return;
-        }
-        
         if(State.mode==="CHAIN") { prepMove('TANGENT'); $("inp-x").value = formatVal(p.x); $("inp-z").value = p.z.toFixed(3); $("inp-len").focus(); return; } 
         if(State.mode === "PICK_MOVE_ORIGIN") { State.moveOrigin = {x: p.x, z: p.z}; setMode("PICK_MOVE_DEST"); showToast("Zadejte cíl nebo klikněte"); return; }
         if(State.mode === "PICK_MOVE_DEST") { const dx = p.x - State.moveOrigin.x; const dz = p.z - State.moveOrigin.z; saveHistory(); shiftAllPoints(dx, dz); State.moveOrigin = null; setMode("IDLE"); closeModals(); showToast("Model posunut"); return; }
         if(State.mode === "PICK_ALIGN_HORIZ") { State.tempPickList.push(p); showToast(`Vybrán bod ${State.tempPickList.length}/2`); if(State.tempPickList.length === 2) { saveHistory(); const p1 = State.tempPickList[0], p2 = State.tempPickList[1]; const angle = Math.atan2(p2.z - p1.z, p2.x - p1.x); rotateAllPoints(p1, -angle); State.tempPickList = []; setMode("IDLE"); closeModals(); showToast("Model srovnán"); } return; }
+        if(State.mode === "PICK_ALIGN_2P") { 
+            State.tempPickList.push(p); 
+            // 4 Steps: P1 -> Target1, P2 -> Target2
+            const step = State.tempPickList.length;
+            if(step === 1) showToast("Nyní vyberte Cíl 1 (klik nebo zadat)");
+            if(step === 2) showToast("Vyberte Bod 2 na modelu");
+            if(step === 3) showToast("Vyberte Cíl 2");
+            
+            if(step === 2 || step === 4) {
+                // Should be handled by generic click handler for target, but here we expect user to click points.
+                // If user clicks a point for target, it's handled here.
+            }
+            if(step === 4) {
+               // Exec Align
+               const p1 = State.tempPickList[0], t1 = State.tempPickList[1];
+               const p2 = State.tempPickList[2], t2 = State.tempPickList[3];
+               
+               // 1. Move p1 to t1
+               const dx = t1.x - p1.x, dz = t1.z - p1.z;
+               shiftAllPoints(dx, dz);
+               
+               // 2. Rotate around t1 (which is now p1's new pos) to align p2 to t2
+               // Current Angle of p2 relative to p1
+               // Note: p2 coords shifted by dx,dz
+               const curP2 = {x: p2.x + dx, z: p2.z + dz};
+               const angCur = Math.atan2(curP2.z - t1.z, curP2.x - t1.x);
+               const angTgt = Math.atan2(t2.z - t1.z, t2.x - t1.x);
+               const rot = angTgt - angCur;
+               
+               rotateAllPoints(t1, -rot); // -rot because rotateAllPoints uses standard math rotation
+               
+               State.tempPickList = []; setMode("IDLE"); closeModals(); showToast("Srovnáno (Align)");
+            }
+            return; 
+        }
       
         copyToClipboard(`X${formatVal(p.x)} Z${p.z.toFixed(3)}`); 
         
@@ -1266,19 +1213,21 @@
                  State.points.push({ x: p.x, z: p.z, break: true, type: "line", id: pointIdCounter++ });
                  centerViewOnPoint(p);
                  updatePath();
-                 closeConfirm(true);
              });
         } else {
             centerViewOnPoint(p);
         }
       }
       function onCenterClick(cx, cz) { if (State.measureMode) { handleMeasureClick({ x: cx, z: cz }); return; } copyToClipboard(`I${formatVal(cx)} K${cz.toFixed(3)}`); }
+      
+      function openAlignModal() { closeModals(); $("modal-align").style.display = "flex"; }
       function openMainMenu() { closeModals(); $("modal-main-menu").style.display = "flex"; }
+      
       function deletePoint(x, z) { const idx = State.points.findIndex((p) => Math.abs(p.x - x) < 1e-3 && Math.abs(p.z - z) < 1e-3); if (idx === -1) return; saveHistory(); if (State.points[idx + 1] && State.points[idx + 1].type === "arc") { State.points[idx + 1].type = "line"; } State.points.splice(idx, 1); if (State.points.length === 0) { State.points = [{ x: 0, z: 0, break: false, type: "line", id: 0 }]; pointIdCounter = 1; } else if (idx === 0) { State.points[0].break = false; State.points[0].type = "line"; } updatePath(); showToast("Bod smazán"); }
       
-      function deleteDimension(d) {
-          const idx = State.dimensions.indexOf(d);
-          if (idx > -1) {
+      function deleteDimension(dim) {
+          const idx = State.dimensions.indexOf(dim);
+          if (idx !== -1) {
               saveHistory();
               State.dimensions.splice(idx, 1);
               updatePath();
@@ -1287,26 +1236,32 @@
       }
 
       function handleActionClick(snap) {
+        // Prevent click if any modal is open (except HUD which is always on top)
+        if(document.querySelector(".modal[style*='display: flex']")) return;
+        
         if (!snap) return;
         const x = snap.x, z = snap.z;
         
-        if (State.mode === "TRIM") {
-            // Check if we clicked a DIMENSION
-            // We iterate dimensions and check distance to click
-            // For Line dim: distance to line segment
-            // For Rad dim: distance to center point or text point
-            const hitDim = State.dimensions.find(d => {
-                if(d.type === 'dist') {
-                   // Simplified: check distance to midpoint of dim line
-                   const mx = (d.lineP1.x + d.lineP2.x)/2;
-                   const mz = (d.lineP1.z + d.lineP2.z)/2;
-                   return Math.hypot(x - mx, z - mz) < (20 * (State.vb.w / els.svg.clientWidth));
-                } else {
-                   return Math.hypot(x - d.c.x, z - d.c.z) < 2 || Math.hypot(x - d.p.x, z - d.p.z) < 2;
-                }
-            });
-            
-            if (hitDim) { deleteDimension(hitDim); return; }
+        // ALIGN Target Picking logic (if clicking empty space or point as target)
+        if (State.mode === "PICK_ALIGN_2P" && (State.tempPickList.length === 1 || State.tempPickList.length === 3)) {
+            // User clicked Target 1 or Target 2
+            State.tempPickList.push({x, z});
+            const step = State.tempPickList.length;
+            if(step === 2) showToast("Vyberte Bod 2 na modelu");
+            if(step === 4) {
+               // Execute Align
+               const p1 = State.tempPickList[0], t1 = State.tempPickList[1];
+               const p2 = State.tempPickList[2], t2 = State.tempPickList[3];
+               const dx = t1.x - p1.x, dz = t1.z - p1.z;
+               shiftAllPoints(dx, dz);
+               const curP2 = {x: p2.x + dx, z: p2.z + dz};
+               const angCur = Math.atan2(curP2.z - t1.z, curP2.x - t1.x);
+               const angTgt = Math.atan2(t2.z - t1.z, t2.x - t1.x);
+               const rot = angTgt - angCur;
+               rotateAllPoints(t1, -rot);
+               State.tempPickList = []; setMode("IDLE"); closeModals(); showToast("Srovnáno (Align)");
+            }
+            return;
         }
 
         if (State.mode === "CHAIN") {
@@ -1317,20 +1272,17 @@
                 $("inp-len").value = distVal.toFixed(3); $("inp-x").value = formatVal(x); $("inp-z").value = z.toFixed(3);
                 return;
             }
-            if(snap.t === "point") { prepMove("TANGENT"); $("inp-x").value = formatVal(x); $("inp-z").value = z.toFixed(3); return; }
-            
-            // CLICK IN EMPTY SPACE (CHAIN)
-            // Save coordinates into inputs and open Modal instead of instant draw
             if(snap.t === "free") {
-                 const last = State.points[State.points.length-1];
-                 const distVal = Math.hypot(x - last.x, z - last.z);
-                 prepMove("TANGENT"); // Use generic move dialog
-                 $("inp-len").value = distVal.toFixed(3);
-                 $("inp-x").value = formatVal(x);
-                 $("inp-z").value = z.toFixed(3);
-                 return;
+                // Click in empty space -> Open Input Modal prefilled
+                const last = State.points[State.points.length-1];
+                const distVal = Math.hypot(x - last.x, z - last.z);
+                prepMove("TANGENT"); 
+                $("inp-len").value = distVal.toFixed(3);
+                $("inp-x").value = formatVal(x); 
+                $("inp-z").value = z.toFixed(3); 
+                return;
             }
-            
+            if(snap.t === "point" || snap.t === "intersection" || snap.t === "origin") { prepMove("TANGENT"); $("inp-x").value = formatVal(x); $("inp-z").value = z.toFixed(3); return; }
             saveHistory(); State.points.push({ x, z, break: false, type: "line", id: pointIdCounter++ }); updatePath(); return;
         }
         if (State.measureMode === "radius" && snap.t === "segment_stick") { const p = State.points[snap.index + 1]; if (p.type === "arc") { State.lastMeasured = { type: "rad", c: { x: p.cx, z: p.cz }, p: { x: p.x, z: p.z }, val: p.r.toFixed(3) }; showMeasureResult(`Rádius: ${p.r.toFixed(3)}`); return; } }
@@ -1345,7 +1297,12 @@
             State.tempPickList.push(seg); showToast(`Vybrána úsečka ${State.tempPickList.length}`); updatePath();
             if(State.tempPickList.length === 3) { setMode("IDLE", true); $("modal-circle").style.display = "flex"; } return;
         }
-        if (State.mode === "TRIM") { if (snap.t === "point") deletePoint(x, z); else if (snap.t === "segment_stick") performTrim(snap); return; }
+        if (State.mode === "TRIM") { 
+            if (snap.t === "point") deletePoint(x, z); 
+            else if (snap.t === "segment_stick") performTrim(snap); 
+            else if (snap.t === "dimension") deleteDimension(snap.dim);
+            return; 
+        }
         if (State.mode === "MANUAL_DIMENSION") {
           if (snap.t === "segment_stick") { const p1 = State.points[snap.index], p2 = State.points[snap.index + 1]; if (p2.type === "arc") { const midAng = Math.atan2(z - p2.cz, x - p2.cx), mx = p2.cx + Math.cos(midAng) * p2.r, mz = p2.cz + Math.sin(midAng) * p2.r; saveHistory(); State.dimensions.push({ type: "rad", c: { x: p2.cx, z: p2.cz }, p: { x: mx, z: mz }, val: p2.r.toFixed(3) }); updatePath(); showToast("Rádius vložen"); } else { const dx = p2.x - p1.x, dz = p2.z - p1.z, len = Math.sqrt(dx*dx + dz*dz), nx = -dz / len, nz = dx / len, offsetDist = 30 * (State.vb.w / els.svg.clientWidth); saveHistory(); State.dimensions.push({ type: "dist", p1: { x: p1.x, z: p1.z }, p2: { x: p2.x, z: p2.z }, val: len.toFixed(3), lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } }); updatePath(); showToast("Kóta vložena"); } return; }
           if (!State.dimP1) { State.dimP1 = { x, z }; showToast("Vyberte druhý bod"); updatePath(); } else { const p1 = State.dimP1, p2 = { x, z }, dx = p2.x - p1.x, dz = p2.z - p1.z, len = Math.sqrt(dx * dx + dz * dz); if (len < 0.001) return; const nx = -dz / len, nz = dx / len, scale = State.vb.w / els.svg.clientWidth, offsetDist = 40 * scale; saveHistory(); State.dimensions.push({ type: "dist", p1: p1, p2: p2, val: len.toFixed(3), lineP1: { x: p1.x + nx * offsetDist, z: p1.z + nz * offsetDist }, lineP2: { x: p2.x + nx * offsetDist, z: p2.z + nz * offsetDist } }); State.dimP1 = null; updatePath(); showToast("Kóta vložena"); } return;
@@ -1358,10 +1315,12 @@
         if (State.mode === "PICK_CIRCLE_CENTER") { setMode("IDLE"); $("circ-cx").value = formatVal(x); $("circ-cz").value = z.toFixed(3); $("modal-circle").style.display = "flex"; return; }
         if (State.mode === "PICK_ARC_CENTER") { setMode("IDLE"); $("center-x").value = formatVal(x); $("center-z").value = z.toFixed(3); $("modal-arc").style.display = "flex"; return; }
         if (State.mode === "PICK_MOVE_DEST") { const dx = x - State.moveOrigin.x; const dz = z - State.moveOrigin.z; saveHistory(); shiftAllPoints(dx, dz); State.moveOrigin = null; setMode("IDLE"); closeModals(); showToast("Model posunut"); return; }
-        if (snap.t === "point") { const idx = State.points.findIndex((p) => Math.abs(p.x - x) < 1e-3 && Math.abs(p.z - z) < 1e-3); if (idx !== -1) onPointClick(idx); } else if (snap.t === "center") { onCenterClick(x, z); }
+        if (snap.t === "point" || snap.t === "origin") { const idx = State.points.findIndex((p) => Math.abs(p.x - x) < 1e-3 && Math.abs(p.z - z) < 1e-3); if (idx !== -1) onPointClick(idx); } else if (snap.t === "center") { onCenterClick(x, z); }
       }
 
       function handleMouseSnap(pSvg) {
+        if(document.querySelector(".modal[style*='display: flex']")) { els.snap.innerHTML = ""; return null; }
+        
         if (!State.manualSnap) { 
             const pW = getWorldFromScreen(pSvg.x, -pSvg.y);
             const xVal = State.isDiameter ? pW.x * 2 : pW.x;
@@ -1369,22 +1328,20 @@
             else { $("hud-x").innerText = pW.z.toFixed(2); $("hud-z").innerText = xVal.toFixed(2); }
             els.snap.innerHTML = ""; return { x: pW.x, z: pW.z, t: "free" }; 
         }
-        if (document.querySelector(".modal[style*='display: flex']")) { els.snap.innerHTML = ""; return null; }
         if ((State.touch.active && !State.touch.timer && !State.measureMode && State.mode !== "MANUAL_DIMENSION") || State.isDragging) { els.snap.innerHTML = ""; return null; }
         
-        // Mouse P is in SVG coords (screen). Convert to World for distance check.
-        const pWorld = getWorldFromScreen(pSvg.x, -pSvg.y); // -y because SVG group is scale(1,-1)
+        const pWorld = getWorldFromScreen(pSvg.x, -pSvg.y);
         
         const md = 15 * (State.vb.w / els.svg.clientWidth);
         let best = null, minDist = md;
         const targets = [];
         
-        // Add 0,0 origin to snap targets
-        targets.push({x:0, z:0, t: "point"});
+        // Permanent 0,0 snap target
+        targets.push({x: 0, z: 0, t: "origin"});
 
         if(State.mode === "CHAIN") {
             const last = State.points[State.points.length-1];
-            if(Math.abs(pWorld.x - last.x) < md) { // Vertical World Line
+            if(Math.abs(pWorld.x - last.x) < md) {
                 const svgX1 = getScreenX(last), svgY1 = getScreenY(last);
                 const svgX2 = getScreenX({x: last.x, z: pWorld.z}), svgY2 = getScreenY({x: last.x, z: pWorld.z});
                 els.snap.innerHTML = "";
@@ -1395,7 +1352,7 @@
                 $("hud-snap-info").style.display = "block"; $("hud-snap-info").innerText = State.machineType==='KARUSEL'?"SVISLE":"VODOROVNĚ";
                 return { x: last.x, z: pWorld.z, t: "ortho" };
             }
-            if(Math.abs(pWorld.z - last.z) < md) { // Horizontal World Line
+            if(Math.abs(pWorld.z - last.z) < md) {
                 const svgX1 = getScreenX(last), svgY1 = getScreenY(last);
                 const svgX2 = getScreenX({x: pWorld.x, z: last.z}), svgY2 = getScreenY({x: pWorld.x, z: last.z});
                 els.snap.innerHTML = "";
@@ -1417,7 +1374,8 @@
             const xVal = State.isDiameter ? best.x * 2 : best.x;
             if(State.machineType === 'KARUSEL') { $("hud-x").innerText = xVal.toFixed(3); $("hud-z").innerText = best.z.toFixed(3); $("hud-x").style.color="red"; $("hud-z").style.color="red"; }
             else { $("hud-x").innerText = best.z.toFixed(3); $("hud-z").innerText = xVal.toFixed(3); $("hud-x").style.color="red"; $("hud-z").style.color="red"; }
-            hS.style.display = "block"; hS.innerText = best.t === "center" ? "STŘED" : best.t === "intersection" ? "PRŮSEČÍK" : "BOD"; 
+            hS.style.display = "block"; 
+            hS.innerText = best.t === "center" ? "STŘED" : best.t === "intersection" ? "PRŮSEČÍK" : best.t === "origin" ? "NULA" : "BOD"; 
             const s = 20 * (State.vb.w / els.svg.clientWidth); 
             const sx = getScreenX(best), sy = getScreenY(best);
             els.snap.append(svgEl("path", { d: `M ${sx - s / 2} ${sy - s} L ${sx + s / 2} ${sy + s} M ${sx - s / 2} ${sy + s} L ${sx + s / 2} ${sy - s}`, class: "snap-highlight" })); 
@@ -1426,27 +1384,6 @@
         
         let bestSeg = null, segMd = 30 * (State.vb.w / els.svg.clientWidth);
         for (let i = 0; i < State.points.length - 1; i++) { if (State.points[i + 1].break) continue; const snap = getClosestOnSeg(pWorld, State.points[i], State.points[i + 1]); if (snap.dist < segMd) { segMd = snap.dist; bestSeg = { ...snap, index: i, t: "segment_stick" }; } }
-        
-        // TRIM MODE specific: Check for Dimensions too
-        if (State.mode === 'TRIM') {
-             const dimMd = 25 * (State.vb.w / els.svg.clientWidth);
-             const dimHit = State.dimensions.find(d => {
-                if(d.type === 'dist') {
-                   const mx = (d.lineP1.x + d.lineP2.x)/2;
-                   const mz = (d.lineP1.z + d.lineP2.z)/2;
-                   return Math.hypot(pWorld.x - mx, pWorld.z - mz) < dimMd;
-                }
-                return false;
-             });
-             if(dimHit) {
-                 hS.style.display = "block"; hS.innerText = "KÓTA";
-                 const s = 15 * (State.vb.w / els.svg.clientWidth); 
-                 // Visual feedback for dim (simple dot)
-                 els.snap.append(svgEl("circle", { cx: getScreenX(pWorld), cy: getScreenY(pWorld), r: s, fill:"orange", stroke:"red" }));
-                 return { x: pWorld.x, z: pWorld.z, t: "dimension_hit" }; // Special type
-             }
-        }
-
         if (bestSeg) { 
             const xVal = State.isDiameter ? bestSeg.x * 2 : bestSeg.x;
             if(State.machineType === 'KARUSEL') { $("hud-x").innerText = xVal.toFixed(3); $("hud-z").innerText = bestSeg.z.toFixed(3); $("hud-x").style.color="orange"; $("hud-z").style.color="orange"; }
@@ -1456,6 +1393,25 @@
             const sx = getScreenX(bestSeg), sy = getScreenY(bestSeg);
             els.snap.append(svgEl("path", { d: `M ${sx - s / 2} ${sy} L ${sx + s / 2} ${sy} M ${sx} ${sy - s / 2} L ${sx} ${sy + s / 2}`, class: "snap-highlight", stroke: "orange" })); 
             return bestSeg; 
+        }
+
+        // TRIM Mode - check dimensions
+        if (State.mode === "TRIM") {
+             const dimMd = 20 * (State.vb.w / els.svg.clientWidth);
+             for(let d of State.dimensions) {
+                 if(d.lineP1 && d.lineP2) {
+                     // Approximate check against dimension line
+                     const midX = (d.lineP1.x + d.lineP2.x)/2;
+                     const midZ = (d.lineP1.z + d.lineP2.z)/2;
+                     if(Math.hypot(pWorld.x - midX, pWorld.z - midZ) < dimMd) {
+                          const sx1 = getScreenX(d.lineP1), sy1 = getScreenY(d.lineP1);
+                          const sx2 = getScreenX(d.lineP2), sy2 = getScreenY(d.lineP2);
+                          els.snap.append(svgEl("line", { x1: sx1, y1: sy1, x2: sx2, y2: sy2, stroke: "orange", "stroke-width": 5, opacity: 0.5 })); 
+                          hS.style.display = "block"; hS.innerText = "KÓTA";
+                          return { dim: d, t: "dimension" };
+                     }
+                 }
+             }
         }
         
         $("hud-x").style.color = "#444"; $("hud-z").style.color = "#444"; hS.style.display = "none"; 
@@ -1499,7 +1455,6 @@
               saveHistory(); 
               State.dimensions = []; 
               updatePath(); 
-              closeConfirm(true);
           });
       }
 
@@ -1534,40 +1489,45 @@
         if (!els.svg.clientWidth) return;
         const vw = State.vb.w; const scale = vw / els.svg.clientWidth;
         els.grid.innerHTML = ""; els.text.innerHTML = ""; els.axis.innerHTML = "";
+        
         let step = Math.pow(10, Math.floor(Math.log10(vw / 5))); if (vw / 5 / step < 2) step *= 1; else if (vw / 5 / step < 5) step *= 2; else step *= 5;
         const subStep = step / 5; const fs = Math.max(vw / 40, step / 3.5);
+        
         const axisFrag = document.createDocumentFragment(), gridFrag = document.createDocumentFragment(), textFrag = document.createDocumentFragment();
         
-        // Dynamic Axis Length based on VB
-        const margin = vw * 0.1;
-        const xMin = State.vb.x - margin;
-        const xMax = State.vb.x + State.vb.w + margin;
-        const yMin = State.vb.y - margin;
-        const yMax = State.vb.y + State.vb.h + margin;
+        // Dynamic Dash Array calculation for Z axis
+        // We want the dash to look constant on screen. 
+        // Say 20px dash, 10px gap on screen.
+        const dashLen = 25 * scale;
+        const gapLen = 10 * scale;
+        const smallDash = 5 * scale;
+        // Dash-Dot pattern: Long, Gap, Short, Gap
+        const dashArray = `${dashLen},${gapLen},${smallDash},${gapLen}`;
 
-        const isKarusel = State.machineType === 'KARUSEL';
+        // Limit axis lines to visible area + buffer
+        const buffer = vw * 0.5;
+        const minX = State.vb.x - buffer, maxX = State.vb.x + vw + buffer;
+        const minY = State.vb.y - buffer, maxY = State.vb.y + State.vb.h + buffer;
 
-        // Draw Axes with dynamic limits
-        // Normal Axis (Black)
-        axisFrag.append(svgEl("line", { x1: xMin, y1: 0, x2: xMax, y2: 0, class: isKarusel ? "axis-line" : "axis-line-red" })); // X or Z horizontal
-        axisFrag.append(svgEl("line", { x1: 0, y1: yMin, x2: 0, y2: yMax, class: isKarusel ? "axis-line-red" : "axis-line" })); // Z or X vertical
-
-        // Apply dash-array dynamically for red axis
-        const redAxisClass = isKarusel ? "axis-line-red" : "axis-line-red"; 
-        // We set style directly on the red line elements based on machine type
-        const da1 = 40 * scale, da2 = 10 * scale, da3 = 10 * scale;
-        const dashStyle = `${da1},${da2},${da3},${da2}`;
+        // X Axis (Always Black solid) - Horizontal in Karusel(X is X), Vertical in Soustruh(X is Z)
+        // Z Axis (Red Dashed) - Vertical in Karusel(Z is Z), Horizontal in Soustruh(Z is X)
         
-        // Find the red lines we just appended and apply style
-        // 0 is Horiz, 1 is Vert
-        if(isKarusel) {
-            // Vert is RED
-             axisFrag.children[1].style.strokeDasharray = dashStyle;
+        const isKarusel = State.machineType === 'KARUSEL';
+        
+        if (isKarusel) {
+             // Karusel: X is Horizontal, Z is Vertical
+             // Horizontal Axis (Z=0) -> X Axis
+             axisFrag.append(svgEl("line", { x1: minX, y1: 0, x2: maxX, y2: 0, class: "axis-line" }));
+             // Vertical Axis (X=0) -> Z Axis
+             axisFrag.append(svgEl("line", { x1: 0, y1: minY, x2: 0, y2: maxY, class: "axis-line-red", "stroke-dasharray": dashArray }));
         } else {
-            // Horiz is RED
-             axisFrag.children[0].style.strokeDasharray = dashStyle;
+             // Soustruh: Z is Horizontal, X is Vertical
+             // Horizontal Axis (X=0) -> Z Axis (Red)
+             axisFrag.append(svgEl("line", { x1: minX, y1: 0, x2: maxX, y2: 0, class: "axis-line-red", "stroke-dasharray": dashArray }));
+             // Vertical Axis (Z=0) -> X Axis
+             axisFrag.append(svgEl("line", { x1: 0, y1: minY, x2: 0, y2: maxY, class: "axis-line" }));
         }
-
+        
         const startX = Math.floor(State.vb.x / subStep) * subStep, endX = State.vb.x + vw + subStep, startY = Math.floor(-(State.vb.y + State.vb.h) / subStep) * subStep, endY = -State.vb.y + subStep;
         const textYPos = State.vb.y + State.vb.h - (scale * 15), textXPos = State.vb.x + (scale * 10);
         
@@ -1601,18 +1561,19 @@
             if(State.machineType === 'KARUSEL') { $("hud-x").innerText = xVal.toFixed(2); $("hud-z").innerText = zVal.toFixed(2); } else { $("hud-x").innerText = zVal.toFixed(2); $("hud-z").innerText = xVal.toFixed(2); }
         }
         const s = State.vb.w / els.svg.clientWidth; const intrFrag = document.createDocumentFragment();
-        
-        // Draw Origin 0,0
-        const sz0 = getScreenX({x:0, z:0}), sy0 = getScreenY({x:0, z:0});
-        intrFrag.append(svgEl("circle", { cx: sz0, cy: sy0, r: 8 * s, class: "origin-marker" }));
-        intrFrag.append(svgEl("path", { d: `M ${sz0 - 4*s} ${sy0} L ${sz0 + 4*s} ${sy0} M ${sz0} ${sy0 - 4*s} L ${sz0} ${sy0 + 4*s}`, class: "origin-marker" }));
-
         State.activeIntersections.forEach((p) => {
             const sx = getScreenX(p), sy = getScreenY(p);
             intrFrag.append(svgEl("path", { d: `M ${sx - 10 * s} ${sy - 10 * s} L ${sx + 10 * s} ${sy + 10 * s} M ${sx - 10 * s} ${sy + 10 * s} L ${sx + 10 * s} ${sy - 10 * s}`, class: "intersection-marker" }));
         }); els.intr.appendChild(intrFrag);
         
         let d = ""; const pathFrag = document.createDocumentFragment();
+        
+        // Draw 0,0 marker
+        const s0x = getScreenX({x:0, z:0}), s0y = getScreenY({x:0, z:0});
+        pathFrag.append(svgEl("circle", { cx: s0x, cy: s0y, r: 8 * s, class: "origin-marker" }));
+        pathFrag.append(svgEl("line", { x1: s0x-12*s, y1: s0y, x2: s0x+12*s, y2: s0y, class: "origin-marker" }));
+        pathFrag.append(svgEl("line", { x1: s0x, y1: s0y-12*s, x2: s0x, y2: s0y+12*s, class: "origin-marker" }));
+        
         State.points.forEach((p, i) => {
           const sx = getScreenX(p), sy = getScreenY(p);
           pathFrag.append(svgEl("circle", { cx: sx, cy: sy, r: 6 * s, class: `point-marker ${i === State.points.length - 1 ? "point-current" : ""}` }));
