@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DXF - JSON Konvertor</title>
+    <script src="https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/dist/dxf-parser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* SVĚTLÝ REŽIM (Light Mode) */
+        body { 
+            font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; 
+            background-color: #f4f4f9; /* Světlé pozadí */
+            color: #333; /* Tmavý text */
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
+        }
+
+        header { 
+            background: #ffffff; padding: 12px 20px; border-bottom: 1px solid #ddd; 
+            display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        h1 { margin: 0; font-size: 18px; color: #ff6f00; display: flex; align-items: center; gap: 10px; }
+        
+        .main-area { display: flex; flex: 1; overflow: hidden; flex-direction: row; position: relative; }
+
+        /* Drag Overlay */
+        .drag-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 111, 0, 0.1); border: 4px dashed #ff6f00;
+            display: none; justify-content: center; align-items: center;
+            font-size: 24px; font-weight: bold; color: #ff6f00; z-index: 100; pointer-events: none;
+            backdrop-filter: blur(2px);
+        }
+        body.drag-active .drag-overlay { display: flex; }
+
+        .panel { 
+            flex: 1; display: flex; flex-direction: column; padding: 15px; 
+            border-right: 1px solid #ddd; min-width: 0; position: relative;
+            background: #fdfdfd;
+        }
+        .panel:last-child { border-right: none; }
+        
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        h2 { font-size: 14px; text-transform: uppercase; color: #666; margin: 0; border-bottom: 2px solid #ff6f00; padding-bottom: 5px; }
+        
+        /* View Toggle - Světlý styl */
+        .view-toggle { display: flex; background: #e0e0e0; border-radius: 4px; padding: 2px; }
+        .vt-btn { padding: 4px 10px; font-size: 11px; cursor: pointer; border-radius: 3px; color: #555; border: none; background: transparent; }
+        .vt-btn.active { background: #fff; color: #000; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
+        /* Layers Bar */
+        .layers-bar {
+            display: flex; gap: 5px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px;
+            scrollbar-width: thin; scrollbar-color: #ccc #f0f0f0; min-height: 28px;
+        }
+        .layer-chip {
+            background: #fff; color: #333; border: 1px solid #ccc; padding: 2px 8px; border-radius: 12px;
+            font-size: 11px; cursor: pointer; white-space: nowrap; user-select: none; display: flex; align-items: center; gap: 5px;
+            transition: 0.2s;
+        }
+        .layer-chip.active { background: #2e7d32; color: white; border-color: #2e7d32; }
+        .layer-chip:hover { background: #eee; }
+        .layer-chip.active:hover { background: #1b5e20; }
+        .layer-count { font-size: 9px; opacity: 0.7; }
+
+        /* Content Area - Světlý editor */
+        .content-stack { flex: 1; position: relative; overflow: hidden; border: 1px solid #ccc; border-radius: 4px; background: #fff; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
+        
+        textarea { 
+            width: 100%; height: 100%; border: none; background: transparent; 
+            color: #333; padding: 10px; font-family: 'Consolas', monospace; 
+            resize: none; font-size: 12px; outline: none; white-space: pre; overflow: auto; box-sizing: border-box;
+            position: absolute; top: 0; left: 0;
+        }
+        
+        canvas { width: 100%; height: 100%; display: none; position: absolute; top: 0; left: 0; background: #fff; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        
+        .stats-info { font-size: 11px; color: #777; margin-top: 5px; min-height: 15px; font-family: monospace; display: flex; justify-content: space-between; }
+        .highlight-val { color: #d84315; font-weight: bold; }
+
+        .controls-container { margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .btn-row { display: flex; gap: 10px; width: 100%; }
+        
+        .btn { 
+            flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; transition: 0.2s; color: white; white-space: nowrap; 
+        }
+        .btn-primary { background-color: #ff6f00; } .btn-primary:hover { background-color: #e65100; }
+        /* Sekundární tlačítka světlejší šedá */
+        .btn-sec { background-color: #e0e0e0; color: #333; border: 1px solid #ccc; } .btn-sec:hover { background-color: #d0d0d0; }
+        .btn-copy { background-color: #0097a7; } .btn-copy:hover { background-color: #00838f; }
+        
+        .btn-file { position: relative; overflow: hidden; background: #2e7d32; } .btn-file:hover { background: #1b5e20; }
+        .btn-file-orange { background: #e65100; } .btn-file-orange:hover { background: #bf360c; }
+        .btn-file input[type=file] { position: absolute; top: 0; right: 0; min-width: 100%; min-height: 100%; font-size: 100px; text-align: right; opacity: 0; cursor: pointer; }
+
+        .status-bar { 
+            padding: 5px 20px; background: #e0e0e0; font-size: 11px; color: #555; border-top: 1px solid #ccc; 
+            display: flex; justify-content: space-between; flex-shrink: 0;
+        }
+        
+        /* Opt group světlý */
+        .opt-group { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; color: #333; background: #e0e0e0; padding: 0 10px; border-radius: 4px; border: 1px solid #ccc; }
+        input[type="checkbox"] { accent-color: #ff6f00; cursor: pointer; }
+        label { cursor: pointer; }
+
+        /* MOBILNÍ OPTIMALIZACE */
+        @media screen and (max-width: 768px) {
+            body { position: fixed; width: 100%; overflow: hidden; }
+            .main-area { flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+            .panel { border-right: none; border-bottom: 2px solid #ddd; flex: none; min-height: 70vh; padding: 10px; }
+            .btn { padding: 14px; font-size: 14px; }
+            header { padding: 10px 15px; }
+            .status-bar span:nth-child(2) { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1><i class="fas fa-exchange-alt"></i> DXF - JSON Konvertor</h1>
+    <div style="font-size: 12px; color: #777;"></div>
+</header>
+
+<div class="main-area">
+    <div class="drag-overlay">Přetáhněte soubor sem</div>
+
+    <!-- PANEL DXF (LEVÝ/HORNÍ) -->
+    <div class="panel" id="panel-dxf">
+        <div class="panel-header">
+            <h2>DXF (Skica)</h2>
+            <div class="view-toggle">
+                <button class="vt-btn active" onclick="setView('dxf', 'code')"><i class="fas fa-code"></i> Kód</button>
+                <button class="vt-btn" onclick="setView('dxf', 'preview')"><i class="fas fa-eye"></i> Náhled</button>
+            </div>
+        </div>
+        
+        <!-- Vrstvy -->
+        <div id="layers-container" class="layers-bar" style="display:none"></div>
+
+        <div class="controls-container">
+            <div class="btn-row">
+                <label class="btn btn-file">
+                    <i class="fas fa-folder-open"></i> Načíst
+                    <input type="file" id="dxfFile" accept=".dxf">
+                </label>
+                <button class="btn btn-copy" onclick="copyToClipboard('dxfContent')" title="Kopírovat">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button class="btn btn-sec" onclick="downloadDxfResult()" title="Uložit">
+                    <i class="fas fa-save"></i>
+                </button>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="convertDxfToJson()">
+                    Převést na JSON <i class="fas fa-arrow-down" style="transform: rotate(45deg)"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="content-stack">
+            <textarea id="dxfContent" placeholder="Obsah DXF..."></textarea>
+            <canvas id="dxfCanvas"></canvas>
+        </div>
+        <div class="stats-info">
+            <span id="dxf-stats"></span>
+            <span style="font-size: 9px; cursor: pointer; color: #0097a7;" onclick="fitView('dxf')">[FIT]</span>
+        </div>
+    </div>
+
+    <!-- PANEL JSON (PRAVÝ/DOLNÍ) -->
+    <div class="panel" id="panel-json">
+        <div class="panel-header">
+            <h2>JSON soubor</h2>
+            <div class="view-toggle">
+                <button class="vt-btn active" onclick="setView('json', 'code')"><i class="fas fa-code"></i> Kód</button>
+                <button class="vt-btn" onclick="setView('json', 'preview')"><i class="fas fa-eye"></i> Náhled</button>
+            </div>
+        </div>
+
+        <div class="controls-container">
+            <div class="btn-row">
+                <label class="btn btn-file btn-file-orange">
+                    <i class="fas fa-file-code"></i> Načíst
+                    <input type="file" id="jsonFile" accept=".json">
+                </label>
+                <button class="btn btn-copy" onclick="copyToClipboard('jsonContent')" title="Kopírovat">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button class="btn btn-sec" onclick="downloadJson()">
+                    <i class="fas fa-download"></i>
+                </button>
+            </div>
+            <div class="btn-row">
+                <div class="opt-group" style="flex: 1;" title="Zarovná začátek výkresu na X0 Z0">
+                    <input type="checkbox" id="chk-auto-zero" checked> <label for="chk-auto-zero">Auto 0,0</label>
+                </div>
+                <button class="btn btn-primary" style="flex: 2;" onclick="convertJsonToDxf()">
+                    <i class="fas fa-arrow-up" style="transform: rotate(45deg)"></i> Převést na DXF
+                </button>
+            </div>
+        </div>
+        
+        <div class="content-stack">
+            <textarea id="jsonContent" placeholder="Obsah JSON..."></textarea>
+            <canvas id="jsonCanvas"></canvas>
+        </div>
+        <div class="stats-info">
+             <span id="json-stats"></span>
+             <span style="font-size: 9px; cursor: pointer; color: #0097a7;" onclick="fitView('json')">[FIT]</span>
+        </div>
+    </div>
+</div>
+
+<div class="status-bar">
+    <span id="status-msg">Připraveno. Podpora Drag & Drop a Vrstev.</span>
+    <span>v3.1 Light</span>
+</div>
+
+<script>
+    // --- STATE MANAGEMENT ---
+    const AppState = {
+        dxf: { layers: {}, parsed: null, view: { x: 0, y: 0, k: 1 } },
+        json: { parsed: null, view: { x: 0, y: 0, k: 1 } }
+    };
+
+    // --- UI LOGIC ---
+    function setView(panel, type) {
+        const p = document.getElementById(`panel-${panel}`);
+        const text = p.querySelector('textarea');
+        const canvas = p.querySelector('canvas');
+        const btns = p.querySelectorAll('.vt-btn');
+        
+        btns[0].classList.toggle('active', type === 'code');
+        btns[1].classList.toggle('active', type === 'preview');
+
+        if (type === 'preview') {
+            text.style.display = 'none';
+            canvas.style.display = 'block';
+            if(panel === 'json') drawPreviewFromJSON();
+            else drawPreviewFromDXF();
+        } else {
+            text.style.display = 'block';
+            canvas.style.display = 'none';
+        }
+    }
+
+    function fitView(panel) {
+        AppState[panel].view = { x: 0, y: 0, k: 1, autoFit: true };
+        if(panel === 'dxf') drawPreviewFromDXF(); else drawPreviewFromJSON();
+    }
+
+    function copyToClipboard(elementId) {
+        const el = document.getElementById(elementId); el.select(); document.execCommand('copy');
+        setStatus("Zkopírováno."); window.getSelection().removeAllRanges();
+    }
+
+    // --- DRAG & DROP ---
+    const body = document.body;
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => body.addEventListener(e, (ev) => { ev.preventDefault(); ev.stopPropagation(); }));
+    body.addEventListener('dragenter', () => body.classList.add('drag-active'));
+    body.addEventListener('dragleave', (e) => { if(e.relatedTarget === null || e.relatedTarget === document.documentElement) body.classList.remove('drag-active'); });
+    body.addEventListener('drop', (e) => {
+        body.classList.remove('drag-active');
+        handleFiles(e.dataTransfer.files);
+    });
+
+    function handleFiles(files) {
+        const file = files[0]; if(!file) return;
+        const reader = new FileReader();
+        if(file.name.toLowerCase().endsWith('.dxf')) {
+            reader.onload = (e) => { document.getElementById('dxfContent').value = e.target.result; setStatus(`Načteno: ${file.name}`); analyzeDXF(); };
+            reader.readAsText(file);
+        } else if(file.name.toLowerCase().endsWith('.json')) {
+            reader.onload = (e) => { document.getElementById('jsonContent').value = e.target.result; setStatus(`Načteno: ${file.name}`); drawPreviewFromJSON(); };
+            reader.readAsText(file);
+        } else alert("Jen .dxf nebo .json");
+    }
+
+    document.getElementById('dxfFile').addEventListener('change', (e) => { if(e.target.files[0]) handleFiles(e.target.files); });
+    document.getElementById('jsonFile').addEventListener('change', (e) => { if(e.target.files[0]) handleFiles(e.target.files); });
+
+    function setStatus(msg) { document.getElementById('status-msg').innerText = msg; }
+    function setStats(id, w, h, count) {
+        document.getElementById(id).innerHTML = `Entity: <span class="highlight-val">${count}</span> | Rozměr: <span class="highlight-val">${w.toFixed(1)}</span> x <span class="highlight-val">${h.toFixed(1)}</span> mm`;
+    }
+
+    // --- LAYER LOGIC ---
+    function analyzeDXF() {
+        const txt = document.getElementById('dxfContent').value;
+        if(!txt.trim()) return;
+        try {
+            const parser = new DxfParser();
+            AppState.dxf.parsed = parser.parseSync(txt);
+            
+            const layers = {};
+            if(AppState.dxf.parsed && AppState.dxf.parsed.entities) {
+                AppState.dxf.parsed.entities.forEach(e => {
+                    const lName = e.layer || "0";
+                    if(!layers[lName]) layers[lName] = 0;
+                    layers[lName]++;
+                });
+            }
+            AppState.dxf.layers = layers;
+            renderLayerBar();
+            drawPreviewFromDXF();
+            setView('dxf', 'preview'); 
+        } catch(e) { console.error(e); }
+    }
+
+    function renderLayerBar() {
+        const c = document.getElementById('layers-container');
+        c.innerHTML = '';
+        c.style.display = 'flex';
+        
+        Object.keys(AppState.dxf.layers).forEach(layer => {
+            const div = document.createElement('div');
+            div.className = 'layer-chip active';
+            div.dataset.layer = layer;
+            div.innerHTML = `<span>${layer}</span><span class="layer-count">${AppState.dxf.layers[layer]}</span>`;
+            div.onclick = function() {
+                this.classList.toggle('active');
+                drawPreviewFromDXF(); 
+            };
+            c.appendChild(div);
+        });
+    }
+
+    function getActiveLayers() {
+        const active = [];
+        document.querySelectorAll('.layer-chip.active').forEach(el => active.push(el.dataset.layer));
+        if(active.length === 0) return null; 
+        return active;
+    }
+
+    // --- CONVERSION ---
+    function convertDxfToJson() {
+        if(!AppState.dxf.parsed) { analyzeDXF(); } 
+        if(!AppState.dxf.parsed) { alert("Chybí DXF data."); return; }
+        
+        const activeLayers = getActiveLayers();
+        const entities = AppState.dxf.parsed.entities.filter(e => !activeLayers || activeLayers.includes(e.layer || "0"));
+        
+        const points = parseEntitiesToPoints(entities);
+        if (points.length === 0) { alert("Žádné entity ve vybraných vrstvách."); return; }
+        
+        const project = { version: "1.0", timestamp: new Date().toISOString(), machineType: "KARUSEL", points: points, dimensions: [] };
+        document.getElementById('jsonContent').value = JSON.stringify(project, null, 2);
+        setStatus(`Převedeno (${points.length} bodů).`);
+        drawPreviewFromJSON();
+        if(window.innerWidth < 768) document.getElementById('panel-json').scrollIntoView({behavior: "smooth"});
+    }
+
+    function parseEntitiesToPoints(entities) {
+        let points = []; let idCounter = 1;
+        function addSegment(start, end, type, extraData = {}) {
+            const sX = start.x, sZ = start.y; const eX = end.x, eZ = end.y;
+            const last = points.length > 0 ? points[points.length - 1] : null;
+            const cont = last && Math.abs(last.x - sX) < 0.001 && Math.abs(last.z - sZ) < 0.001;
+            if (!cont) points.push({ x: sX, z: sZ, break: points.length>0, type: 'line', id: idCounter++ });
+            points.push({ x: eX, z: eZ, break: false, type: type, id: idCounter++, ...extraData });
+        }
+        entities.forEach(ent => {
+            if (ent.type === 'LINE') addSegment(ent.vertices[0], ent.vertices[1], 'line');
+            else if (ent.type === 'lwpolyline' || ent.type === 'POLYLINE') {
+                if(ent.vertices && ent.vertices.length > 1) {
+                    let prev = ent.vertices[0];
+                    for(let i=1; i<ent.vertices.length; i++) { addSegment({x:prev.x, y:prev.y}, {x:ent.vertices[i].x, y:ent.vertices[i].y}, 'line'); prev = ent.vertices[i]; }
+                    if(ent.shape) addSegment({x:prev.x, y:prev.y}, {x:ent.vertices[0].x, y:ent.vertices[0].y}, 'line');
+                }
+            } else if (ent.type === 'CIRCLE') {
+                const c = ent.center, r = ent.radius;
+                addSegment({x:c.x-r, y:c.y}, {x:c.x+r, y:c.y}, 'arc', {r, cw:true, cx:c.x, cz:c.y});
+                addSegment({x:c.x+r, y:c.y}, {x:c.x-r, y:c.y}, 'arc', {r, cw:true, cx:c.x, cz:c.y});
+            } else if (ent.type === 'ARC') {
+                const c = ent.center, r = ent.radius;
+                const s = {x: c.x + r*Math.cos(ent.startAngle), y: c.y + r*Math.sin(ent.startAngle)};
+                const e = {x: c.x + r*Math.cos(ent.endAngle), y: c.y + r*Math.sin(ent.endAngle)};
+                addSegment(s, e, 'arc', {r, cw:false, cx:c.x, cz:c.y});
+            }
+        });
+        if (document.getElementById('chk-auto-zero').checked && points.length > 0) {
+            let minX = Infinity, minZ = Infinity;
+            points.forEach(p => { minX = Math.min(minX, p.x); minZ = Math.min(minZ, p.z); });
+            points.forEach(p => { p.x -= minX; p.z -= minZ; if(p.cx!==undefined) p.cx-=minX; if(p.cz!==undefined) p.cz-=minZ; });
+        }
+        return points;
+    }
+
+    function convertJsonToDxf() {
+        const txt = document.getElementById('jsonContent').value;
+        if (!txt.trim()) { alert("Chybí JSON."); return; }
+        try {
+            const data = JSON.parse(txt);
+            const points = data.points || [];
+            let dxf = `0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n`;
+            const fmt = (n) => n.toFixed(6);
+            for (let i = 0; i < points.length - 1; i++) {
+                const s = points[i], e = points[i+1];
+                if (e.break) continue;
+                if (e.type === 'line') {
+                    dxf += `0\nLINE\n8\n0\n10\n${fmt(s.x)}\n20\n${fmt(s.z)}\n30\n0.0\n11\n${fmt(e.x)}\n21\n${fmt(e.z)}\n31\n0.0\n`;
+                } else if (e.type === 'arc') {
+                    const cx = e.cx, cy = e.cz; 
+                    let aS = Math.atan2(s.z - cy, s.x - cx) * (180/Math.PI);
+                    let aE = Math.atan2(e.z - cy, e.x - cx) * (180/Math.PI);
+                    if(aS<0) aS+=360; if(aE<0) aE+=360;
+                    dxf += `0\nARC\n8\n0\n10\n${fmt(cx)}\n20\n${fmt(cy)}\n30\n0.0\n40\n${fmt(e.r)}\n`;
+                    dxf += `50\n${fmt(e.cw ? aE : aS)}\n51\n${fmt(e.cw ? aS : aE)}\n`;
+                }
+            }
+            dxf += `0\nENDSEC\n0\nEOF\n`;
+            document.getElementById('dxfContent').value = dxf;
+            setStatus("DXF vygenerováno.");
+            analyzeDXF(); 
+        } catch (err) { console.error(err); alert("Chyba JSON: " + err.message); }
+    }
+
+    // --- INTERACTIVE CANVAS ---
+    function initCanvas(id, panelKey) {
+        const c = document.getElementById(id);
+        const state = AppState[panelKey];
+        let isDrag = false, startX, startY;
+
+        c.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const z = e.deltaY > 0 ? 0.9 : 1.1;
+            state.view.k *= z;
+            if(panelKey==='dxf') drawPreviewFromDXF(false); else drawPreviewFromJSON(false);
+        });
+
+        c.addEventListener('mousedown', (e) => { isDrag = true; startX = e.clientX; startY = e.clientY; });
+        window.addEventListener('mouseup', () => { isDrag = false; });
+        window.addEventListener('mousemove', (e) => {
+            if(!isDrag) return;
+            state.view.x += e.clientX - startX;
+            state.view.y += e.clientY - startY;
+            startX = e.clientX; startY = e.clientY;
+            if(panelKey==='dxf') drawPreviewFromDXF(false); else drawPreviewFromJSON(false);
+        });
+        
+        c.addEventListener('touchstart', (e) => { isDrag = true; startX = e.touches[0].clientX; startY = e.touches[0].clientY; });
+        c.addEventListener('touchend', () => { isDrag = false; });
+        c.addEventListener('touchmove', (e) => {
+            if(!isDrag) return;
+            e.preventDefault();
+            state.view.x += e.touches[0].clientX - startX;
+            state.view.y += e.touches[0].clientY - startY;
+            startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+            if(panelKey==='dxf') drawPreviewFromDXF(false); else drawPreviewFromJSON(false);
+        });
+    }
+
+    initCanvas('dxfCanvas', 'dxf');
+    initCanvas('jsonCanvas', 'json');
+
+    function drawPreviewFromDXF(fit = true) {
+        if(!AppState.dxf.parsed) return;
+        const active = getActiveLayers();
+        const entities = AppState.dxf.parsed.entities.filter(e => !active || active.includes(e.layer || "0"));
+        const points = parseEntitiesToPoints(entities); 
+        drawPointsToCanvas('dxfCanvas', points, 'dxf-stats', AppState.dxf.view, fit);
+        if(fit) AppState.dxf.view.autoFit = false;
+    }
+
+    function drawPreviewFromJSON(fit = true) {
+        const txt = document.getElementById('jsonContent').value;
+        if(!txt.trim()) return;
+        try {
+            const data = JSON.parse(txt);
+            drawPointsToCanvas('jsonCanvas', data.points || [], 'json-stats', AppState.json.view, fit);
+            if(fit) AppState.json.view.autoFit = false;
+        } catch(e) {}
+    }
+
+    function drawPointsToCanvas(canvasId, points, statsId, viewState, doFit) {
+        const c = document.getElementById(canvasId);
+        const ctx = c.getContext('2d');
+        const w = c.parentElement.clientWidth;
+        const h = c.parentElement.clientHeight;
+        c.width = w; c.height = h;
+        
+        // ZMĚNA: Bílé pozadí pro světlý režim
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,w,h);
+        
+        if(!points || points.length === 0) return;
+
+        let minX=Infinity, maxX=-Infinity, minZ=Infinity, maxZ=-Infinity;
+        points.forEach(p => { 
+            if(p.x < minX) minX = p.x; if(p.x > maxX) maxX = p.x;
+            if(p.z < minZ) minZ = p.z; if(p.z > maxZ) maxZ = p.z;
+        });
+
+        const dataW = maxX - minX; const dataH = maxZ - minZ;
+        setStats(statsId, dataW, dataH, points.length);
+
+        if (doFit || viewState.autoFit) {
+            const pad = 30;
+            const scaleX = (w - pad*2) / dataW;
+            const scaleY = (h - pad*2) / dataH;
+            viewState.k = Math.min(scaleX, scaleY) || 1;
+            viewState.x = (w - dataW * viewState.k) / 2 - minX * viewState.k;
+            viewState.y = (h - dataH * viewState.k) / 2 + maxZ * viewState.k; 
+        }
+
+        drawGrid(ctx, w, h, viewState);
+
+        const toCx = (x) => viewState.x + x * viewState.k;
+        const toCy = (z) => viewState.y - z * viewState.k; 
+
+        // ZMĚNA: Černé čáry pro kreslení
+        ctx.strokeStyle = '#000000'; ctx.lineWidth = 1.5; ctx.beginPath();
+
+        for(let i=0; i<points.length-1; i++) {
+            const s = points[i]; const e = points[i+1];
+            if(e.break) continue;
+
+            const sx = toCx(s.x), sy = toCy(s.z);
+            const ex = toCx(e.x), ey = toCy(e.z);
+
+            if(i===0 || points[i].break) ctx.moveTo(sx, sy);
+
+            if(e.type === 'line') {
+                ctx.lineTo(ex, ey);
+            } else if(e.type === 'arc') {
+                const cx = toCx(e.cx), cy = toCy(e.cz), r = e.r * viewState.k;
+                const angS = Math.atan2(sy - cy, sx - cx);
+                const angE = Math.atan2(ey - cy, ex - cx);
+                ctx.arc(cx, cy, r, angS, angE, e.cw);
+            }
+        }
+        ctx.stroke();
+
+        const ox = toCx(0), oy = toCy(0);
+        ctx.strokeStyle = '#ff6f00'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(ox-15, oy); ctx.lineTo(ox+15, oy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ox, oy-15); ctx.lineTo(ox, oy+15); ctx.stroke();
+    }
+
+    function drawGrid(ctx, w, h, view) {
+        // ZMĚNA: Světle šedá mřížka
+        ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5; ctx.beginPath();
+        
+        let step = 10;
+        while(step * view.k < 15) step *= 2;
+        
+        const startX = -view.x / view.k;
+        const endX = (w - view.x) / view.k;
+        const startZ = (view.y - h) / view.k; 
+        const endZ = view.y / view.k;
+
+        const minIx = Math.floor(startX / step);
+        const maxIx = Math.ceil(endX / step);
+        const minIz = Math.floor(startZ / step);
+        const maxIz = Math.ceil(endZ / step);
+
+        for(let i = minIx; i <= maxIx; i++) {
+            const screenX = view.x + i * step * view.k;
+            ctx.moveTo(screenX, 0); ctx.lineTo(screenX, h);
+        }
+        for(let i = minIz; i <= maxIz; i++) {
+            const screenY = view.y - i * step * view.k;
+            ctx.moveTo(0, screenY); ctx.lineTo(w, screenY);
+        }
+        ctx.stroke();
+    }
+
+    function downloadTextFile(content, filename) {
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+    }
+    function downloadJson() { downloadTextFile(document.getElementById('jsonContent').value, 'projekt_cnc.json'); }
+    function downloadDxfResult() {
+        const c = document.getElementById('dxfContent').value;
+        if(!c.startsWith('0\nSECTION')) { alert("Nejdříve převeďte."); return; }
+        downloadTextFile(c, 'export.dxf');
+    }
+</script>
+</body>
+</html>
