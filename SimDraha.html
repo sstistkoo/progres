@@ -23,7 +23,6 @@
         ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
         .canvas-container { cursor: crosshair; touch-action: none; background-image: radial-gradient(#ccc 1px, transparent 1px); background-size: 20px 20px; }
         .dark .canvas-container { background-image: radial-gradient(#333 1px, transparent 1px); }
-        /* Fix pro Safari iOS, aby spodní lišta nepřekážela */
         .safe-pb { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
@@ -46,6 +45,11 @@
         const IconInsert = () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
         const IconTarget = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>;
         const IconEye = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
+        const IconPlay = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M5 3l14 9-14 9V3z"/></svg>;
+        const IconStop = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" /></svg>;
+        const IconDownload = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
+        const IconArrowRight = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>;
+        const IconArrowDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>;
 
         // --- MATH HELPERS ---
         const dist = (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.z - p1.z, 2));
@@ -110,12 +114,31 @@
             return [center.z - sqrtTerm, center.z + sqrtTerm];
         };
 
+        const intersectVerticalLineSegment = (zLine, p1, p2) => {
+            const minZ = Math.min(p1.z, p2.z);
+            const maxZ = Math.max(p1.z, p2.z);
+            if (zLine < minZ || zLine > maxZ) return null;
+            if (Math.abs(p2.z - p1.z) < 1e-6) return null;
+            const t = (zLine - p1.z) / (p2.z - p1.z);
+            return p1.x + t * (p2.x - p1.x);
+        };
+
+        const intersectVerticalLineArc = (zLine, center, radius) => {
+            const term = radius*radius - Math.pow(zLine - center.z, 2);
+            if (term < 0) return [];
+            const sqrtTerm = Math.sqrt(term);
+            return [center.x - sqrtTerm, center.x + sqrtTerm];
+        };
+
         // --- APP ---
         const App = () => {
             const [theme, setTheme] = useState('light');
             const [editMode, setEditMode] = useState('contour'); 
-            const [mobileTab, setMobileTab] = useState('editor'); // 'editor' | 'preview'
+            const [mobileTab, setMobileTab] = useState('editor'); 
             const [copyFeedback, setCopyFeedback] = useState(false);
+            
+            const [simRunning, setSimRunning] = useState(false);
+            const [simProgress, setSimProgress] = useState(0); 
 
             const [params, setParams] = useState({
                 machineType: 'LIMS=2000',
@@ -127,6 +150,8 @@
                 allowanceX: 0.5,
                 allowanceZ: 0.1,
                 toolRadius: 0.8,
+                doFinishing: true, 
+                roughingStrategy: 'longitudinal',
                 stockMode: 'cylinder', 
                 stockMargin: 5.0, 
                 stockDiameter: 100, 
@@ -136,7 +161,6 @@
                 safeZ: 5
             });
 
-            // Points
             const [contourPoints, setContourPoints] = useState([
                 { id: 1, type: 'G0', x: 100, z: 0, r: 0, mode: 'ABS' },
                 { id: 2, type: 'G1', x: 20, z: 0, r: 0, mode: 'ABS' },
@@ -159,7 +183,6 @@
             
             const canvasRef = useRef(null);
             const containerRef = useRef(null);
-            // Default view shifted to show typical lathe quadrant (Z- left, X+ up)
             const [view, setView] = useState({ scale: 3, panX: 600, panY: 350 });
             const [isDragging, setIsDragging] = useState(false);
             const lastMousePos = useRef({ x: 0, y: 0 });
@@ -168,13 +191,11 @@
                 document.body.className = `h-screen w-screen overflow-hidden flex flex-col font-sans transition-colors duration-300 ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`;
             }, [theme]);
 
-            // Auto-Fit Function
             const fitView = useCallback(() => {
                 if (!containerRef.current) return;
                 const points = resolvePointsToAbsolute(contourPoints);
                 if (points.length === 0) return;
 
-                // Calc bounds
                 let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
                 points.forEach(p => {
                     const x = params.mode === 'DIAMON' ? p.xAbs / 2 : p.xAbs;
@@ -183,7 +204,6 @@
                     if(z < minZ) minZ = z; if(z > maxZ) maxZ = z;
                 });
 
-                // Add padding
                 const pad = 20;
                 const width = maxZ - minZ + pad*2;
                 const height = maxX - minX + pad*2;
@@ -191,17 +211,14 @@
 
                 const contW = containerRef.current.clientWidth;
                 const contH = containerRef.current.clientHeight;
-                // Avoid divide by zero if container is hidden
                 if (contW === 0 || contH === 0) return;
 
-                // Scale to fit
                 const scaleX = contW / width;
                 const scaleY = contH / height;
-                let newScale = Math.min(scaleX, scaleY) * 0.8; // 80% fill
+                let newScale = Math.min(scaleX, scaleY) * 0.8; 
                 if (newScale > 10) newScale = 10;
                 if (newScale < 0.1) newScale = 0.1;
 
-                // Center
                 const midZ = (minZ + maxZ) / 2;
                 const midX = (minX + maxX) / 2;
                 
@@ -213,10 +230,9 @@
 
             }, [contourPoints, params.mode]);
 
-            // Run fit on mount and tab change
             useEffect(() => {
                 setTimeout(fitView, 100);
-            }, [mobileTab]); // Trigger when switching mobile tabs too
+            }, [mobileTab]); 
 
             const handleAutoStock = () => {
                 const points = resolvePointsToAbsolute(contourPoints);
@@ -306,10 +322,13 @@
                 const allowanceX = parseFloat(params.allowanceX) || 0;
                 const allowanceZ = parseFloat(params.allowanceZ) || 0;
                 const totalOffset = tipR + Math.max(allowanceX, allowanceZ);
-                const stockMargin = parseFloat(params.stockMargin) || 0;
+                
+                // IMPORTANT: Increase visual retract distance to be clearly visible
+                const retractDist = 2.0; 
                 
                 let contourSegments = [];
                 let offsetPath = [];
+                let finishOffsetPath = [];
                 let stockPathSegments = []; 
                 const foundErrors = [];
 
@@ -342,7 +361,7 @@
                     }
                 }
 
-                // --- Generate Tool Offset Path ---
+                // --- Generate Roughing Offset Path ---
                 for (let i = 0; i < contourSegments.length; i++) {
                     const seg = contourSegments[i];
                     let offSeg = null;
@@ -351,101 +370,233 @@
                         offSeg = { type: 'line', p1: { x: seg.p1.x + n.x * totalOffset, z: seg.p1.z + n.z * totalOffset }, p2: { x: seg.p2.x + n.x * totalOffset, z: seg.p2.z + n.z * totalOffset } };
                     } else if (seg.type === 'arc') {
                         let rNew = (seg.dir === 'G3') ? seg.r + totalOffset : seg.r - totalOffset;
-                        if (rNew < 0) { rNew = 0.001; foundErrors.push(`Kontura #${i+2}: Rádius nástroje je větší než rádius koutu (G2).`); }
+                        if (rNew < 0) rNew = 0.001; 
                         const startAngle = Math.atan2(seg.p1.x - seg.cx, seg.p1.z - seg.cz);
                         const endAngle = Math.atan2(seg.p2.x - seg.cx, seg.p2.z - seg.cz);
                         offSeg = { type: 'arc', cx: seg.cx, cz: seg.cz, r: rNew, dir: seg.dir, refP1: seg.p1, refP2: seg.p2, startAngle, endAngle };
                     }
                     if (offSeg) offsetPath.push(offSeg);
                 }
+
+                // --- Generate Finishing Offset Path ---
+                if (params.doFinishing) {
+                    for (let i = 0; i < contourSegments.length; i++) {
+                        const seg = contourSegments[i];
+                        let offSeg = null;
+                        if (seg.type === 'line') {
+                            const n = getNormal(seg.p1, seg.p2);
+                            offSeg = { type: 'line', p1: { x: seg.p1.x + n.x * tipR, z: seg.p1.z + n.z * tipR }, p2: { x: seg.p2.x + n.x * tipR, z: seg.p2.z + n.z * tipR } };
+                        } else if (seg.type === 'arc') {
+                            let rNew = (seg.dir === 'G3') ? seg.r + tipR : seg.r - tipR;
+                            if (rNew < 0) rNew = 0.001;
+                            const startAngle = Math.atan2(seg.p1.x - seg.cx, seg.p1.z - seg.cz);
+                            const endAngle = Math.atan2(seg.p2.x - seg.cx, seg.p2.z - seg.cz);
+                            offSeg = { type: 'arc', cx: seg.cx, cz: seg.cz, r: rNew, dir: seg.dir, refP1: seg.p1, refP2: seg.p2, startAngle, endAngle };
+                        }
+                        if (offSeg) finishOffsetPath.push(offSeg);
+                    }
+                }
                 
                 setErrors(foundErrors);
 
-                // 3. Roughing
+                // --- ROUGHING LOGIC ---
                 const passes = [];
-                const limitZ = -1000; 
-                let startX = 50; 
-                if (params.stockMode === 'casting' && stockWorldPoints.length > 0) {
-                    let maxStockX = -9999;
-                    stockWorldPoints.forEach(p => { if (p.xReal > maxStockX) maxStockX = p.xReal; });
-                    stockPathSegments.forEach(s => { if(s.type === 'arc') maxStockX = Math.max(maxStockX, s.cx + s.r); });
-                    startX = maxStockX + 1;
-                } else if (params.stockMode === 'cylinder') {
-                    startX = (parseFloat(params.stockDiameter) || 100) / 2;
-                }
-
-                let currentX = startX;
                 const step = parseFloat(params.depthOfCut) || 1;
-                const cylStockZ = (parseFloat(params.stockLength) || 100) * -1;
+                const sRad = (parseFloat(params.stockDiameter) || 100)/2;
                 const stockFace = parseFloat(params.stockFace) || 0;
-                let safe = 0;
-
-                while (currentX > -50 && safe < 500) {
-                    currentX -= step;
-                    safe++;
-                    
-                    let zsEnd = [];
-                    offsetPath.forEach(os => {
-                        if (os.type === 'line') {
-                            const z = intersectHorizontalLineSegment(currentX, os.p1, os.p2);
-                            if (z !== null) zsEnd.push(z);
-                        } else if (os.type === 'arc') {
-                            const res = intersectHorizontalLineArc(currentX, {x: os.cx, z: os.cz}, os.r);
-                            res.forEach(z => {
-                                const angle = Math.atan2(currentX - os.cx, z - os.cz);
-                                if (isAngleBetween(angle, os.startAngle, os.endAngle, os.dir === 'G2')) zsEnd.push(z);
-                            });
-                        }
-                    });
-                    zsEnd.sort((a, b) => b - a);
-                    zsEnd = zsEnd.filter((z, i) => i === 0 || Math.abs(z - zsEnd[i-1]) > 0.01);
-
-                    if (zsEnd.length > 0) {
-                        let zTarget = zsEnd[0];
-                        let zStartCut = allowanceZ; 
-
-                        if (params.stockMode === 'casting') {
-                            let zsStart = [];
-                            stockPathSegments.forEach(ss => {
-                                if (ss.type === 'line') {
-                                    const z = intersectHorizontalLineSegment(currentX, ss.p1, ss.p2);
-                                    if (z !== null) zsStart.push(z);
-                                } else if (ss.type === 'arc') {
-                                    const res = intersectHorizontalLineArc(currentX, {x: ss.cx, z: ss.cz}, ss.r);
-                                    res.forEach(z => {
-                                        const angle = Math.atan2(currentX - ss.cx, z - ss.cz);
-                                        if (isAngleBetween(angle, ss.startAngle, ss.endAngle, ss.dir === 'G2')) zsStart.push(z);
-                                    });
-                                }
-                            });
-                            zsStart.sort((a, b) => b - a);
-                            const validStarts = zsStart.filter(z => z > zTarget + 0.01);
-                            if (validStarts.length > 0) zStartCut = validStarts[0];
-                            else if (zsStart.length === 0) continue; 
+                
+                if (params.roughingStrategy === 'face') {
+                    // FACE TURNING
+                    let currentZ = stockFace;
+                    const minZPart = -1000;
+                    let safe = 0;
+                    while (currentZ > minZPart && safe < 500) {
+                        currentZ -= step;
+                        safe++;
+                        let xsEnd = [];
+                        offsetPath.forEach(os => {
+                            if (os.type === 'line') {
+                                const x = intersectVerticalLineSegment(currentZ, os.p1, os.p2);
+                                if (x !== null) xsEnd.push(x);
+                            } else if (os.type === 'arc') {
+                                const res = intersectVerticalLineArc(currentZ, {x: os.cx, z: os.cz}, os.r);
+                                res.forEach(x => {
+                                    const angle = Math.atan2(x - os.cx, currentZ - os.cz);
+                                    if (isAngleBetween(angle, os.startAngle, os.endAngle, os.dir === 'G2')) xsEnd.push(x);
+                                });
+                            }
+                        });
+                        xsEnd.sort((a, b) => a - b); 
+                        let xTarget = 0;
+                        if (xsEnd.length > 0) {
+                            const validXs = xsEnd.filter(x => x < sRad + 1);
+                            if (validXs.length > 0) xTarget = validXs[validXs.length - 1]; 
                         } else {
-                            const sRad = (parseFloat(params.stockDiameter) || 0)/2;
-                            if (currentX > sRad) continue; 
-                            if (zTarget < cylStockZ) zTarget = cylStockZ;
-                            zStartCut = stockFace;
+                            let maxOZ = -9999;
+                            offsetPath.forEach(p => { 
+                                const z1 = p.type==='line' ? p.p1.z : p.cz + p.r; 
+                                const z2 = p.type==='line' ? p.p2.z : p.cz - p.r; 
+                                maxOZ = Math.max(maxOZ, z1, z2);
+                            });
+                            if (currentZ > maxOZ) xTarget = -1; else continue; 
                         }
-
-                        if (zStartCut > zTarget) {
-                             passes.push({ x: currentX, zStart: zStartCut, zEnd: zTarget });
-                        }
+                        if (xTarget >= sRad - 0.01) continue;
+                        passes.push({ type: 'face', z: currentZ, xStart: sRad + 2, xEnd: xTarget });
+                        if (currentZ < -200) break; 
                     }
-                    
-                    let minPartX = 9999;
-                    offsetPath.forEach(os => {
-                       if (os.type === 'line') minPartX = Math.min(minPartX, os.p1.x, os.p2.x);
-                       else minPartX = Math.min(minPartX, os.cx - os.r); 
-                    });
-                    if (currentX < minPartX - 1) break; 
+                } else {
+                    // LONGITUDINAL TURNING
+                    let currentX = sRad;
+                    if (params.stockMode === 'casting' && stockWorldPoints.length > 0) {
+                       let maxStockX = -9999;
+                       stockWorldPoints.forEach(p => { if (p.xReal > maxStockX) maxStockX = p.xReal; });
+                       currentX = maxStockX; 
+                    }
+                    const cylStockZ = (parseFloat(params.stockLength) || 100) * -1;
+                    let safe = 0;
+                    while (currentX > -50 && safe < 500) {
+                        currentX -= step;
+                        safe++;
+                        let zsEnd = [];
+                        offsetPath.forEach(os => {
+                            if (os.type === 'line') {
+                                const z = intersectHorizontalLineSegment(currentX, os.p1, os.p2);
+                                if (z !== null) zsEnd.push(z);
+                            } else if (os.type === 'arc') {
+                                const res = intersectHorizontalLineArc(currentX, {x: os.cx, z: os.cz}, os.r);
+                                res.forEach(z => {
+                                    const angle = Math.atan2(currentX - os.cx, z - os.cz);
+                                    if (isAngleBetween(angle, os.startAngle, os.endAngle, os.dir === 'G2')) zsEnd.push(z);
+                                });
+                            }
+                        });
+                        zsEnd.sort((a, b) => b - a);
+                        zsEnd = zsEnd.filter((z, i) => i === 0 || Math.abs(z - zsEnd[i-1]) > 0.01);
+
+                        if (zsEnd.length > 0) {
+                            let zTarget = zsEnd[0];
+                            let zStartCut = allowanceZ;
+                            if (params.stockMode === 'casting') {
+                                let zsStart = [];
+                                stockPathSegments.forEach(ss => {
+                                    if (ss.type === 'line') {
+                                        const z = intersectHorizontalLineSegment(currentX, ss.p1, ss.p2);
+                                        if (z !== null) zsStart.push(z);
+                                    } else if (ss.type === 'arc') {
+                                        const res = intersectHorizontalLineArc(currentX, {x: ss.cx, z: ss.cz}, ss.r);
+                                        res.forEach(z => {
+                                            const angle = Math.atan2(currentX - ss.cx, z - ss.cz);
+                                            if (isAngleBetween(angle, ss.startAngle, ss.endAngle, ss.dir === 'G2')) zsStart.push(z);
+                                        });
+                                    }
+                                });
+                                zsStart.sort((a, b) => b - a);
+                                const validStarts = zsStart.filter(z => z > zTarget + 0.01);
+                                if (validStarts.length > 0) zStartCut = validStarts[0];
+                                else if (zsStart.length === 0) continue; 
+                            } else {
+                                if (currentX > sRad) continue; 
+                                if (zTarget < cylStockZ) zTarget = cylStockZ;
+                                zStartCut = stockFace;
+                            }
+                            if (zStartCut > zTarget) {
+                                passes.push({ type: 'long', x: currentX, zStart: zStartCut, zEnd: zTarget });
+                            }
+                        }
+                        let minPartX = 9999;
+                        offsetPath.forEach(os => {
+                           if (os.type === 'line') minPartX = Math.min(minPartX, os.p1.x, os.p2.x);
+                           else minPartX = Math.min(minPartX, os.cx - os.r); 
+                        });
+                        if (currentX < minPartX - 1) break; 
+                    }
                 }
 
-                return { worldPoints, stockWorldPoints, offsetPath, stockPathSegments, passes };
+                // --- Simulation Path Generation ---
+                const simPath = [];
+                simPath.push({x: params.safeX/2, z: params.safeZ, type: 'G0'});
+                
+                // Roughing simulation
+                passes.forEach(pass => {
+                    if (pass.type === 'long') {
+                        const xRetract = pass.x + retractDist; // VISUAL FIX
+                        const xCut = pass.x;
+                        simPath.push({x: xRetract, z: pass.zStart + 1, type: 'G0'}); 
+                        simPath.push({x: xCut, z: pass.zStart + 1, type: 'G0'});     
+                        simPath.push({x: xCut, z: pass.zEnd, type: 'G1'});          
+                        simPath.push({x: xRetract, z: pass.zEnd + retractDist, type: 'G1'});   
+                        simPath.push({x: xRetract, z: pass.zStart + 1, type: 'G0'});   
+                    } else {
+                        // FACE
+                        const zRetract = pass.z + retractDist; // VISUAL FIX
+                        const zCut = pass.z;
+                        simPath.push({x: pass.xStart, z: zRetract, type: 'G0'});
+                        simPath.push({x: pass.xStart, z: zCut, type: 'G0'});
+                        simPath.push({x: pass.xEnd, z: zCut, type: 'G1'}); 
+                        simPath.push({x: pass.xEnd, z: zRetract, type: 'G1'}); 
+                        simPath.push({x: pass.xStart, z: zRetract, type: 'G0'}); 
+                    }
+                });
+                
+                // Final retract
+                simPath.push({x: params.safeX/2, z: params.safeZ, type: 'G0'});
+
+                // Finishing simulation
+                if (params.doFinishing && finishOffsetPath.length > 0) {
+                     const startSeg = finishOffsetPath[0];
+                     const startX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.cos(startSeg.startAngle)*startSeg.r);
+                     const startZ = startSeg.type === 'line' ? startSeg.p1.z : (startSeg.cz + Math.sin(startSeg.startAngle)*startSeg.r);
+                     
+                     simPath.push({x: params.safeX/2, z: params.safeZ, type: 'G0'});
+                     simPath.push({x: startX + 2, z: startZ, type: 'G0'}); 
+                     simPath.push({x: startX, z: startZ, type: 'G1'}); 
+
+                     finishOffsetPath.forEach(seg => {
+                         if (seg.type === 'line') {
+                             simPath.push({x: seg.p2.x, z: seg.p2.z, type: 'G1'});
+                         } else {
+                             const steps = 10;
+                             let sA = seg.startAngle;
+                             let eA = seg.endAngle;
+                             if (seg.dir === 'G2' && eA > sA) eA -= 2*Math.PI;
+                             if (seg.dir === 'G3' && eA < sA) eA += 2*Math.PI;
+                             for(let j=1; j<=steps; j++) {
+                                 const a = sA + (eA - sA) * (j/steps);
+                                 simPath.push({x: seg.cx + Math.cos(a)*seg.r, z: seg.cz + Math.sin(a)*seg.r, type: seg.dir});
+                             }
+                         }
+                     });
+                     
+                     const lastPt = simPath[simPath.length-1];
+                     simPath.push({x: lastPt.x + 2, z: lastPt.z + 2, type: 'G0'});
+                     simPath.push({x: params.safeX/2, z: params.safeZ, type: 'G0'});
+                }
+
+                return { worldPoints, stockWorldPoints, offsetPath, finishOffsetPath, stockPathSegments, passes, simPath, retractDist };
             }, [contourPoints, stockPoints, params]);
 
-            // --- G-CODE EXPORT FIX ---
+            useEffect(() => {
+                let animationFrameId;
+                let startTime;
+                const animate = (time) => {
+                    if (!startTime) startTime = time;
+                    if (simRunning) {
+                        setSimProgress(prev => {
+                            const next = prev + 0.003; 
+                            if (next >= 1) {
+                                setSimRunning(false);
+                                return 1;
+                            }
+                            return next;
+                        });
+                        animationFrameId = requestAnimationFrame(animate);
+                    }
+                };
+                if (simRunning) animationFrameId = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(animationFrameId);
+            }, [simRunning]);
+
+            // --- G-CODE EXPORT ---
             useEffect(() => {
                 const d = new Date();
                 const head = `; SINUMERIK 840D Generated Code
@@ -457,16 +608,60 @@ T="${params.toolName}" D1 M6
 M3 M8
 G0 X${params.safeX} Z${params.safeZ}`;
 
+                // Use the same retract distance in G-code
+                const rDist = calculatedData.retractDist || 2.0;
+
                 const roughing = calculatedData.passes.map((pass, i) => {
-                    const xVal = params.mode === 'DIAMON' ? (pass.x * 2).toFixed(3) : pass.x.toFixed(3);
-                    const xRetract = params.mode === 'DIAMON' ? (pass.x * 2 + 2).toFixed(3) : (pass.x + 1).toFixed(3);
-                    return `; Pass ${i+1}
+                    if (pass.type === 'long') {
+                        const xVal = params.mode === 'DIAMON' ? (pass.x * 2).toFixed(3) : pass.x.toFixed(3);
+                        // Retract position (X start + retract)
+                        const xRetract = params.mode === 'DIAMON' ? ((pass.x + rDist) * 2).toFixed(3) : (pass.x + rDist).toFixed(3);
+                        
+                        return `; Pass ${i+1} (Long)
 G0 X${xRetract} Z${(pass.zStart + 1).toFixed(3)}
 G1 X${xVal} F${params.feed}
 G1 Z${pass.zEnd.toFixed(3)}
-G1 X${xRetract}
-G0 Z${params.safeZ}`;
+G1 X${xRetract} Z${(pass.zEnd + rDist).toFixed(3)} ; Retract 45deg
+G0 Z${(pass.zStart + 1).toFixed(3)} ; Rapid back`;
+                    } else {
+                        // FACE
+                        const zVal = pass.z.toFixed(3);
+                        const zRetract = (pass.z + rDist).toFixed(3);
+                        const xStart = params.mode === 'DIAMON' ? (pass.xStart * 2).toFixed(3) : pass.xStart.toFixed(3);
+                        const xEnd = params.mode === 'DIAMON' ? (pass.xEnd * 2).toFixed(3) : pass.xEnd.toFixed(3);
+                        // Retract X end
+                        const xEndRetract = params.mode === 'DIAMON' ? ((pass.xEnd + rDist) * 2).toFixed(3) : (pass.xEnd + rDist).toFixed(3);
+                        
+                        return `; Pass ${i+1} (Face)
+G0 X${xStart} Z${zRetract}
+G1 Z${zVal} F${params.feed}
+G1 X${xEnd}
+G1 X${xEndRetract} Z${zRetract} ; Retract 45deg
+G0 X${xStart} ; Rapid back`;
+                    }
                 }).join('\n');
+
+                let finishing = '';
+                if (params.doFinishing && calculatedData.finishOffsetPath.length > 0) {
+                    const pathLines = [];
+                    const startSeg = calculatedData.finishOffsetPath[0];
+                    const sX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.cos(startSeg.startAngle)*startSeg.r);
+                    const sZ = startSeg.type === 'line' ? startSeg.p1.z : (startSeg.cz + Math.sin(startSeg.startAngle)*startSeg.r);
+                    const sX_out = params.mode === 'DIAMON' ? (sX * 2).toFixed(3) : sX.toFixed(3);
+                    pathLines.push(`G0 X${sX_out} Z${sZ.toFixed(3)}`);
+
+                    calculatedData.finishOffsetPath.forEach(seg => {
+                        if (seg.type === 'line') {
+                             const eX = params.mode === 'DIAMON' ? (seg.p2.x * 2).toFixed(3) : seg.p2.x.toFixed(3);
+                             pathLines.push(`G1 X${eX} Z${seg.p2.z.toFixed(3)}`);
+                        } else {
+                             const eX = params.mode === 'DIAMON' ? ((seg.cx + Math.cos(seg.endAngle)*seg.r) * 2).toFixed(3) : (seg.cx + Math.cos(seg.endAngle)*seg.r).toFixed(3);
+                             const eZ = (seg.cz + Math.sin(seg.endAngle)*seg.r).toFixed(3);
+                             pathLines.push(`${seg.dir} X${eX} Z${eZ} CR=${seg.r.toFixed(3)}`);
+                        }
+                    });
+                    finishing = `\n; --- DOKONCOVANI ---\n${pathLines.join('\n')}\n`;
+                }
 
                 const contourSub = contourPoints.map(p => {
                     let line = `${p.type} X${p.x} Z${p.z}`;
@@ -474,7 +669,7 @@ G0 Z${params.safeZ}`;
                     return line;
                 }).join('\n');
                 
-                setGeneratedCode(`${head}\n\n; --- HRUBOVANI ---\n${roughing}\n\nG0 X${params.safeX} Z${params.safeZ}\nM30\n\n; --- KONTURA ---\n${contourSub}`);
+                setGeneratedCode(`${head}\n\n; --- HRUBOVANI (${params.roughingStrategy === 'face' ? 'CELNI' : 'PODELNE'}) ---\n${roughing}\n${finishing}\nG0 X${params.safeX} Z${params.safeZ}\nM30\n\n; --- KONTURA ---\n${contourSub}`);
             }, [calculatedData, params, contourPoints]);
 
             const draw = useCallback(() => {
@@ -486,7 +681,6 @@ G0 Z${params.safeZ}`;
                 const w = container.clientWidth;
                 const h = container.clientHeight;
                 
-                // Ensure canvas size matches container
                 if (canvas.width !== w || canvas.height !== h) {
                     canvas.width = w;
                     canvas.height = h;
@@ -494,10 +688,10 @@ G0 Z${params.safeZ}`;
 
                 const colors = theme === 'dark' ? {
                     bg: '#111827', grid: '#374151', axis: '#ef4444', stock: '#9ca3af',
-                    contour: '#3b82f6', offset: '#a855f7', pass: '#22c55e', error: '#ef4444', text: '#9ca3af'
+                    contour: '#3b82f6', offset: '#a855f7', pass: '#22c55e', finish: '#f472b6', error: '#ef4444', text: '#9ca3af', tool: '#facc15'
                 } : {
                     bg: '#ffffff', grid: '#e5e7eb', axis: '#ef4444', stock: '#6b7280',
-                    contour: '#2563eb', offset: '#9333ea', pass: '#16a34a', error: '#ef4444', text: '#6b7280'
+                    contour: '#2563eb', offset: '#9333ea', pass: '#16a34a', finish: '#db2777', error: '#ef4444', text: '#6b7280', tool: '#fbbf24'
                 };
 
                 ctx.fillStyle = colors.bg; ctx.fillRect(0, 0, w, h);
@@ -607,50 +801,124 @@ G0 Z${params.safeZ}`;
                              ctx.arc(c.x, c.y, seg.r * view.scale, sa_scr, ea_scr, !isG2);
                         }
                     });
-                    ctx.strokeStyle = colors.offset; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+                    ctx.strokeStyle = colors.offset; ctx.lineWidth = 1; ctx.setLineDash([2,2]); ctx.stroke(); ctx.setLineDash([]);
+                }
+                
+                // Finish Path
+                if (params.doFinishing && calculatedData.finishOffsetPath.length > 0) {
+                    ctx.beginPath();
+                    calculatedData.finishOffsetPath.forEach((seg, i) => {
+                        if (seg.type === 'line') {
+                            const p1 = toScreen(seg.p1.x, seg.p1.z); const p2 = toScreen(seg.p2.x, seg.p2.z);
+                            if (i === 0) ctx.moveTo(p1.x, p1.y); else ctx.lineTo(p1.x, p1.y);
+                            ctx.lineTo(p2.x, p2.y);
+                        } else if (seg.type === 'arc') {
+                             const c = toScreen(seg.cx, seg.cz);
+                             const startX_scr = c.x + Math.cos(Math.atan2(toScreen(seg.refP1.x, seg.refP1.z).y - c.y, toScreen(seg.refP1.x, seg.refP1.z).x - c.x)) * (seg.r * view.scale);
+                             const startY_scr = c.y + Math.sin(Math.atan2(toScreen(seg.refP1.x, seg.refP1.z).y - c.y, toScreen(seg.refP1.x, seg.refP1.z).x - c.x)) * (seg.r * view.scale);
+                             if (i === 0) ctx.moveTo(startX_scr, startY_scr); else ctx.lineTo(startX_scr, startY_scr); 
+                             const sa_scr = Math.atan2(toScreen(seg.refP1.x, seg.refP1.z).y - c.y, toScreen(seg.refP1.x, seg.refP1.z).x - c.x);
+                             const ea_scr = Math.atan2(toScreen(seg.refP2.x, seg.refP2.z).y - c.y, toScreen(seg.refP2.x, seg.refP2.z).x - c.x);
+                             const isG2 = (seg.dir === 'G2');
+                             ctx.arc(c.x, c.y, seg.r * view.scale, sa_scr, ea_scr, !isG2);
+                        }
+                    });
+                    ctx.strokeStyle = colors.finish; ctx.lineWidth = 2; ctx.stroke();
                 }
 
-                // Roughing
+                // Passes (Roughing)
                 ctx.beginPath();
                 calculatedData.passes.forEach(pass => {
-                    const p1 = toScreen(pass.x, pass.zStart); const p2 = toScreen(pass.x, pass.zEnd);
-                    ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                    if (pass.type === 'long') {
+                        const p1 = toScreen(pass.x, pass.zStart); const p2 = toScreen(pass.x, pass.zEnd);
+                        ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                    } else {
+                        // FACE
+                        const p1 = toScreen(pass.xStart, pass.z); const p2 = toScreen(pass.xEnd, pass.z);
+                        ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                    }
                 });
                 ctx.strokeStyle = colors.pass; ctx.lineWidth = 1.5; ctx.stroke();
 
-                // Point Labels
-                const activePoints = editMode === 'contour' ? calculatedData.worldPoints : calculatedData.stockWorldPoints;
-                ctx.font = "bold 11px sans-serif";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                
-                activePoints.forEach((p, i) => {
-                    const pt = toScreen(p.xReal, p.zReal);
-                    ctx.fillStyle = editMode === 'contour' ? colors.contour : colors.pass;
+                // Draw Rapid Moves (G0) Visualization
+                if (calculatedData.simPath.length > 0) {
                     ctx.beginPath();
-                    ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2);
-                    ctx.fill();
-                    
-                    const label = `${i+1}`;
-                    const tx = pt.x + 8;
-                    const ty = pt.y - 8;
-                    ctx.fillStyle = theme === 'dark' ? '#fbbf24' : '#d97706';
-                    ctx.fillText(label, tx, ty);
-                });
+                    for (let i = 0; i < calculatedData.simPath.length - 1; i++) {
+                        const p1 = calculatedData.simPath[i];
+                        const p2 = calculatedData.simPath[i+1];
+                        if (p2.type === 'G0') {
+                            const s = toScreen(p1.x, p1.z);
+                            const e = toScreen(p2.x, p2.z);
+                            if (Math.abs(s.x - e.x) > 0.1 || Math.abs(s.y - e.y) > 0.1) {
+                                ctx.moveTo(s.x, s.y);
+                                ctx.lineTo(e.x, e.y);
+                            }
+                        }
+                    }
+                    ctx.strokeStyle = theme === 'dark' ? '#ef4444' : '#ef4444'; // Red for rapid
+                    ctx.lineWidth = 1.5; 
+                    ctx.setLineDash([6, 6]); // More visible Dash
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
 
-            }, [calculatedData, view, theme, params, editMode, mobileTab]);
+                // Tool (Simulation)
+                if ((simRunning || simProgress > 0) && calculatedData.simPath.length > 0) {
+                    const totalPoints = calculatedData.simPath.length;
+                    const floatIndex = simProgress * (totalPoints - 1);
+                    const idx = Math.floor(floatIndex);
+                    const t = floatIndex - idx;
+                    const pCurrent = calculatedData.simPath[idx];
+                    const pNext = calculatedData.simPath[Math.min(idx + 1, totalPoints - 1)];
+                    const curX = pCurrent.x + (pNext.x - pCurrent.x) * t;
+                    const curZ = pCurrent.z + (pNext.z - pCurrent.z) * t;
+                    const pt = toScreen(curX, curZ);
+                    
+                    ctx.fillStyle = colors.tool;
+                    ctx.beginPath();
+                    ctx.moveTo(pt.x, pt.y);
+                    ctx.lineTo(pt.x + 8, pt.y + 12);
+                    ctx.lineTo(pt.x - 8, pt.y + 12);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+
+                if (!simRunning) {
+                    const activePoints = editMode === 'contour' ? calculatedData.worldPoints : calculatedData.stockWorldPoints;
+                    ctx.font = "bold 11px sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    
+                    activePoints.forEach((p, i) => {
+                        const pt = toScreen(p.xReal, p.zReal);
+                        ctx.fillStyle = editMode === 'contour' ? colors.contour : colors.pass;
+                        ctx.beginPath();
+                        ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2);
+                        ctx.fill();
+                        
+                        const label = `${i+1}`;
+                        const tx = pt.x + 8;
+                        const ty = pt.y - 8;
+                        ctx.fillStyle = theme === 'dark' ? '#fbbf24' : '#d97706';
+                        ctx.fillText(label, tx, ty);
+                    });
+                }
+
+            }, [calculatedData, view, theme, params, editMode, mobileTab, simRunning, simProgress]);
 
             useEffect(() => {
                 if (!containerRef.current || !canvasRef.current) return;
                 const resizeObserver = new ResizeObserver(() => {
-                    // Force redraw on resize
                     draw();
                 });
                 resizeObserver.observe(containerRef.current);
                 return () => resizeObserver.disconnect();
             }, [draw]);
 
-            // MOUSE HANDLERS
+            // Handlers
             const handleWheel = (e) => {
                 const s = Math.max(0.5, Math.min(view.scale * (1 - Math.sign(e.deltaY)*0.1), 50));
                 setView(v => ({...v, scale: s}));
@@ -664,8 +932,6 @@ G0 Z${params.safeZ}`;
                 lastMousePos.current = { x: e.clientX, y: e.clientY };
             };
             const handleMouseUp = () => setIsDragging(false);
-
-            // TOUCH HANDLERS (New for Mobile)
             const handleTouchStart = (e) => {
                 if (e.touches.length === 1) {
                     setIsDragging(true);
@@ -688,7 +954,6 @@ G0 Z${params.safeZ}`;
                 let idCounter = Date.now();
                 let lastX = 100;
                 let lastZ = 0;
-
                 lines.forEach(line => {
                     const clean = line.toUpperCase().trim();
                     if (!clean || clean.startsWith(';')) return;
@@ -697,105 +962,71 @@ G0 Z${params.safeZ}`;
                     const xMatch = clean.match(/X([-]?\d+\.?\d*)/);
                     const zMatch = clean.match(/Z([-]?\d+\.?\d*)/);
                     const rMatch = clean.match(/(?:R|CR=)([-]?\d+\.?\d*)/);
-
                     if (xMatch || zMatch) {
                         const newX = xMatch ? parseFloat(xMatch[1]) : lastX;
                         const newZ = zMatch ? parseFloat(zMatch[1]) : lastZ;
-                        
-                        newPoints.push({ 
-                            id: idCounter++, 
-                            type: currentType, 
-                            x: newX, 
-                            z: newZ, 
-                            r: rMatch ? parseFloat(rMatch[1]) : 0, 
-                            mode: 'ABS' 
-                        });
-                        lastX = newX; 
-                        lastZ = newZ;
+                        newPoints.push({ id: idCounter++, type: currentType, x: newX, z: newZ, r: rMatch ? parseFloat(rMatch[1]) : 0, mode: 'ABS' });
+                        lastX = newX; lastZ = newZ;
                     }
                 });
-                
                 if (newPoints.length > 0) {
                     if (editMode === 'contour') setContourPoints(newPoints);
                     else setStockPoints(newPoints); 
                     setErrors([]);
                     fitView(); 
-                } else {
-                    alert("Nepodařilo se rozpoznat žádné body v G-kódu.");
-                }
+                } else alert("Nepodařilo se rozpoznat žádné body v G-kódu.");
             };
-
             const parseGCode = () => processGCodeString(gCodeInput);
-
-            // Replaces handlePasteGCode
             const handleCopyGCode = () => {
-                // Use execCommand for broader compatibility in some webviews/iframes
                 const textArea = document.createElement("textarea");
                 textArea.value = generatedCode;
-                
-                // Avoid scrolling to bottom
-                textArea.style.top = "0";
-                textArea.style.left = "0";
                 textArea.style.position = "fixed";
-                
                 document.body.appendChild(textArea);
                 textArea.focus();
                 textArea.select();
-                
                 try {
-                    const successful = document.execCommand('copy');
-                    if(successful) {
+                    if(document.execCommand('copy')) {
                         setCopyFeedback(true);
                         setTimeout(() => setCopyFeedback(false), 2000);
-                    } else {
-                        alert("Kopírování selhalo.");
-                    }
-                } catch (err) {
-                    console.error('Fallback: Oops, unable to copy', err);
-                }
-                
+                    } else alert("Kopírování selhalo.");
+                } catch (err) {}
                 document.body.removeChild(textArea);
             };
-
+            const handleDownload = () => {
+                const element = document.createElement("a");
+                const file = new Blob([generatedCode], {type: 'text/plain'});
+                element.href = URL.createObjectURL(file);
+                element.download = "program.mpf";
+                document.body.appendChild(element); 
+                element.click();
+                document.body.removeChild(element);
+            };
             const toggleMode = (id) => {
                 const list = editMode === 'contour' ? contourPoints : stockPoints;
                 const setList = editMode === 'contour' ? setContourPoints : setStockPoints;
-                
                 const absList = resolvePointsToAbsolute(list);
                 const prevAbsPoint = absList.find((p, i) => list[i].id === id && i > 0) ? absList[absList.findIndex(p => p.id === id) - 1] : { xAbs: 0, zAbs: 0 };
                 const currentAbsPoint = absList.find(p => p.id === id);
                 if (!currentAbsPoint) return;
-
                 setList(prev => prev.map(p => {
                     if (p.id !== id) return p;
                     const newMode = p.mode === 'ABS' ? 'INC' : 'ABS';
-                    let newX = p.x;
-                    let newZ = p.z;
-                    if (newMode === 'INC') {
-                        newX = currentAbsPoint.xAbs - prevAbsPoint.xAbs;
-                        newZ = currentAbsPoint.zAbs - prevAbsPoint.zAbs;
-                    } else {
-                        newX = currentAbsPoint.xAbs;
-                        newZ = currentAbsPoint.zAbs;
-                    }
-                    newX = parseFloat(newX.toFixed(3));
-                    newZ = parseFloat(newZ.toFixed(3));
-                    return { ...p, mode: newMode, x: newX, z: newZ };
+                    let newX = p.x; let newZ = p.z;
+                    if (newMode === 'INC') { newX = currentAbsPoint.xAbs - prevAbsPoint.xAbs; newZ = currentAbsPoint.zAbs - prevAbsPoint.zAbs; } 
+                    else { newX = currentAbsPoint.xAbs; newZ = currentAbsPoint.zAbs; }
+                    return { ...p, mode: newMode, x: parseFloat(newX.toFixed(3)), z: parseFloat(newZ.toFixed(3)) };
                 }));
             };
-
             const updatePoint = (id, f, v) => {
                 const setList = editMode === 'contour' ? setContourPoints : setStockPoints;
                 setList(prev => prev.map(p => p.id===id ? {...p, [f]: v} : p));
             };
-            
             const addPoint = () => { 
                 const list = editMode === 'contour' ? contourPoints : stockPoints;
                 const setList = editMode === 'contour' ? setContourPoints : setStockPoints;
                 const last = list.length > 0 ? list[list.length - 1] : { x: 100, z: 0 };
                 setList([...list, {id: Date.now(), type:'G1', x:last.x, z: parseFloat(last.z)-10, r:0, mode: 'ABS'}]); 
             };
-
             const insertPoint = (index) => {
                 const list = editMode === 'contour' ? contourPoints : stockPoints;
                 const setList = editMode === 'contour' ? setContourPoints : setStockPoints;
@@ -805,21 +1036,15 @@ G0 Z${params.safeZ}`;
                 newList.splice(index + 1, 0, newPoint);
                 setList(newList);
             };
-            
             const removePoint = (id) => {
                 const list = editMode === 'contour' ? contourPoints : stockPoints;
                 const setList = editMode === 'contour' ? setContourPoints : setStockPoints;
                 if (list.length > 1) setList(list.filter(p=>p.id!==id));
             };
-
             const currentPoints = editMode === 'contour' ? contourPoints : stockPoints;
 
             return (
                 <div className="flex flex-col md:flex-row h-full">
-                    
-                    {/* --- LEFT SIDEBAR (Editor) --- 
-                        Mobile Logic: Hidden if mobileTab is 'preview', but always shown on Desktop (md:flex) 
-                    */}
                     <div className={`${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex w-full md:w-96 flex-col border-r shadow-xl z-10 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                         <div className={`p-4 border-b flex justify-between items-center ${theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
                             <h1 className="font-bold text-lg text-blue-500">Sinumerik CAM</h1>
@@ -879,14 +1104,10 @@ G0 Z${params.safeZ}`;
                                             </div>
                                         </div>
                                     ))}
-                                    <div className="flex gap-2">
-                                        <button onClick={addPoint} className={`flex-1 py-2 text-white rounded text-sm font-bold flex justify-center items-center gap-2 ${editMode==='stock'?'bg-green-600 hover:bg-green-500':'bg-blue-600 hover:bg-blue-500'}`}><IconPlus /> Bod</button>
-                                        <button 
-                                            onClick={handleCopyGCode} 
-                                            className={`flex-1 py-2 text-white rounded text-sm font-bold flex justify-center items-center gap-2 transition-all ${copyFeedback ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-500'}`}
-                                        >
-                                            <IconClipboard /> {copyFeedback ? "Zkopírováno!" : "Export G-kódu"}
-                                        </button>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button onClick={addPoint} className={`col-span-2 py-2 text-white rounded text-sm font-bold flex justify-center items-center gap-2 ${editMode==='stock'?'bg-green-600 hover:bg-green-500':'bg-blue-600 hover:bg-blue-500'}`}><IconPlus /> Přidat bod</button>
+                                        <button onClick={handleCopyGCode} className={`py-2 text-white rounded text-sm font-bold flex justify-center items-center gap-2 transition-all ${copyFeedback ? 'bg-green-600' : 'bg-gray-600 hover:bg-gray-500'}`}><IconClipboard /> {copyFeedback ? "Zkopírováno" : "Kopírovat"}</button>
+                                        <button onClick={handleDownload} className="py-2 text-white rounded text-sm font-bold flex justify-center items-center gap-2 bg-purple-600 hover:bg-purple-500"><IconDownload /> Uložit MPF</button>
                                     </div>
                                 </div>
                             )}
@@ -916,6 +1137,16 @@ G0 Z${params.safeZ}`;
                                     )}
 
                                     <h3 className={`font-bold border-b pb-1 mt-4 ${theme==='dark'?'text-gray-300 border-gray-700':'text-gray-800 border-gray-300'}`}>Hrubování</h3>
+                                    {/* NEW: STRATEGY SELECTOR */}
+                                    <div className="flex gap-2 mb-2">
+                                        <button onClick={() => setParams({...params, roughingStrategy: 'longitudinal'})} className={`flex-1 py-1 text-xs border rounded flex items-center justify-center gap-1 ${params.roughingStrategy==='longitudinal' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                                            <IconArrowRight /> Podélně (Z)
+                                        </button>
+                                        <button onClick={() => setParams({...params, roughingStrategy: 'face'})} className={`flex-1 py-1 text-xs border rounded flex items-center justify-center gap-1 ${params.roughingStrategy==='face' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                                            <IconArrowDown /> Čelně (X)
+                                        </button>
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="flex flex-col"><label className="text-xs text-gray-500">Hloubka (ap)</label><input type="number" step="0.5" value={params.depthOfCut} onChange={e=>setParams({...params, depthOfCut:e.target.value})} className="border rounded p-1"/></div>
                                         <div className="flex flex-col"><label className="text-xs text-gray-500">Posuv (F)</label><input type="number" step="0.05" value={params.feed} onChange={e=>setParams({...params, feed:e.target.value})} className="border rounded p-1"/></div>
@@ -926,6 +1157,14 @@ G0 Z${params.safeZ}`;
                                         <div className="flex flex-col"><label className="text-xs text-gray-500">Rádius (R)</label><input type="number" step="0.1" value={params.toolRadius} onChange={e=>setParams({...params, toolRadius:e.target.value})} className="border rounded p-1"/></div>
                                         <div className="flex flex-col"><label className="text-xs text-gray-500">Přídavek X</label><input type="number" step="0.1" value={params.allowanceX} onChange={e=>setParams({...params, allowanceX:e.target.value})} className="border rounded p-1"/></div>
                                         <div className="flex flex-col"><label className="text-xs text-gray-500">Přídavek Z</label><input type="number" step="0.1" value={params.allowanceZ} onChange={e=>setParams({...params, allowanceZ:e.target.value})} className="border rounded p-1"/></div>
+                                    </div>
+                                    
+                                    <div className="mt-4 pt-2 border-t dark:border-gray-700">
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input type="checkbox" checked={params.doFinishing} onChange={e => setParams({...params, doFinishing: e.target.checked})} className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+                                            <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Dokončovací operace (Na čisto)</span>
+                                        </label>
+                                        <p className="text-xs text-gray-500 mt-1 pl-6">Vygeneruje dráhu nástroje přesně po kontuře (pouze s korekcí R, bez přídavku).</p>
                                     </div>
                                 </div>
                             )}
@@ -938,11 +1177,12 @@ G0 Z${params.safeZ}`;
                         </div>
                     </div>
 
-                    {/* --- RIGHT SIDEBAR (Canvas/Preview) --- 
-                        Mobile Logic: Shown only if mobileTab is 'preview', or always on Desktop (md:flex)
-                    */}
                      <div className={`${mobileTab === 'preview' ? 'flex' : 'hidden'} md:flex flex-1 flex-col relative pb-20 md:pb-0 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-                        <div className="absolute top-4 right-4 z-10">
+                        <div className="absolute top-4 right-4 z-10 flex gap-2">
+                            <div className="bg-white p-1 rounded shadow flex gap-1 items-center">
+                                <button onClick={() => { setSimProgress(0); setSimRunning(true); }} className={`p-1 rounded hover:bg-green-100 ${simRunning ? 'text-green-600' : 'text-gray-600'}`} title="Spustit simulaci"><IconPlay /></button>
+                                <button onClick={() => { setSimRunning(false); setSimProgress(0); }} className="p-1 rounded hover:bg-red-100 text-gray-600" title="Stop"><IconStop /></button>
+                            </div>
                             <button onClick={fitView} className="bg-white p-2 rounded shadow text-gray-700 hover:text-blue-600" title="Centrovat pohled"><IconTarget /></button>
                         </div>
                         <div ref={containerRef} className={`flex-1 overflow-hidden relative canvas-container`}
@@ -956,19 +1196,12 @@ G0 Z${params.safeZ}`;
                         </div>
                     </div>
 
-                    {/* --- MOBILE BOTTOM NAVIGATION --- */}
                     <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 flex z-50 safe-pb dark:bg-gray-900 dark:border-gray-700">
-                        <button 
-                            onClick={() => setMobileTab('editor')} 
-                            className={`flex-1 flex flex-col items-center justify-center ${mobileTab==='editor' ? 'text-blue-600' : 'text-gray-500'}`}
-                        >
+                        <button onClick={() => setMobileTab('editor')} className={`flex-1 flex flex-col items-center justify-center ${mobileTab==='editor' ? 'text-blue-600' : 'text-gray-500'}`}>
                             <IconEdit />
                             <span className="text-xs font-bold mt-1">Editor</span>
                         </button>
-                        <button 
-                            onClick={() => setMobileTab('preview')} 
-                            className={`flex-1 flex flex-col items-center justify-center ${mobileTab==='preview' ? 'text-blue-600' : 'text-gray-500'}`}
-                        >
+                        <button onClick={() => setMobileTab('preview')} className={`flex-1 flex flex-col items-center justify-center ${mobileTab==='preview' ? 'text-blue-600' : 'text-gray-500'}`}>
                             <IconEye />
                             <span className="text-xs font-bold mt-1">Náhled</span>
                         </button>
