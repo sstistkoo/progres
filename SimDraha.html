@@ -57,6 +57,7 @@
         const IconWarning = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>;
         const IconInfo = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>;
         const IconRefresh = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>;
+        const IconRotate = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>;
 
         // --- COMPONENTS ---
         
@@ -177,7 +178,8 @@
                 stockLength: 100,
                 stockFace: 2.0,
                 safeX: 150,
-                safeZ: 5
+                safeZ: 5,
+                machineStructure: 'lathe' // 'lathe' | 'carousel'
             });
 
             const [contourPoints, setContourPoints] = useState([
@@ -269,8 +271,17 @@
                     if(z < minZ) minZ = z; if(z > maxZ) maxZ = z;
                 });
                 const pad = 20;
-                const width = maxZ - minZ + pad*2;
-                const height = maxX - minX + pad*2;
+                
+                // Adjust bounds for visibility based on orientation
+                // In Lathe: X is vertical (height), Z is horizontal (width)
+                // In Carousel: X is horizontal (width), Z is vertical (height)
+                const isCarousel = params.machineStructure === 'carousel';
+                const visWidth = isCarousel ? (maxX - minX) : (maxZ - minZ);
+                const visHeight = isCarousel ? (maxZ - minZ) : (maxX - minX);
+                
+                const width = visWidth + pad * 2;
+                const height = visHeight + pad * 2;
+                
                 if (width <= 0 || height <= 0) return;
                 const contW = containerRef.current.clientWidth;
                 const contH = containerRef.current.clientHeight;
@@ -280,12 +291,22 @@
                 let newScale = Math.min(scaleX, scaleY) * 0.8; 
                 if (newScale > 10) newScale = 10;
                 if (newScale < 0.1) newScale = 0.1;
+                
                 const midZ = (minZ + maxZ) / 2;
                 const midX = (minX + maxX) / 2;
-                setView({ scale: newScale, panX: contW/2 - midZ * newScale, panY: contH/2 + midX * newScale });
-            }, [contourPoints, params.mode]);
+                
+                // Adjust pan logic based on machine type
+                if (isCarousel) {
+                    // Carousel: X horizontal, Z vertical (up)
+                    setView({ scale: newScale, panX: contW/2 - midX * newScale, panY: contH/2 + midZ * newScale });
+                } else {
+                    // Lathe: Z horizontal, X vertical (up)
+                    setView({ scale: newScale, panX: contW/2 - midZ * newScale, panY: contH/2 + midX * newScale });
+                }
+                
+            }, [contourPoints, params.mode, params.machineStructure]);
 
-            useEffect(() => { setTimeout(fitView, 100); }, [mobileTab]); 
+            useEffect(() => { setTimeout(fitView, 100); }, [mobileTab, params.machineStructure]); 
 
             const resolvePointsToAbsolute = (pts) => {
                 let lastX = 0; let lastZ = 0;
@@ -847,7 +868,17 @@
                 };
 
                 ctx.fillStyle = colors.bg; ctx.fillRect(0, 0, w, h);
-                const toScreen = (x, z) => ({ x: view.panX + z * view.scale, y: view.panY - x * view.scale });
+                const toScreen = (x, z) => {
+                    if (params.machineStructure === 'carousel') {
+                        // Carousel: X horizontal, Z vertical (up)
+                        // X is screen X (offset by panX)
+                        // Z is screen Y (offset by panY, inverted because Y+ is down)
+                        return { x: view.panX + x * view.scale, y: view.panY - z * view.scale };
+                    } else {
+                        // Lathe: Z horizontal, X vertical
+                        return { x: view.panX + z * view.scale, y: view.panY - x * view.scale };
+                    }
+                };
 
                 // Grid
                 ctx.strokeStyle = colors.grid; ctx.lineWidth = 1; ctx.beginPath();
@@ -857,33 +888,54 @@
                 ctx.font = "10px sans-serif";
                 
                 for (let i=-500; i<=500; i+=20) {
-                     // Vertical lines (Constant Z)
+                     // Vertical lines (Constant Z in Lathe, Constant X in Carousel)
+                     // Lathe: toScreen(-500, i) is X=-500, Z=i. 
+                     // Carousel: toScreen(-500, i) is X=-500, Z=i.
+                     // The logic remains same because toScreen handles the swap.
                      const p1 = toScreen(-500, i); const p2 = toScreen(500, i);
                      ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
                      
-                     // Horizontal lines (Constant X)
+                     // Horizontal lines
                      const p3 = toScreen(i, -500); const p4 = toScreen(i, 500);
                      ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
                 }
                 ctx.stroke();
 
-                // Labels loop (separate to be on top of lines or just managed cleanly)
+                // Labels loop
                 for (let i=-500; i<=500; i+=20) {
-                    if (i === 0) continue; // Skip 0, handled by axis label
+                    if (i === 0) continue; 
 
-                    // Label Z axis (ticks on horizontal line)
-                    // The line is Vertical (Constant Z=i). It crosses X=0 axis at toScreen(0, i).
-                    const ptZ = toScreen(0, i);
-                    ctx.textAlign = "center"; 
-                    ctx.textBaseline = "top";
-                    ctx.fillText(i.toString(), ptZ.x, ptZ.y + 2);
+                    // Label for "horizontal" axis ticks (drawn near Y=0)
+                    const ptHoriz = toScreen(0, i); // Lathe: x=0, z=i (Z axis). Carousel: x=0, z=i (Z axis).
+                    // WAIT.
+                    // Lathe: Z is horizontal axis. We want ticks ON the horizontal axis (at X=0). toScreen(0, i) puts point at X=0, Z=i. Correct.
+                    // Carousel: X is horizontal axis. We want ticks ON the horizontal axis (at Z=0). toScreen(i, 0) puts point at X=i, Z=0.
+                    
+                    if (params.machineStructure === 'carousel') {
+                        // Carousel: Horizontal axis is X. 
+                        const ptX = toScreen(i, 0); // Point on X axis at value i
+                        ctx.textAlign = "center"; 
+                        ctx.textBaseline = "top";
+                        ctx.fillText(i.toString(), ptX.x, ptX.y + 2);
 
-                    // Label X axis (ticks on vertical line)
-                    // The line is Horizontal (Constant X=i). It crosses Z=0 axis at toScreen(i, 0).
-                    const ptX = toScreen(i, 0);
-                    ctx.textAlign = "right"; 
-                    ctx.textBaseline = "middle";
-                    ctx.fillText(i.toString(), ptX.x - 4, ptX.y);
+                        // Vertical axis is Z.
+                        const ptZ = toScreen(0, i); // Point on Z axis at value i
+                        ctx.textAlign = "right"; 
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(i.toString(), ptZ.x - 4, ptZ.y);
+                    } else {
+                        // Lathe: Horizontal axis is Z.
+                        const ptZ = toScreen(0, i);
+                        ctx.textAlign = "center"; 
+                        ctx.textBaseline = "top";
+                        ctx.fillText(i.toString(), ptZ.x, ptZ.y + 2);
+
+                        // Vertical axis is X.
+                        const ptX = toScreen(i, 0);
+                        ctx.textAlign = "right"; 
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(i.toString(), ptX.x - 4, ptX.y);
+                    }
                 }
 
                 // Axis
@@ -893,8 +945,17 @@
                 ctx.moveTo(zero.x, 0); ctx.lineTo(zero.x, h);
                 ctx.stroke();
                 ctx.fillStyle = colors.axis; ctx.font = "bold 12px monospace";
-                ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; // Reset alignment for axis labels
-                ctx.fillText("Z+", w - 20, zero.y + 15); ctx.fillText("X+", zero.x + 10, 15);
+                ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+                
+                if (params.machineStructure === 'carousel') {
+                    // Carousel: X horizontal, Z vertical
+                    ctx.fillText("X+", w - 20, zero.y + 15); 
+                    ctx.fillText("Z+", zero.x + 10, 15);
+                } else {
+                    // Lathe: Z horizontal, X vertical
+                    ctx.fillText("Z+", w - 20, zero.y + 15); 
+                    ctx.fillText("X+", zero.x + 10, 15);
+                }
                 ctx.fillText("X0 Z0", zero.x + 4, zero.y - 4); 
 
                 // Stock Visual
@@ -920,12 +981,48 @@
                             ctx.lineTo(p2.x, p2.y);
                         } else if (seg.type === 'arc') {
                              const c = toScreen(seg.cx, seg.cz);
-                             const sa_scr = -seg.startAngle; const ea_scr = -seg.endAngle;
-                             const startX_scr = c.x + Math.cos(sa_scr) * seg.r * view.scale;
-                             const startY_scr = c.y + Math.sin(sa_scr) * seg.r * view.scale;
-                             if (i === 0) ctx.moveTo(startX_scr, startY_scr); else ctx.lineTo(startX_scr, startY_scr);
-                             const isG2 = (seg.dir === 'G2');
-                             ctx.arc(c.x, c.y, seg.r * view.scale, sa_scr, ea_scr, !isG2);
+                             const sa_scr = -seg.startAngle; // Rotation needs care if axes swapped?
+                             // Standard rotation is CCW from +X. 
+                             // Lathe: +Z is Horizontal. +X is Vertical. Atan2(x, z) gives angle from Z axis. 
+                             // Carousel: +X is Horizontal. +Z is Vertical. Atan2(z, x) ??
+                             // Actually, let's keep abstract angles.
+                             // But canvas arc draws from +ScreenX axis.
+                             // Lathe: ScreenX is Z. ScreenY is -X. 
+                             // Carousel: ScreenX is X. ScreenY is -Z.
+                             
+                             // The segments are computed in "Real" coords (Lathe logic).
+                             // We just want to map points.
+                             // For arcs, it's safer to draw small line segments if we want perfect mapping, but let's try arc mapping.
+                             // Angle in calculatedData is Atan2(x - cx, z - cz). (Lathe logic: x is vertical, z is horizontal).
+                             // Canvas expects angle from Screen X.
+                             // Lathe: Screen X = Z. Screen Y = -X.
+                             // Angle = Atan2(screenY, screenX) = Atan2(-x, z).
+                             // Our calculated angle is Atan2(x, z). So canvas angle = -calculatedAngle.
+                             
+                             // Carousel: Screen X = X. Screen Y = -Z.
+                             // Canvas Angle = Atan2(-z, x).
+                             // Our calculated angle is Atan2(x, z).
+                             // They are related but different (90 deg shift + flip).
+                             
+                             // To avoid complexity with arc orientation on axis swap, let's draw arcs as line segments for visual consistency in 'draw'.
+                             // Re-using the logic from 'finishing simulation' drawing which discretizes arcs.
+                             
+                             const steps = 15;
+                             let sA = seg.startAngle;
+                             let eA = seg.endAngle;
+                             if (seg.dir === 'G2' && eA > sA) eA -= 2*Math.PI;
+                             if (seg.dir === 'G3' && eA < sA) eA += 2*Math.PI;
+                             
+                             for(let j=0; j<=steps; j++) {
+                                 const a = sA + (eA - sA) * (j/steps);
+                                 // Point in machine coords
+                                 const px = seg.cx + Math.sin(a) * seg.r;
+                                 const pz = seg.cz + Math.cos(a) * seg.r;
+                                 const pt = toScreen(px, pz);
+                                 if (j === 0 && i === 0) ctx.moveTo(pt.x, pt.y);
+                                 else if (j===0) ctx.moveTo(pt.x, pt.y); // if segment start
+                                 else ctx.lineTo(pt.x, pt.y);
+                             }
                         }
                     });
                     ctx.strokeStyle = colors.stock; ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
@@ -940,17 +1037,32 @@
                         const p1 = calculatedData.worldPoints[i];
                         const p2 = calculatedData.worldPoints[i+1];
                         const ptEnd = toScreen(p2.xReal, p2.zReal);
+                        
                         if (p2.type === 'G0' || p2.type === 'G1') {
                             ctx.lineTo(ptEnd.x, ptEnd.y);
                         } else if (p2.type === 'G2' || p2.type === 'G3') {
                             const arc = getArcParams({x:p1.xReal, z:p1.zReal}, {x:p2.xReal, z:p2.zReal}, p2.rVal, p2.type);
                             if (!arc.error) {
-                                const sc = toScreen(arc.cx, arc.cz);
-                                const r = arc.r * view.scale;
-                                const sa = Math.atan2(toScreen(p1.xReal, p1.zReal).y - sc.y, toScreen(p1.xReal, p1.zReal).x - sc.x);
-                                const ea = Math.atan2(toScreen(p2.xReal, p2.zReal).y - sc.y, toScreen(p2.xReal, p2.zReal).x - sc.x);
-                                const isG2 = (p2.type === 'G2');
-                                ctx.arc(sc.x, sc.y, r, sa, ea, !isG2); 
+                                // Draw arc as segments to handle axis swap easily
+                                const p1Ang = Math.atan2(p1.xReal - arc.cx, p1.zReal - arc.cz);
+                                const p2Ang = Math.atan2(p2.xReal - arc.cx, p2.zReal - arc.cz);
+                                let sA = p1Ang;
+                                let eA = p2Ang;
+                                if (p2.type === 'G2' && eA > sA) eA -= 2*Math.PI;
+                                if (p2.type === 'G3' && eA < sA) eA += 2*Math.PI;
+                                // Handle full circles or large arcs if needed, but simple G2/G3 usually < 360
+                                if (Math.abs(eA - sA) < 1e-4) {
+                                     // Full circle logic if needed, but for contour usually not case here
+                                }
+                                
+                                const steps = 20;
+                                for(let j=1; j<=steps; j++) {
+                                    const a = sA + (eA - sA) * (j/steps);
+                                    const px = arc.cx + Math.sin(a) * arc.r;
+                                    const pz = arc.cz + Math.cos(a) * arc.r;
+                                    const pt = toScreen(px, pz);
+                                    ctx.lineTo(pt.x, pt.y);
+                                }
                             } else {
                                 ctx.lineTo(ptEnd.x, ptEnd.y);
                             }
@@ -968,16 +1080,19 @@
                             if (i === 0) ctx.moveTo(p1.x, p1.y); else ctx.lineTo(p1.x, p1.y);
                             ctx.lineTo(p2.x, p2.y);
                         } else if (seg.type === 'arc') {
-                             const c = toScreen(seg.cx, seg.cz);
-                             const sa_scr = Math.atan2(toScreen(seg.refP1.x, seg.refP1.z).y - c.y, toScreen(seg.refP1.x, seg.refP1.z).x - c.x);
-                             const ea_scr = Math.atan2(toScreen(seg.refP2.x, seg.refP2.z).y - c.y, toScreen(seg.refP2.x, seg.refP2.z).x - c.x);
-                             const isG2 = (seg.dir === 'G2');
-                             
-                             const startX_scr = c.x + Math.cos(sa_scr) * (seg.r * view.scale);
-                             const startY_scr = c.y + Math.sin(sa_scr) * (seg.r * view.scale);
-                             
-                             if (i === 0) ctx.moveTo(startX_scr, startY_scr); else ctx.lineTo(startX_scr, startY_scr); 
-                             ctx.arc(c.x, c.y, seg.r * view.scale, sa_scr, ea_scr, !isG2);
+                             const steps = 15;
+                             let sA = seg.startAngle; let eA = seg.endAngle;
+                             if (seg.dir === 'G2' && eA > sA) eA -= 2*Math.PI;
+                             if (seg.dir === 'G3' && eA < sA) eA += 2*Math.PI;
+                             for(let j=0; j<=steps; j++) {
+                                 const a = sA + (eA - sA) * (j/steps);
+                                 const px = seg.cx + Math.sin(a) * seg.r;
+                                 const pz = seg.cz + Math.cos(a) * seg.r;
+                                 const pt = toScreen(px, pz);
+                                 if (j===0 && i===0) ctx.moveTo(pt.x, pt.y);
+                                 else if (j===0) ctx.moveTo(pt.x, pt.y);
+                                 else ctx.lineTo(pt.x, pt.y);
+                             }
                         }
                     });
                     ctx.strokeStyle = colors.offset; ctx.lineWidth = 1; ctx.setLineDash([2,2]); ctx.stroke(); ctx.setLineDash([]);
@@ -992,22 +1107,19 @@
                             if (i === 0) ctx.moveTo(p1.x, p1.y); else ctx.lineTo(p1.x, p1.y);
                             ctx.lineTo(p2.x, p2.y);
                         } else if (seg.type === 'arc') {
-                             const c = toScreen(seg.cx, seg.cz);
-                             const wsX = seg.cx + Math.sin(seg.startAngle) * seg.r;
-                             const wsZ = seg.cz + Math.cos(seg.startAngle) * seg.r;
-                             const weX = seg.cx + Math.sin(seg.endAngle) * seg.r;
-                             const weZ = seg.cz + Math.cos(seg.endAngle) * seg.r;
-                             
-                             const ss = toScreen(wsX, wsZ);
-                             const se = toScreen(weX, weZ);
-                             const sc = toScreen(seg.cx, seg.cz);
-                             
-                             const sa_scr = Math.atan2(ss.y - sc.y, ss.x - sc.x);
-                             const ea_scr = Math.atan2(se.y - sc.y, se.x - sc.x);
-                             const isG2 = (seg.dir === 'G2');
-                             
-                             if (i === 0) ctx.moveTo(ss.x, ss.y); else ctx.lineTo(ss.x, ss.y); 
-                             ctx.arc(sc.x, sc.y, seg.r * view.scale, sa_scr, ea_scr, !isG2);
+                             const steps = 15;
+                             let sA = seg.startAngle; let eA = seg.endAngle;
+                             if (seg.dir === 'G2' && eA > sA) eA -= 2*Math.PI;
+                             if (seg.dir === 'G3' && eA < sA) eA += 2*Math.PI;
+                             for(let j=0; j<=steps; j++) {
+                                 const a = sA + (eA - sA) * (j/steps);
+                                 const px = seg.cx + Math.sin(a) * seg.r;
+                                 const pz = seg.cz + Math.cos(a) * seg.r;
+                                 const pt = toScreen(px, pz);
+                                 if (j===0 && i===0) ctx.moveTo(pt.x, pt.y);
+                                 else if (j===0) ctx.moveTo(pt.x, pt.y);
+                                 else ctx.lineTo(pt.x, pt.y);
+                             }
                         }
                     });
                     ctx.strokeStyle = colors.finish; ctx.lineWidth = 2; ctx.stroke();
@@ -1050,7 +1162,6 @@
                     const t = floatIndex - idx;
                     const pCurrent = calculatedData.simPath[idx];
                     
-                    // Bezpečnostní kontrola: Zabrání pádu pokud indexy nesedí (např. při změně dat za běhu)
                     if (pCurrent) {
                         const pNext = calculatedData.simPath[Math.min(idx + 1, totalPoints - 1)] || pCurrent;
                         const curX = pCurrent.x + (pNext.x - pCurrent.x) * t;
@@ -1087,6 +1198,9 @@
                 return () => resizeObserver.disconnect();
             }, [draw]);
 
+            // ... (rest of the file remains same, except Params UI addition below) ...
+            
+            // Handlers ... (same)
             const handleWheel = (e) => { const s = Math.max(0.2, Math.min(view.scale * (1 - Math.sign(e.deltaY)*0.15), 50)); setView(v => ({...v, scale: s})); };
             const handleMouseDown = (e) => { setIsDragging(true); lastMousePos.current = { x: e.clientX, y: e.clientY }; };
             const handleMouseMove = (e) => {
@@ -1238,6 +1352,12 @@
                             )}
                              {activeTab === 'params' && (
                                 <div className="space-y-4">
+                                    <h3 className={`font-bold border-b pb-1 ${theme==='dark'?'text-gray-300 border-gray-700':'text-gray-800 border-gray-300'}`}>Konfigurace</h3>
+                                    <div className="flex gap-2 mb-2">
+                                        <button onClick={() => setParams({...params, machineStructure: 'lathe'})} className={`flex-1 py-1 text-xs border rounded flex items-center justify-center gap-1 ${params.machineStructure==='lathe' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>Soustruh</button>
+                                        <button onClick={() => setParams({...params, machineStructure: 'carousel'})} className={`flex-1 py-1 text-xs border rounded flex items-center justify-center gap-1 ${params.machineStructure==='carousel' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>Karusel</button>
+                                    </div>
+
                                     <h3 className={`font-bold border-b pb-1 ${theme==='dark'?'text-gray-300 border-gray-700':'text-gray-800 border-gray-300'}`}>Polotovar</h3>
                                     <div className="flex gap-2 mb-2">
                                         <button onClick={() => setParams({...params, stockMode: 'cylinder'})} className={`flex-1 py-1 text-xs border rounded ${params.stockMode==='cylinder' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>Válec</button>
