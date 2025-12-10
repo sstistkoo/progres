@@ -15,6 +15,9 @@
     <!-- Babel Standalone -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- jsPDF pro generování PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
     <style>
         body { overscroll-behavior: none; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -58,6 +61,10 @@
         const IconInfo = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>;
         const IconRefresh = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>;
         const IconRotate = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>;
+        const IconUndo = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>;
+        const IconRedo = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"></path></svg>;
+        const IconFileText = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
+        const IconPlusCircle = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
 
         // --- COMPONENTS ---
         
@@ -159,6 +166,15 @@
             // Flag for LocalStorage Loading
             const [isLoaded, setIsLoaded] = useState(false);
 
+            // DRAG & DROP & INSERT STATE
+            const [draggedPointId, setDraggedPointId] = useState(null);
+            const [hoverPointId, setHoverPointId] = useState(null);
+            const [addPointMode, setAddPointMode] = useState(false); // New state for add point mode
+
+            // UNDO / REDO STATE
+            const [past, setPast] = useState([]);
+            const [future, setFuture] = useState([]);
+
             const [params, setParams] = useState({
                 machineType: 'LIMS=2000',
                 mode: 'DIAMON',
@@ -179,25 +195,23 @@
                 stockFace: 2.0,
                 safeX: 150,
                 safeZ: 5,
-                machineStructure: 'lathe', // 'lathe' | 'carousel'
-                controlSystem: 'sinumerik' // 'sinumerik' | 'fanuc' | 'heidenhain'
+                machineStructure: 'lathe', 
+                controlSystem: 'sinumerik'
             });
 
-            // UPDATED: Default points with start at X0 and a Groove
             const [contourPoints, setContourPoints] = useState([
-                { id: 1, type: 'G0', x: 0, z: 0, r: 0, mode: 'ABS' }, // Changed X100 to X0
+                { id: 1, type: 'G0', x: 0, z: 0, r: 0, mode: 'ABS' },
                 { id: 2, type: 'G1', x: 20, z: 0, r: 0, mode: 'ABS' },     
                 { id: 3, type: 'G1', x: 20, z: -15, r: 0, mode: 'ABS' },   
                 { id: 4, type: 'G1', x: 30, z: -15, r: 0, mode: 'ABS' },   
                 { id: 5, type: 'G1', x: 35, z: -25, r: 0, mode: 'ABS' },   
                 { id: 6, type: 'G1', x: 35, z: -40, r: 0, mode: 'ABS' },   
                 { id: 7, type: 'G2', x: 55, z: -50, r: 10, mode: 'ABS' },  
-                // Added Groove (Zapich)
-                { id: 8, type: 'G1', x: 55, z: -55, r: 0, mode: 'ABS' }, // Start of groove
-                { id: 81, type: 'G1', x: 45, z: -55, r: 0, mode: 'ABS' }, // Down
-                { id: 82, type: 'G1', x: 45, z: -60, r: 0, mode: 'ABS' }, // Bottom
-                { id: 83, type: 'G1', x: 55, z: -60, r: 0, mode: 'ABS' }, // Up
-                { id: 9, type: 'G1', x: 55, z: -65, r: 0, mode: 'ABS' }, // Continue contour
+                { id: 8, type: 'G1', x: 55, z: -55, r: 0, mode: 'ABS' }, 
+                { id: 81, type: 'G1', x: 45, z: -55, r: 0, mode: 'ABS' }, 
+                { id: 82, type: 'G1', x: 45, z: -60, r: 0, mode: 'ABS' }, 
+                { id: 83, type: 'G1', x: 55, z: -60, r: 0, mode: 'ABS' }, 
+                { id: 9, type: 'G1', x: 55, z: -65, r: 0, mode: 'ABS' }, 
                 { id: 10, type: 'G3', x: 65, z: -75, r: 12, mode: 'ABS' },  
                 { id: 11, type: 'G1', x: 80, z: -100, r: 0, mode: 'ABS' }  
             ]);
@@ -210,7 +224,6 @@
             
             const [errors, setErrors] = useState([]);
             const [gCodeInput, setGCodeInput] = useState('');
-            // Změna: generatedCode nyní není string, ale pole objektů pro interaktivitu
             const [generatedCode, setGeneratedCode] = useState([]);
             const [activeTab, setActiveTab] = useState('editor');
             
@@ -222,10 +235,48 @@
             const lastMousePos = useRef({ x: 0, y: 0 });
             const lastPinchDist = useRef(null);
             
+            // --- HISTORY LOGIC ---
+            const pushHistory = useCallback(() => {
+                setPast(prev => [...prev, { 
+                    contour: JSON.parse(JSON.stringify(contourPoints)), 
+                    stock: JSON.parse(JSON.stringify(stockPoints)) 
+                }]);
+                setFuture([]);
+            }, [contourPoints, stockPoints]);
+
+            const undo = () => {
+                if (past.length === 0) return;
+                const previous = past[past.length - 1];
+                const newPast = past.slice(0, -1);
+                
+                setFuture(prev => [{ 
+                    contour: JSON.parse(JSON.stringify(contourPoints)), 
+                    stock: JSON.parse(JSON.stringify(stockPoints)) 
+                }, ...prev]);
+                
+                setContourPoints(previous.contour);
+                setStockPoints(previous.stock);
+                setPast(newPast);
+            };
+
+            const redo = () => {
+                if (future.length === 0) return;
+                const next = future[0];
+                const newFuture = future.slice(1);
+                
+                setPast(prev => [...prev, { 
+                    contour: JSON.parse(JSON.stringify(contourPoints)), 
+                    stock: JSON.parse(JSON.stringify(stockPoints)) 
+                }]);
+                
+                setContourPoints(next.contour);
+                setStockPoints(next.stock);
+                setFuture(newFuture);
+            };
+
             // --- LOCAL STORAGE LOGIC ---
             const STORAGE_KEY = 'sinumerik_cam_save_v1';
 
-            // 1. Load on mount
             useEffect(() => {
                 const saved = localStorage.getItem(STORAGE_KEY);
                 if (saved) {
@@ -239,27 +290,87 @@
                         console.error("Failed to load local storage:", e);
                     }
                 }
-                setIsLoaded(true); // Mark as loaded so we can start saving
+                setIsLoaded(true);
             }, []);
 
-            // 2. Save on change (only if loaded)
             useEffect(() => {
                 if (!isLoaded) return;
-                const dataToSave = {
-                    params,
-                    contourPoints,
-                    stockPoints,
-                    theme
-                };
+                const dataToSave = { params, contourPoints, stockPoints, theme };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
             }, [isLoaded, params, contourPoints, stockPoints, theme]);
 
-            // 3. Reset Function
             const handleResetApp = () => {
                 if(confirm("Opravdu chcete vymazat veškerou uloženou práci a resetovat aplikaci?")) {
                     localStorage.removeItem(STORAGE_KEY);
                     window.location.reload();
                 }
+            };
+            
+            // --- PDF EXPORT LOGIC ---
+            const handleExportPDF = () => {
+                 if (!window.jspdf) {
+                     alert("Knihovna pro PDF se ještě načítá, zkuste to za chvíli.");
+                     return;
+                 }
+
+                 const { jsPDF } = window.jspdf;
+                 const doc = new jsPDF();
+                 const noAccents = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+                 // 1. Header
+                 doc.setFontSize(20);
+                 doc.text(noAccents("Technologicky list - CAM"), 15, 20);
+                 
+                 doc.setFontSize(10);
+                 doc.text(`Datum: ${new Date().toLocaleDateString()}`, 15, 30);
+                 doc.text(noAccents(`System: ${params.controlSystem.toUpperCase()}`), 15, 35);
+                 
+                 // 2. Parameters
+                 doc.setFontSize(12);
+                 doc.text(noAccents("Parametry obrabeni:"), 15, 50);
+                 doc.setFontSize(10);
+                 let y = 60;
+                 const addParam = (label, val) => {
+                     doc.text(noAccents(`${label}: ${val}`), 20, y);
+                     y += 6;
+                 };
+                 
+                 addParam("Stroj", params.machineType);
+                 addParam("Nastroj", params.toolName);
+                 addParam("Rezna rychlost", params.speed + " m/min");
+                 addParam("Posuv", params.feed + " mm/ot");
+                 addParam("Hloubka trisky", params.depthOfCut + " mm");
+                 
+                 // 3. Image
+                 if (canvasRef.current) {
+                     const imgData = canvasRef.current.toDataURL("image/png");
+                     // A4 width is 210. Margins 15. Width available 180.
+                     const imgProps = doc.getImageProperties(imgData);
+                     const pdfWidth = 100;
+                     const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                     
+                     doc.text(noAccents("Nahled drahy:"), 100, 50);
+                     doc.addImage(imgData, 'PNG', 100, 55, pdfWidth, pdfHeight);
+                 }
+                 
+                 // 4. G-Code
+                 y = 120; 
+                 doc.setFontSize(12);
+                 doc.text("G-Code:", 15, y);
+                 y += 10;
+                 doc.setFont("courier", "normal");
+                 doc.setFontSize(9);
+                 
+                 generatedCode.forEach(lineObj => {
+                     if (y > 280) {
+                         doc.addPage();
+                         y = 20;
+                     }
+                     doc.text(noAccents(lineObj.text), 15, y);
+                     y += 5;
+                 });
+                 
+                 doc.save("CAM_Export.pdf");
             };
 
             useEffect(() => {
@@ -279,9 +390,6 @@
                 });
                 const pad = 20;
                 
-                // Adjust bounds for visibility based on orientation
-                // In Lathe: X is vertical (height), Z is horizontal (width)
-                // In Carousel: X is horizontal (width), Z is vertical (height)
                 const isCarousel = params.machineStructure === 'carousel';
                 const visWidth = isCarousel ? (maxX - minX) : (maxZ - minZ);
                 const visHeight = isCarousel ? (maxZ - minZ) : (maxX - minX);
@@ -302,12 +410,9 @@
                 const midZ = (minZ + maxZ) / 2;
                 const midX = (minX + maxX) / 2;
                 
-                // Adjust pan logic based on machine type
                 if (isCarousel) {
-                    // Carousel: X horizontal, Z vertical (up)
                     setView({ scale: newScale, panX: contW/2 - midX * newScale, panY: contH/2 + midZ * newScale });
                 } else {
-                    // Lathe: Z horizontal, X vertical (up)
                     setView({ scale: newScale, panX: contW/2 - midZ * newScale, panY: contH/2 + midX * newScale });
                 }
                 
@@ -666,85 +771,78 @@
                 const lines = []; 
                 const add = (text, simIdx = null) => lines.push({ text, simIdx });
                 
-                // Helper pro formátování komentářů podle systému
                 const cmt = (text) => {
                     if (params.controlSystem === 'fanuc') return `( ${text} )`;
                     return `; ${text}`;
                 };
                 const addCmt = (text) => add(cmt(text), null);
+                
+                // Block number counter
+                let blockNum = 10;
+                const N = () => {
+                    const s = `N${blockNum} `;
+                    blockNum += 10;
+                    return s;
+                };
+
+                // Helper for lines with block numbers
+                const addN = (text, simIdx = null) => {
+                    add(`${N()}${text}`, simIdx);
+                };
+
                 const note = (cmd, text) => ` ${cmd}${cmt(text)}`; 
 
                 // Konfigurace pro jednotlivé systémy
-                let header = [];
-                let footer = [];
                 let arcR = (r) => `CR=${r.toFixed(3)}`; // Default Sinumerik
 
                 if (params.controlSystem === 'sinumerik') {
-                    header = [
-                        cmt(`Vygenerovaný kód SINUMERIK 840D`),
-                        cmt(`Datum: ${d.toLocaleDateString()}`),
-                        `G18${note('', 'Rovina ZX')}`,
-                        `G90${note('', 'Absolutní programování')}`,
-                        `G54${note('', 'Posunutí počátku')}`,
-                        `G95${note('', 'Posuv na otáčku')}`,
-                        `G75 Z0${note('', 'Nájezd do ref. bodu')}`,
-                        `G75 X0`,
-                        `LIMS=2000${note('', 'Limit otáček')}`,
-                        `G96 S${params.speed} ${params.machineType}${note('', 'Konst. řezná rychlost')}`,
-                        `${params.mode}`,
-                        `T="${params.toolName}" D1 M6${note('', 'Výměna nástroje')}`,
-                        `M3${note('', 'Vřeteno CW')}`,
-                        `M8${note('', 'Chlazení ZAP')}`
-                    ];
-                    footer = [`M30${note('', 'Konec programu')}`];
+                    addCmt(`Vygenerovaný kód SINUMERIK 840D`);
+                    addCmt(`Datum: ${d.toLocaleDateString()}`);
+                    addN(`G18${note('', 'Rovina ZX')}`);
+                    addN(`G90${note('', 'Absolutní programování')}`);
+                    addN(`G54${note('', 'Posunutí počátku')}`);
+                    addN(`G95${note('', 'Posuv na otáčku')}`);
+                    addN(`G75 Z0${note('', 'Nájezd do ref. bodu')}`);
+                    addN(`G75 X0`);
+                    addN(`LIMS=2000${note('', 'Limit otáček')}`);
+                    addN(`G96 S${params.speed} ${params.machineType}${note('', 'Konst. řezná rychlost')}`);
+                    
+                    const diamNote = params.mode === 'DIAMON' ? 'Programování průměru' : 'Programování poloměru';
+                    addN(`${params.mode}${note('', diamNote)}`);
+
+                    addN(`T="${params.toolName}" D1 M6${note('', 'Výměna nástroje')}`);
+                    addN(`M3${note('', 'Vřeteno CW')}`);
+                    addN(`M8${note('', 'Chlazení ZAP')}`);
+
                     arcR = (r) => `CR=${r.toFixed(3)}`;
                 } else if (params.controlSystem === 'fanuc') {
-                    header = [
-                        cmt(`Vygenerovaný kód FANUC`),
-                        cmt(`Datum: ${d.toLocaleDateString()}`),
-                        `G21${note('', 'Metrický vstup')}`,
-                        `G40${note('', 'Zrušení kompenzace')}`,
-                        `G99${note('', 'Posuv mm/ot')}`,
-                        `G18${note('', 'Rovina ZX')}`,
-                        `G28 U0 W0${note('', 'Referenční bod')}`,
-                        `G50 S2000${note('', 'Max otáčky')}`,
-                        `G96 S${params.speed} M3${note('', 'Konst. řezná rychlost')}`,
-                        `T0101${note('', 'Nástroj 1 / Korekce 1')}`,
-                        `M8${note('', 'Chlazení ZAP')}`
-                    ];
-                    footer = [
-                        `M9`,
-                        `M5`,
-                        `G28 U0 W0`,
-                        `M30${note('', 'Konec programu')}`
-                    ];
+                    addCmt(`Vygenerovaný kód FANUC`);
+                    addCmt(`Datum: ${d.toLocaleDateString()}`);
+                    addN(`G21${note('', 'Metrický vstup')}`);
+                    addN(`G40${note('', 'Zrušení kompenzace')}`);
+                    addN(`G99${note('', 'Posuv mm/ot')}`);
+                    addN(`G18${note('', 'Rovina ZX')}`);
+                    addN(`G28 U0 W0${note('', 'Referenční bod')}`);
+                    addN(`G50 S2000${note('', 'Max otáčky')}`);
+                    addN(`G96 S${params.speed} M3${note('', 'Konst. řezná rychlost')}`);
+                    addN(`T0101${note('', 'Nástroj 1 / Korekce 1')}`);
+                    addN(`M8${note('', 'Chlazení ZAP')}`);
                     arcR = (r) => `R${r.toFixed(3)}`;
                 } else if (params.controlSystem === 'heidenhain') {
-                    // Heidenhain ISO formát (často velmi podobný Fanuc/ISO, ale s jinými cykly - zde generujeme čisté dráhy)
-                    header = [
-                        cmt(`Vygenerovaný kód HEIDENHAIN ISO`),
-                        cmt(`Datum: ${d.toLocaleDateString()}`),
-                        `G18${note('', 'Rovina ZX')}`,
-                        `G90${note('', 'Absolutní')}`,
-                        `G71${note('', 'Metrický systém')}`,
-                        `G54${note('', 'Nulový bod')}`,
-                        `G96 S${params.speed} M3${note('', 'Řezná rychlost')}`,
-                        `T1 M6${note('', 'Nástroj')}`,
-                        `M8`
-                    ];
-                    footer = [
-                        `M9`,
-                        `M5`,
-                        `M30`
-                    ];
+                    addCmt(`Vygenerovaný kód HEIDENHAIN ISO`);
+                    addCmt(`Datum: ${d.toLocaleDateString()}`);
+                    addN(`G18${note('', 'Rovina ZX')}`);
+                    addN(`G90${note('', 'Absolutní')}`);
+                    addN(`G71${note('', 'Metrický systém')}`);
+                    addN(`G54${note('', 'Nulový bod')}`);
+                    addN(`G96 S${params.speed} M3${note('', 'Řezná rychlost')}`);
+                    addN(`T1 M6${note('', 'Nástroj')}`);
+                    addN(`M8`);
                     arcR = (r) => `R${r.toFixed(3)}`;
                 }
-
-                // Generování
-                header.forEach(line => add(line));
                 
                 let simCounter = 0; 
-                add(`G0 X${params.safeX} Z${params.safeZ}${note('', 'Rychloposuv')}`, 0); 
+                addN(`G0 X${params.safeX} Z${params.safeZ}${note('', 'Rychloposuv')}`, 0); 
 
                 const rDist = calculatedData.retractDist || 2.0;
 
@@ -755,29 +853,29 @@
                     if (pass.type === 'long') {
                         const xVal = params.mode === 'DIAMON' ? (pass.x * 2).toFixed(3) : pass.x.toFixed(3);
                         const xRetract = params.mode === 'DIAMON' ? ((pass.x + rDist) * 2).toFixed(3) : (pass.x + rDist).toFixed(3);
-                        simCounter += 1; add(`G0 X${xRetract} Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
-                        simCounter += 1; // Depth
-                        simCounter += 1; add(`G1 X${xVal} F${params.feed}`, simCounter); 
-                        simCounter += 1; add(`G1 Z${pass.zEnd.toFixed(3)}`, simCounter);
-                        simCounter += 1; add(`G1 X${xRetract} Z${(pass.zEnd + rDist).toFixed(3)}`, simCounter);
-                        simCounter += 1; add(`G0 Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
+                        simCounter += 1; addN(`G0 X${xRetract} Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
+                        simCounter += 1; 
+                        simCounter += 1; addN(`G1 X${xVal} F${params.feed}`, simCounter); 
+                        simCounter += 1; addN(`G1 Z${pass.zEnd.toFixed(3)}`, simCounter);
+                        simCounter += 1; addN(`G1 X${xRetract} Z${(pass.zEnd + rDist).toFixed(3)}`, simCounter);
+                        simCounter += 1; addN(`G0 Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
                     } else {
                         const zVal = pass.z.toFixed(3);
                         const zRetract = (pass.z + rDist).toFixed(3);
                         const xStart = params.mode === 'DIAMON' ? (pass.xStart * 2).toFixed(3) : pass.xStart.toFixed(3);
                         const xEnd = params.mode === 'DIAMON' ? (pass.xEnd * 2).toFixed(3) : pass.xEnd.toFixed(3);
                         const xEndRetract = params.mode === 'DIAMON' ? ((pass.xEnd + rDist) * 2).toFixed(3) : (pass.xEnd + rDist).toFixed(3);
-                        simCounter += 1; add(`G0 X${xStart} Z${zRetract}`, simCounter);
-                        simCounter += 1; // Depth
-                        simCounter += 1; add(`G1 Z${zVal} F${params.feed}`, simCounter);
-                        simCounter += 1; add(`G1 X${xEnd}`, simCounter);
-                        simCounter += 1; add(`G1 X${xEndRetract} Z${zRetract}`, simCounter);
-                        simCounter += 1; add(`G0 X${xStart}`, simCounter);
+                        simCounter += 1; addN(`G0 X${xStart} Z${zRetract}`, simCounter);
+                        simCounter += 1; 
+                        simCounter += 1; addN(`G1 Z${zVal} F${params.feed}`, simCounter);
+                        simCounter += 1; addN(`G1 X${xEnd}`, simCounter);
+                        simCounter += 1; addN(`G1 X${xEndRetract} Z${zRetract}`, simCounter);
+                        simCounter += 1; addN(`G0 X${xStart}`, simCounter);
                     }
                 });
 
                 simCounter += 1;
-                add(`G0 X${params.safeX} Z${params.safeZ}`, simCounter);
+                addN(`G0 X${params.safeX} Z${params.safeZ}`, simCounter);
 
                 if (params.doFinishing && calculatedData.finishOffsetPath.length > 0) {
                     addCmt(`--- DOKONCOVANI ---`);
@@ -785,38 +883,48 @@
                     const sX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.cos(startSeg.startAngle)*startSeg.r);
                     const sZ = startSeg.type === 'line' ? startSeg.p1.z : (startSeg.cz + Math.sin(startSeg.startAngle)*startSeg.r);
                     const sX_out = params.mode === 'DIAMON' ? (sX * 2).toFixed(3) : sX.toFixed(3);
-                    simCounter += 1; add(`G0 X${sX_out} Z${sZ.toFixed(3)}`, simCounter);
-                    simCounter += 1; add(`G1 X${sX_out} Z${sZ.toFixed(3)}`, simCounter); 
+                    simCounter += 1; addN(`G0 X${sX_out} Z${sZ.toFixed(3)}`, simCounter);
+                    simCounter += 1; addN(`G1 X${sX_out} Z${sZ.toFixed(3)}`, simCounter); 
 
                     calculatedData.finishOffsetPath.forEach(seg => {
                         if (seg.type === 'line') {
                              const eX = params.mode === 'DIAMON' ? (seg.p2.x * 2).toFixed(3) : seg.p2.x.toFixed(3);
                              simCounter += 1;
-                             add(`G1 X${eX} Z${seg.p2.z.toFixed(3)}`, simCounter);
+                             addN(`G1 X${eX} Z${seg.p2.z.toFixed(3)}`, simCounter);
                         } else {
                              simCounter += 10;
                              const eX = params.mode === 'DIAMON' ? ((seg.cx + Math.cos(seg.endAngle)*seg.r) * 2).toFixed(3) : (seg.cx + Math.cos(seg.endAngle)*seg.r).toFixed(3);
                              const eZ = (seg.cz + Math.sin(seg.endAngle)*seg.r).toFixed(3);
-                             add(`${seg.dir} X${eX} Z${eZ} ${arcR(seg.r)} ${seg.isCornerRoll ? cmt('Obeplutí rohu') : ''}`, simCounter);
+                             addN(`${seg.dir} X${eX} Z${eZ} ${arcR(seg.r)} ${seg.isCornerRoll ? cmt('Obeplutí rohu') : ''}`, simCounter);
                         }
                     });
-                    simCounter += 2; // Retract
-                    add(`G0 X${params.safeX} Z${params.safeZ}`, simCounter);
+                    simCounter += 2; 
+                    addN(`G0 X${params.safeX} Z${params.safeZ}`, simCounter);
                 }
 
-                footer.forEach(line => add(line));
+                if (params.controlSystem === 'fanuc') {
+                    addN(`M9`);
+                    addN(`M5`);
+                    addN(`G28 U0 W0`);
+                    addN(`M30${note('', 'Konec programu')}`);
+                } else if (params.controlSystem === 'heidenhain') {
+                    addN(`M9`);
+                    addN(`M5`);
+                    addN(`M30`);
+                } else {
+                    addN(`M30${note('', 'Konec programu')}`);
+                }
                 
                 addCmt(`--- KONTURA (Pro referenci) ---`);
                 contourPoints.forEach(p => {
                     let line = `${p.type} X${p.x} Z${p.z}`;
                     if (p.type === 'G2' || p.type === 'G3') line += ` ${arcR(p.r)}`; 
-                    add(line);
+                    addCmt(line); // Changed to addCmt as it is reference, usually commented out or just notes
                 });
 
                 setGeneratedCode(lines);
             }, [calculatedData, params, contourPoints]);
 
-            // Handler for clicking a line
             const handleLineClick = (simIdx) => {
                 if (simIdx !== null && calculatedData.simPath.length > 0) {
                     const progress = simIdx / (calculatedData.simPath.length - 1);
@@ -824,7 +932,6 @@
                 }
             };
             
-            // --- Simulation Controls Logic ---
             const toggleSimulation = () => {
                 if (simRunning) {
                     setSimRunning(false);
@@ -841,7 +948,6 @@
                 setSimProgress(0);
             };
             
-            // Auto-scroll to active line
             useEffect(() => {
                 if (!codeContainerRef.current) return;
                 const activeEl = codeContainerRef.current.querySelector('.code-line.active');
@@ -872,67 +978,47 @@
                 ctx.fillStyle = colors.bg; ctx.fillRect(0, 0, w, h);
                 const toScreen = (x, z) => {
                     if (params.machineStructure === 'carousel') {
-                        // Carousel: X horizontal, Z vertical (up)
-                        // X is screen X (offset by panX)
-                        // Z is screen Y (offset by panY, inverted because Y+ is down)
                         return { x: view.panX + x * view.scale, y: view.panY - z * view.scale };
                     } else {
-                        // Lathe: Z horizontal, X vertical
                         return { x: view.panX + z * view.scale, y: view.panY - x * view.scale };
                     }
                 };
 
-                // Grid
                 ctx.strokeStyle = colors.grid; ctx.lineWidth = 1; ctx.beginPath();
                 
-                // Prepare text style for grid labels
                 ctx.fillStyle = theme === 'dark' ? '#6b7280' : '#9ca3af';
                 ctx.font = "10px sans-serif";
                 
                 for (let i=-500; i<=500; i+=20) {
-                     // Vertical lines (Constant Z in Lathe, Constant X in Carousel)
-                     // Lathe: toScreen(-500, i) is X=-500, Z=i. 
-                     // Carousel: toScreen(-500, i) is X=-500, Z=i.
-                     // The logic remains same because toScreen handles the swap.
                      const p1 = toScreen(-500, i); const p2 = toScreen(500, i);
                      ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
                      
-                     // Horizontal lines
                      const p3 = toScreen(i, -500); const p4 = toScreen(i, 500);
                      ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
                 }
                 ctx.stroke();
 
-                // Labels loop
                 for (let i=-500; i<=500; i+=20) {
                     if (i === 0) continue; 
 
-                    // Label for "horizontal" axis ticks (drawn near Y=0)
-                    const ptHoriz = toScreen(0, i); // Lathe: x=0, z=i (Z axis). Carousel: x=0, z=i (Z axis).
-                    // WAIT.
-                    // Lathe: Z is horizontal axis. We want ticks ON the horizontal axis (at X=0). toScreen(0, i) puts point at X=0, Z=i. Correct.
-                    // Carousel: X is horizontal axis. We want ticks ON the horizontal axis (at Z=0). toScreen(i, 0) puts point at X=i, Z=0.
+                    const ptHoriz = toScreen(0, i); 
                     
                     if (params.machineStructure === 'carousel') {
-                        // Carousel: Horizontal axis is X. 
-                        const ptX = toScreen(i, 0); // Point on X axis at value i
+                        const ptX = toScreen(i, 0); 
                         ctx.textAlign = "center"; 
                         ctx.textBaseline = "top";
                         ctx.fillText(i.toString(), ptX.x, ptX.y + 2);
 
-                        // Vertical axis is Z.
-                        const ptZ = toScreen(0, i); // Point on Z axis at value i
+                        const ptZ = toScreen(0, i); 
                         ctx.textAlign = "right"; 
                         ctx.textBaseline = "middle";
                         ctx.fillText(i.toString(), ptZ.x - 4, ptZ.y);
                     } else {
-                        // Lathe: Horizontal axis is Z.
                         const ptZ = toScreen(0, i);
                         ctx.textAlign = "center"; 
                         ctx.textBaseline = "top";
                         ctx.fillText(i.toString(), ptZ.x, ptZ.y + 2);
 
-                        // Vertical axis is X.
                         const ptX = toScreen(i, 0);
                         ctx.textAlign = "right"; 
                         ctx.textBaseline = "middle";
@@ -940,7 +1026,6 @@
                     }
                 }
 
-                // Axis
                 const zero = toScreen(0,0);
                 ctx.strokeStyle = colors.axis; ctx.lineWidth = 2; ctx.beginPath();
                 ctx.moveTo(0, zero.y); ctx.lineTo(w, zero.y);
@@ -950,17 +1035,14 @@
                 ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
                 
                 if (params.machineStructure === 'carousel') {
-                    // Carousel: X horizontal, Z vertical
                     ctx.fillText("X+", w - 20, zero.y + 15); 
                     ctx.fillText("Z+", zero.x + 10, 15);
                 } else {
-                    // Lathe: Z horizontal, X vertical
                     ctx.fillText("Z+", w - 20, zero.y + 15); 
                     ctx.fillText("X+", zero.x + 10, 15);
                 }
                 ctx.fillText("X0 Z0", zero.x + 4, zero.y - 4); 
 
-                // Stock Visual
                 if (params.stockMode === 'cylinder') {
                     const sRad = (parseFloat(params.stockDiameter) || 0)/2;
                     const sLen = parseFloat(params.stockLength) || 0;
@@ -983,32 +1065,7 @@
                             ctx.lineTo(p2.x, p2.y);
                         } else if (seg.type === 'arc') {
                              const c = toScreen(seg.cx, seg.cz);
-                             const sa_scr = -seg.startAngle; // Rotation needs care if axes swapped?
-                             // Standard rotation is CCW from +X. 
-                             // Lathe: +Z is Horizontal. +X is Vertical. Atan2(x, z) gives angle from Z axis. 
-                             // Carousel: +X is Horizontal. +Z is Vertical. Atan2(z, x) ??
-                             // Actually, let's keep abstract angles.
-                             // But canvas arc draws from +ScreenX axis.
-                             // Lathe: ScreenX is Z. ScreenY is -X. 
-                             // Carousel: ScreenX is X. ScreenY is -Z.
-                             
-                             // The segments are computed in "Real" coords (Lathe logic).
-                             // We just want to map points.
-                             // For arcs, it's safer to draw small line segments if we want perfect mapping, but let's try arc mapping.
-                             // Angle in calculatedData is Atan2(x - cx, z - cz). (Lathe logic: x is vertical, z is horizontal).
-                             // Canvas expects angle from Screen X.
-                             // Lathe: Screen X = Z. Screen Y = -X.
-                             // Angle = Atan2(screenY, screenX) = Atan2(-x, z).
-                             // Our calculated angle is Atan2(x, z). So canvas angle = -calculatedAngle.
-                             
-                             // Carousel: Screen X = X. Screen Y = -Z.
-                             // Canvas Angle = Atan2(-z, x).
-                             // Our calculated angle is Atan2(x, z).
-                             // They are related but different (90 deg shift + flip).
-                             
-                             // To avoid complexity with arc orientation on axis swap, let's draw arcs as line segments for visual consistency in 'draw'.
-                             // Re-using the logic from 'finishing simulation' drawing which discretizes arcs.
-                             
+                             const sa_scr = -seg.startAngle; 
                              const steps = 15;
                              let sA = seg.startAngle;
                              let eA = seg.endAngle;
@@ -1017,12 +1074,11 @@
                              
                              for(let j=0; j<=steps; j++) {
                                  const a = sA + (eA - sA) * (j/steps);
-                                 // Point in machine coords
                                  const px = seg.cx + Math.sin(a) * seg.r;
                                  const pz = seg.cz + Math.cos(a) * seg.r;
                                  const pt = toScreen(px, pz);
                                  if (j === 0 && i === 0) ctx.moveTo(pt.x, pt.y);
-                                 else if (j===0) ctx.moveTo(pt.x, pt.y); // if segment start
+                                 else if (j===0) ctx.moveTo(pt.x, pt.y); 
                                  else ctx.lineTo(pt.x, pt.y);
                              }
                         }
@@ -1030,7 +1086,6 @@
                     ctx.strokeStyle = colors.stock; ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
                 }
 
-                // Contour
                 if (calculatedData.worldPoints.length > 0) {
                     ctx.beginPath();
                     const start = toScreen(calculatedData.worldPoints[0].xReal, calculatedData.worldPoints[0].zReal);
@@ -1045,17 +1100,12 @@
                         } else if (p2.type === 'G2' || p2.type === 'G3') {
                             const arc = getArcParams({x:p1.xReal, z:p1.zReal}, {x:p2.xReal, z:p2.zReal}, p2.rVal, p2.type);
                             if (!arc.error) {
-                                // Draw arc as segments to handle axis swap easily
                                 const p1Ang = Math.atan2(p1.xReal - arc.cx, p1.zReal - arc.cz);
                                 const p2Ang = Math.atan2(p2.xReal - arc.cx, p2.zReal - arc.cz);
                                 let sA = p1Ang;
                                 let eA = p2Ang;
                                 if (p2.type === 'G2' && eA > sA) eA -= 2*Math.PI;
                                 if (p2.type === 'G3' && eA < sA) eA += 2*Math.PI;
-                                // Handle full circles or large arcs if needed, but simple G2/G3 usually < 360
-                                if (Math.abs(eA - sA) < 1e-4) {
-                                     // Full circle logic if needed, but for contour usually not case here
-                                }
                                 
                                 const steps = 20;
                                 for(let j=1; j<=steps; j++) {
@@ -1073,7 +1123,6 @@
                     ctx.strokeStyle = colors.contour; ctx.lineWidth = 3; ctx.stroke();
                 }
 
-                // Offset
                 if (calculatedData.offsetPath.length > 0) {
                     ctx.beginPath();
                     calculatedData.offsetPath.forEach((seg, i) => {
@@ -1100,7 +1149,6 @@
                     ctx.strokeStyle = colors.offset; ctx.lineWidth = 1; ctx.setLineDash([2,2]); ctx.stroke(); ctx.setLineDash([]);
                 }
                 
-                // Finish Path
                 if (params.doFinishing && calculatedData.finishOffsetPath.length > 0) {
                     ctx.beginPath();
                     calculatedData.finishOffsetPath.forEach((seg, i) => {
@@ -1127,7 +1175,6 @@
                     ctx.strokeStyle = colors.finish; ctx.lineWidth = 2; ctx.stroke();
                 }
 
-                // Passes
                 ctx.beginPath();
                 calculatedData.passes.forEach(pass => {
                     if (pass.type === 'long') {
@@ -1170,19 +1217,17 @@
                         const curZ = pCurrent.z + (pNext.z - pCurrent.z) * t;
                         const pt = toScreen(curX, curZ);
                         
-                        // NEW: Circle tool representation
                         const tRad = parseFloat(params.toolRadius) || 0.8;
-                        const rPix = tRad * view.scale; // Scale to screen pixels
+                        const rPix = tRad * view.scale; 
 
-                        ctx.fillStyle = colors.tool; // color defined above (yellow/gold)
+                        ctx.fillStyle = colors.tool; 
                         ctx.beginPath();
                         ctx.arc(pt.x, pt.y, rPix, 0, Math.PI * 2);
                         ctx.fill();
-                        ctx.strokeStyle = theme === 'dark' ? '#000' : '#000'; // Keep black border for contrast
+                        ctx.strokeStyle = theme === 'dark' ? '#000' : '#000'; 
                         ctx.lineWidth = 1;
                         ctx.stroke();
                         
-                        // Optional: Small dot in center to indicate the path line
                         ctx.fillStyle = 'black';
                         ctx.beginPath();
                         ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2);
@@ -1197,15 +1242,29 @@
                         activePoints.forEach((p, i) => {
                             if (!p) return;
                             const pt = toScreen(p.xReal, p.zReal);
+                            
+                            const isHovered = (i === hoverPointId);
+                            const isDragged = (i === draggedPointId);
+                            const radius = (isHovered || isDragged) ? 8 : 4; 
+
                             ctx.fillStyle = editMode === 'contour' ? colors.contour : colors.pass;
-                            ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2); ctx.fill();
-                            const label = `${i+1}`; const tx = pt.x + 8; const ty = pt.y - 8;
-                            ctx.fillStyle = theme === 'dark' ? '#fbbf24' : '#d97706'; ctx.fillText(label, tx, ty);
+                            if (isHovered || isDragged) ctx.fillStyle = '#f59e0b'; 
+
+                            ctx.beginPath(); 
+                            ctx.arc(pt.x, pt.y, radius, 0, Math.PI*2); 
+                            ctx.fill();
+                            
+                            if (!isHovered && !isDragged) {
+                                const label = `${i+1}`; 
+                                const tx = pt.x + 8; const ty = pt.y - 8;
+                                ctx.fillStyle = theme === 'dark' ? '#fbbf24' : '#d97706'; 
+                                ctx.fillText(label, tx, ty);
+                            }
                         });
                     }
                 }
 
-            }, [calculatedData, view, theme, params, editMode, mobileTab, simRunning, simProgress]);
+            }, [calculatedData, view, theme, params, editMode, mobileTab, simRunning, simProgress, draggedPointId, hoverPointId]);
 
             useEffect(() => {
                 if (!containerRef.current || !canvasRef.current) return;
@@ -1214,21 +1273,146 @@
                 return () => resizeObserver.disconnect();
             }, [draw]);
 
-            // Handlers ... (same)
             const handleWheel = (e) => { const s = Math.max(0.2, Math.min(view.scale * (1 - Math.sign(e.deltaY)*0.15), 50)); setView(v => ({...v, scale: s})); };
-            const handleMouseDown = (e) => { setIsDragging(true); lastMousePos.current = { x: e.clientX, y: e.clientY }; };
-            const handleMouseMove = (e) => {
-                if (!isDragging) return;
-                const dx = e.clientX - lastMousePos.current.x; const dy = e.clientY - lastMousePos.current.y;
-                setView(v => ({ ...v, panX: v.panX + dx, panY: v.panY + dy }));
-                lastMousePos.current = { x: e.clientX, y: e.clientY };
+            
+            const getPointAt = (clientX, clientY) => {
+                if (!canvasRef.current || simRunning) return null;
+                const rect = canvasRef.current.getBoundingClientRect();
+                const x = clientX - rect.left;
+                const y = clientY - rect.top;
+                
+                const activePoints = editMode === 'contour' ? calculatedData.worldPoints : calculatedData.stockWorldPoints;
+                if (!activePoints) return null;
+
+                const threshold = 15; 
+
+                const toScreen = (xReal, zReal) => {
+                     if (params.machineStructure === 'carousel') {
+                        return { x: view.panX + xReal * view.scale, y: view.panY - zReal * view.scale };
+                    } else {
+                        return { x: view.panX + zReal * view.scale, y: view.panY - xReal * view.scale };
+                    }
+                };
+
+                for (let i = 0; i < activePoints.length; i++) {
+                    const p = activePoints[i];
+                    if (!p) continue;
+                    const pt = toScreen(p.xReal, p.zReal);
+                    const d = Math.hypot(pt.x - x, pt.y - y);
+                    if (d < threshold) return i;
+                }
+                return null;
             };
-            const handleMouseUp = () => setIsDragging(false);
+
+            const handleInsertAfter = (index) => {
+                 pushHistory();
+                 const list = editMode === 'contour' ? contourPoints : stockPoints; 
+                 const setList = editMode === 'contour' ? setContourPoints : setStockPoints; 
+                 const prev = list[index]; 
+                 const newPoint = { ...prev, id: Date.now(), z: parseFloat(prev.z) - 5 }; 
+                 const newList = [...list]; 
+                 newList.splice(index + 1, 0, newPoint); 
+                 setList(newList);
+                 
+                 setActiveTab('editor');
+                 setMobileTab('editor');
+            };
+
+            const handleMouseDown = (e) => { 
+                const pointIdx = getPointAt(e.clientX, e.clientY);
+                
+                if (addPointMode) {
+                    if (pointIdx !== null) {
+                        handleInsertAfter(pointIdx);
+                        setAddPointMode(false); 
+                    }
+                    return; 
+                }
+
+                if (pointIdx !== null) {
+                    pushHistory(); 
+                    setDraggedPointId(pointIdx);
+                    setIsDragging(true); 
+                } else {
+                    setIsDragging(true); 
+                }
+                lastMousePos.current = { x: e.clientX, y: e.clientY }; 
+            };
+
+            const handleMouseMove = (e) => {
+                const pointIdx = getPointAt(e.clientX, e.clientY);
+                
+                if (addPointMode) {
+                    if (canvasRef.current) canvasRef.current.style.cursor = pointIdx !== null ? 'pointer' : 'copy'; 
+                    setHoverPointId(pointIdx);
+                    return; 
+                }
+
+                if (!isDragging) {
+                    setHoverPointId(pointIdx);
+                    if (canvasRef.current) canvasRef.current.style.cursor = pointIdx !== null ? 'move' : 'crosshair';
+                }
+
+                if (!isDragging) return;
+
+                const dx = e.clientX - lastMousePos.current.x; 
+                const dy = e.clientY - lastMousePos.current.y;
+                lastMousePos.current = { x: e.clientX, y: e.clientY };
+
+                if (draggedPointId !== null) {
+                    let dX_unit = 0;
+                    let dZ_unit = 0;
+
+                    if (params.machineStructure === 'carousel') {
+                        dX_unit = dx / view.scale;
+                        dZ_unit = -dy / view.scale;
+                    } else {
+                        dZ_unit = dx / view.scale;
+                        dX_unit = -dy / view.scale; 
+                    }
+
+                    const setList = editMode === 'contour' ? setContourPoints : setStockPoints;
+                    
+                    setList(prev => {
+                        const newList = [...prev];
+                        const pt = {...newList[draggedPointId]};
+                        pt.x = parseFloat(pt.x) + dX_unit;
+                        pt.z = parseFloat(pt.z) + dZ_unit;
+                        newList[draggedPointId] = pt;
+                        return newList;
+                    });
+
+                } else {
+                    setView(v => ({ ...v, panX: v.panX + dx, panY: v.panY + dy }));
+                }
+            };
+            
+            const handleMouseUp = () => {
+                 setIsDragging(false);
+                 setDraggedPointId(null);
+            };
 
             const handleTouchStart = (e) => {
                 if (e.touches.length === 1) {
-                    setIsDragging(true);
-                    lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    const t = e.touches[0];
+                    const pointIdx = getPointAt(t.clientX, t.clientY);
+
+                    if (addPointMode) {
+                        if (pointIdx !== null) {
+                            handleInsertAfter(pointIdx);
+                            setAddPointMode(false);
+                        }
+                        return;
+                    }
+
+                    if (pointIdx !== null) {
+                         pushHistory();
+                         setDraggedPointId(pointIdx);
+                         setIsDragging(true);
+                    } else {
+                         setIsDragging(true);
+                    }
+                    lastMousePos.current = { x: t.clientX, y: t.clientY };
                 } else if (e.touches.length === 2) {
                     const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
                     lastPinchDist.current = dist;
@@ -1236,11 +1420,33 @@
             };
 
             const handleTouchMove = (e) => {
+                if (addPointMode) return; 
+
                 if (isDragging && e.touches.length === 1) {
-                    const dx = e.touches[0].clientX - lastMousePos.current.x;
-                    const dy = e.touches[0].clientY - lastMousePos.current.y;
-                    setView(v => ({ ...v, panX: v.panX + dx, panY: v.panY + dy }));
-                    lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    const t = e.touches[0];
+                    const dx = t.clientX - lastMousePos.current.x;
+                    const dy = t.clientY - lastMousePos.current.y;
+                    lastMousePos.current = { x: t.clientX, y: t.clientY };
+
+                    if (draggedPointId !== null) {
+                         let dX_unit = 0; let dZ_unit = 0;
+                         if (params.machineStructure === 'carousel') {
+                            dX_unit = dx / view.scale; dZ_unit = -dy / view.scale;
+                         } else {
+                            dZ_unit = dx / view.scale; dX_unit = -dy / view.scale; 
+                         }
+                         const setList = editMode === 'contour' ? setContourPoints : setStockPoints;
+                         setList(prev => {
+                            const newList = [...prev];
+                            const pt = {...newList[draggedPointId]};
+                            pt.x = parseFloat(pt.x) + dX_unit;
+                            pt.z = parseFloat(pt.z) + dZ_unit;
+                            newList[draggedPointId] = pt;
+                            return newList;
+                        });
+                    } else {
+                        setView(v => ({ ...v, panX: v.panX + dx, panY: v.panY + dy }));
+                    }
                 }
                 if (e.touches.length === 2 && lastPinchDist.current) {
                     const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -1252,10 +1458,12 @@
 
             const handleTouchEnd = () => {
                 setIsDragging(false);
+                setDraggedPointId(null);
                 lastPinchDist.current = null;
             };
 
             const processGCodeString = (text) => {
+                pushHistory();
                 const lines = text.split('\n'); const newPoints = []; let currentType = 'G1'; let idCounter = Date.now(); let lastX = 100; let lastZ = 0;
                 lines.forEach(line => {
                     const clean = line.toUpperCase().trim(); if (!clean || clean.startsWith(';')) return;
@@ -1275,14 +1483,46 @@
             const parseGCode = () => processGCodeString(gCodeInput);
             const handleCopyGCode = () => { /* ... same ... */ };
             const handleDownload = () => { /* ... same ... */ };
-            const toggleMode = (id) => { /* ... same ... */ };
+            
+            const toggleMode = (id) => { 
+                pushHistory();
+                const setList = editMode === 'contour' ? setContourPoints : setStockPoints;
+                setList(prev => prev.map(p => p.id===id ? {...p, mode: p.mode==='ABS'?'INC':'ABS'} : p));
+            };
+            
             const updatePoint = (id, f, v) => {
+                pushHistory();
                 const setList = editMode === 'contour' ? setContourPoints : setStockPoints;
                 setList(prev => prev.map(p => p.id===id ? {...p, [f]: v} : p));
             };
-            const addPoint = () => { const list = editMode === 'contour' ? contourPoints : stockPoints; const setList = editMode === 'contour' ? setContourPoints : setStockPoints; const last = list.length > 0 ? list[list.length - 1] : { x: 100, z: 0 }; setList([...list, {id: Date.now(), type:'G1', x:last.x, z: parseFloat(last.z)-10, r:0, mode: 'ABS'}]); };
-            const insertPoint = (index) => { const list = editMode === 'contour' ? contourPoints : stockPoints; const setList = editMode === 'contour' ? setContourPoints : setStockPoints; const prev = list[index]; const newPoint = { ...prev, id: Date.now(), z: parseFloat(prev.z) - 5 }; const newList = [...list]; newList.splice(index + 1, 0, newPoint); setList(newList); };
-            const removePoint = (id) => { const list = editMode === 'contour' ? contourPoints : stockPoints; const setList = editMode === 'contour' ? setContourPoints : setStockPoints; if (list.length > 1) setList(list.filter(p=>p.id!==id)); };
+            
+            const addPoint = () => { 
+                pushHistory();
+                const list = editMode === 'contour' ? contourPoints : stockPoints; 
+                const setList = editMode === 'contour' ? setContourPoints : setStockPoints; 
+                const last = list.length > 0 ? list[list.length - 1] : { x: 100, z: 0 }; 
+                setList([...list, {id: Date.now(), type:'G1', x:last.x, z: parseFloat(last.z)-10, r:0, mode: 'ABS'}]); 
+            };
+            
+            const insertPoint = (index) => { 
+                pushHistory();
+                const list = editMode === 'contour' ? contourPoints : stockPoints; 
+                const setList = editMode === 'contour' ? setContourPoints : setStockPoints; 
+                const prev = list[index]; 
+                const newPoint = { ...prev, id: Date.now(), z: parseFloat(prev.z) - 5 }; 
+                const newList = [...list]; newList.splice(index + 1, 0, newPoint); 
+                setList(newList); 
+            };
+            
+            const removePoint = (id) => { 
+                const list = editMode === 'contour' ? contourPoints : stockPoints; 
+                const setList = editMode === 'contour' ? setContourPoints : setStockPoints; 
+                if (list.length > 1) {
+                    pushHistory();
+                    setList(list.filter(p=>p.id!==id)); 
+                }
+            };
+            
             const currentPoints = editMode === 'contour' ? contourPoints : stockPoints;
 
             // Helper to check if a line is "active" based on simulation progress
@@ -1309,7 +1549,13 @@
                 <div className="flex flex-col md:flex-row h-full">
                     <div className={`${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex w-full md:w-96 flex-col border-r shadow-xl z-10 h-full overflow-hidden ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                         <div className={`p-4 border-b flex justify-between items-center ${theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
-                            <h1 className="font-bold text-lg text-blue-500">Sinumerik CAM <span className="text-xs text-gray-400 font-normal">v1.4</span></h1>
+                            <div className="flex items-center gap-2">
+                                <h1 className="font-bold text-lg text-blue-500">Sinumerik CAM <span className="text-xs text-gray-400 font-normal">v1.5</span></h1>
+                                <div className="flex gap-1 ml-2">
+                                    <button onClick={undo} disabled={past.length===0} className={`p-1 rounded ${past.length===0 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700'}`} title="Zpět"><IconUndo /></button>
+                                    <button onClick={redo} disabled={future.length===0} className={`p-1 rounded ${future.length===0 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700'}`} title="Vpřed"><IconRedo /></button>
+                                </div>
+                            </div>
                             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded hover:bg-gray-700 hover:text-white transition-colors">
                                 {theme === 'light' ? <IconMoon /> : <IconSun />}
                             </button>
@@ -1361,6 +1607,7 @@
                                         <button onClick={addPoint} className={`col-span-2 py-2 text-white rounded text-sm font-bold flex justify-center items-center gap-2 ${editMode==='stock'?'bg-green-600 hover:bg-green-500':'bg-blue-600 hover:bg-blue-500'}`}><IconPlus /> Přidat bod</button>
                                         <button onClick={handleCopyGCode} className={`py-2 text-white rounded text-sm font-bold flex justify-center items-center gap-2 transition-all ${copyFeedback ? 'bg-green-600' : 'bg-gray-600 hover:bg-gray-500'}`}><IconClipboard /> {copyFeedback ? "Zkopírováno" : "Kopírovat"}</button>
                                         <button onClick={handleDownload} className="py-2 text-white rounded text-sm font-bold flex justify-center items-center gap-2 bg-purple-600 hover:bg-purple-500"><IconDownload /> Uložit MPF</button>
+                                        <button onClick={handleExportPDF} className="py-2 text-white rounded text-sm font-bold flex justify-center items-center gap-2 bg-indigo-600 hover:bg-indigo-500"><IconFileText /> Export PDF</button>
                                     </div>
                                 </div>
                             )}
@@ -1447,6 +1694,17 @@
                                 </button>
                                 <button onClick={stopSimulation} className="p-1 rounded hover:bg-red-100 text-gray-600" title="Stop"><IconStop /></button>
                             </div>
+                            
+                            <div className="bg-white p-1 rounded shadow flex gap-1 items-center">
+                                <button 
+                                    onClick={() => setAddPointMode(!addPointMode)} 
+                                    className={`p-1 rounded hover:bg-blue-100 ${addPointMode ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`} 
+                                    title="Vložit za bod"
+                                >
+                                    <IconPlusCircle />
+                                </button>
+                            </div>
+
                             <button onClick={fitView} className="bg-white p-2 rounded shadow text-gray-700 hover:text-blue-600" title="Centrovat pohled"><IconTarget /></button>
                         </div>
                         <div ref={containerRef} className={`flex-1 overflow-hidden relative canvas-container`}
