@@ -65,6 +65,10 @@
         const IconRedo = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"></path></svg>;
         const IconFileText = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
         const IconPlusCircle = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
+        
+        // Shape Icons for Buttons
+        const IconShapeCircle = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="10"/></svg>;
+        const IconShapePolygon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M3 3h18v18H3z"/></svg>;
 
         // --- COMPONENTS ---
         
@@ -196,7 +200,11 @@
                 safeX: 150,
                 safeZ: 5,
                 machineStructure: 'lathe', 
-                controlSystem: 'sinumerik'
+                controlSystem: 'sinumerik',
+                toolShape: 'round', // 'round' | 'polygon'
+                toolLength: 10,
+                toolAngle: 15, // 15 deg default
+                toolTipAngle: 90 // Default 90 (Square)
             });
 
             const [contourPoints, setContourPoints] = useState([
@@ -486,92 +494,78 @@
                         if (rNew < 0) { rNew = 0.001; incompleteMachiningCount++; }
                         const startAngle = Math.atan2(seg.p1.x - seg.cx, seg.p1.z - seg.cz);
                         const endAngle = Math.atan2(seg.p2.x - seg.cx, seg.p2.z - seg.cz);
-                        offSeg = { type: 'arc', cx: seg.cx, cz: seg.cz, r: rNew, dir: seg.dir, refP1: seg.p1, refP2: seg.p2, startAngle, endAngle };
+                        offSeg = { type: 'arc', cx: seg.cx, cz: seg.cz, r: rNew, dir: seg.dir, refP1: seg.p1, refP2: seg.p2, startAngle, endAngle, dir: seg.dir };
                     }
                     if (offSeg) offsetPath.push(offSeg);
                 }
                 if (incompleteMachiningCount > 0) foundErrors.push({ type: 'warning', msg: `POZNÁMKA: V ${incompleteMachiningCount} místech nedojde ke kompletnímu obrobení.` });
 
                 if (params.doFinishing) {
+                    // 1. Generate Raw Offset Segments
+                    let rawOffsets = [];
                     for (let i = 0; i < contourSegments.length; i++) {
                         const seg = contourSegments[i];
-                        let offSeg = null;
-
                         if (seg.type === 'line') {
                             const n = getNormal(seg.p1, seg.p2);
-                            offSeg = { type: 'line', p1: { x: seg.p1.x + n.x * tipR, z: seg.p1.z + n.z * tipR }, p2: { x: seg.p2.x + n.x * tipR, z: seg.p2.z + n.z * tipR } };
+                            rawOffsets.push({ type: 'line', p1: { x: seg.p1.x + n.x * tipR, z: seg.p1.z + n.z * tipR }, p2: { x: seg.p2.x + n.x * tipR, z: seg.p2.z + n.z * tipR } });
                         } else if (seg.type === 'arc') {
                             let rNew = (seg.dir === 'G3') ? seg.r + tipR : seg.r - tipR;
                             if (rNew < 0) rNew = 0.001;
                             const startAngle = Math.atan2(seg.p1.x - seg.cx, seg.p1.z - seg.cz);
                             const endAngle = Math.atan2(seg.p2.x - seg.cx, seg.p2.z - seg.cz);
-                            offSeg = { type: 'arc', cx: seg.cx, cz: seg.cz, r: rNew, dir: seg.dir, refP1: seg.p1, refP2: seg.p2, startAngle, endAngle };
+                            rawOffsets.push({ type: 'arc', cx: seg.cx, cz: seg.cz, r: rNew, dir: seg.dir, refP1: seg.p1, refP2: seg.p2, startAngle, endAngle });
                         }
+                    }
 
-                        if (offSeg) {
-                            if (finishOffsetPath.length > 0) {
-                                let prevOff = finishOffsetPath[finishOffsetPath.length - 1];
-                                
-                                let prevEnd = {x:0, z:0};
-                                if (prevOff.type === 'line') prevEnd = prevOff.p2;
-                                else prevEnd = { x: prevOff.cx + Math.cos(prevOff.endAngle) * prevOff.r, z: prevOff.cz + Math.sin(prevOff.endAngle) * prevOff.r };
+                    // 2. Connect Segments with Robust Corner Logic
+                    if (rawOffsets.length > 0) {
+                        // Push first segment directly
+                        finishOffsetPath.push(JSON.parse(JSON.stringify(rawOffsets[0])));
+                        
+                        for (let i = 0; i < rawOffsets.length - 1; i++) {
+                            // We need to modify the END of the LAST segment in finishOffsetPath
+                            // And modify the START of the NEXT segment (rawOffsets[i+1])
+                            
+                            let prevOff = finishOffsetPath[finishOffsetPath.length - 1]; 
+                            let nextOff = JSON.parse(JSON.stringify(rawOffsets[i+1])); 
 
-                                let currStart = {x:0, z:0};
-                                if (offSeg.type === 'line') currStart = offSeg.p1;
-                                else currStart = { x: offSeg.cx + Math.cos(offSeg.startAngle) * offSeg.r, z: offSeg.cz + Math.sin(offSeg.startAngle) * offSeg.r };
-
-                                const distGap = Math.hypot(currStart.x - prevEnd.x, currStart.z - prevEnd.z);
-                                
-                                let intersection = null;
-                                if (prevOff.type === 'line' && offSeg.type === 'line') {
-                                    intersection = intersectLines(prevOff.p1, prevOff.p2, offSeg.p1, offSeg.p2);
+                            const v1End   = contourSegments[i].p2;
+                            
+                            let intersection = null;
+                            // Calculate intersection regardless
+                            if (prevOff.type === 'line' && nextOff.type === 'line') {
+                                intersection = intersectLines(prevOff.p1, prevOff.p2, nextOff.p1, nextOff.p2);
+                            } else if (prevOff.type === 'line' && nextOff.type === 'arc') {
+                                const ints = intersectLineCircle(prevOff.p1, prevOff.p2, {x:nextOff.cx, z:nextOff.cz}, nextOff.r);
+                                if (ints) {
+                                    const d1 = Math.hypot(ints[0].x - v1End.x, ints[0].z - v1End.z);
+                                    const d2 = Math.hypot(ints[1].x - v1End.x, ints[1].z - v1End.z);
+                                    intersection = d1 < d2 ? ints[0] : ints[1];
                                 }
-                                else if (prevOff.type === 'line' && offSeg.type === 'arc') {
-                                    const intersects = intersectLineCircle(prevOff.p1, prevOff.p2, {x:offSeg.cx, z:offSeg.cz}, offSeg.r);
-                                    if(intersects) {
-                                        const d1 = Math.hypot(intersects[0].x - prevEnd.x, intersects[0].z - prevEnd.z);
-                                        const d2 = Math.hypot(intersects[1].x - prevEnd.x, intersects[1].z - prevEnd.z);
-                                        intersection = d1 < d2 ? intersects[0] : intersects[1];
-                                    }
-                                }
-                                else if (prevOff.type === 'arc' && offSeg.type === 'line') {
-                                    const intersects = intersectLineCircle(offSeg.p1, offSeg.p2, {x:prevOff.cx, z:prevOff.cz}, prevOff.r);
-                                    if(intersects) {
-                                        const d1 = Math.hypot(intersects[0].x - currStart.x, intersects[0].z - currStart.z);
-                                        const d2 = Math.hypot(intersects[1].x - currStart.x, intersects[1].z - currStart.z);
-                                        intersection = d1 < d2 ? intersects[0] : intersects[1];
-                                    }
-                                }
-
-                                if (intersection && distGap > 0.001) {
-                                    const distPrevStartToI = Math.hypot(intersection.x - (prevOff.type==='line'?prevOff.p1.x:prevOff.cx), intersection.z - (prevOff.type==='line'?prevOff.p1.z:prevOff.cz)); 
-                                    const distPrevStartToEnd = Math.hypot(prevEnd.x - (prevOff.type==='line'?prevOff.p1.x:prevOff.cx), prevEnd.z - (prevOff.type==='line'?prevOff.p1.z:prevOff.cz)); 
-                                    
-                                    if (distPrevStartToI < distPrevStartToEnd - 0.001) {
-                                        if(prevOff.type === 'line') prevOff.p2 = intersection;
-                                        else { prevOff.endAngle = Math.atan2(intersection.x - prevOff.cx, intersection.z - prevOff.cz); }
-                                        if(offSeg.type === 'line') offSeg.p1 = intersection;
-                                        else { offSeg.startAngle = Math.atan2(intersection.x - offSeg.cx, intersection.z - offSeg.cz); }
-                                    } else {
-                                        const vertex = contourSegments[i].p1; 
-                                        const angleStart = Math.atan2(prevEnd.x - vertex.x, prevEnd.z - vertex.z);
-                                        const angleEnd = Math.atan2(currStart.x - vertex.x, currStart.z - vertex.z);
-                                        let diff = angleEnd - angleStart;
-                                        while (diff <= -Math.PI) diff += 2*Math.PI; while (diff > Math.PI) diff -= 2*Math.PI;
-                                        const rollDir = diff > 0 ? 'G3' : 'G2';
-                                        finishOffsetPath.push({ type: 'arc', cx: vertex.x, cz: vertex.z, r: tipR, dir: rollDir, startAngle: angleStart, endAngle: angleEnd, isCornerRoll: true });
-                                    }
-                                } else if (distGap > 0.01) {
-                                    const vertex = contourSegments[i].p1; 
-                                    const angleStart = Math.atan2(prevEnd.x - vertex.x, prevEnd.z - vertex.z);
-                                    const angleEnd = Math.atan2(currStart.x - vertex.x, currStart.z - vertex.z);
-                                    let diff = angleEnd - angleStart;
-                                    while (diff <= -Math.PI) diff += 2*Math.PI; while (diff > Math.PI) diff -= 2*Math.PI;
-                                    const rollDir = diff > 0 ? 'G3' : 'G2';
-                                    finishOffsetPath.push({ type: 'arc', cx: vertex.x, cz: vertex.z, r: tipR, dir: rollDir, startAngle: angleStart, endAngle: angleEnd, isCornerRoll: true });
+                            } else if (prevOff.type === 'arc' && nextOff.type === 'line') {
+                                const ints = intersectLineCircle(nextOff.p1, nextOff.p2, {x:prevOff.cx, z:prevOff.cz}, prevOff.r);
+                                if (ints) {
+                                    const d1 = Math.hypot(ints[0].x - v1End.x, ints[0].z - v1End.z);
+                                    const d2 = Math.hypot(ints[1].x - v1End.x, ints[1].z - v1End.z);
+                                    intersection = d1 < d2 ? ints[0] : ints[1];
                                 }
                             }
-                            finishOffsetPath.push(offSeg);
+                            // Arc-Arc intersection is complex, skip for now
+
+                            if (intersection) {
+                                // TRIM OR EXTEND TO INTERSECTION (Sharp Corner / G451 style)
+                                if (prevOff.type === 'line') prevOff.p2 = intersection;
+                                else prevOff.endAngle = Math.atan2(intersection.x - prevOff.cx, intersection.z - prevOff.cz);
+
+                                if (nextOff.type === 'line') nextOff.p1 = intersection;
+                                else nextOff.startAngle = Math.atan2(intersection.x - nextOff.cx, intersection.z - nextOff.cz);
+                                
+                                finishOffsetPath.push(nextOff);
+                            } else {
+                                // Fallback if no intersection found (e.g. parallel or Arc-Arc)
+                                // Just push next segment. The G-code generator will connect them with a straight line (G1)
+                                finishOffsetPath.push(nextOff);
+                            }
                         }
                     }
                 }
@@ -713,10 +707,12 @@
 
                 if (params.doFinishing && finishOffsetPath.length > 0) {
                      const startSeg = finishOffsetPath[0];
-                     const startX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.cos(startSeg.startAngle)*startSeg.r);
-                     const startZ = startSeg.type === 'line' ? startSeg.p1.z : (startSeg.cz + Math.sin(startSeg.startAngle)*startSeg.r);
+                     // FIX: Swapped cos/sin to match atan2(x,z) logic where X=Sin, Z=Cos
+                     const startX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.sin(startSeg.startAngle)*startSeg.r);
+                     const startZ = startSeg.type === 'line' ? startSeg.p1.z : (startSeg.cz + Math.cos(startSeg.startAngle)*startSeg.r);
                      
-                     simPath.push({x: params.safeX/2, z: params.safeZ, type: 'G0'});
+                     // FIX: Removed extra safe point push that caused G-code index mismatch
+                     // simPath.push({x: params.safeX/2, z: params.safeZ, type: 'G0'});
                      simPath.push({x: startX + 2, z: startZ, type: 'G0'}); 
                      simPath.push({x: startX, z: startZ, type: 'G1'}); 
 
@@ -727,11 +723,15 @@
                              const steps = 10;
                              let sA = seg.startAngle;
                              let eA = seg.endAngle;
+                             
+                             // CORRECT INTERPOLATION DIRECTION LOGIC for Simulation
                              if (seg.dir === 'G2' && eA > sA) eA -= 2*Math.PI;
                              if (seg.dir === 'G3' && eA < sA) eA += 2*Math.PI;
+                             
                              for(let j=1; j<=steps; j++) {
                                  const a = sA + (eA - sA) * (j/steps);
-                                 simPath.push({x: seg.cx + Math.cos(a)*seg.r, z: seg.cz + Math.sin(a)*seg.r, type: seg.dir});
+                                 // FIX: Swapped cos/sin for simulation path to match drawing
+                                 simPath.push({x: seg.cx + Math.sin(a)*seg.r, z: seg.cz + Math.cos(a)*seg.r, type: seg.dir});
                              }
                          }
                      });
@@ -854,7 +854,7 @@
                         const xVal = params.mode === 'DIAMON' ? (pass.x * 2).toFixed(3) : pass.x.toFixed(3);
                         const xRetract = params.mode === 'DIAMON' ? ((pass.x + rDist) * 2).toFixed(3) : (pass.x + rDist).toFixed(3);
                         simCounter += 1; addN(`G0 X${xRetract} Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
-                        simCounter += 1; 
+                        // FIX: Restored increment to ensure 1:1 mapping with simPath
                         simCounter += 1; addN(`G1 X${xVal} F${params.feed}`, simCounter); 
                         simCounter += 1; addN(`G1 Z${pass.zEnd.toFixed(3)}`, simCounter);
                         simCounter += 1; addN(`G1 X${xRetract} Z${(pass.zEnd + rDist).toFixed(3)}`, simCounter);
@@ -866,7 +866,7 @@
                         const xEnd = params.mode === 'DIAMON' ? (pass.xEnd * 2).toFixed(3) : pass.xEnd.toFixed(3);
                         const xEndRetract = params.mode === 'DIAMON' ? ((pass.xEnd + rDist) * 2).toFixed(3) : (pass.xEnd + rDist).toFixed(3);
                         simCounter += 1; addN(`G0 X${xStart} Z${zRetract}`, simCounter);
-                        simCounter += 1; 
+                        // FIX: Restored increment to ensure 1:1 mapping with simPath
                         simCounter += 1; addN(`G1 Z${zVal} F${params.feed}`, simCounter);
                         simCounter += 1; addN(`G1 X${xEnd}`, simCounter);
                         simCounter += 1; addN(`G1 X${xEndRetract} Z${zRetract}`, simCounter);
@@ -880,8 +880,9 @@
                 if (params.doFinishing && calculatedData.finishOffsetPath.length > 0) {
                     addCmt(`--- DOKONCOVANI ---`);
                     const startSeg = calculatedData.finishOffsetPath[0];
-                    const sX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.cos(startSeg.startAngle)*startSeg.r);
-                    const sZ = startSeg.type === 'line' ? startSeg.p1.z : (startSeg.cz + Math.sin(startSeg.startAngle)*startSeg.r);
+                    // FIX: Swapped cos/sin to match atan2(x,z) logic where X=Sin, Z=Cos
+                    const sX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.sin(startSeg.startAngle)*startSeg.r);
+                    const sZ = startSeg.type === 'line' ? startSeg.p1.z : (startSeg.cz + Math.cos(startSeg.startAngle)*startSeg.r);
                     const sX_out = params.mode === 'DIAMON' ? (sX * 2).toFixed(3) : sX.toFixed(3);
                     simCounter += 1; addN(`G0 X${sX_out} Z${sZ.toFixed(3)}`, simCounter);
                     simCounter += 1; addN(`G1 X${sX_out} Z${sZ.toFixed(3)}`, simCounter); 
@@ -893,8 +894,9 @@
                              addN(`G1 X${eX} Z${seg.p2.z.toFixed(3)}`, simCounter);
                         } else {
                              simCounter += 10;
-                             const eX = params.mode === 'DIAMON' ? ((seg.cx + Math.cos(seg.endAngle)*seg.r) * 2).toFixed(3) : (seg.cx + Math.cos(seg.endAngle)*seg.r).toFixed(3);
-                             const eZ = (seg.cz + Math.sin(seg.endAngle)*seg.r).toFixed(3);
+                             // FIX: Swapped cos/sin to match atan2(x,z) logic where X=Sin, Z=Cos
+                             const eX = params.mode === 'DIAMON' ? ((seg.cx + Math.sin(seg.endAngle)*seg.r) * 2).toFixed(3) : (seg.cx + Math.sin(seg.endAngle)*seg.r).toFixed(3);
+                             const eZ = (seg.cz + Math.cos(seg.endAngle)*seg.r).toFixed(3);
                              addN(`${seg.dir} X${eX} Z${eZ} ${arcR(seg.r)} ${seg.isCornerRoll ? cmt('Obeplutí rohu') : ''}`, simCounter);
                         }
                     });
@@ -955,6 +957,13 @@
                     activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             }, [simProgress]);
+            
+            // New active line logic based on finding the next target index
+            const currentSimIdx = Math.floor(simProgress * (calculatedData.simPath.length - 1));
+            // Find the first line where the simulation index is GREATER than current index (Look Ahead)
+            const activeLineIndex = generatedCode.findIndex(line => line.simIdx !== null && line.simIdx > currentSimIdx);
+            // If we are at the end, default to the last line with an index
+            const highlightIndex = activeLineIndex === -1 ? generatedCode.findLastIndex(l => l.simIdx !== null) : activeLineIndex;
 
 
             const draw = useCallback(() => {
@@ -1098,23 +1107,24 @@
                         if (p2.type === 'G0' || p2.type === 'G1') {
                             ctx.lineTo(ptEnd.x, ptEnd.y);
                         } else if (p2.type === 'G2' || p2.type === 'G3') {
+                            // Draw arc using native Canvas Arc
                             const arc = getArcParams({x:p1.xReal, z:p1.zReal}, {x:p2.xReal, z:p2.zReal}, p2.rVal, p2.type);
                             if (!arc.error) {
-                                const p1Ang = Math.atan2(p1.xReal - arc.cx, p1.zReal - arc.cz);
-                                const p2Ang = Math.atan2(p2.xReal - arc.cx, p2.zReal - arc.cz);
-                                let sA = p1Ang;
-                                let eA = p2Ang;
-                                if (p2.type === 'G2' && eA > sA) eA -= 2*Math.PI;
-                                if (p2.type === 'G3' && eA < sA) eA += 2*Math.PI;
+                                // Angles from center
+                                const startAng = Math.atan2(p1.xReal - arc.cx, p1.zReal - arc.cz);
+                                const endAng = Math.atan2(p2.xReal - arc.cx, p2.zReal - arc.cz);
+                                const center = toScreen(arc.cx, arc.cz);
+                                const rScreen = arc.r * view.scale;
                                 
-                                const steps = 20;
-                                for(let j=1; j<=steps; j++) {
-                                    const a = sA + (eA - sA) * (j/steps);
-                                    const px = arc.cx + Math.sin(a) * arc.r;
-                                    const pz = arc.cz + Math.cos(a) * arc.r;
-                                    const pt = toScreen(px, pz);
-                                    ctx.lineTo(pt.x, pt.y);
-                                }
+                                // Canvas angles are inverted because Y-axis is inverted relative to math Y (CNC X)
+                                // CNC G2 (CW) -> Canvas CW (false)
+                                // CNC G3 (CCW) -> Canvas CCW (true)
+                                const counterClockwise = (p2.type === 'G3');
+                                
+                                // Also invert angles: +Angle in CNC is towards +X (Up). +Angle in Canvas is towards +Y (Down).
+                                // So angle_canvas = -angle_cnc
+                                ctx.arc(center.x, center.y, rScreen, -startAng, -endAng, counterClockwise);
+                                // Note: arc adds lineTo automatically from current pos
                             } else {
                                 ctx.lineTo(ptEnd.x, ptEnd.y);
                             }
@@ -1131,19 +1141,10 @@
                             if (i === 0) ctx.moveTo(p1.x, p1.y); else ctx.lineTo(p1.x, p1.y);
                             ctx.lineTo(p2.x, p2.y);
                         } else if (seg.type === 'arc') {
-                             const steps = 15;
-                             let sA = seg.startAngle; let eA = seg.endAngle;
-                             if (seg.dir === 'G2' && eA > sA) eA -= 2*Math.PI;
-                             if (seg.dir === 'G3' && eA < sA) eA += 2*Math.PI;
-                             for(let j=0; j<=steps; j++) {
-                                 const a = sA + (eA - sA) * (j/steps);
-                                 const px = seg.cx + Math.sin(a) * seg.r;
-                                 const pz = seg.cz + Math.cos(a) * seg.r;
-                                 const pt = toScreen(px, pz);
-                                 if (j===0 && i===0) ctx.moveTo(pt.x, pt.y);
-                                 else if (j===0) ctx.moveTo(pt.x, pt.y);
-                                 else ctx.lineTo(pt.x, pt.y);
-                             }
+                             const center = toScreen(seg.cx, seg.cz);
+                             const rScreen = seg.r * view.scale;
+                             const counterClockwise = (seg.dir === 'G3');
+                             ctx.arc(center.x, center.y, rScreen, -seg.startAngle, -seg.endAngle, counterClockwise);
                         }
                     });
                     ctx.strokeStyle = colors.offset; ctx.lineWidth = 1; ctx.setLineDash([2,2]); ctx.stroke(); ctx.setLineDash([]);
@@ -1153,23 +1154,27 @@
                     ctx.beginPath();
                     calculatedData.finishOffsetPath.forEach((seg, i) => {
                         if (seg.type === 'line') {
-                            const p1 = toScreen(seg.p1.x, seg.p1.z); const p2 = toScreen(seg.p2.x, seg.p2.z);
-                            if (i === 0) ctx.moveTo(p1.x, p1.y); else ctx.lineTo(p1.x, p1.y);
+                            const p1 = toScreen(seg.p1.x, seg.p1.z); 
+                            const p2 = toScreen(seg.p2.x, seg.p2.z);
+                            if (i === 0) ctx.moveTo(p1.x, p1.y);
+                            // Ensure we lineTo the start of segment if not contiguous (should be, but safe)
+                            // Actually, arc() handles move/line automatically, line needs explicit move if start disjoint
+                            // but our path is continuous.
+                            if (i > 0) ctx.lineTo(p1.x, p1.y); 
+                            else ctx.moveTo(p1.x, p1.y);
+                            
                             ctx.lineTo(p2.x, p2.y);
                         } else if (seg.type === 'arc') {
-                             const steps = 15;
-                             let sA = seg.startAngle; let eA = seg.endAngle;
-                             if (seg.dir === 'G2' && eA > sA) eA -= 2*Math.PI;
-                             if (seg.dir === 'G3' && eA < sA) eA += 2*Math.PI;
-                             for(let j=0; j<=steps; j++) {
-                                 const a = sA + (eA - sA) * (j/steps);
-                                 const px = seg.cx + Math.sin(a) * seg.r;
-                                 const pz = seg.cz + Math.cos(a) * seg.r;
-                                 const pt = toScreen(px, pz);
-                                 if (j===0 && i===0) ctx.moveTo(pt.x, pt.y);
-                                 else if (j===0) ctx.moveTo(pt.x, pt.y);
-                                 else ctx.lineTo(pt.x, pt.y);
-                             }
+                             const center = toScreen(seg.cx, seg.cz);
+                             const rScreen = seg.r * view.scale;
+                             const counterClockwise = (seg.dir === 'G3');
+                             // Ensure start point connection
+                             const startX = center.x + rScreen * Math.cos(-seg.startAngle);
+                             const startY = center.y + rScreen * Math.sin(-seg.startAngle);
+                             if(i===0) ctx.moveTo(startX, startY);
+                             else ctx.lineTo(startX, startY);
+
+                             ctx.arc(center.x, center.y, rScreen, -seg.startAngle, -seg.endAngle, counterClockwise);
                         }
                     });
                     ctx.strokeStyle = colors.finish; ctx.lineWidth = 2; ctx.stroke();
@@ -1221,13 +1226,80 @@
                         const rPix = tRad * view.scale; 
 
                         ctx.fillStyle = colors.tool; 
-                        ctx.beginPath();
-                        ctx.arc(pt.x, pt.y, rPix, 0, Math.PI * 2);
-                        ctx.fill();
                         ctx.strokeStyle = theme === 'dark' ? '#000' : '#000'; 
                         ctx.lineWidth = 1;
-                        ctx.stroke();
+
+                        if (params.toolShape === 'round') {
+                            ctx.beginPath();
+                            ctx.arc(pt.x, pt.y, rPix, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.stroke();
+                        } else if (params.toolShape === 'polygon') {
+                            const lenPix = (parseFloat(params.toolLength) || 10) * view.scale;
+                            // Convert angle to radians for calculation.
+                            // toolAngle: User inputs degree. Positive = CCW in math. 
+                            // In Canvas (Y down), positive rotation is Clockwise.
+                            // We want 15 deg "Up" relative to horizontal.
+                            // So we need -15 deg rotation in Canvas.
+                            const rotRad = -(parseFloat(params.toolAngle) || 0) * (Math.PI / 180);
+                            const tipAng = (parseFloat(params.toolTipAngle) || 90) * (Math.PI / 180);
+
+                            // Base angles of the polygon sides relative to the tool axis (before rotation)
+                            // We align the "lower" side (Side 1) with the X-axis (0 deg)
+                            // Side 2 is at `tipAng`.
+                            // Then we rotate everything by `rotRad`.
+                            // Wait, Canvas Y is flipped.
+                            // Cartesian: 0 deg is Right. 90 is Up.
+                            // Screen: 0 deg is Right. 90 is Down.
+                            // If we want Side 1 at 15 deg Cartesian (Up-Right), we need -15 deg Screen.
+                            // Side 2 at 105 deg Cartesian (Up-Left). Screen -105 deg.
+                            // So Side 2 is `Side 1 - tipAng` in Screen coords? 
+                            // -15 - 90 = -105. Yes.
+                            
+                            const a1 = rotRad; 
+                            const a2 = rotRad - tipAng; // Subtract because positive Cartesian angle difference = negative Screen angle difference
+
+                            // Tangent calculation
+                            // Distance from Circle Center to Sharp Corner
+                            const distToCorner = rPix / Math.sin(tipAng / 2);
+                            
+                            // Bisector angle in Screen coords
+                            // Bisector of a1 and a2. 
+                            const bisector = (a1 + a2) / 2;
+                            
+                            // The corner is "behind" the circle relative to the bisector.
+                            // Bisector points "into" the tool body.
+                            // So corner is at `distToCorner` in direction `bisector + PI`.
+                            const cornerX = Math.cos(bisector + Math.PI) * distToCorner;
+                            const cornerY = Math.sin(bisector + Math.PI) * distToCorner;
+
+                            ctx.save();
+                            ctx.translate(pt.x, pt.y); // Move to circle center
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(cornerX, cornerY);
+                            
+                            // Side 1
+                            const x1 = cornerX + Math.cos(a1) * lenPix;
+                            const y1 = cornerY + Math.sin(a1) * lenPix;
+                            ctx.lineTo(x1, y1);
+                            
+                            // Back side (connect ends)
+                            const x2 = cornerX + Math.cos(a2) * lenPix;
+                            const y2 = cornerY + Math.sin(a2) * lenPix;
+                            ctx.lineTo(x2, y2);
+                            
+                            ctx.closePath();
+                            ctx.fill();
+                            ctx.stroke();
+                            
+                            ctx.restore();
+                            
+                            // Circle on top
+                            ctx.beginPath(); ctx.arc(pt.x, pt.y, rPix, 0, Math.PI * 2); ctx.stroke();
+                        }
                         
+                        // Center dot
                         ctx.fillStyle = 'black';
                         ctx.beginPath();
                         ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2);
@@ -1273,6 +1345,7 @@
                 return () => resizeObserver.disconnect();
             }, [draw]);
 
+            // Handlers ... (same)
             const handleWheel = (e) => { const s = Math.max(0.2, Math.min(view.scale * (1 - Math.sign(e.deltaY)*0.15), 50)); setView(v => ({...v, scale: s})); };
             
             const getPointAt = (clientX, clientY) => {
@@ -1525,26 +1598,6 @@
             
             const currentPoints = editMode === 'contour' ? contourPoints : stockPoints;
 
-            // Helper to check if a line is "active" based on simulation progress
-            const isLineActive = (line, idx) => {
-                if (line.simIdx === null) return false;
-                const totalPoints = calculatedData.simPath.length;
-                if (totalPoints === 0) return false;
-                const currentIdx = Math.floor(simProgress * (totalPoints - 1));
-                
-                // Find next line with simIdx
-                let nextSimIdx = null;
-                for (let j = idx + 1; j < generatedCode.length; j++) {
-                    if (generatedCode[j].simIdx !== null) {
-                        nextSimIdx = generatedCode[j].simIdx;
-                        break;
-                    }
-                }
-                
-                if (nextSimIdx === null) return currentIdx >= line.simIdx; // Last instruction
-                return currentIdx >= line.simIdx && currentIdx < nextSimIdx;
-            };
-
             return (
                 <div className="flex flex-col md:flex-row h-full">
                     <div className={`${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex w-full md:w-96 flex-col border-r shadow-xl z-10 h-full overflow-hidden ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
@@ -1634,12 +1687,12 @@
                                     {params.stockMode === 'cylinder' ? (
                                         <div className="space-y-2">
                                             <div className="flex items-end gap-2">
-                                                <div className="flex-1"><label className="text-xs text-gray-500">Průměr (D)</label><SmartInput type="number" value={params.stockDiameter} onValueChange={v=>setParams({...params, stockDiameter:v})} className="border rounded p-1 w-full"/></div>
-                                                <div className="flex-1"><label className="text-xs text-gray-500">Délka (Z-)</label><SmartInput type="number" value={params.stockLength} onValueChange={v=>setParams({...params, stockLength:v})} className="border rounded p-1 w-full"/></div>
+                                                <div className="flex-1"><label className="text-xs text-gray-500">Průměr (D)</label><SmartInput type="number" value={params.stockDiameter} onValueChange={v=>setParams({...params, stockDiameter:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
+                                                <div className="flex-1"><label className="text-xs text-gray-500">Délka (Z-)</label><SmartInput type="number" value={params.stockLength} onValueChange={v=>setParams({...params, stockLength:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
                                             </div>
                                             <div className="flex items-end gap-2">
-                                                <div className="flex-1"><label className="text-xs text-gray-500">Přídavek čelo (Z+)</label><SmartInput type="number" value={params.stockFace} onValueChange={v=>setParams({...params, stockFace:v})} className="border rounded p-1 w-full"/></div>
-                                                <div className="flex-1"><label className="text-xs text-gray-500">Přídavek (pro Auto)</label><SmartInput type="number" value={params.stockMargin} onValueChange={v=>setParams({...params, stockMargin:v})} className="border rounded p-1 w-full"/></div>
+                                                <div className="flex-1"><label className="text-xs text-gray-500">Přídavek čelo (Z+)</label><SmartInput type="number" value={params.stockFace} onValueChange={v=>setParams({...params, stockFace:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
+                                                <div className="flex-1"><label className="text-xs text-gray-500">Přídavek (pro Auto)</label><SmartInput type="number" value={params.stockMargin} onValueChange={v=>setParams({...params, stockMargin:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
                                             </div>
                                             <button onClick={handleAutoStock} className="w-full py-1.5 bg-indigo-600 text-white rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-indigo-500"><IconMagic /> Auto-rozměr</button>
                                         </div>
@@ -1648,19 +1701,34 @@
                                     )}
                                     <h3 className={`font-bold border-b pb-1 mt-4 ${theme==='dark'?'text-gray-300 border-gray-700':'text-gray-800 border-gray-300'}`}>Hrubování</h3>
                                     <div className="flex gap-2 mb-2">
-                                        <button onClick={() => setParams({...params, roughingStrategy: 'longitudinal'})} className={`flex-1 py-1 text-xs border rounded flex items-center justify-center gap-1 ${params.roughingStrategy==='longitudinal' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}><IconArrowRight /> Podélně (Z)</button>
-                                        <button onClick={() => setParams({...params, roughingStrategy: 'face'})} className={`flex-1 py-1 text-xs border rounded flex items-center justify-center gap-1 ${params.roughingStrategy==='face' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}><IconArrowDown /> Čelně (X)</button>
+                                        <button onClick={() => setParams({...params, roughingStrategy: 'longitudinal', toolAngle: 15})} className={`flex-1 py-1 text-xs border rounded flex items-center justify-center gap-1 ${params.roughingStrategy==='longitudinal' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}><IconArrowRight /> Podélně (Z)</button>
+                                        <button onClick={() => setParams({...params, roughingStrategy: 'face', toolAngle: -15})} className={`flex-1 py-1 text-xs border rounded flex items-center justify-center gap-1 ${params.roughingStrategy==='face' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}><IconArrowDown /> Čelně (X)</button>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <div className="flex flex-col"><label className="text-xs text-gray-500">Hloubka (ap)</label><SmartInput type="number" step="0.5" value={params.depthOfCut} onValueChange={v=>setParams({...params, depthOfCut:v})} className="border rounded p-1"/></div>
-                                        <div className="flex flex-col"><label className="text-xs text-gray-500">Posuv (F)</label><SmartInput type="number" step="0.05" value={params.feed} onValueChange={v=>setParams({...params, feed:v})} className="border rounded p-1"/></div>
-                                        <div className="flex flex-col col-span-2"><label className="text-xs text-gray-500">Odskok (G1 -> G0)</label><SmartInput type="number" step="0.5" value={params.retractDistance} onValueChange={v=>setParams({...params, retractDistance:v})} className="border rounded p-1"/></div>
+                                        <div className="flex flex-col"><label className="text-xs text-gray-500">Hloubka (ap)</label><SmartInput type="number" step="0.5" value={params.depthOfCut} onValueChange={v=>setParams({...params, depthOfCut:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
+                                        <div className="flex flex-col"><label className="text-xs text-gray-500">Posuv (F)</label><SmartInput type="number" step="0.05" value={params.feed} onValueChange={v=>setParams({...params, feed:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
+                                        <div className="flex flex-col col-span-2"><label className="text-xs text-gray-500">Odskok (G1 -> G0)</label><SmartInput type="number" step="0.5" value={params.retractDistance} onValueChange={v=>setParams({...params, retractDistance:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
                                     </div>
                                     <h3 className={`font-bold border-b pb-1 mt-4 ${theme==='dark'?'text-gray-300 border-gray-700':'text-gray-800 border-gray-300'}`}>Nástroj</h3>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <div className="flex flex-col"><label className="text-xs text-gray-500">Rádius (R)</label><SmartInput type="number" step="0.1" value={params.toolRadius} onValueChange={v=>setParams({...params, toolRadius:v})} className="border rounded p-1"/></div>
-                                        <div className="flex flex-col"><label className="text-xs text-gray-500">Přídavek X</label><SmartInput type="number" step="0.1" value={params.allowanceX} onValueChange={v=>setParams({...params, allowanceX:v})} className="border rounded p-1"/></div>
-                                        <div className="flex flex-col"><label className="text-xs text-gray-500">Přídavek Z</label><SmartInput type="number" step="0.1" value={params.allowanceZ} onValueChange={v=>setParams({...params, allowanceZ:v})} className="border rounded p-1"/></div>
+                                        <div className="flex flex-col"><label className="text-xs text-gray-500">Rádius (R)</label><SmartInput type="number" step="0.1" value={params.toolRadius} onValueChange={v=>setParams({...params, toolRadius:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
+                                        <div className="flex flex-col"><label className="text-xs text-gray-500">Přídavek X</label><SmartInput type="number" step="0.1" value={params.allowanceX} onValueChange={v=>setParams({...params, allowanceX:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
+                                        <div className="flex flex-col"><label className="text-xs text-gray-500">Přídavek Z</label><SmartInput type="number" step="0.1" value={params.allowanceZ} onValueChange={v=>setParams({...params, allowanceZ:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
+                                    </div>
+                                    {/* Tool Shape Selector */}
+                                    <div className="mt-2">
+                                        <label className="text-xs text-gray-500 mb-1 block">Tvar destičky</label>
+                                        <div className="flex gap-1">
+                                            <button onClick={() => setParams({...params, toolShape: 'round'})} className={`flex-1 py-1 border rounded flex items-center justify-center gap-1 ${params.toolShape==='round' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`} title="Kulatá"><IconShapeCircle /></button>
+                                            <button onClick={() => setParams({...params, toolShape: 'polygon', toolTipAngle: 90})} className={`flex-1 py-1 border rounded flex items-center justify-center gap-1 ${params.toolShape==='polygon' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`} title="Hranatá"><IconShapePolygon /></button>
+                                        </div>
+                                        {params.toolShape === 'polygon' && (
+                                            <div className="flex gap-2 mt-2">
+                                                <div className="flex-1"><label className="text-xs text-gray-500">Délka hrany (L)</label><SmartInput type="number" value={params.toolLength} onValueChange={v=>setParams({...params, toolLength:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
+                                                <div className="flex-1"><label className="text-xs text-gray-500">Natočení (°)</label><SmartInput type="number" value={params.toolAngle} onValueChange={v=>setParams({...params, toolAngle:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
+                                                <div className="flex-1"><label className="text-xs text-gray-500">Vrcholový úhel (ε)</label><SmartInput type="number" value={params.toolTipAngle} onValueChange={v=>setParams({...params, toolTipAngle:v})} className={`border rounded px-2 py-1 w-full text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}/></div>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="mt-4 pt-2 border-t dark:border-gray-700">
                                         <label className="flex items-center space-x-2 cursor-pointer">
@@ -1720,7 +1788,7 @@
                                     <div 
                                         key={idx} 
                                         onClick={() => handleLineClick(line.simIdx)}
-                                        className={`code-line whitespace-pre px-2 py-0.5 cursor-pointer ${isLineActive(line, idx) ? 'active' : ''} ${theme === 'dark' ? 'text-green-300' : 'text-gray-800'}`}
+                                        className={`code-line whitespace-pre px-2 py-0.5 cursor-pointer ${idx === highlightIndex ? 'active' : ''} ${theme === 'dark' ? 'text-green-300' : 'text-gray-800'}`}
                                     >
                                         {line.text}
                                     </div>
