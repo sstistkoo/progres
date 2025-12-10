@@ -793,7 +793,8 @@
                 const note = (cmd, text) => ` ${cmd}${cmt(text)}`; 
 
                 // Konfigurace pro jednotlivé systémy
-                let arcR = (r) => `CR=${r.toFixed(3)}`; // Default Sinumerik
+                // FIX: Added parseFloat(r) || 0 to prevent crashes when input is invalid or empty
+                let arcR = (r) => `CR=${(parseFloat(r) || 0).toFixed(3)}`; // Default Sinumerik
 
                 if (params.controlSystem === 'sinumerik') {
                     addCmt(`Vygenerovaný kód SINUMERIK 840D`);
@@ -814,7 +815,8 @@
                     addN(`M3${note('', 'Vřeteno CW')}`);
                     addN(`M8${note('', 'Chlazení ZAP')}`);
 
-                    arcR = (r) => `CR=${r.toFixed(3)}`;
+                    // FIX: Safe parsing for radius
+                    arcR = (r) => `CR=${(parseFloat(r) || 0).toFixed(3)}`;
                 } else if (params.controlSystem === 'fanuc') {
                     addCmt(`Vygenerovaný kód FANUC`);
                     addCmt(`Datum: ${d.toLocaleDateString()}`);
@@ -827,7 +829,8 @@
                     addN(`G96 S${params.speed} M3${note('', 'Konst. řezná rychlost')}`);
                     addN(`T0101${note('', 'Nástroj 1 / Korekce 1')}`);
                     addN(`M8${note('', 'Chlazení ZAP')}`);
-                    arcR = (r) => `R${r.toFixed(3)}`;
+                    // FIX: Safe parsing for radius
+                    arcR = (r) => `R${(parseFloat(r) || 0).toFixed(3)}`;
                 } else if (params.controlSystem === 'heidenhain') {
                     addCmt(`Vygenerovaný kód HEIDENHAIN ISO`);
                     addCmt(`Datum: ${d.toLocaleDateString()}`);
@@ -838,7 +841,8 @@
                     addN(`G96 S${params.speed} M3${note('', 'Řezná rychlost')}`);
                     addN(`T1 M6${note('', 'Nástroj')}`);
                     addN(`M8`);
-                    arcR = (r) => `R${r.toFixed(3)}`;
+                    // FIX: Safe parsing for radius
+                    arcR = (r) => `R${(parseFloat(r) || 0).toFixed(3)}`;
                 }
                 
                 let simCounter = 0; 
@@ -919,9 +923,10 @@
                 
                 addCmt(`--- KONTURA (Pro referenci) ---`);
                 contourPoints.forEach(p => {
-                    let line = `${p.type} X${p.x} Z${p.z}`;
+                    // FIX: Safe access to properties and radius to prevent crash
+                    let line = `${p.type} X${(parseFloat(p.x)||0)} Z${(parseFloat(p.z)||0)}`;
                     if (p.type === 'G2' || p.type === 'G3') line += ` ${arcR(p.r)}`; 
-                    addCmt(line); // Changed to addCmt as it is reference, usually commented out or just notes
+                    addCmt(line); 
                 });
 
                 setGeneratedCode(lines);
