@@ -24,9 +24,12 @@
         .canvas-container { cursor: crosshair; touch-action: none; background-image: radial-gradient(#ccc 1px, transparent 1px); background-size: 20px 20px; }
         .dark .canvas-container { background-image: radial-gradient(#333 1px, transparent 1px); }
         .safe-pb { padding-bottom: env(safe-area-inset-bottom); }
+        /* Styl pro aktivní řádek kódu */
+        .code-line.active { background-color: rgba(59, 130, 246, 0.2); font-weight: bold; border-left: 3px solid #3b82f6; }
+        .dark .code-line.active { background-color: rgba(59, 130, 246, 0.3); border-left: 3px solid #60a5fa; }
     </style>
 </head>
-<body class="h-screen w-screen overflow-hidden flex flex-col font-sans transition-colors duration-300">
+<body class="h-[100dvh] w-screen overflow-hidden flex flex-col font-sans transition-colors duration-300">
 
     <div id="root" class="h-full w-full"></div>
 
@@ -46,66 +49,35 @@
         const IconTarget = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>;
         const IconEye = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
         const IconPlay = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M5 3l14 9-14 9V3z"/></svg>;
+        const IconPause = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>;
         const IconStop = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" /></svg>;
         const IconDownload = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
         const IconArrowRight = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>;
         const IconArrowDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>;
         const IconWarning = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>;
         const IconInfo = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>;
+        const IconRefresh = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>;
 
         // --- COMPONENTS ---
         
-        // SmartInput: Handles local state to prevent app-wide re-renders on every keystroke.
         const SmartInput = ({ value, onValueChange, className, placeholder, type = "text", step }) => {
             const [localVal, setLocalVal] = useState(value);
             const [isDirty, setIsDirty] = useState(false);
 
-            useEffect(() => {
-                setLocalVal(value);
-            }, [value]);
+            useEffect(() => { setLocalVal(value); }, [value]);
 
             useEffect(() => {
                 if (!isDirty) return;
-                const handler = setTimeout(() => {
-                    onValueChange(localVal);
-                    setIsDirty(false);
-                }, 600); 
+                const handler = setTimeout(() => { onValueChange(localVal); setIsDirty(false); }, 600); 
                 return () => clearTimeout(handler);
             }, [localVal, isDirty, onValueChange]);
 
-            const handleChange = (e) => {
-                setLocalVal(e.target.value);
-                setIsDirty(true);
-            };
-            
-            const handleBlur = () => {
-                 if (isDirty) {
-                     onValueChange(localVal);
-                     setIsDirty(false);
-                 }
-            };
-            
-            const handleKeyDown = (e) => {
-                if (e.key === 'Enter') {
-                    if (isDirty) {
-                        onValueChange(localVal);
-                        setIsDirty(false);
-                    }
-                    e.target.blur();
-                }
-            };
+            const handleChange = (e) => { setLocalVal(e.target.value); setIsDirty(true); };
+            const handleBlur = () => { if (isDirty) { onValueChange(localVal); setIsDirty(false); } };
+            const handleKeyDown = (e) => { if (e.key === 'Enter') { if (isDirty) { onValueChange(localVal); setIsDirty(false); } e.target.blur(); } };
 
             return (
-                <input 
-                    type={type} 
-                    className={className} 
-                    placeholder={placeholder}
-                    value={localVal} 
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    onKeyDown={handleKeyDown}
-                    step={step}
-                />
+                <input type={type} className={className} placeholder={placeholder} value={localVal} onChange={handleChange} onBlur={handleBlur} onKeyDown={handleKeyDown} step={step} />
             );
         };
 
@@ -113,67 +85,37 @@
         const dist = (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.z - p1.z, 2));
 
         const getNormal = (p1, p2) => {
-            const dx = p2.x - p1.x;
-            const dz = p2.z - p1.z;
-            const l = Math.sqrt(dx*dx + dz*dz);
-            if (l===0) return {x:0, z:0};
-            return { x: -dz/l, z: dx/l };
+            const dx = p2.x - p1.x; const dz = p2.z - p1.z; const l = Math.sqrt(dx*dx + dz*dz);
+            if (l===0) return {x:0, z:0}; return { x: -dz/l, z: dx/l };
         };
 
-        // Intersect Line (p1-p2) and Line (p3-p4) - infinite
         const intersectLines = (p1, p2, p3, p4) => {
             const d = (p1.x - p2.x) * (p3.z - p4.z) - (p1.z - p2.z) * (p3.x - p4.x);
-            if (Math.abs(d) < 1e-9) return null; // Parallel
+            if (Math.abs(d) < 1e-9) return null; 
             const t = ((p1.x - p3.x) * (p3.z - p4.z) - (p1.z - p3.z) * (p3.x - p4.x)) / d;
             return { x: p1.x + t * (p2.x - p1.x), z: p1.z + t * (p2.z - p1.z) };
         };
 
-        // Intersect Line (p1-p2) and Circle (center, r)
         const intersectLineCircle = (p1, p2, center, r) => {
-            const dx = p2.x - p1.x;
-            const dz = p2.z - p1.z;
-            const fx = p1.x - center.x;
-            const fz = p1.z - center.z;
-            const a = dx*dx + dz*dz;
-            const b = 2*(fx*dx + fz*dz);
-            const c = (fx*fx + fz*fz) - r*r;
-            let discriminant = b*b - 4*a*c;
-            if (discriminant < 0) return null;
+            const dx = p2.x - p1.x; const dz = p2.z - p1.z; const fx = p1.x - center.x; const fz = p1.z - center.z;
+            const a = dx*dx + dz*dz; const b = 2*(fx*dx + fz*dz); const c = (fx*fx + fz*fz) - r*r;
+            let discriminant = b*b - 4*a*c; if (discriminant < 0) return null;
             discriminant = Math.sqrt(discriminant);
-            const t1 = (-b - discriminant) / (2*a);
-            const t2 = (-b + discriminant) / (2*a);
-            // We usually want the intersection closer to p2, assuming offset follows p1->p2
-            // but for infinite lines, we need to pick the "logical" one.
-            // Simplified: return both, let the caller decide based on proximity.
-            return [
-                { x: p1.x + t1*dx, z: p1.z + t1*dz },
-                { x: p1.x + t2*dx, z: p1.z + t2*dz }
-            ];
+            const t1 = (-b - discriminant) / (2*a); const t2 = (-b + discriminant) / (2*a);
+            return [{ x: p1.x + t1*dx, z: p1.z + t1*dz }, { x: p1.x + t2*dx, z: p1.z + t2*dz }];
         };
 
         const getArcParams = (p1, p2, r, type) => {
-            const d2 = Math.pow(p2.x - p1.x, 2) + Math.pow(p2.z - p1.z, 2);
-            const d = Math.sqrt(d2);
-            const isLongArc = r < 0;
-            const absR = Math.abs(r);
-            let safeR = absR;
-            let error = false;
+            const d2 = Math.pow(p2.x - p1.x, 2) + Math.pow(p2.z - p1.z, 2); const d = Math.sqrt(d2);
+            const isLongArc = r < 0; const absR = Math.abs(r); let safeR = absR; let error = false;
             if (d2 === 0) return { error: true, cx: p1.x, cz: p1.z, r: 0 };
-            if (absR < d/2 - 0.001) {
-                error = true;
-                safeR = d/2 + 0.001; 
-            }
-            const mx = (p1.x + p2.x) / 2;
-            const mz = (p1.z + p2.z) / 2;
+            if (absR < d/2 - 0.001) { error = true; safeR = d/2 + 0.001; }
+            const mx = (p1.x + p2.x) / 2; const mz = (p1.z + p2.z) / 2;
             const h = Math.sqrt(Math.max(0, safeR*safeR - d2/4));
-            const dx = p2.x - p1.x;
-            const dz = p2.z - p1.z;
-            const ox = -dz / d;
-            const oz = dx / d;
-            let sign = (type === 'G3') ? -1 : 1; 
-            if (isLongArc) sign *= -1;
-            const cx = mx + sign * h * ox;
-            const cz = mz + sign * h * oz;
+            const dx = p2.x - p1.x; const dz = p2.z - p1.z;
+            const ox = -dz / d; const oz = dx / d;
+            let sign = (type === 'G3') ? -1 : 1; if (isLongArc) sign *= -1;
+            const cx = mx + sign * h * ox; const cz = mz + sign * h * oz;
             return { cx, cz, r: safeR, error };
         };
 
@@ -181,43 +123,26 @@
             const t = (target % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
             const s = (start % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
             const e = (end % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
-            if (isG2) { 
-                if (s >= e) return t <= s && t >= e;
-                return t <= s || t >= e; 
-            } else { 
-                if (e >= s) return t >= s && t <= e;
-                return t >= s || t <= e; 
-            }
+            if (isG2) { if (s >= e) return t <= s && t >= e; return t <= s || t >= e; } else { if (e >= s) return t >= s && t <= e; return t >= s || t <= e; }
         };
 
-        // --- Intersections for Roughing ---
         const intersectHorizontalLineSegment = (xLine, p1, p2) => {
-            const minX = Math.min(p1.x, p2.x);
-            const maxX = Math.max(p1.x, p2.x);
-            if (xLine < minX || xLine > maxX) return null;
-            if (Math.abs(p2.x - p1.x) < 1e-6) return null;
-            const t = (xLine - p1.x) / (p2.x - p1.x);
-            return p1.z + t * (p2.z - p1.z);
+            const minX = Math.min(p1.x, p2.x); const maxX = Math.max(p1.x, p2.x);
+            if (xLine < minX || xLine > maxX) return null; if (Math.abs(p2.x - p1.x) < 1e-6) return null;
+            const t = (xLine - p1.x) / (p2.x - p1.x); return p1.z + t * (p2.z - p1.z);
         };
         const intersectHorizontalLineArc = (xLine, center, radius) => {
-            const term = radius*radius - Math.pow(xLine - center.x, 2);
-            if (term < 0) return [];
-            const sqrtTerm = Math.sqrt(term);
-            return [center.z - sqrtTerm, center.z + sqrtTerm];
+            const term = radius*radius - Math.pow(xLine - center.x, 2); if (term < 0) return [];
+            const sqrtTerm = Math.sqrt(term); return [center.z - sqrtTerm, center.z + sqrtTerm];
         };
         const intersectVerticalLineSegment = (zLine, p1, p2) => {
-            const minZ = Math.min(p1.z, p2.z);
-            const maxZ = Math.max(p1.z, p2.z);
-            if (zLine < minZ || zLine > maxZ) return null;
-            if (Math.abs(p2.z - p1.z) < 1e-6) return null;
-            const t = (zLine - p1.z) / (p2.z - p1.z);
-            return p1.x + t * (p2.x - p1.x);
+            const minZ = Math.min(p1.z, p2.z); const maxZ = Math.max(p1.z, p2.z);
+            if (zLine < minZ || zLine > maxZ) return null; if (Math.abs(p2.z - p1.z) < 1e-6) return null;
+            const t = (zLine - p1.z) / (p2.z - p1.z); return p1.x + t * (p2.x - p1.x);
         };
         const intersectVerticalLineArc = (zLine, center, radius) => {
-            const term = radius*radius - Math.pow(zLine - center.z, 2);
-            if (term < 0) return [];
-            const sqrtTerm = Math.sqrt(term);
-            return [center.x - sqrtTerm, center.x + sqrtTerm];
+            const term = radius*radius - Math.pow(zLine - center.z, 2); if (term < 0) return [];
+            const sqrtTerm = Math.sqrt(term); return [center.x - sqrtTerm, center.x + sqrtTerm];
         };
 
         // --- APP ---
@@ -229,6 +154,9 @@
             
             const [simRunning, setSimRunning] = useState(false);
             const [simProgress, setSimProgress] = useState(0); 
+            
+            // Flag for LocalStorage Loading
+            const [isLoaded, setIsLoaded] = useState(false);
 
             const [params, setParams] = useState({
                 machineType: 'LIMS=2000',
@@ -273,24 +201,66 @@
             
             const [errors, setErrors] = useState([]);
             const [gCodeInput, setGCodeInput] = useState('');
-            const [generatedCode, setGeneratedCode] = useState('');
+            // Změna: generatedCode nyní není string, ale pole objektů pro interaktivitu
+            const [generatedCode, setGeneratedCode] = useState([]);
             const [activeTab, setActiveTab] = useState('editor');
             
             const canvasRef = useRef(null);
             const containerRef = useRef(null);
+            const codeContainerRef = useRef(null);
             const [view, setView] = useState({ scale: 3, panX: 600, panY: 350 });
             const [isDragging, setIsDragging] = useState(false);
             const lastMousePos = useRef({ x: 0, y: 0 });
+            const lastPinchDist = useRef(null);
+            
+            // --- LOCAL STORAGE LOGIC ---
+            const STORAGE_KEY = 'sinumerik_cam_save_v1';
+
+            // 1. Load on mount
+            useEffect(() => {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.params) setParams(prev => ({...prev, ...parsed.params}));
+                        if (parsed.contourPoints && parsed.contourPoints.length > 0) setContourPoints(parsed.contourPoints);
+                        if (parsed.stockPoints && parsed.stockPoints.length > 0) setStockPoints(parsed.stockPoints);
+                        if (parsed.theme) setTheme(parsed.theme);
+                    } catch (e) {
+                        console.error("Failed to load local storage:", e);
+                    }
+                }
+                setIsLoaded(true); // Mark as loaded so we can start saving
+            }, []);
+
+            // 2. Save on change (only if loaded)
+            useEffect(() => {
+                if (!isLoaded) return;
+                const dataToSave = {
+                    params,
+                    contourPoints,
+                    stockPoints,
+                    theme
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+            }, [isLoaded, params, contourPoints, stockPoints, theme]);
+
+            // 3. Reset Function
+            const handleResetApp = () => {
+                if(confirm("Opravdu chcete vymazat veškerou uloženou práci a resetovat aplikaci?")) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    window.location.reload();
+                }
+            };
 
             useEffect(() => {
-                document.body.className = `h-screen w-screen overflow-hidden flex flex-col font-sans transition-colors duration-300 ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`;
+                document.body.className = `h-[100dvh] w-screen overflow-hidden flex flex-col font-sans transition-colors duration-300 ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`;
             }, [theme]);
 
             const fitView = useCallback(() => {
                 if (!containerRef.current) return;
                 const points = resolvePointsToAbsolute(contourPoints);
                 if (points.length === 0) return;
-                // ... fit view logic (abbreviated for brevity, logic unchanged)
                 let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
                 points.forEach(p => {
                     const x = params.mode === 'DIAMON' ? p.xAbs / 2 : p.xAbs;
@@ -317,7 +287,6 @@
 
             useEffect(() => { setTimeout(fitView, 100); }, [mobileTab]); 
 
-            // ... helpers like resolvePointsToAbsolute ...
             const resolvePointsToAbsolute = (pts) => {
                 let lastX = 0; let lastZ = 0;
                 return pts.map((p, index) => {
@@ -349,7 +318,6 @@
                 let stockPathSegments = []; 
                 const foundErrors = [];
 
-                // --- Process Contour & Stock Segments (same as before) ---
                 for (let i = 0; i < worldPoints.length - 1; i++) {
                     const p1 = worldPoints[i]; const p2 = worldPoints[i+1]; const type = p2.type;
                     if (type === 'G0' || type === 'G1') {
@@ -361,7 +329,6 @@
                         contourSegments.push({ type: 'arc', ...arc, p1: {x:p1.xReal, z:p1.zReal}, p2: {x:p2.xReal, z:p2.zReal}, dir: type });
                     }
                 }
-                // (Stock processing similar to before)
                 for (let i = 0; i < stockWorldPoints.length - 1; i++) {
                     const p1 = stockWorldPoints[i]; const p2 = stockWorldPoints[i+1]; const type = p2.type;
                     if (type === 'G0' || type === 'G1') {
@@ -374,7 +341,6 @@
                     }
                 }
 
-                // --- Generate Roughing Offset Path ---
                 let incompleteMachiningCount = 0;
                 for (let i = 0; i < contourSegments.length; i++) {
                     const seg = contourSegments[i];
@@ -393,13 +359,11 @@
                 }
                 if (incompleteMachiningCount > 0) foundErrors.push({ type: 'warning', msg: `POZNÁMKA: V ${incompleteMachiningCount} místech nedojde ke kompletnímu obrobení.` });
 
-                // --- Generate Finishing Offset Path (With Trim & Roll) ---
                 if (params.doFinishing) {
                     for (let i = 0; i < contourSegments.length; i++) {
                         const seg = contourSegments[i];
                         let offSeg = null;
 
-                        // 1. Calculate raw offset segment
                         if (seg.type === 'line') {
                             const n = getNormal(seg.p1, seg.p2);
                             offSeg = { type: 'line', p1: { x: seg.p1.x + n.x * tipR, z: seg.p1.z + n.z * tipR }, p2: { x: seg.p2.x + n.x * tipR, z: seg.p2.z + n.z * tipR } };
@@ -415,7 +379,6 @@
                             if (finishOffsetPath.length > 0) {
                                 let prevOff = finishOffsetPath[finishOffsetPath.length - 1];
                                 
-                                // Get previous end point and current start point
                                 let prevEnd = {x:0, z:0};
                                 if (prevOff.type === 'line') prevEnd = prevOff.p2;
                                 else prevEnd = { x: prevOff.cx + Math.cos(prevOff.endAngle) * prevOff.r, z: prevOff.cz + Math.sin(prevOff.endAngle) * prevOff.r };
@@ -425,21 +388,14 @@
                                 else currStart = { x: offSeg.cx + Math.cos(offSeg.startAngle) * offSeg.r, z: offSeg.cz + Math.sin(offSeg.startAngle) * offSeg.r };
 
                                 const distGap = Math.hypot(currStart.x - prevEnd.x, currStart.z - prevEnd.z);
-
-                                // LOGIC: AUTO-TRIM vs CORNER ROLL
-                                // If segments intersect significantly "inside" -> Concave -> Trim
-                                // If segments gap "outside" -> Convex -> Roll
                                 
                                 let intersection = null;
-                                // Simple Line-Line Trim
                                 if (prevOff.type === 'line' && offSeg.type === 'line') {
                                     intersection = intersectLines(prevOff.p1, prevOff.p2, offSeg.p1, offSeg.p2);
                                 }
-                                // Simple Line-Arc Trim (approximate check if better)
                                 else if (prevOff.type === 'line' && offSeg.type === 'arc') {
                                     const intersects = intersectLineCircle(prevOff.p1, prevOff.p2, {x:offSeg.cx, z:offSeg.cz}, offSeg.r);
                                     if(intersects) {
-                                        // Pick the one closest to prevEnd
                                         const d1 = Math.hypot(intersects[0].x - prevEnd.x, intersects[0].z - prevEnd.z);
                                         const d2 = Math.hypot(intersects[1].x - prevEnd.x, intersects[1].z - prevEnd.z);
                                         intersection = d1 < d2 ? intersects[0] : intersects[1];
@@ -454,50 +410,30 @@
                                     }
                                 }
 
-                                // TRIM CHECK: If intersection exists and shortens the previous segment
                                 if (intersection && distGap > 0.001) {
                                     const distPrevStartToI = Math.hypot(intersection.x - (prevOff.type==='line'?prevOff.p1.x:prevOff.cx), intersection.z - (prevOff.type==='line'?prevOff.p1.z:prevOff.cz)); 
                                     const distPrevStartToEnd = Math.hypot(prevEnd.x - (prevOff.type==='line'?prevOff.p1.x:prevOff.cx), prevEnd.z - (prevOff.type==='line'?prevOff.p1.z:prevOff.cz)); 
                                     
-                                    // If intersection is "closer" than current end, it's a trim (inner corner)
-                                    // Note: For arcs, dist is not perfect but often sufficient for small segments
                                     if (distPrevStartToI < distPrevStartToEnd - 0.001) {
-                                        // APPLY TRIM
                                         if(prevOff.type === 'line') prevOff.p2 = intersection;
-                                        else {
-                                            // Recalc end angle for arc
-                                            prevOff.endAngle = Math.atan2(intersection.x - prevOff.cx, intersection.z - prevOff.cz);
-                                        }
-
+                                        else { prevOff.endAngle = Math.atan2(intersection.x - prevOff.cx, intersection.z - prevOff.cz); }
                                         if(offSeg.type === 'line') offSeg.p1 = intersection;
-                                        else {
-                                            // Recalc start angle for arc
-                                            offSeg.startAngle = Math.atan2(intersection.x - offSeg.cx, intersection.z - offSeg.cz);
-                                        }
+                                        else { offSeg.startAngle = Math.atan2(intersection.x - offSeg.cx, intersection.z - offSeg.cz); }
                                     } else {
-                                        // CONVEX CASE -> ROLL (If not trimmed)
-                                        // Logic copied from previous step for Convex
                                         const vertex = contourSegments[i].p1; 
                                         const angleStart = Math.atan2(prevEnd.x - vertex.x, prevEnd.z - vertex.z);
                                         const angleEnd = Math.atan2(currStart.x - vertex.x, currStart.z - vertex.z);
                                         let diff = angleEnd - angleStart;
-                                        while (diff <= -Math.PI) diff += 2*Math.PI;
-                                        while (diff > Math.PI) diff -= 2*Math.PI;
+                                        while (diff <= -Math.PI) diff += 2*Math.PI; while (diff > Math.PI) diff -= 2*Math.PI;
                                         const rollDir = diff > 0 ? 'G3' : 'G2';
-
-                                        finishOffsetPath.push({
-                                            type: 'arc', cx: vertex.x, cz: vertex.z, r: tipR, dir: rollDir,
-                                            startAngle: angleStart, endAngle: angleEnd, isCornerRoll: true
-                                        });
+                                        finishOffsetPath.push({ type: 'arc', cx: vertex.x, cz: vertex.z, r: tipR, dir: rollDir, startAngle: angleStart, endAngle: angleEnd, isCornerRoll: true });
                                     }
                                 } else if (distGap > 0.01) {
-                                    // Fallback for simple gaps (no intersection found or parallel)
                                     const vertex = contourSegments[i].p1; 
                                     const angleStart = Math.atan2(prevEnd.x - vertex.x, prevEnd.z - vertex.z);
                                     const angleEnd = Math.atan2(currStart.x - vertex.x, currStart.z - vertex.z);
                                     let diff = angleEnd - angleStart;
-                                    while (diff <= -Math.PI) diff += 2*Math.PI;
-                                    while (diff > Math.PI) diff -= 2*Math.PI;
+                                    while (diff <= -Math.PI) diff += 2*Math.PI; while (diff > Math.PI) diff -= 2*Math.PI;
                                     const rollDir = diff > 0 ? 'G3' : 'G2';
                                     finishOffsetPath.push({ type: 'arc', cx: vertex.x, cz: vertex.z, r: tipR, dir: rollDir, startAngle: angleStart, endAngle: angleEnd, isCornerRoll: true });
                                 }
@@ -509,14 +445,12 @@
                 
                 setErrors(foundErrors);
 
-                // --- ROUGHING LOGIC (Same) ---
                 const passes = [];
                 const step = parseFloat(params.depthOfCut) || 1;
                 const sRad = (parseFloat(params.stockDiameter) || 100)/2;
                 const stockFace = parseFloat(params.stockFace) || 0;
                 
                 if (params.roughingStrategy === 'face') {
-                    // FACE TURNING (Logic kept same)
                     let currentZ = stockFace;
                     const minZPart = -1000;
                     let safe = 0;
@@ -554,7 +488,6 @@
                         if (currentZ < -200) break; 
                     }
                 } else {
-                    // LONGITUDINAL TURNING (Logic kept same)
                     let currentX = sRad;
                     if (params.stockMode === 'casting' && stockWorldPoints.length > 0) {
                        let maxStockX = -9999;
@@ -620,7 +553,6 @@
                     }
                 }
 
-                // --- Simulation Path Generation ---
                 const simPath = [];
                 simPath.push({x: params.safeX/2, z: params.safeZ, type: 'G0'});
                 
@@ -634,7 +566,6 @@
                         simPath.push({x: xRetract, z: pass.zEnd + retractDist, type: 'G1'});   
                         simPath.push({x: xRetract, z: pass.zStart + 1, type: 'G0'});   
                     } else {
-                        // FACE
                         const zRetract = pass.z + retractDist; 
                         const zCut = pass.z;
                         simPath.push({x: pass.xStart, z: zRetract, type: 'G0'});
@@ -647,7 +578,6 @@
                 
                 simPath.push({x: params.safeX/2, z: params.safeZ, type: 'G0'});
 
-                // Finishing simulation
                 if (params.doFinishing && finishOffsetPath.length > 0) {
                      const startSeg = finishOffsetPath[0];
                      const startX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.cos(startSeg.startAngle)*startSeg.r);
@@ -681,13 +611,21 @@
                 return { worldPoints, stockWorldPoints, offsetPath, finishOffsetPath, stockPathSegments, passes, simPath, retractDist };
             }, [contourPoints, stockPoints, params]);
 
-            // ... Animation and G-Code effects remain same ...
+            // --- G-Code and Mapping Generation ---
             useEffect(() => {
                 let animationFrameId; let startTime;
                 const animate = (time) => {
                     if (!startTime) startTime = time;
                     if (simRunning) {
-                        setSimProgress(prev => { const next = prev + 0.003; if (next >= 1) { setSimRunning(false); return 1; } return next; });
+                        setSimProgress(prev => { 
+                            // ZPOMALENO z 0.003 na 0.0015
+                            const next = prev + 0.0015; 
+                            if (next >= 1) { 
+                                setSimRunning(false); 
+                                return 1; 
+                            } 
+                            return next; 
+                        });
                         animationFrameId = requestAnimationFrame(animate);
                     }
                 };
@@ -697,82 +635,198 @@
 
             useEffect(() => {
                 const d = new Date();
-                const seen = new Set();
-                const note = (cmd, text) => { if (seen.has(cmd)) return ''; seen.add(cmd); return ` ; ${text}`; };
-                const head = `; Vygenerovaný kód SINUMERIK 840D
-; Datum: ${d.toLocaleDateString()}
-; G-kód s kompenzací rádiusu (rozepsaný)
-G18${note('G18', 'Rovina ZX')}
-G90${note('G90', 'Absolutní programování')}
-G54${note('G54', 'Posunutí počátku')}
-G95${note('G95', 'Posuv na otáčku')}
-G75 Z0${note('G75', 'Nájezd do ref. bodu')}
-G75 X0
-LIMS=2000 ; Limit otáček
-G96 S${params.speed} ${params.machineType}${note('G96', 'Konst. řezná rychlost')}
-${params.mode}
-T="${params.toolName}" D1 M6${note('M6', 'Výměna nástroje')}
-M3${note('M3', 'Vřeteno CW')}
-M8${note('M8', 'Chlazení ZAP')}
-G0 X${params.safeX} Z${params.safeZ}${note('G0', 'Rychloposuv (polohování)')}`;
+                const lines = []; // Store lines as { text: string, simIdx: number | null }
+                
+                // Helper to add lines
+                const add = (text, simIdx = null) => lines.push({ text, simIdx });
+                const addCmt = (text) => add(`; ${text}`, null);
+                
+                // Mapping counter: Corresponds to index in calculatedData.simPath
+                // simPath starts with 1 point (Safe Pos) -> index 0
+                let simCounter = 0; 
+
+                add(`; Vygenerovaný kód SINUMERIK 840D`);
+                add(`; Datum: ${d.toLocaleDateString()}`);
+                add(`; G-kód s kompenzací rádiusu (rozepsaný)`);
+                add(`G18 ; Rovina ZX`);
+                add(`G90 ; Absolutní programování`);
+                add(`G54 ; Posunutí počátku`);
+                add(`G95 ; Posuv na otáčku`);
+                add(`G75 Z0 ; Nájezd do ref. bodu`);
+                add(`G75 X0`);
+                add(`LIMS=2000 ; Limit otáček`);
+                add(`G96 S${params.speed} ${params.machineType} ; Konst. řezná rychlost`);
+                add(`${params.mode}`);
+                add(`T="${params.toolName}" D1 M6 ; Výměna nástroje`);
+                add(`M3 ; Vřeteno CW`);
+                add(`M8 ; Chlazení ZAP`);
+                
+                // Start position in SimPath is index 0
+                add(`G0 X${params.safeX} Z${params.safeZ} ; Rychloposuv (polohování)`, 0); 
 
                 const rDist = calculatedData.retractDist || 2.0;
-                const roughing = calculatedData.passes.map((pass, i) => {
+
+                addCmt(`--- HRUBOVANI (${params.roughingStrategy === 'face' ? 'CELNI' : 'PODELNE'}) ---`);
+                
+                calculatedData.passes.forEach((pass, i) => {
+                    addCmt(`Průchod ${i+1}`);
+                    
+                    // Logic MUST match calculatedData simPath generation for Roughing
+                    // Roughing adds 5 points per pass to simPath
+                    
                     if (pass.type === 'long') {
                         const xVal = params.mode === 'DIAMON' ? (pass.x * 2).toFixed(3) : pass.x.toFixed(3);
                         const xRetract = params.mode === 'DIAMON' ? ((pass.x + rDist) * 2).toFixed(3) : (pass.x + rDist).toFixed(3);
-                        return `; Průchod ${i+1} (Podélně)
-G0 X${xRetract} Z${(pass.zStart + 1).toFixed(3)}${note('G0', 'Rychloposuv')}
-G1 X${xVal} F${params.feed}${note('G1', 'Pracovní posuv')}
-G1 Z${pass.zEnd.toFixed(3)}
-G1 X${xRetract} Z${(pass.zEnd + rDist).toFixed(3)}
-G0 Z${(pass.zStart + 1).toFixed(3)}`;
+                        
+                        // 1. G0 Approach
+                        simCounter += 1;
+                        add(`G0 X${xRetract} Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
+                        
+                        // 2. G0 Depth
+                        simCounter += 1;
+                        // Usually merged with approach in visuals but logic has it
+                        // We attach it to the same or next
+                        // add(`; (Najeť na hloubku)`, simCounter); 
+
+                        // 3. G1 Cut
+                        simCounter += 1; // Start of G1
+                        add(`G1 X${xVal} F${params.feed}`, simCounter); 
+                        
+                        // 4. G1 End Cut
+                        simCounter += 1; 
+                        add(`G1 Z${pass.zEnd.toFixed(3)}`, simCounter);
+                        
+                        // 5. G1 Retract
+                        simCounter += 1;
+                        add(`G1 X${xRetract} Z${(pass.zEnd + rDist).toFixed(3)}`, simCounter);
+                        
+                        // 6. G0 Return
+                        simCounter += 1;
+                        add(`G0 Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
+
                     } else {
+                        // FACE
                         const zVal = pass.z.toFixed(3);
                         const zRetract = (pass.z + rDist).toFixed(3);
                         const xStart = params.mode === 'DIAMON' ? (pass.xStart * 2).toFixed(3) : pass.xStart.toFixed(3);
                         const xEnd = params.mode === 'DIAMON' ? (pass.xEnd * 2).toFixed(3) : pass.xEnd.toFixed(3);
                         const xEndRetract = params.mode === 'DIAMON' ? ((pass.xEnd + rDist) * 2).toFixed(3) : (pass.xEnd + rDist).toFixed(3);
-                        return `; Průchod ${i+1} (Čelně)
-G0 X${xStart} Z${zRetract}${note('G0', 'Rychloposuv')}
-G1 Z${zVal} F${params.feed}${note('G1', 'Pracovní posuv')}
-G1 X${xEnd}
-G1 X${xEndRetract} Z${zRetract}
-G0 X${xStart}`;
-                    }
-                }).join('\n');
 
-                let finishing = '';
+                        simCounter += 1;
+                        add(`G0 X${xStart} Z${zRetract}`, simCounter);
+
+                        simCounter += 1; // Depth (visual logic step)
+                        // add(`; Hloubka`, simCounter);
+
+                        simCounter += 1;
+                        add(`G1 Z${zVal} F${params.feed}`, simCounter);
+
+                        simCounter += 1;
+                        add(`G1 X${xEnd}`, simCounter);
+
+                        simCounter += 1;
+                        add(`G1 X${xEndRetract} Z${zRetract}`, simCounter);
+
+                        simCounter += 1;
+                        add(`G0 X${xStart}`, simCounter);
+                    }
+                });
+
+                // SimPath adds 1 safe move after roughing
+                simCounter += 1;
+                add(`G0 X${params.safeX} Z${params.safeZ}`, simCounter);
+
                 if (params.doFinishing && calculatedData.finishOffsetPath.length > 0) {
-                    const pathLines = [];
+                    addCmt(`--- DOKONCOVANI ---`);
+                    
                     const startSeg = calculatedData.finishOffsetPath[0];
                     const sX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.cos(startSeg.startAngle)*startSeg.r);
                     const sZ = startSeg.type === 'line' ? startSeg.p1.z : (startSeg.cz + Math.sin(startSeg.startAngle)*startSeg.r);
                     const sX_out = params.mode === 'DIAMON' ? (sX * 2).toFixed(3) : sX.toFixed(3);
-                    pathLines.push(`G0 X${sX_out} Z${sZ.toFixed(3)}${note('G0', 'Rychloposuv')}`);
+                    
+                    // Logic from simPath: 
+                    // 1. Safe (already added above)
+                    // 2. Approach (+2)
+                    simCounter += 1;
+                    add(`G0 X${sX_out} Z${sZ.toFixed(3)} ; Nájezd`, simCounter);
+                    
+                    // 3. Contact
+                    simCounter += 1;
+                    add(`G1 X${sX_out} Z${sZ.toFixed(3)}`, simCounter); // Actually usually same coords, just G1 switch
 
                     calculatedData.finishOffsetPath.forEach(seg => {
+                        // SimPath generates varying points for Arcs, but 1 for Line.
+                        // We map the END of the segment to the G-Code line.
+                        
                         if (seg.type === 'line') {
                              const eX = params.mode === 'DIAMON' ? (seg.p2.x * 2).toFixed(3) : seg.p2.x.toFixed(3);
-                             pathLines.push(`G1 X${eX} Z${seg.p2.z.toFixed(3)}${note('G1', 'Pracovní posuv')}`);
+                             simCounter += 1;
+                             add(`G1 X${eX} Z${seg.p2.z.toFixed(3)}`, simCounter);
                         } else {
+                             // Arcs in simPath have 'steps' (10). 
+                             // We need to advance simCounter by 'steps' so the next G-code line maps correctly.
+                             simCounter += 10;
+                             
                              const eX = params.mode === 'DIAMON' ? ((seg.cx + Math.cos(seg.endAngle)*seg.r) * 2).toFixed(3) : (seg.cx + Math.cos(seg.endAngle)*seg.r).toFixed(3);
                              const eZ = (seg.cz + Math.sin(seg.endAngle)*seg.r).toFixed(3);
-                             const cmt = seg.dir === 'G2' ? note('G2', 'Kruhová int. CW') : note('G3', 'Kruhová int. CCW');
-                             pathLines.push(`${seg.dir} X${eX} Z${eZ} CR=${seg.r.toFixed(3)} ${seg.isCornerRoll ? '; Obeplutí rohu' : ''}${cmt}`);
+                             add(`${seg.dir} X${eX} Z${eZ} CR=${seg.r.toFixed(3)} ${seg.isCornerRoll ? '; Obeplutí rohu' : ''}`, simCounter);
                         }
                     });
-                    finishing = `\n; --- DOKONCOVANI ---\n${pathLines.join('\n')}\n`;
+                    
+                    // Retract logic from simPath
+                    simCounter += 1;
+                    // lastPt + 2
+                    
+                    simCounter += 1;
+                    add(`G0 X${params.safeX} Z${params.safeZ}`, simCounter);
                 }
 
-                const contourSub = contourPoints.map(p => {
+                add(`M30 ; Konec programu`);
+                
+                addCmt(`--- KONTURA (Pro referenci) ---`);
+                contourPoints.forEach(p => {
                     let line = `${p.type} X${p.x} Z${p.z}`;
                     if (p.type === 'G2' || p.type === 'G3') line += ` CR=${p.r}`; 
-                    return line;
-                }).join('\n');
-                
-                setGeneratedCode(`${head}\n\n; --- HRUBOVANI (${params.roughingStrategy === 'face' ? 'CELNI' : 'PODELNE'}) ---\n${roughing}\n${finishing}\nG0 X${params.safeX} Z${params.safeZ}\nM30${note('M30', 'Konec programu')}\n\n; --- KONTURA (Pro referenci) ---\n${contourSub}`);
+                    add(line);
+                });
+
+                setGeneratedCode(lines);
             }, [calculatedData, params, contourPoints]);
+
+            // Handler for clicking a line
+            const handleLineClick = (simIdx) => {
+                if (simIdx !== null && calculatedData.simPath.length > 0) {
+                    const progress = simIdx / (calculatedData.simPath.length - 1);
+                    setSimProgress(progress);
+                }
+            };
+            
+            // --- Simulation Controls Logic ---
+            const toggleSimulation = () => {
+                if (simRunning) {
+                    setSimRunning(false);
+                } else {
+                    if (simProgress >= 1) {
+                        setSimProgress(0);
+                    }
+                    setSimRunning(true);
+                }
+            };
+
+            const stopSimulation = () => {
+                setSimRunning(false);
+                setSimProgress(0);
+            };
+            
+            // Auto-scroll to active line
+            useEffect(() => {
+                if (!codeContainerRef.current) return;
+                const activeEl = codeContainerRef.current.querySelector('.code-line.active');
+                if (activeEl) {
+                    activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }, [simProgress]);
+
 
             const draw = useCallback(() => {
                 const canvas = canvasRef.current;
@@ -797,13 +851,40 @@ G0 X${xStart}`;
 
                 // Grid
                 ctx.strokeStyle = colors.grid; ctx.lineWidth = 1; ctx.beginPath();
+                
+                // Prepare text style for grid labels
+                ctx.fillStyle = theme === 'dark' ? '#6b7280' : '#9ca3af';
+                ctx.font = "10px sans-serif";
+                
                 for (let i=-500; i<=500; i+=20) {
+                     // Vertical lines (Constant Z)
                      const p1 = toScreen(-500, i); const p2 = toScreen(500, i);
                      ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                     
+                     // Horizontal lines (Constant X)
                      const p3 = toScreen(i, -500); const p4 = toScreen(i, 500);
                      ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
                 }
                 ctx.stroke();
+
+                // Labels loop (separate to be on top of lines or just managed cleanly)
+                for (let i=-500; i<=500; i+=20) {
+                    if (i === 0) continue; // Skip 0, handled by axis label
+
+                    // Label Z axis (ticks on horizontal line)
+                    // The line is Vertical (Constant Z=i). It crosses X=0 axis at toScreen(0, i).
+                    const ptZ = toScreen(0, i);
+                    ctx.textAlign = "center"; 
+                    ctx.textBaseline = "top";
+                    ctx.fillText(i.toString(), ptZ.x, ptZ.y + 2);
+
+                    // Label X axis (ticks on vertical line)
+                    // The line is Horizontal (Constant X=i). It crosses Z=0 axis at toScreen(i, 0).
+                    const ptX = toScreen(i, 0);
+                    ctx.textAlign = "right"; 
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(i.toString(), ptX.x - 4, ptX.y);
+                }
 
                 // Axis
                 const zero = toScreen(0,0);
@@ -812,7 +893,9 @@ G0 X${xStart}`;
                 ctx.moveTo(zero.x, 0); ctx.lineTo(zero.x, h);
                 ctx.stroke();
                 ctx.fillStyle = colors.axis; ctx.font = "bold 12px monospace";
+                ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; // Reset alignment for axis labels
                 ctx.fillText("Z+", w - 20, zero.y + 15); ctx.fillText("X+", zero.x + 10, 15);
+                ctx.fillText("X0 Z0", zero.x + 4, zero.y - 4); 
 
                 // Stock Visual
                 if (params.stockMode === 'cylinder') {
@@ -890,7 +973,6 @@ G0 X${xStart}`;
                              const ea_scr = Math.atan2(toScreen(seg.refP2.x, seg.refP2.z).y - c.y, toScreen(seg.refP2.x, seg.refP2.z).x - c.x);
                              const isG2 = (seg.dir === 'G2');
                              
-                             // Calculate start for moveTo
                              const startX_scr = c.x + Math.cos(sa_scr) * (seg.r * view.scale);
                              const startY_scr = c.y + Math.sin(sa_scr) * (seg.r * view.scale);
                              
@@ -911,9 +993,6 @@ G0 X${xStart}`;
                             ctx.lineTo(p2.x, p2.y);
                         } else if (seg.type === 'arc') {
                              const c = toScreen(seg.cx, seg.cz);
-                             
-                             // FIX: Správný výpočet souřadnic z úhlu (X je vertikální/Sin, Z je horizontální/Cos)
-                             // Předtím bylo prohozené cos/sin, což způsobovalo "velká kola" v grafice
                              const wsX = seg.cx + Math.sin(seg.startAngle) * seg.r;
                              const wsZ = seg.cz + Math.cos(seg.startAngle) * seg.r;
                              const weX = seg.cx + Math.sin(seg.endAngle) * seg.r;
@@ -934,7 +1013,7 @@ G0 X${xStart}`;
                     ctx.strokeStyle = colors.finish; ctx.lineWidth = 2; ctx.stroke();
                 }
 
-                // Passes (Roughing) & Tool ... (logic same)
+                // Passes
                 ctx.beginPath();
                 calculatedData.passes.forEach(pass => {
                     if (pass.type === 'long') {
@@ -970,26 +1049,33 @@ G0 X${xStart}`;
                     const idx = Math.floor(floatIndex);
                     const t = floatIndex - idx;
                     const pCurrent = calculatedData.simPath[idx];
-                    const pNext = calculatedData.simPath[Math.min(idx + 1, totalPoints - 1)];
-                    const curX = pCurrent.x + (pNext.x - pCurrent.x) * t;
-                    const curZ = pCurrent.z + (pNext.z - pCurrent.z) * t;
-                    const pt = toScreen(curX, curZ);
                     
-                    ctx.fillStyle = colors.tool; ctx.beginPath();
-                    ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x + 8, pt.y + 12); ctx.lineTo(pt.x - 8, pt.y + 12);
-                    ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke();
+                    // Bezpečnostní kontrola: Zabrání pádu pokud indexy nesedí (např. při změně dat za běhu)
+                    if (pCurrent) {
+                        const pNext = calculatedData.simPath[Math.min(idx + 1, totalPoints - 1)] || pCurrent;
+                        const curX = pCurrent.x + (pNext.x - pCurrent.x) * t;
+                        const curZ = pCurrent.z + (pNext.z - pCurrent.z) * t;
+                        const pt = toScreen(curX, curZ);
+                        
+                        ctx.fillStyle = colors.tool; ctx.beginPath();
+                        ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x + 8, pt.y + 12); ctx.lineTo(pt.x - 8, pt.y + 12);
+                        ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke();
+                    }
                 }
 
                 if (!simRunning) {
                     const activePoints = editMode === 'contour' ? calculatedData.worldPoints : calculatedData.stockWorldPoints;
                     ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-                    activePoints.forEach((p, i) => {
-                        const pt = toScreen(p.xReal, p.zReal);
-                        ctx.fillStyle = editMode === 'contour' ? colors.contour : colors.pass;
-                        ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2); ctx.fill();
-                        const label = `${i+1}`; const tx = pt.x + 8; const ty = pt.y - 8;
-                        ctx.fillStyle = theme === 'dark' ? '#fbbf24' : '#d97706'; ctx.fillText(label, tx, ty);
-                    });
+                    if(activePoints) {
+                        activePoints.forEach((p, i) => {
+                            if (!p) return;
+                            const pt = toScreen(p.xReal, p.zReal);
+                            ctx.fillStyle = editMode === 'contour' ? colors.contour : colors.pass;
+                            ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2); ctx.fill();
+                            const label = `${i+1}`; const tx = pt.x + 8; const ty = pt.y - 8;
+                            ctx.fillStyle = theme === 'dark' ? '#fbbf24' : '#d97706'; ctx.fillText(label, tx, ty);
+                        });
+                    }
                 }
 
             }, [calculatedData, view, theme, params, editMode, mobileTab, simRunning, simProgress]);
@@ -1001,7 +1087,6 @@ G0 X${xStart}`;
                 return () => resizeObserver.disconnect();
             }, [draw]);
 
-            // Handlers ... (same)
             const handleWheel = (e) => { const s = Math.max(0.2, Math.min(view.scale * (1 - Math.sign(e.deltaY)*0.15), 50)); setView(v => ({...v, scale: s})); };
             const handleMouseDown = (e) => { setIsDragging(true); lastMousePos.current = { x: e.clientX, y: e.clientY }; };
             const handleMouseMove = (e) => {
@@ -1011,9 +1096,36 @@ G0 X${xStart}`;
                 lastMousePos.current = { x: e.clientX, y: e.clientY };
             };
             const handleMouseUp = () => setIsDragging(false);
-            const handleTouchStart = (e) => { if (e.touches.length === 1) { setIsDragging(true); lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; } };
-            const handleTouchMove = (e) => { if (!isDragging || e.touches.length !== 1) return; const dx = e.touches[0].clientX - lastMousePos.current.x; const dy = e.touches[0].clientY - lastMousePos.current.y; setView(v => ({ ...v, panX: v.panX + dx, panY: v.panY + dy })); lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
-            const handleTouchEnd = () => setIsDragging(false);
+
+            const handleTouchStart = (e) => {
+                if (e.touches.length === 1) {
+                    setIsDragging(true);
+                    lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                } else if (e.touches.length === 2) {
+                    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                    lastPinchDist.current = dist;
+                }
+            };
+
+            const handleTouchMove = (e) => {
+                if (isDragging && e.touches.length === 1) {
+                    const dx = e.touches[0].clientX - lastMousePos.current.x;
+                    const dy = e.touches[0].clientY - lastMousePos.current.y;
+                    setView(v => ({ ...v, panX: v.panX + dx, panY: v.panY + dy }));
+                    lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+                if (e.touches.length === 2 && lastPinchDist.current) {
+                    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                    const zoomFactor = dist / lastPinchDist.current;
+                    setView(v => { const newScale = Math.max(0.2, Math.min(v.scale * zoomFactor, 50)); return { ...v, scale: newScale }; });
+                    lastPinchDist.current = dist;
+                }
+            };
+
+            const handleTouchEnd = () => {
+                setIsDragging(false);
+                lastPinchDist.current = null;
+            };
 
             const processGCodeString = (text) => {
                 const lines = text.split('\n'); const newPoints = []; let currentType = 'G1'; let idCounter = Date.now(); let lastX = 100; let lastZ = 0;
@@ -1045,12 +1157,31 @@ G0 X${xStart}`;
             const removePoint = (id) => { const list = editMode === 'contour' ? contourPoints : stockPoints; const setList = editMode === 'contour' ? setContourPoints : setStockPoints; if (list.length > 1) setList(list.filter(p=>p.id!==id)); };
             const currentPoints = editMode === 'contour' ? contourPoints : stockPoints;
 
+            // Helper to check if a line is "active" based on simulation progress
+            const isLineActive = (line, idx) => {
+                if (line.simIdx === null) return false;
+                const totalPoints = calculatedData.simPath.length;
+                if (totalPoints === 0) return false;
+                const currentIdx = Math.floor(simProgress * (totalPoints - 1));
+                
+                // Find next line with simIdx
+                let nextSimIdx = null;
+                for (let j = idx + 1; j < generatedCode.length; j++) {
+                    if (generatedCode[j].simIdx !== null) {
+                        nextSimIdx = generatedCode[j].simIdx;
+                        break;
+                    }
+                }
+                
+                if (nextSimIdx === null) return currentIdx >= line.simIdx; // Last instruction
+                return currentIdx >= line.simIdx && currentIdx < nextSimIdx;
+            };
+
             return (
                 <div className="flex flex-col md:flex-row h-full">
-                    {/* ... UI structure same ... */}
-                    <div className={`${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex w-full md:w-96 flex-col border-r shadow-xl z-10 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <div className={`${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex w-full md:w-96 flex-col border-r shadow-xl z-10 h-full overflow-hidden ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                         <div className={`p-4 border-b flex justify-between items-center ${theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
-                            <h1 className="font-bold text-lg text-blue-500">Sinumerik CAM <span className="text-xs text-gray-400 font-normal">v1.4 (Auto-Trim)</span></h1>
+                            <h1 className="font-bold text-lg text-blue-500">Sinumerik CAM <span className="text-xs text-gray-400 font-normal">v1.4</span></h1>
                             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded hover:bg-gray-700 hover:text-white transition-colors">
                                 {theme === 'light' ? <IconMoon /> : <IconSun />}
                             </button>
@@ -1107,7 +1238,6 @@ G0 X${xStart}`;
                             )}
                              {activeTab === 'params' && (
                                 <div className="space-y-4">
-                                    {/* ... Params UI (same) ... */}
                                     <h3 className={`font-bold border-b pb-1 ${theme==='dark'?'text-gray-300 border-gray-700':'text-gray-800 border-gray-300'}`}>Polotovar</h3>
                                     <div className="flex gap-2 mb-2">
                                         <button onClick={() => setParams({...params, stockMode: 'cylinder'})} className={`flex-1 py-1 text-xs border rounded ${params.stockMode==='cylinder' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>Válec</button>
@@ -1151,6 +1281,12 @@ G0 X${xStart}`;
                                         </label>
                                         <p className="text-xs text-gray-500 mt-1 pl-6">Vygeneruje dráhu nástroje přesně po kontuře (pouze s korekcí R, bez přídavku).</p>
                                     </div>
+                                    
+                                    <div className="mt-8 pt-4 border-t dark:border-gray-700 flex justify-center">
+                                        <button onClick={handleResetApp} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
+                                            <IconRefresh /> Resetovat vše (Vymazat uložené)
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                              {activeTab === 'import' && (
@@ -1165,8 +1301,10 @@ G0 X${xStart}`;
                      <div className={`${mobileTab === 'preview' ? 'flex' : 'hidden'} md:flex flex-1 flex-col relative pb-20 md:pb-0 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
                         <div className="absolute top-4 right-4 z-10 flex gap-2">
                             <div className="bg-white p-1 rounded shadow flex gap-1 items-center">
-                                <button onClick={() => { setSimProgress(0); setSimRunning(true); }} className={`p-1 rounded hover:bg-green-100 ${simRunning ? 'text-green-600' : 'text-gray-600'}`} title="Spustit simulaci"><IconPlay /></button>
-                                <button onClick={() => { setSimRunning(false); setSimProgress(0); }} className="p-1 rounded hover:bg-red-100 text-gray-600" title="Stop"><IconStop /></button>
+                                <button onClick={toggleSimulation} className={`p-1 rounded hover:bg-green-100 ${simRunning ? 'text-green-600' : 'text-gray-600'}`} title={simRunning ? "Pauza" : "Spustit"}>
+                                    {simRunning ? <IconPause /> : <IconPlay />}
+                                </button>
+                                <button onClick={stopSimulation} className="p-1 rounded hover:bg-red-100 text-gray-600" title="Stop"><IconStop /></button>
                             </div>
                             <button onClick={fitView} className="bg-white p-2 rounded shadow text-gray-700 hover:text-blue-600" title="Centrovat pohled"><IconTarget /></button>
                         </div>
@@ -1176,8 +1314,19 @@ G0 X${xStart}`;
                              onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                             <canvas ref={canvasRef} className="block" />
                         </div>
-                        <div className={`h-48 border-t flex flex-col ${theme === 'dark' ? 'bg-gray-950 border-gray-700' : 'bg-white border-gray-300'}`}>
-                             <textarea readOnly className={`flex-1 bg-transparent p-4 text-xs font-mono focus:outline-none resize-none ${theme === 'dark' ? 'text-green-300' : 'text-gray-800'}`} value={generatedCode} />
+                        <div ref={codeContainerRef} className={`h-48 border-t flex flex-col overflow-y-auto ${theme === 'dark' ? 'bg-gray-950 border-gray-700' : 'bg-white border-gray-300'}`}>
+                             {/* nahrazeno textarea za interaktivní seznam */}
+                             <div className="font-mono text-xs p-2">
+                                {generatedCode.map((line, idx) => (
+                                    <div 
+                                        key={idx} 
+                                        onClick={() => handleLineClick(line.simIdx)}
+                                        className={`code-line whitespace-pre px-2 py-0.5 cursor-pointer ${isLineActive(line, idx) ? 'active' : ''} ${theme === 'dark' ? 'text-green-300' : 'text-gray-800'}`}
+                                    >
+                                        {line.text}
+                                    </div>
+                                ))}
+                             </div>
                         </div>
                     </div>
 
