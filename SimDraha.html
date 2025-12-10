@@ -179,20 +179,27 @@
                 stockFace: 2.0,
                 safeX: 150,
                 safeZ: 5,
-                machineStructure: 'lathe' // 'lathe' | 'carousel'
+                machineStructure: 'lathe', // 'lathe' | 'carousel'
+                controlSystem: 'sinumerik' // 'sinumerik' | 'fanuc' | 'heidenhain'
             });
 
+            // UPDATED: Default points with start at X0 and a Groove
             const [contourPoints, setContourPoints] = useState([
-                { id: 1, type: 'G0', x: 100, z: 0, r: 0, mode: 'ABS' },
+                { id: 1, type: 'G0', x: 0, z: 0, r: 0, mode: 'ABS' }, // Changed X100 to X0
                 { id: 2, type: 'G1', x: 20, z: 0, r: 0, mode: 'ABS' },     
                 { id: 3, type: 'G1', x: 20, z: -15, r: 0, mode: 'ABS' },   
                 { id: 4, type: 'G1', x: 30, z: -15, r: 0, mode: 'ABS' },   
                 { id: 5, type: 'G1', x: 35, z: -25, r: 0, mode: 'ABS' },   
                 { id: 6, type: 'G1', x: 35, z: -40, r: 0, mode: 'ABS' },   
                 { id: 7, type: 'G2', x: 55, z: -50, r: 10, mode: 'ABS' },  
-                { id: 8, type: 'G1', x: 55, z: -65, r: 0, mode: 'ABS' },   
-                { id: 9, type: 'G3', x: 65, z: -75, r: 12, mode: 'ABS' },  
-                { id: 10, type: 'G1', x: 80, z: -100, r: 0, mode: 'ABS' }  
+                // Added Groove (Zapich)
+                { id: 8, type: 'G1', x: 55, z: -55, r: 0, mode: 'ABS' }, // Start of groove
+                { id: 81, type: 'G1', x: 45, z: -55, r: 0, mode: 'ABS' }, // Down
+                { id: 82, type: 'G1', x: 45, z: -60, r: 0, mode: 'ABS' }, // Bottom
+                { id: 83, type: 'G1', x: 55, z: -60, r: 0, mode: 'ABS' }, // Up
+                { id: 9, type: 'G1', x: 55, z: -65, r: 0, mode: 'ABS' }, // Continue contour
+                { id: 10, type: 'G3', x: 65, z: -75, r: 12, mode: 'ABS' },  
+                { id: 11, type: 'G1', x: 80, z: -100, r: 0, mode: 'ABS' }  
             ]);
 
             const [stockPoints, setStockPoints] = useState([
@@ -656,34 +663,88 @@
 
             useEffect(() => {
                 const d = new Date();
-                const lines = []; // Store lines as { text: string, simIdx: number | null }
-                
-                // Helper to add lines
+                const lines = []; 
                 const add = (text, simIdx = null) => lines.push({ text, simIdx });
-                const addCmt = (text) => add(`; ${text}`, null);
                 
-                // Mapping counter: Corresponds to index in calculatedData.simPath
-                // simPath starts with 1 point (Safe Pos) -> index 0
-                let simCounter = 0; 
+                // Helper pro formátování komentářů podle systému
+                const cmt = (text) => {
+                    if (params.controlSystem === 'fanuc') return `( ${text} )`;
+                    return `; ${text}`;
+                };
+                const addCmt = (text) => add(cmt(text), null);
+                const note = (cmd, text) => ` ${cmd}${cmt(text)}`; 
 
-                add(`; Vygenerovaný kód SINUMERIK 840D`);
-                add(`; Datum: ${d.toLocaleDateString()}`);
-                add(`; G-kód s kompenzací rádiusu (rozepsaný)`);
-                add(`G18 ; Rovina ZX`);
-                add(`G90 ; Absolutní programování`);
-                add(`G54 ; Posunutí počátku`);
-                add(`G95 ; Posuv na otáčku`);
-                add(`G75 Z0 ; Nájezd do ref. bodu`);
-                add(`G75 X0`);
-                add(`LIMS=2000 ; Limit otáček`);
-                add(`G96 S${params.speed} ${params.machineType} ; Konst. řezná rychlost`);
-                add(`${params.mode}`);
-                add(`T="${params.toolName}" D1 M6 ; Výměna nástroje`);
-                add(`M3 ; Vřeteno CW`);
-                add(`M8 ; Chlazení ZAP`);
+                // Konfigurace pro jednotlivé systémy
+                let header = [];
+                let footer = [];
+                let arcR = (r) => `CR=${r.toFixed(3)}`; // Default Sinumerik
+
+                if (params.controlSystem === 'sinumerik') {
+                    header = [
+                        cmt(`Vygenerovaný kód SINUMERIK 840D`),
+                        cmt(`Datum: ${d.toLocaleDateString()}`),
+                        `G18${note('', 'Rovina ZX')}`,
+                        `G90${note('', 'Absolutní programování')}`,
+                        `G54${note('', 'Posunutí počátku')}`,
+                        `G95${note('', 'Posuv na otáčku')}`,
+                        `G75 Z0${note('', 'Nájezd do ref. bodu')}`,
+                        `G75 X0`,
+                        `LIMS=2000${note('', 'Limit otáček')}`,
+                        `G96 S${params.speed} ${params.machineType}${note('', 'Konst. řezná rychlost')}`,
+                        `${params.mode}`,
+                        `T="${params.toolName}" D1 M6${note('', 'Výměna nástroje')}`,
+                        `M3${note('', 'Vřeteno CW')}`,
+                        `M8${note('', 'Chlazení ZAP')}`
+                    ];
+                    footer = [`M30${note('', 'Konec programu')}`];
+                    arcR = (r) => `CR=${r.toFixed(3)}`;
+                } else if (params.controlSystem === 'fanuc') {
+                    header = [
+                        cmt(`Vygenerovaný kód FANUC`),
+                        cmt(`Datum: ${d.toLocaleDateString()}`),
+                        `G21${note('', 'Metrický vstup')}`,
+                        `G40${note('', 'Zrušení kompenzace')}`,
+                        `G99${note('', 'Posuv mm/ot')}`,
+                        `G18${note('', 'Rovina ZX')}`,
+                        `G28 U0 W0${note('', 'Referenční bod')}`,
+                        `G50 S2000${note('', 'Max otáčky')}`,
+                        `G96 S${params.speed} M3${note('', 'Konst. řezná rychlost')}`,
+                        `T0101${note('', 'Nástroj 1 / Korekce 1')}`,
+                        `M8${note('', 'Chlazení ZAP')}`
+                    ];
+                    footer = [
+                        `M9`,
+                        `M5`,
+                        `G28 U0 W0`,
+                        `M30${note('', 'Konec programu')}`
+                    ];
+                    arcR = (r) => `R${r.toFixed(3)}`;
+                } else if (params.controlSystem === 'heidenhain') {
+                    // Heidenhain ISO formát (často velmi podobný Fanuc/ISO, ale s jinými cykly - zde generujeme čisté dráhy)
+                    header = [
+                        cmt(`Vygenerovaný kód HEIDENHAIN ISO`),
+                        cmt(`Datum: ${d.toLocaleDateString()}`),
+                        `G18${note('', 'Rovina ZX')}`,
+                        `G90${note('', 'Absolutní')}`,
+                        `G71${note('', 'Metrický systém')}`,
+                        `G54${note('', 'Nulový bod')}`,
+                        `G96 S${params.speed} M3${note('', 'Řezná rychlost')}`,
+                        `T1 M6${note('', 'Nástroj')}`,
+                        `M8`
+                    ];
+                    footer = [
+                        `M9`,
+                        `M5`,
+                        `M30`
+                    ];
+                    arcR = (r) => `R${r.toFixed(3)}`;
+                }
+
+                // Generování
+                header.forEach(line => add(line));
                 
-                // Start position in SimPath is index 0
-                add(`G0 X${params.safeX} Z${params.safeZ} ; Rychloposuv (polohování)`, 0); 
+                let simCounter = 0; 
+                add(`G0 X${params.safeX} Z${params.safeZ}${note('', 'Rychloposuv')}`, 0); 
 
                 const rDist = calculatedData.retractDist || 2.0;
 
@@ -691,123 +752,64 @@
                 
                 calculatedData.passes.forEach((pass, i) => {
                     addCmt(`Průchod ${i+1}`);
-                    
-                    // Logic MUST match calculatedData simPath generation for Roughing
-                    // Roughing adds 5 points per pass to simPath
-                    
                     if (pass.type === 'long') {
                         const xVal = params.mode === 'DIAMON' ? (pass.x * 2).toFixed(3) : pass.x.toFixed(3);
                         const xRetract = params.mode === 'DIAMON' ? ((pass.x + rDist) * 2).toFixed(3) : (pass.x + rDist).toFixed(3);
-                        
-                        // 1. G0 Approach
-                        simCounter += 1;
-                        add(`G0 X${xRetract} Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
-                        
-                        // 2. G0 Depth
-                        simCounter += 1;
-                        // Usually merged with approach in visuals but logic has it
-                        // We attach it to the same or next
-                        // add(`; (Najeť na hloubku)`, simCounter); 
-
-                        // 3. G1 Cut
-                        simCounter += 1; // Start of G1
-                        add(`G1 X${xVal} F${params.feed}`, simCounter); 
-                        
-                        // 4. G1 End Cut
-                        simCounter += 1; 
-                        add(`G1 Z${pass.zEnd.toFixed(3)}`, simCounter);
-                        
-                        // 5. G1 Retract
-                        simCounter += 1;
-                        add(`G1 X${xRetract} Z${(pass.zEnd + rDist).toFixed(3)}`, simCounter);
-                        
-                        // 6. G0 Return
-                        simCounter += 1;
-                        add(`G0 Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
-
+                        simCounter += 1; add(`G0 X${xRetract} Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
+                        simCounter += 1; // Depth
+                        simCounter += 1; add(`G1 X${xVal} F${params.feed}`, simCounter); 
+                        simCounter += 1; add(`G1 Z${pass.zEnd.toFixed(3)}`, simCounter);
+                        simCounter += 1; add(`G1 X${xRetract} Z${(pass.zEnd + rDist).toFixed(3)}`, simCounter);
+                        simCounter += 1; add(`G0 Z${(pass.zStart + 1).toFixed(3)}`, simCounter);
                     } else {
-                        // FACE
                         const zVal = pass.z.toFixed(3);
                         const zRetract = (pass.z + rDist).toFixed(3);
                         const xStart = params.mode === 'DIAMON' ? (pass.xStart * 2).toFixed(3) : pass.xStart.toFixed(3);
                         const xEnd = params.mode === 'DIAMON' ? (pass.xEnd * 2).toFixed(3) : pass.xEnd.toFixed(3);
                         const xEndRetract = params.mode === 'DIAMON' ? ((pass.xEnd + rDist) * 2).toFixed(3) : (pass.xEnd + rDist).toFixed(3);
-
-                        simCounter += 1;
-                        add(`G0 X${xStart} Z${zRetract}`, simCounter);
-
-                        simCounter += 1; // Depth (visual logic step)
-                        // add(`; Hloubka`, simCounter);
-
-                        simCounter += 1;
-                        add(`G1 Z${zVal} F${params.feed}`, simCounter);
-
-                        simCounter += 1;
-                        add(`G1 X${xEnd}`, simCounter);
-
-                        simCounter += 1;
-                        add(`G1 X${xEndRetract} Z${zRetract}`, simCounter);
-
-                        simCounter += 1;
-                        add(`G0 X${xStart}`, simCounter);
+                        simCounter += 1; add(`G0 X${xStart} Z${zRetract}`, simCounter);
+                        simCounter += 1; // Depth
+                        simCounter += 1; add(`G1 Z${zVal} F${params.feed}`, simCounter);
+                        simCounter += 1; add(`G1 X${xEnd}`, simCounter);
+                        simCounter += 1; add(`G1 X${xEndRetract} Z${zRetract}`, simCounter);
+                        simCounter += 1; add(`G0 X${xStart}`, simCounter);
                     }
                 });
 
-                // SimPath adds 1 safe move after roughing
                 simCounter += 1;
                 add(`G0 X${params.safeX} Z${params.safeZ}`, simCounter);
 
                 if (params.doFinishing && calculatedData.finishOffsetPath.length > 0) {
                     addCmt(`--- DOKONCOVANI ---`);
-                    
                     const startSeg = calculatedData.finishOffsetPath[0];
                     const sX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.cos(startSeg.startAngle)*startSeg.r);
                     const sZ = startSeg.type === 'line' ? startSeg.p1.z : (startSeg.cz + Math.sin(startSeg.startAngle)*startSeg.r);
                     const sX_out = params.mode === 'DIAMON' ? (sX * 2).toFixed(3) : sX.toFixed(3);
-                    
-                    // Logic from simPath: 
-                    // 1. Safe (already added above)
-                    // 2. Approach (+2)
-                    simCounter += 1;
-                    add(`G0 X${sX_out} Z${sZ.toFixed(3)} ; Nájezd`, simCounter);
-                    
-                    // 3. Contact
-                    simCounter += 1;
-                    add(`G1 X${sX_out} Z${sZ.toFixed(3)}`, simCounter); // Actually usually same coords, just G1 switch
+                    simCounter += 1; add(`G0 X${sX_out} Z${sZ.toFixed(3)}`, simCounter);
+                    simCounter += 1; add(`G1 X${sX_out} Z${sZ.toFixed(3)}`, simCounter); 
 
                     calculatedData.finishOffsetPath.forEach(seg => {
-                        // SimPath generates varying points for Arcs, but 1 for Line.
-                        // We map the END of the segment to the G-Code line.
-                        
                         if (seg.type === 'line') {
                              const eX = params.mode === 'DIAMON' ? (seg.p2.x * 2).toFixed(3) : seg.p2.x.toFixed(3);
                              simCounter += 1;
                              add(`G1 X${eX} Z${seg.p2.z.toFixed(3)}`, simCounter);
                         } else {
-                             // Arcs in simPath have 'steps' (10). 
-                             // We need to advance simCounter by 'steps' so the next G-code line maps correctly.
                              simCounter += 10;
-                             
                              const eX = params.mode === 'DIAMON' ? ((seg.cx + Math.cos(seg.endAngle)*seg.r) * 2).toFixed(3) : (seg.cx + Math.cos(seg.endAngle)*seg.r).toFixed(3);
                              const eZ = (seg.cz + Math.sin(seg.endAngle)*seg.r).toFixed(3);
-                             add(`${seg.dir} X${eX} Z${eZ} CR=${seg.r.toFixed(3)} ${seg.isCornerRoll ? '; Obeplutí rohu' : ''}`, simCounter);
+                             add(`${seg.dir} X${eX} Z${eZ} ${arcR(seg.r)} ${seg.isCornerRoll ? cmt('Obeplutí rohu') : ''}`, simCounter);
                         }
                     });
-                    
-                    // Retract logic from simPath
-                    simCounter += 1;
-                    // lastPt + 2
-                    
-                    simCounter += 1;
+                    simCounter += 2; // Retract
                     add(`G0 X${params.safeX} Z${params.safeZ}`, simCounter);
                 }
 
-                add(`M30 ; Konec programu`);
+                footer.forEach(line => add(line));
                 
                 addCmt(`--- KONTURA (Pro referenci) ---`);
                 contourPoints.forEach(p => {
                     let line = `${p.type} X${p.x} Z${p.z}`;
-                    if (p.type === 'G2' || p.type === 'G3') line += ` CR=${p.r}`; 
+                    if (p.type === 'G2' || p.type === 'G3') line += ` ${arcR(p.r)}`; 
                     add(line);
                 });
 
@@ -1168,9 +1170,23 @@
                         const curZ = pCurrent.z + (pNext.z - pCurrent.z) * t;
                         const pt = toScreen(curX, curZ);
                         
-                        ctx.fillStyle = colors.tool; ctx.beginPath();
-                        ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x + 8, pt.y + 12); ctx.lineTo(pt.x - 8, pt.y + 12);
-                        ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'black'; ctx.lineWidth = 1; ctx.stroke();
+                        // NEW: Circle tool representation
+                        const tRad = parseFloat(params.toolRadius) || 0.8;
+                        const rPix = tRad * view.scale; // Scale to screen pixels
+
+                        ctx.fillStyle = colors.tool; // color defined above (yellow/gold)
+                        ctx.beginPath();
+                        ctx.arc(pt.x, pt.y, rPix, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = theme === 'dark' ? '#000' : '#000'; // Keep black border for contrast
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        
+                        // Optional: Small dot in center to indicate the path line
+                        ctx.fillStyle = 'black';
+                        ctx.beginPath();
+                        ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2);
+                        ctx.fill();
                     }
                 }
 
@@ -1198,8 +1214,6 @@
                 return () => resizeObserver.disconnect();
             }, [draw]);
 
-            // ... (rest of the file remains same, except Params UI addition below) ...
-            
             // Handlers ... (same)
             const handleWheel = (e) => { const s = Math.max(0.2, Math.min(view.scale * (1 - Math.sign(e.deltaY)*0.15), 50)); setView(v => ({...v, scale: s})); };
             const handleMouseDown = (e) => { setIsDragging(true); lastMousePos.current = { x: e.clientX, y: e.clientY }; };
@@ -1356,6 +1370,13 @@
                                     <div className="flex gap-2 mb-2">
                                         <button onClick={() => setParams({...params, machineStructure: 'lathe'})} className={`flex-1 py-1 text-xs border rounded flex items-center justify-center gap-1 ${params.machineStructure==='lathe' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>Soustruh</button>
                                         <button onClick={() => setParams({...params, machineStructure: 'carousel'})} className={`flex-1 py-1 text-xs border rounded flex items-center justify-center gap-1 ${params.machineStructure==='carousel' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>Karusel</button>
+                                    </div>
+
+                                    <h3 className={`font-bold border-b pb-1 ${theme==='dark'?'text-gray-300 border-gray-700':'text-gray-800 border-gray-300'}`}>Řídicí systém</h3>
+                                    <div className="flex gap-1 mb-2">
+                                        <button onClick={() => setParams({...params, controlSystem: 'sinumerik'})} className={`flex-1 py-1 text-[10px] border rounded flex items-center justify-center gap-1 ${params.controlSystem==='sinumerik' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>Sinumerik</button>
+                                        <button onClick={() => setParams({...params, controlSystem: 'fanuc'})} className={`flex-1 py-1 text-[10px] border rounded flex items-center justify-center gap-1 ${params.controlSystem==='fanuc' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>Fanuc</button>
+                                        <button onClick={() => setParams({...params, controlSystem: 'heidenhain'})} className={`flex-1 py-1 text-[10px] border rounded flex items-center justify-center gap-1 ${params.controlSystem==='heidenhain' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>Heidenhain</button>
                                     </div>
 
                                     <h3 className={`font-bold border-b pb-1 ${theme==='dark'?'text-gray-300 border-gray-700':'text-gray-800 border-gray-300'}`}>Polotovar</h3>
