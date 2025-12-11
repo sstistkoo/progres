@@ -58,6 +58,7 @@
 
         // --- POLYFILL PRO PROCESS.ENV & API KEY MANAGEMENT ---
         const CUSTOM_KEY_STORAGE = 'sinumerik_custom_api_key';
+        // Původní klíč odstraněn, protože způsoboval chybu 403 (Referer blocked).
         const DEFAULT_API_KEY = "AIzaSyCLBHN-IxCTKc0tXDsdp7T0TTj81FlnKlI"; 
         
         // Inicializace: Zkusíme načíst vlastní klíč, jinak použijeme default
@@ -138,9 +139,30 @@
         };
         
         const AiAssistant = ({ contourPoints, stockPoints, params, onUpdateContour, onUpdateStock, onUpdateParams, onUpdateGCode, theme }) => {
-            const [messages, setMessages] = useState([
-                { role: 'model', text: 'Dobrý den, jsem váš AI asistent pro CNC programování. S čím vám mohu pomoci?' }
-            ]);
+            // --- AI HISTORY LOGIC ---
+            const CHAT_STORAGE_KEY = 'sinumerik_chat_history_v1';
+            
+            const [messages, setMessages] = useState(() => {
+                const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+                if (saved) {
+                    try { return JSON.parse(saved); } catch(e) {}
+                }
+                return [{ role: 'model', text: 'Dobrý den, jsem váš AI asistent pro CNC programování. S čím vám mohu pomoci?' }];
+            });
+
+            // Save history on change
+            useEffect(() => {
+                localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+            }, [messages]);
+
+            const clearHistory = () => {
+                if(confirm("Opravdu chcete vymazat celou historii chatu?")) {
+                    const resetState = [{ role: 'model', text: 'Historie byla vymazána. Jak mohu pomoci dále?' }];
+                    setMessages(resetState);
+                    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(resetState));
+                }
+            };
+            
             const [input, setInput] = useState('');
             const [loading, setLoading] = useState(false);
             const [mode, setMode] = useState('normal'); 
@@ -214,8 +236,8 @@
                     alert("Klíč uložen. Nyní se používá váš vlastní klíč.");
                 } else {
                     localStorage.removeItem('sinumerik_custom_api_key');
-                    if(window.process && window.process.env) window.process.env.API_KEY = "AIzaSyCLBHN-IxCTKc0tXDsdp7T0TTj81FlnKlI";
-                    alert("Vlastní klíč smazán. Používá se výchozí systémový klíč.");
+                    if(window.process && window.process.env) window.process.env.API_KEY = "";
+                    alert("Vlastní klíč smazán.");
                 }
                 setShowApiKeyInput(false);
             };
@@ -303,6 +325,13 @@
             const handleSend = async (overrideInput = null) => {
                 const textToSend = overrideInput || input;
                 if (!textToSend.trim() && !image) return;
+                
+                // Kontrola existence klíče před odesláním
+                if (!process.env.API_KEY || process.env.API_KEY.trim() === "") {
+                    setShowApiKeyInput(true);
+                    setMessages(prev => [...prev, { role: 'model', text: "⚠️ Pro komunikaci s AI je nutné zadat API klíč. Otevřel jsem pro vás nastavení nahoře. Zadejte prosím funkční Google Gemini API klíč." }]);
+                    return;
+                }
                 
                 const userMsg = { role: 'user', text: textToSend, image: image };
                 setMessages(prev => [...prev, userMsg]);
@@ -394,13 +423,35 @@
                         { role: 'user', parts: currentParts }
                     ];
 
-                    const result = await ai.models.generateContent({
-                        model: modelName,
-                        contents: contents,
-                        config: requestConfig
-                    });
+                    let text = "";
                     
-                    const text = result.text;
+                    try {
+                        const result = await ai.models.generateContent({
+                            model: modelName,
+                            contents: contents,
+                            config: requestConfig
+                        });
+                        text = result.text;
+                    } catch (retryError) {
+                        // Fallback pro chyby přetížení nebo kvóty
+                        if (retryError.message.includes("429") || retryError.message.includes("503") || retryError.status === 429 || retryError.status === 503) {
+                             console.warn("Model error, switching to Flash:", retryError);
+                             setMessages(prev => [...prev, { role: 'model', text: "⚠️ Model 'Pro' je momentálně přetížen nebo došlo k vyčerpání kvóty. Přepínám na 'Flash' model a zkouším to znovu..." }]);
+                             
+                             // Odstranit thinking config pro fallback
+                             const fallbackConfig = { ...requestConfig };
+                             delete fallbackConfig.thinkingConfig;
+                             
+                             const fallbackResult = await ai.models.generateContent({
+                                model: "gemini-2.5-flash",
+                                contents: contents,
+                                config: fallbackConfig
+                            });
+                            text = fallbackResult.text;
+                        } else {
+                            throw retryError;
+                        }
+                    }
                     
                     let suggestedPoints = null;
                     let suggestedStock = null;
@@ -431,7 +482,16 @@
                     setMessages(prev => [...prev, { role: 'model', text: text, suggestedPoints, suggestedStock, suggestedParams, suggestedCode }]);
 
                 } catch (error) {
-                    setMessages(prev => [...prev, { role: 'model', text: "Chyba při komunikaci s AI: " + error.message }]);
+                    console.error("AI Error:", error);
+                    let errMsg = "Chyba při komunikaci s AI: " + error.message;
+                    
+                    // Detekce problémů s klíčem (403 Permission Denied / Referer blocked)
+                    if (error.message.includes("403") || error.message.includes("referer") || error.message.includes("blocked") || error.message.includes("API_KEY")) {
+                         errMsg = "⚠️ Přístup k AI byl zamítnut (Error 403). Výchozí API klíč nefunguje ve vašem prostředí (pravděpodobně kvůli omezení domény). Prosím zadejte svůj vlastní Google Gemini API klíč v panelu nahoře.";
+                         setShowApiKeyInput(true);
+                    }
+                    
+                    setMessages(prev => [...prev, { role: 'model', text: errMsg }]);
                 }
                 setLoading(false);
             };
@@ -450,7 +510,7 @@
                     {/* API Key Panel */}
                     {showApiKeyInput && (
                         <div className={`p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
-                            <label className="block text-xs font-bold mb-1 opacity-70">Váš Google API Klíč (Volitelné)</label>
+                            <label className="block text-xs font-bold mb-1 opacity-70">Váš Google API Klíč (Povinné pro vlastní prostředí)</label>
                             <div className="flex gap-2">
                                 <input 
                                     type="password" 
@@ -461,7 +521,7 @@
                                 />
                                 <button onClick={handleSaveApiKey} className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs font-bold">Uložit</button>
                             </div>
-                            <p className="text-[10px] mt-1 opacity-60">Pokud pole necháte prázdné a uložíte, použije se výchozí systémový klíč.</p>
+                            <p className="text-[10px] mt-1 opacity-60">Získejte klíč v Google AI Studio. Váš klíč se ukládá pouze do vašeho prohlížeče.</p>
                         </div>
                     )}
 
@@ -571,6 +631,11 @@
                             {/* API Key Toggle Button */}
                             <button onClick={() => setShowApiKeyInput(!showApiKeyInput)} className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold transition-colors ${showApiKeyInput ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`} title="Nastavit API Klíč">
                                 <IconKey />
+                            </button>
+                            
+                            {/* Reset History Button */}
+                            <button onClick={clearHistory} className="flex items-center gap-1 px-2 py-1 rounded text-xs font-bold transition-colors text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30" title="Vymazat historii">
+                                <IconTrash />
                             </button>
 
                             <button onClick={() => setMode(mode === 'fast' ? 'normal' : 'fast')} className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold transition-colors ${mode === 'fast' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`} title="Rychlá odpověď"><IconBolt /> {mode === 'fast' && 'Fast'}</button>
