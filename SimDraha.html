@@ -150,7 +150,7 @@
             );
         };
         
-        const AiAssistant = ({ contourPoints, stockPoints, params, onUpdateContour, onUpdateStock, onUpdateParams, onUpdateGCode, theme }) => {
+        const AiAssistant = ({ contourPoints, stockPoints, params, generatedCode, onUpdateContour, onUpdateStock, onUpdateParams, onUpdateGCode, theme }) => {
             // --- AI HISTORY LOGIC ---
             const CHAT_STORAGE_KEY = 'sinumerik_chat_history_v1';
             
@@ -338,7 +338,9 @@
             };
 
             const handleSend = async (overrideInput = null) => {
-                const textToSend = overrideInput || input;
+                // FIXED: Handle case where overrideInput is an Event object (from onClick)
+                const textToSend = (typeof overrideInput === 'string') ? overrideInput : input;
+                
                 if (!textToSend.trim() && !image) return;
                 
                 // Kontrola existence klíče před odesláním
@@ -358,6 +360,7 @@
                 try {
                     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
                     
+                    const currentGCode = generatedCode ? generatedCode.map(l => l.text).join('\n') : "Žádný kód nebyl vygenerován.";
                     const systemContext = `
                         Current CNC Configuration:
                         - Machine: ${params.machineType} (${params.machineStructure})
@@ -365,6 +368,9 @@
                         - Params: ${JSON.stringify(params, null, 2)}
                         - Contour Points: ${JSON.stringify(contourPoints)}
                         - Stock Points: ${JSON.stringify(stockPoints)}
+
+                        CURRENT AUTO-GENERATED G-CODE (For context):
+                        ${currentGCode}
                     `;
 
                     const systemInstruction = `Jsi expertní AI asistent pro aplikaci 'Sinumerik CAM Generator'.
@@ -659,7 +665,7 @@
                             >
                                 <option value="gemini-2.5-flash">Gemini 2.5 Flash (Doporučeno)</option>
                                 <option value="gemini-2.5-flash-lite-latest">Gemini 2.5 Lite (Rychlý)</option>
-                                <option value="gemini-1.5-flash">Gemini 1.5 Flash (Starší verze)</option>
+                                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                                 <option value="gemini-3-pro-preview">Gemini 3.0 Pro (Thinking)</option>
                             </select>
 
@@ -2823,6 +2829,7 @@
                                     contourPoints={contourPoints} 
                                     stockPoints={stockPoints} 
                                     params={params} 
+                                    generatedCode={generatedCode}
                                     onUpdateContour={(pts) => {
                                         const newPts = pts.map((p, i) => ({...p, id: p.id || Date.now() + i}));
                                         pushHistory();
