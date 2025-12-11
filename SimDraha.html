@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Generátor CAM pro Sinumerik 840D (Auto-Trim)</title>
+    <title>Generátor CAM pro Sinumerik 840D (Auto-Trim) - Fixed v10</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,6 +17,15 @@
 
     <!-- jsPDF pro generování PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Gemini SDK Import Map -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://esm.run/@google/genai"
+      }
+    }
+    </script>
 
     <style>
         body { overscroll-behavior: none; }
@@ -36,7 +45,9 @@
 
     <div id="root" class="h-full w-full"></div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-type="module">
+        import { GoogleGenAI } from "@google/genai";
+        
         const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
         // --- ICONS ---
@@ -65,6 +76,8 @@
         const IconRedo = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"></path></svg>;
         const IconFileText = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
         const IconPlusCircle = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
+        const IconSpark = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>;
+
         
         // Shape Icons for Buttons
         const IconShapeCircle = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="10"/></svg>;
@@ -92,23 +105,153 @@
                 <input type={type} className={className} placeholder={placeholder} value={localVal} onChange={handleChange} onBlur={handleBlur} onKeyDown={handleKeyDown} step={step} />
             );
         };
+        
+        const AiAssistant = ({ contourPoints, stockPoints, params, onUpdateContour, theme }) => {
+            const [prompt, setPrompt] = useState('');
+            const [response, setResponse] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [suggestedPoints, setSuggestedPoints] = useState(null);
+
+            const handleSend = async () => {
+                if (!prompt) return;
+                setLoading(true);
+                setResponse('');
+                setSuggestedPoints(null);
+
+                try {
+                    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                    
+                    const context = `
+                        Current CNC Configuration:
+                        - Machine: ${params.machineType} (${params.machineStructure})
+                        - Control: ${params.controlSystem}
+                        - Current Contour Points: ${JSON.stringify(contourPoints)}
+                    `;
+
+                    const systemInstruction = `You are an expert CNC programmer. Help user with Sinumerik 840D, Fanuc, and Heidenhain programming.
+                    If the user requests to generate or modify the contour/geometry, you MUST output the new points in strictly this JSON format:
+                    [{"type": "G0"|"G1"|"G2"|"G3", "x": number, "z": number, "r": number, "mode": "ABS"|"INC"}]
+                    Do not wrap the JSON in markdown. Just the raw JSON array if providing points.
+                    If explaining, use Czech language.
+                    `;
+
+                    const result = await ai.models.generateContent({
+                        model: "gemini-2.5-flash",
+                        contents: [{
+                            parts: [{ text: context + "\n\nUser Request: " + prompt }]
+                        }],
+                        config: {
+                            systemInstruction: { parts: [{ text: systemInstruction }] }
+                        }
+                    });
+                    
+                    const text = result.text;
+                    
+                    // Try to parse JSON from response
+                    let points = null;
+                    try {
+                        // Attempt to extract JSON array if embedded in text
+                        const jsonMatch = text.match(/\[.*\]/s);
+                        if (jsonMatch) {
+                            points = JSON.parse(jsonMatch[0]);
+                        }
+                    } catch (e) {
+                        points = null;
+                    }
+
+                    if (Array.isArray(points)) {
+                        setSuggestedPoints(points);
+                        setResponse("Vygeneroval jsem návrh nové kontury. Zkontrolujte náhled a potvrďte aplikaci.");
+                    } else {
+                        setResponse(text);
+                    }
+
+                } catch (error) {
+                    setResponse("Chyba při komunikaci s AI: " + error.message + ". Ujistěte se, že máte nastaven API klíč.");
+                }
+                setLoading(false);
+            };
+            
+            const applyPoints = () => {
+                if (suggestedPoints) {
+                    onUpdateContour(suggestedPoints);
+                    setSuggestedPoints(null);
+                    setResponse("Kontura byla aktualizována.");
+                }
+            };
+
+            return (
+                <div className="flex flex-col h-full space-y-3">
+                    <div className={`flex-1 overflow-y-auto border rounded p-3 text-sm whitespace-pre-wrap ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-gray-50 border-gray-300 text-gray-800'}`}>
+                        {response || "Zadejte dotaz nebo popis tvaru..."}
+                    </div>
+                    
+                    {suggestedPoints && (
+                        <button onClick={applyPoints} className="bg-green-600 hover:bg-green-500 text-white py-2 px-4 rounded text-sm font-bold flex items-center justify-center gap-2">
+                            <IconPlusCircle /> Aplikovat navrženou konturu
+                        </button>
+                    )}
+
+                    <div className="flex gap-2">
+                        <textarea 
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                            onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                            placeholder="Např: Vytvoř hřídel D50 L100 se sražením 2x45 na začátku..."
+                            className={`flex-1 border rounded p-2 text-sm resize-none h-20 ${theme === 'dark' ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        />
+                        <button onClick={handleSend} disabled={loading} className={`px-4 rounded font-bold flex flex-col items-center justify-center gap-1 min-w-[80px] ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>
+                            {loading ? <IconRotate /> : <IconSpark />}
+                            <span className="text-xs">{loading ? '...' : 'Odeslat'}</span>
+                        </button>
+                    </div>
+                </div>
+            );
+        };
 
         // --- MATH HELPERS ---
-        const dist = (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.z - p1.z, 2));
+        const dist = (p1, p2) => {
+            if(!p1 || !p2) return 0;
+            return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.z - p1.z, 2));
+        }
 
         const getNormal = (p1, p2) => {
+            if (!p1 || !p2) return {x:0, z:0};
             const dx = p2.x - p1.x; const dz = p2.z - p1.z; const l = Math.sqrt(dx*dx + dz*dz);
-            if (l===0) return {x:0, z:0}; return { x: -dz/l, z: dx/l };
+            if (l===0 || isNaN(l)) return {x:0, z:0}; return { x: -dz/l, z: dx/l };
         };
 
         const intersectLines = (p1, p2, p3, p4) => {
+            if (!p1 || !p2 || !p3 || !p4) return null;
+            if (isNaN(p1.x) || isNaN(p1.z) || isNaN(p2.x) || isNaN(p2.z) || 
+                isNaN(p3.x) || isNaN(p3.z) || isNaN(p4.x) || isNaN(p4.z)) return null;
+
             const d = (p1.x - p2.x) * (p3.z - p4.z) - (p1.z - p2.z) * (p3.x - p4.x);
-            if (Math.abs(d) < 1e-9) return null; 
+            if (Math.abs(d) < 1e-9 || isNaN(d)) return null; 
             const t = ((p1.x - p3.x) * (p3.z - p4.z) - (p1.z - p3.z) * (p3.x - p4.x)) / d;
-            return { x: p1.x + t * (p2.x - p1.x), z: p1.z + t * (p2.z - p1.z) };
+            
+            const ix = p1.x + t * (p2.x - p1.x);
+            const iz = p1.z + t * (p2.z - p1.z);
+            if (isNaN(ix) || isNaN(iz)) return null;
+            return { x: ix, z: iz };
+        };
+
+        const intersectLinesInfinite = (p1, p2, p3, p4) => {
+            if (!p1 || !p2 || !p3 || !p4) return null;
+            if (isNaN(p1.x) || isNaN(p1.z) || isNaN(p2.x) || isNaN(p2.z) || 
+                isNaN(p3.x) || isNaN(p3.z) || isNaN(p4.x) || isNaN(p4.z)) return null;
+
+            const d = (p1.x - p2.x) * (p3.z - p4.z) - (p1.z - p2.z) * (p3.x - p4.x);
+            if (Math.abs(d) < 1e-9 || isNaN(d)) return null; 
+            const t = ((p1.x - p3.x) * (p3.z - p4.z) - (p1.z - p3.z) * (p3.x - p4.x)) / d;
+            const px = p1.x + t * (p2.x - p1.x);
+            const pz = p1.z + t * (p2.z - p1.z);
+            if(isNaN(px) || isNaN(pz)) return null;
+            return { x: px, z: pz };
         };
 
         const intersectLineCircle = (p1, p2, center, r) => {
+            if (!p1 || !p2 || !center) return null;
             const dx = p2.x - p1.x; const dz = p2.z - p1.z; const fx = p1.x - center.x; const fz = p1.z - center.z;
             const a = dx*dx + dz*dz; const b = 2*(fx*dx + fz*dz); const c = (fx*fx + fz*fz) - r*r;
             let discriminant = b*b - 4*a*c; if (discriminant < 0) return null;
@@ -118,6 +261,7 @@
         };
 
         const getArcParams = (p1, p2, r, type) => {
+            if (!p1 || !p2) return { error: true, cx: 0, cz: 0, r: 0 };
             const d2 = Math.pow(p2.x - p1.x, 2) + Math.pow(p2.z - p1.z, 2); const d = Math.sqrt(d2);
             const isLongArc = r < 0; const absR = Math.abs(r); let safeR = absR; let error = false;
             if (d2 === 0) return { error: true, cx: p1.x, cz: p1.z, r: 0 };
@@ -128,10 +272,12 @@
             const ox = -dz / d; const oz = dx / d;
             let sign = (type === 'G3') ? -1 : 1; if (isLongArc) sign *= -1;
             const cx = mx + sign * h * ox; const cz = mz + sign * h * oz;
+            if(isNaN(cx) || isNaN(cz)) return { error: true, cx: 0, cz: 0, r: 0 };
             return { cx, cz, r: safeR, error };
         };
 
         const isAngleBetween = (target, start, end, isG2) => {
+            if (isNaN(target) || isNaN(start) || isNaN(end)) return false;
             const t = (target % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
             const s = (start % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
             const e = (end % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
@@ -139,20 +285,24 @@
         };
 
         const intersectHorizontalLineSegment = (xLine, p1, p2) => {
+            if (!p1 || !p2) return null;
             const minX = Math.min(p1.x, p2.x); const maxX = Math.max(p1.x, p2.x);
             if (xLine < minX || xLine > maxX) return null; if (Math.abs(p2.x - p1.x) < 1e-6) return null;
             const t = (xLine - p1.x) / (p2.x - p1.x); return p1.z + t * (p2.z - p1.z);
         };
         const intersectHorizontalLineArc = (xLine, center, radius) => {
+            if (!center) return [];
             const term = radius*radius - Math.pow(xLine - center.x, 2); if (term < 0) return [];
             const sqrtTerm = Math.sqrt(term); return [center.z - sqrtTerm, center.z + sqrtTerm];
         };
         const intersectVerticalLineSegment = (zLine, p1, p2) => {
+            if (!p1 || !p2) return null;
             const minZ = Math.min(p1.z, p2.z); const maxZ = Math.max(p1.z, p2.z);
             if (zLine < minZ || zLine > maxZ) return null; if (Math.abs(p2.z - p1.z) < 1e-6) return null;
             const t = (zLine - p1.z) / (p2.z - p1.z); return p1.x + t * (p2.x - p1.x);
         };
         const intersectVerticalLineArc = (zLine, center, radius) => {
+            if (!center) return [];
             const term = radius*radius - Math.pow(zLine - center.z, 2); if (term < 0) return [];
             const sqrtTerm = Math.sqrt(term); return [center.x - sqrtTerm, center.x + sqrtTerm];
         };
@@ -431,15 +581,64 @@
             const resolvePointsToAbsolute = (pts) => {
                 let lastX = 0; let lastZ = 0;
                 return pts.map((p, index) => {
-                    const valX = parseFloat(p.x) || 0; const valZ = parseFloat(p.z) || 0;
+                    let valX = parseFloat(p.x); if(isNaN(valX)) valX = 0;
+                    let valZ = parseFloat(p.z); if(isNaN(valZ)) valZ = 0;
                     let absX = valX; let absZ = valZ;
                     if (p.mode === 'INC') { absX = lastX + valX; absZ = lastZ + valZ; } else { absX = valX; absZ = valZ; }
                     lastX = absX; lastZ = absZ;
-                    return { ...p, xAbs: absX, zAbs: absZ, rVal: parseFloat(p.r) || 0 };
+                    let rVal = parseFloat(p.r); if(isNaN(rVal)) rVal = 0;
+                    return { ...p, xAbs: absX, zAbs: absZ, rVal };
                 });
             };
-            const handleAutoStock = () => { /* ... same ... */ };
-            const generateDefaultStock = () => { /* ... same ... */ };
+
+            const handleAutoStock = () => {
+                const absPts = resolvePointsToAbsolute(contourPoints);
+                if (absPts.length === 0) return;
+                let minZ = Infinity, maxZ = -Infinity;
+                let maxD = 0;
+                
+                absPts.forEach(p => {
+                    const x = params.mode === 'DIAMON' ? p.xAbs : p.xAbs * 2; 
+                    if (Math.abs(x) > maxD) maxD = Math.abs(x);
+                    if (p.zAbs < minZ) minZ = p.zAbs;
+                    if (p.zAbs > maxZ) maxZ = p.zAbs;
+                });
+                
+                const margin = parseFloat(params.stockMargin) || 5;
+                const stockD = Math.ceil(maxD + margin*2); 
+                const stockL = Math.ceil(Math.abs(minZ) + margin); 
+                const stockF = 2.0;
+
+                setParams(p => ({
+                    ...p,
+                    stockDiameter: stockD,
+                    stockLength: stockL,
+                    stockFace: stockF
+                }));
+            };
+
+            const generateDefaultStock = () => {
+                const absPts = resolvePointsToAbsolute(contourPoints);
+                if (absPts.length === 0) return;
+                let minZ = Infinity;
+                let maxX = 0;
+                
+                absPts.forEach(p => {
+                    const x = params.mode === 'DIAMON' ? p.xAbs/2 : p.xAbs;
+                    if (Math.abs(x) > maxX) maxX = Math.abs(x);
+                    if (p.zAbs < minZ) minZ = p.zAbs;
+                });
+                
+                const sR = maxX + 5;
+                const sL = minZ - 5;
+                
+                const newStock = [
+                     { id: Date.now(), type: 'G0', x: sR, z: 2, r: 0, mode: 'ABS' },
+                     { id: Date.now()+1, type: 'G1', x: sR, z: sL, r: 0, mode: 'ABS' },
+                     { id: Date.now()+2, type: 'G1', x: 0, z: sL, r: 0, mode: 'ABS' }
+                ];
+                setStockPoints(newStock);
+            };
 
             const calculatedData = useMemo(() => {
                 const absContour = resolvePointsToAbsolute(contourPoints);
@@ -454,7 +653,7 @@
                 const retractDist = parseFloat(params.retractDistance) || 2.0; 
                 
                 let contourSegments = [];
-                let offsetPath = [];
+                let rawOffsets = []; 
                 let finishOffsetPath = [];
                 let stockPathSegments = []; 
                 const foundErrors = [];
@@ -483,6 +682,8 @@
                 }
 
                 let incompleteMachiningCount = 0;
+                
+                // 1. GENERATE RAW OFFSETS (Skipping impossible arcs)
                 for (let i = 0; i < contourSegments.length; i++) {
                     const seg = contourSegments[i];
                     let offSeg = null;
@@ -491,85 +692,281 @@
                         offSeg = { type: 'line', p1: { x: seg.p1.x + n.x * totalOffset, z: seg.p1.z + n.z * totalOffset }, p2: { x: seg.p2.x + n.x * totalOffset, z: seg.p2.z + n.z * totalOffset } };
                     } else if (seg.type === 'arc') {
                         let rNew = (seg.dir === 'G3') ? seg.r + totalOffset : seg.r - totalOffset;
-                        if (rNew < 0) { rNew = 0.001; incompleteMachiningCount++; }
-                        const startAngle = Math.atan2(seg.p1.x - seg.cx, seg.p1.z - seg.cz);
-                        const endAngle = Math.atan2(seg.p2.x - seg.cx, seg.p2.z - seg.cz);
-                        offSeg = { type: 'arc', cx: seg.cx, cz: seg.cz, r: rNew, dir: seg.dir, refP1: seg.p1, refP2: seg.p2, startAngle, endAngle, dir: seg.dir };
-                    }
-                    if (offSeg) offsetPath.push(offSeg);
-                }
-                if (incompleteMachiningCount > 0) foundErrors.push({ type: 'warning', msg: `POZNÁMKA: V ${incompleteMachiningCount} místech nedojde ke kompletnímu obrobení.` });
-
-                if (params.doFinishing) {
-                    // 1. Generate Raw Offset Segments
-                    let rawOffsets = [];
-                    for (let i = 0; i < contourSegments.length; i++) {
-                        const seg = contourSegments[i];
-                        if (seg.type === 'line') {
-                            const n = getNormal(seg.p1, seg.p2);
-                            rawOffsets.push({ type: 'line', p1: { x: seg.p1.x + n.x * tipR, z: seg.p1.z + n.z * tipR }, p2: { x: seg.p2.x + n.x * tipR, z: seg.p2.z + n.z * tipR } });
-                        } else if (seg.type === 'arc') {
-                            let rNew = (seg.dir === 'G3') ? seg.r + tipR : seg.r - tipR;
-                            if (rNew < 0) rNew = 0.001;
+                        
+                        // FIX: If rNew is approximately 0 (concave corner with Tool Radius >= Part Radius),
+                        // simply SKIP the segment. The trimming/connecting logic will bridge the gap.
+                        if (rNew <= 0.001) {
+                            incompleteMachiningCount++;
+                            offSeg = null; // SKIP DEGENERATE
+                        } else {
                             const startAngle = Math.atan2(seg.p1.x - seg.cx, seg.p1.z - seg.cz);
                             const endAngle = Math.atan2(seg.p2.x - seg.cx, seg.p2.z - seg.cz);
-                            rawOffsets.push({ type: 'arc', cx: seg.cx, cz: seg.cz, r: rNew, dir: seg.dir, refP1: seg.p1, refP2: seg.p2, startAngle, endAngle });
+                            offSeg = { type: 'arc', cx: seg.cx, cz: seg.cz, r: rNew, dir: seg.dir, refP1: seg.p1, refP2: seg.p2, startAngle, endAngle, dir: seg.dir };
                         }
                     }
-
-                    // 2. Connect Segments with Robust Corner Logic
-                    if (rawOffsets.length > 0) {
-                        // Push first segment directly
-                        finishOffsetPath.push(JSON.parse(JSON.stringify(rawOffsets[0])));
+                    if (offSeg) rawOffsets.push(offSeg);
+                }
+                
+                // 2. LOCAL TRIMMING & CONNECTING
+                let trimmedOffsetPath = [];
+                if (rawOffsets.length > 0) {
+                    trimmedOffsetPath.push(JSON.parse(JSON.stringify(rawOffsets[0])));
+                    
+                    for (let i = 0; i < rawOffsets.length - 1; i++) {
+                        let prevOff = trimmedOffsetPath[trimmedOffsetPath.length - 1]; 
+                        let nextOff = JSON.parse(JSON.stringify(rawOffsets[i+1])); 
                         
-                        for (let i = 0; i < rawOffsets.length - 1; i++) {
-                            // We need to modify the END of the LAST segment in finishOffsetPath
-                            // And modify the START of the NEXT segment (rawOffsets[i+1])
-                            
-                            let prevOff = finishOffsetPath[finishOffsetPath.length - 1]; 
-                            let nextOff = JSON.parse(JSON.stringify(rawOffsets[i+1])); 
+                        let intersection = null;
+                        
+                        // Intersection Check
+                        if (prevOff.type === 'line' && nextOff.type === 'line') {
+                            intersection = intersectLines(prevOff.p1, prevOff.p2, nextOff.p1, nextOff.p2);
+                        } else if (prevOff.type === 'line' && nextOff.type === 'arc') {
+                            const ints = intersectLineCircle(prevOff.p1, prevOff.p2, {x:nextOff.cx, z:nextOff.cz}, nextOff.r);
+                            if (ints && ints.length > 0) {
+                                const d1 = Math.hypot(ints[0].x - prevOff.p2.x, ints[0].z - prevOff.p2.z);
+                                const d2 = Math.hypot(ints[1].x - prevOff.p2.x, ints[1].z - prevOff.p2.z);
+                                intersection = d1 < d2 ? ints[0] : ints[1];
+                            }
+                        } else if (prevOff.type === 'arc' && nextOff.type === 'line') {
+                            const ints = intersectLineCircle(nextOff.p1, nextOff.p2, {x:prevOff.cx, z:prevOff.cz}, prevOff.r);
+                            if (ints && ints.length > 0) {
+                                const d1 = Math.hypot(ints[0].x - nextOff.p1.x, ints[0].z - nextOff.p1.z);
+                                const d2 = Math.hypot(ints[1].x - nextOff.p1.x, ints[1].z - nextOff.p1.z);
+                                intersection = d1 < d2 ? ints[0] : ints[1];
+                            }
+                        }
 
-                            const v1End   = contourSegments[i].p2;
+                        if (intersection) {
+                            // Trim segments to intersection
+                            if (prevOff.type === 'line') prevOff.p2 = intersection;
+                            else prevOff.endAngle = Math.atan2(intersection.x - prevOff.cx, intersection.z - prevOff.cz);
+
+                            if (nextOff.type === 'line') nextOff.p1 = intersection;
+                            else nextOff.startAngle = Math.atan2(intersection.x - nextOff.cx, intersection.z - nextOff.cz);
+                            
+                            trimmedOffsetPath.push(nextOff);
+                        } else {
+                            // NO INTERSECTION FOUND (Gap exists)
+                            // User request: "Kolmo nahoru a pak doleva" (Up then Left)
+                            // This is a "Dog-Leg" connection.
+                            
+                            // 1. Try infinite intersection first (Best for Line-Line square corners)
+                            let corner = null;
+                            if (prevOff.type === 'line' && nextOff.type === 'line') {
+                                corner = intersectLinesInfinite(prevOff.p1, prevOff.p2, nextOff.p1, nextOff.p2);
+                            }
+
+                            if (corner) {
+                                // If we found a mathematical corner, snap to it
+                                prevOff.p2 = corner;
+                                nextOff.p1 = corner;
+                            } else {
+                                // If parallel or arcs involved, create a Dog-Leg Bridge
+                                // "Up" (Match Next X) then "Left" (Match Next Z)
+                                // We create an intermediate segment to bridge the gap orthogonally
+                                
+                                // End of Prev
+                                const pStart = (prevOff.type === 'line') ? prevOff.p2 : {x: prevOff.cx + Math.sin(prevOff.endAngle)*prevOff.r, z: prevOff.cz + Math.cos(prevOff.endAngle)*prevOff.r};
+                                // Start of Next
+                                const pEnd = (nextOff.type === 'line') ? nextOff.p1 : {x: nextOff.cx + Math.sin(nextOff.startAngle)*nextOff.r, z: nextOff.cz + Math.cos(nextOff.startAngle)*nextOff.r};
+
+                                // Insert Segment 1: (Xp, Zp) -> (Xn, Zp) [Vertical Step Up]
+                                // Insert Segment 2: (Xn, Zp) -> (Xn, Zn) [Horizontal Step Left]
+                                
+                                trimmedOffsetPath.push({ type: 'line', p1: pStart, p2: {x: pEnd.x, z: pStart.z} }); // Vertical
+                                if (Math.abs(pEnd.z - pStart.z) > 0.001) {
+                                    trimmedOffsetPath.push({ type: 'line', p1: {x: pEnd.x, z: pStart.z}, p2: pEnd }); // Horizontal
+                                }
+                            }
+                            
+                            trimmedOffsetPath.push(nextOff);
+                        }
+                    }
+                }
+                
+                // 3. GLOBAL LOOP REMOVAL (Improved Tolerance & Furthest Intersection)
+                if (trimmedOffsetPath.length > 2) {
+                    let loopFound = true;
+                    let iterations = 0;
+                    while (loopFound && iterations < 5) { // safety break
+                        loopFound = false;
+                        iterations++;
+                        
+                        outerLoop:
+                        for (let i = 0; i < trimmedOffsetPath.length - 2; i++) {
+                            for (let j = i + 2; j < trimmedOffsetPath.length; j++) {
+                                const s1 = trimmedOffsetPath[i];
+                                const s2 = trimmedOffsetPath[j];
+                                
+                                if (s1.isDegenerate || s2.isDegenerate) continue;
+                                
+                                let intersection = null;
+                                // Simple Line-Line check
+                                if (s1.type === 'line' && s2.type === 'line') {
+                                    intersection = intersectLines(s1.p1, s1.p2, s2.p1, s2.p2);
+                                    
+                                    if (intersection) {
+                                         // RELAXED TOLERANCE for physical existence
+                                         const tol = 0.5; // Relaxed from 0.001 to catch slightly out-of-bounds intersections in deep grooves
+                                         const minX1 = Math.min(s1.p1.x, s1.p2.x) - tol; const maxX1 = Math.max(s1.p1.x, s1.p2.x) + tol;
+                                         const minZ1 = Math.min(s1.p1.z, s1.p2.z) - tol; const maxZ1 = Math.max(s1.p1.z, s1.p2.z) + tol;
+                                         const minX2 = Math.min(s2.p1.x, s2.p2.x) - tol; const maxX2 = Math.max(s2.p1.x, s2.p2.x) + tol;
+                                         const minZ2 = Math.min(s2.p1.z, s2.p2.z) - tol; const maxZ2 = Math.max(s2.p1.z, s2.p2.z) + tol;
+                                         
+                                         if (!(intersection.x >= minX1 && intersection.x <= maxX1 && intersection.z >= minZ1 && intersection.z <= maxZ1 &&
+                                               intersection.x >= minX2 && intersection.x <= maxX2 && intersection.z >= minZ2 && intersection.z <= maxZ2)) {
+                                             intersection = null;
+                                         }
+                                    }
+                                }
+                                
+
+                                if (intersection) {
+                                    // Trim s1 to end at intersection
+                                    if (s1.type === 'line') s1.p2 = intersection;
+                                    else s1.endAngle = Math.atan2(intersection.x - s1.cx, intersection.z - s1.cz); 
+                                    
+                                    // Trim s2 to start at intersection
+                                    if (s2.type === 'line') s2.p1 = intersection;
+                                    else s2.startAngle = Math.atan2(intersection.x - s2.cx, intersection.z - s2.cz);
+                                    
+                                    // Remove segments between i and j (exclusive)
+                                    // And merge i and j into new list
+                                    trimmedOffsetPath.splice(i + 1, j - (i + 1));
+                                    loopFound = true; 
+                                    break outerLoop; // Restart scan
+                                }
+                            }
+                        }
+                    }
+                }
+
+                const offsetPath = trimmedOffsetPath; 
+                
+                if (params.doFinishing) {
+                    let finRaw = [];
+                    for (let i = 0; i < contourSegments.length; i++) {
+                        const seg = contourSegments[i];
+                         if (seg.type === 'line') {
+                            const n = getNormal(seg.p1, seg.p2);
+                            finRaw.push({ type: 'line', p1: { x: seg.p1.x + n.x * tipR, z: seg.p1.z + n.z * tipR }, p2: { x: seg.p2.x + n.x * tipR, z: seg.p2.z + n.z * tipR } });
+                        } else if (seg.type === 'arc') {
+                            let rNew = (seg.dir === 'G3') ? seg.r + tipR : seg.r - tipR;
+                            if (rNew <= 0.001) {
+                                // Skip degenerate
+                            } else {
+                                const startAngle = Math.atan2(seg.p1.x - seg.cx, seg.p1.z - seg.cz);
+                                const endAngle = Math.atan2(seg.p2.x - seg.cx, seg.p2.z - seg.cz);
+                                finRaw.push({ type: 'arc', cx: seg.cx, cz: seg.cz, r: rNew, dir: seg.dir, refP1: seg.p1, refP2: seg.p2, startAngle, endAngle });
+                            }
+                        }
+                    }
+                    
+                    if (finRaw.length > 0) {
+                         finishOffsetPath.push(JSON.parse(JSON.stringify(finRaw[0])));
+                         for (let i = 0; i < finRaw.length - 1; i++) {
+                            let prevOff = finishOffsetPath[finishOffsetPath.length - 1]; 
+                            let nextOff = JSON.parse(JSON.stringify(finRaw[i+1])); 
                             
                             let intersection = null;
-                            // Calculate intersection regardless
+                            
                             if (prevOff.type === 'line' && nextOff.type === 'line') {
                                 intersection = intersectLines(prevOff.p1, prevOff.p2, nextOff.p1, nextOff.p2);
                             } else if (prevOff.type === 'line' && nextOff.type === 'arc') {
                                 const ints = intersectLineCircle(prevOff.p1, prevOff.p2, {x:nextOff.cx, z:nextOff.cz}, nextOff.r);
-                                if (ints) {
-                                    const d1 = Math.hypot(ints[0].x - v1End.x, ints[0].z - v1End.z);
-                                    const d2 = Math.hypot(ints[1].x - v1End.x, ints[1].z - v1End.z);
+                                if(ints && ints.length > 0) {
+                                    const d1 = Math.hypot(ints[0].x - prevOff.p2.x, ints[0].z - prevOff.p2.z);
+                                    const d2 = Math.hypot(ints[1].x - prevOff.p2.x, ints[1].z - prevOff.p2.z);
                                     intersection = d1 < d2 ? ints[0] : ints[1];
                                 }
                             } else if (prevOff.type === 'arc' && nextOff.type === 'line') {
                                 const ints = intersectLineCircle(nextOff.p1, nextOff.p2, {x:prevOff.cx, z:prevOff.cz}, prevOff.r);
-                                if (ints) {
-                                    const d1 = Math.hypot(ints[0].x - v1End.x, ints[0].z - v1End.z);
-                                    const d2 = Math.hypot(ints[1].x - v1End.x, ints[1].z - v1End.z);
+                                if(ints && ints.length > 0) {
+                                    const d1 = Math.hypot(ints[0].x - nextOff.p1.x, ints[0].z - nextOff.p1.z);
+                                    const d2 = Math.hypot(ints[1].x - nextOff.p1.x, ints[1].z - nextOff.p1.z);
                                     intersection = d1 < d2 ? ints[0] : ints[1];
                                 }
                             }
-                            // Arc-Arc intersection is complex, skip for now
-
+                            
                             if (intersection) {
-                                // TRIM OR EXTEND TO INTERSECTION (Sharp Corner / G451 style)
                                 if (prevOff.type === 'line') prevOff.p2 = intersection;
                                 else prevOff.endAngle = Math.atan2(intersection.x - prevOff.cx, intersection.z - prevOff.cz);
-
                                 if (nextOff.type === 'line') nextOff.p1 = intersection;
                                 else nextOff.startAngle = Math.atan2(intersection.x - nextOff.cx, intersection.z - nextOff.cz);
-                                
                                 finishOffsetPath.push(nextOff);
                             } else {
-                                // Fallback if no intersection found (e.g. parallel or Arc-Arc)
-                                // Just push next segment. The G-code generator will connect them with a straight line (G1)
+                                // GAP FILLING FOR FINISHING (Same Logic)
+                                let corner = null;
+                                if (prevOff.type === 'line' && nextOff.type === 'line') {
+                                    corner = intersectLinesInfinite(prevOff.p1, prevOff.p2, nextOff.p1, nextOff.p2);
+                                }
+                                if(corner) {
+                                    prevOff.p2 = corner;
+                                    nextOff.p1 = corner;
+                                } else {
+                                    // Dog-leg bridge fallback
+                                    const pStart = (prevOff.type === 'line') ? prevOff.p2 : {x: prevOff.cx + Math.sin(prevOff.endAngle)*prevOff.r, z: prevOff.cz + Math.cos(prevOff.endAngle)*prevOff.r};
+                                    const pEnd = (nextOff.type === 'line') ? nextOff.p1 : {x: nextOff.cx + Math.sin(nextOff.startAngle)*nextOff.r, z: nextOff.cz + Math.cos(nextOff.startAngle)*nextOff.r};
+
+                                    finishOffsetPath.push({ type: 'line', p1: pStart, p2: {x: pEnd.x, z: pStart.z} }); // Vertical
+                                    if (Math.abs(pEnd.z - pStart.z) > 0.001) {
+                                        finishOffsetPath.push({ type: 'line', p1: {x: pEnd.x, z: pStart.z}, p2: pEnd }); // Horizontal
+                                    }
+                                }
                                 finishOffsetPath.push(nextOff);
+                            }
+                         }
+                    }
+                    
+                    // APPLY LOOP REMOVAL TO FINISHING PATH AS WELL (Fixes Groove Gouging for Finish)
+                    if (finishOffsetPath.length > 2) {
+                        let loopFound = true;
+                        let iterations = 0;
+                        while (loopFound && iterations < 5) { 
+                            loopFound = false;
+                            iterations++;
+                            
+                            outerLoopFin:
+                            for (let i = 0; i < finishOffsetPath.length - 2; i++) {
+                                for (let j = i + 2; j < finishOffsetPath.length; j++) {
+                                    const s1 = finishOffsetPath[i];
+                                    const s2 = finishOffsetPath[j];
+                                    
+                                    if (s1.isDegenerate || s2.isDegenerate) continue;
+                                    
+                                    let intersection = null;
+                                    if (s1.type === 'line' && s2.type === 'line') {
+                                        intersection = intersectLines(s1.p1, s1.p2, s2.p1, s2.p2);
+                                        if (intersection) {
+                                             const tol = 0.5;
+                                             const minX1 = Math.min(s1.p1.x, s1.p2.x) - tol; const maxX1 = Math.max(s1.p1.x, s1.p2.x) + tol;
+                                             const minZ1 = Math.min(s1.p1.z, s1.p2.z) - tol; const maxZ1 = Math.max(s1.p1.z, s1.p2.z) + tol;
+                                             const minX2 = Math.min(s2.p1.x, s2.p2.x) - tol; const maxX2 = Math.max(s2.p1.x, s2.p2.x) + tol;
+                                             const minZ2 = Math.min(s2.p1.z, s2.p2.z) - tol; const maxZ2 = Math.max(s2.p1.z, s2.p2.z) + tol;
+                                             
+                                             if (!(intersection.x >= minX1 && intersection.x <= maxX1 && intersection.z >= minZ1 && intersection.z <= maxZ1 &&
+                                                   intersection.x >= minX2 && intersection.x <= maxX2 && intersection.z >= minZ2 && intersection.z <= maxZ2)) {
+                                                 intersection = null;
+                                             }
+                                        }
+                                    }
+                                    if (intersection) {
+                                        if (s1.type === 'line') s1.p2 = intersection;
+                                        else s1.endAngle = Math.atan2(intersection.x - s1.cx, intersection.z - s1.cz); 
+                                        if (s2.type === 'line') s2.p1 = intersection;
+                                        else s2.startAngle = Math.atan2(intersection.x - s2.cx, intersection.z - s2.cz);
+                                        finishOffsetPath.splice(i + 1, j - (i + 1));
+                                        loopFound = true; 
+                                        break outerLoopFin;
+                                    }
+                                }
                             }
                         }
                     }
                 }
                 
+                if (incompleteMachiningCount > 0) foundErrors.push({ type: 'warning', msg: `POZNÁMKA: V ${incompleteMachiningCount} místech nedojde ke kompletnímu obrobení.` });
                 setErrors(foundErrors);
 
                 const passes = [];
@@ -585,6 +982,7 @@
                         currentZ -= step; safe++;
                         let xsEnd = [];
                         offsetPath.forEach(os => {
+                            if (os.isDegenerate) return;
                             if (os.type === 'line') {
                                 const x = intersectVerticalLineSegment(currentZ, os.p1, os.p2);
                                 if (x !== null) xsEnd.push(x);
@@ -604,6 +1002,7 @@
                         } else {
                             let maxOZ = -9999;
                             offsetPath.forEach(p => { 
+                                if(p.isDegenerate) return;
                                 const z1 = p.type==='line' ? p.p1.z : p.cz + p.r; 
                                 const z2 = p.type==='line' ? p.p2.z : p.cz - p.r; 
                                 maxOZ = Math.max(maxOZ, z1, z2);
@@ -627,6 +1026,7 @@
                         currentX -= step; safe++;
                         let zsEnd = [];
                         offsetPath.forEach(os => {
+                            if(os.isDegenerate) return;
                             if (os.type === 'line') {
                                 const z = intersectHorizontalLineSegment(currentX, os.p1, os.p2);
                                 if (z !== null) zsEnd.push(z);
@@ -673,6 +1073,7 @@
                         }
                         let minPartX = 9999;
                         offsetPath.forEach(os => {
+                           if(os.isDegenerate) return;
                            if (os.type === 'line') minPartX = Math.min(minPartX, os.p1.x, os.p2.x);
                            else minPartX = Math.min(minPartX, os.cx - os.r); 
                         });
@@ -683,23 +1084,48 @@
                 const simPath = [];
                 simPath.push({x: params.safeX/2, z: params.safeZ, type: 'G0'});
                 
+                // Initialize current tool position for Dog-leg calculation
+                let currentSimX = params.safeX/2;
+                let currentSimZ = params.safeZ;
+
                 passes.forEach(pass => {
+                    const tx = pass.type === 'long' ? (pass.type==='long' ? pass.x : pass.xStart) : pass.xStart; // Target X for cut start
+                    const tz = pass.type === 'long' ? pass.zStart + 1 : pass.z; // Target Z for cut start (with small safety)
+                    
+                    // Dog-leg Rapid Approach: Move Z first, then X (Safest for external turning)
+                    // 1. Move Z to target Z at current X (or Safe X)
+                    if (Math.abs(currentSimZ - tz) > 0.001) {
+                        simPath.push({x: currentSimX, z: tz, type: 'G0'});
+                        currentSimZ = tz;
+                    }
+                    // 2. Move X down to cut start
+                    if (Math.abs(currentSimX - tx) > 0.001) {
+                         simPath.push({x: tx, z: tz, type: 'G0'});
+                         currentSimX = tx;
+                    }
+
                     if (pass.type === 'long') {
                         const xRetract = pass.x + retractDist; 
                         const xCut = pass.x;
-                        simPath.push({x: xRetract, z: pass.zStart + 1, type: 'G0'}); 
-                        simPath.push({x: xCut, z: pass.zStart + 1, type: 'G0'});     
+                        
+                        // We are at start point (xCut, zStart+1)
                         simPath.push({x: xCut, z: pass.zEnd, type: 'G1'});          
                         simPath.push({x: xRetract, z: pass.zEnd + retractDist, type: 'G1'});   
                         simPath.push({x: xRetract, z: pass.zStart + 1, type: 'G0'});   
+                        
+                        currentSimX = xRetract;
+                        currentSimZ = pass.zStart + 1;
                     } else {
                         const zRetract = pass.z + retractDist; 
                         const zCut = pass.z;
-                        simPath.push({x: pass.xStart, z: zRetract, type: 'G0'});
-                        simPath.push({x: pass.xStart, z: zCut, type: 'G0'});
+                        
+                        // We are at start point (xStart, zCut)
                         simPath.push({x: pass.xEnd, z: zCut, type: 'G1'}); 
                         simPath.push({x: pass.xEnd, z: zRetract, type: 'G1'}); 
                         simPath.push({x: pass.xStart, z: zRetract, type: 'G0'}); 
+                        
+                        currentSimX = pass.xStart;
+                        currentSimZ = zRetract;
                     }
                 });
                 
@@ -707,16 +1133,14 @@
 
                 if (params.doFinishing && finishOffsetPath.length > 0) {
                      const startSeg = finishOffsetPath[0];
-                     // FIX: Swapped cos/sin to match atan2(x,z) logic where X=Sin, Z=Cos
                      const startX = startSeg.type === 'line' ? startSeg.p1.x : (startSeg.cx + Math.sin(startSeg.startAngle)*startSeg.r);
                      const startZ = startSeg.type === 'line' ? startSeg.p1.z : (startSeg.cz + Math.cos(startSeg.startAngle)*startSeg.r);
                      
-                     // FIX: Removed extra safe point push that caused G-code index mismatch
-                     // simPath.push({x: params.safeX/2, z: params.safeZ, type: 'G0'});
                      simPath.push({x: startX + 2, z: startZ, type: 'G0'}); 
                      simPath.push({x: startX, z: startZ, type: 'G1'}); 
 
                      finishOffsetPath.forEach(seg => {
+                         if (seg.isDegenerate) return;
                          if (seg.type === 'line') {
                              simPath.push({x: seg.p2.x, z: seg.p2.z, type: 'G1'});
                          } else {
@@ -724,13 +1148,11 @@
                              let sA = seg.startAngle;
                              let eA = seg.endAngle;
                              
-                             // CORRECT INTERPOLATION DIRECTION LOGIC for Simulation
                              if (seg.dir === 'G2' && eA > sA) eA -= 2*Math.PI;
                              if (seg.dir === 'G3' && eA < sA) eA += 2*Math.PI;
                              
                              for(let j=1; j<=steps; j++) {
                                  const a = sA + (eA - sA) * (j/steps);
-                                 // FIX: Swapped cos/sin for simulation path to match drawing
                                  simPath.push({x: seg.cx + Math.sin(a)*seg.r, z: seg.cz + Math.cos(a)*seg.r, type: seg.dir});
                              }
                          }
@@ -892,6 +1314,7 @@
                     simCounter += 1; addN(`G1 X${sX_out} Z${sZ.toFixed(3)}`, simCounter); 
 
                     calculatedData.finishOffsetPath.forEach(seg => {
+                        if(seg.isDegenerate) return;
                         if (seg.type === 'line') {
                              const eX = params.mode === 'DIAMON' ? (seg.p2.x * 2).toFixed(3) : seg.p2.x.toFixed(3);
                              simCounter += 1;
@@ -991,6 +1414,9 @@
 
                 ctx.fillStyle = colors.bg; ctx.fillRect(0, 0, w, h);
                 const toScreen = (x, z) => {
+                    // Guard against NaN
+                    if(isNaN(x) || isNaN(z)) return {x:0, y:0};
+                    
                     if (params.machineStructure === 'carousel') {
                         return { x: view.panX + x * view.scale, y: view.panY - z * view.scale };
                     } else {
@@ -1128,8 +1554,11 @@
                                 
                                 // Also invert angles: +Angle in CNC is towards +X (Up). +Angle in Canvas is towards +Y (Down).
                                 // So angle_canvas = -angle_cnc
-                                ctx.arc(center.x, center.y, rScreen, -startAng, -endAng, counterClockwise);
-                                // Note: arc adds lineTo automatically from current pos
+                                if(!isNaN(center.x) && !isNaN(center.y) && !isNaN(rScreen)) {
+                                    ctx.arc(center.x, center.y, rScreen, -startAng, -endAng, counterClockwise);
+                                } else {
+                                    ctx.lineTo(ptEnd.x, ptEnd.y);
+                                }
                             } else {
                                 ctx.lineTo(ptEnd.x, ptEnd.y);
                             }
@@ -1141,6 +1570,7 @@
                 if (calculatedData.offsetPath.length > 0) {
                     ctx.beginPath();
                     calculatedData.offsetPath.forEach((seg, i) => {
+                        if(seg.isDegenerate) return;
                         if (seg.type === 'line') {
                             const p1 = toScreen(seg.p1.x, seg.p1.z); const p2 = toScreen(seg.p2.x, seg.p2.z);
                             if (i === 0) ctx.moveTo(p1.x, p1.y); else ctx.lineTo(p1.x, p1.y);
@@ -1149,7 +1579,8 @@
                              const center = toScreen(seg.cx, seg.cz);
                              const rScreen = seg.r * view.scale;
                              const counterClockwise = (seg.dir === 'G3');
-                             ctx.arc(center.x, center.y, rScreen, -seg.startAngle, -seg.endAngle, counterClockwise);
+                             if(!isNaN(center.x))
+                                ctx.arc(center.x, center.y, rScreen, -seg.startAngle, -seg.endAngle, counterClockwise);
                         }
                     });
                     ctx.strokeStyle = colors.offset; ctx.lineWidth = 1; ctx.setLineDash([2,2]); ctx.stroke(); ctx.setLineDash([]);
@@ -1158,13 +1589,11 @@
                 if (params.doFinishing && calculatedData.finishOffsetPath.length > 0) {
                     ctx.beginPath();
                     calculatedData.finishOffsetPath.forEach((seg, i) => {
+                        if(seg.isDegenerate) return;
                         if (seg.type === 'line') {
                             const p1 = toScreen(seg.p1.x, seg.p1.z); 
                             const p2 = toScreen(seg.p2.x, seg.p2.z);
                             if (i === 0) ctx.moveTo(p1.x, p1.y);
-                            // Ensure we lineTo the start of segment if not contiguous (should be, but safe)
-                            // Actually, arc() handles move/line automatically, line needs explicit move if start disjoint
-                            // but our path is continuous.
                             if (i > 0) ctx.lineTo(p1.x, p1.y); 
                             else ctx.moveTo(p1.x, p1.y);
                             
@@ -1173,13 +1602,13 @@
                              const center = toScreen(seg.cx, seg.cz);
                              const rScreen = seg.r * view.scale;
                              const counterClockwise = (seg.dir === 'G3');
-                             // Ensure start point connection
                              const startX = center.x + rScreen * Math.cos(-seg.startAngle);
                              const startY = center.y + rScreen * Math.sin(-seg.startAngle);
                              if(i===0) ctx.moveTo(startX, startY);
                              else ctx.lineTo(startX, startY);
-
-                             ctx.arc(center.x, center.y, rScreen, -seg.startAngle, -seg.endAngle, counterClockwise);
+                             
+                             if(!isNaN(center.x))
+                                ctx.arc(center.x, center.y, rScreen, -seg.startAngle, -seg.endAngle, counterClockwise);
                         }
                     });
                     ctx.strokeStyle = colors.finish; ctx.lineWidth = 2; ctx.stroke();
@@ -1241,40 +1670,15 @@
                             ctx.stroke();
                         } else if (params.toolShape === 'polygon') {
                             const lenPix = (parseFloat(params.toolLength) || 10) * view.scale;
-                            // Convert angle to radians for calculation.
-                            // toolAngle: User inputs degree. Positive = CCW in math. 
-                            // In Canvas (Y down), positive rotation is Clockwise.
-                            // We want 15 deg "Up" relative to horizontal.
-                            // So we need -15 deg rotation in Canvas.
                             const rotRad = -(parseFloat(params.toolAngle) || 0) * (Math.PI / 180);
                             const tipAng = (parseFloat(params.toolTipAngle) || 90) * (Math.PI / 180);
 
-                            // Base angles of the polygon sides relative to the tool axis (before rotation)
-                            // We align the "lower" side (Side 1) with the X-axis (0 deg)
-                            // Side 2 is at `tipAng`.
-                            // Then we rotate everything by `rotRad`.
-                            // Wait, Canvas Y is flipped.
-                            // Cartesian: 0 deg is Right. 90 is Up.
-                            // Screen: 0 deg is Right. 90 is Down.
-                            // If we want Side 1 at 15 deg Cartesian (Up-Right), we need -15 deg Screen.
-                            // Side 2 at 105 deg Cartesian (Up-Left). Screen -105 deg.
-                            // So Side 2 is `Side 1 - tipAng` in Screen coords? 
-                            // -15 - 90 = -105. Yes.
-                            
                             const a1 = rotRad; 
-                            const a2 = rotRad - tipAng; // Subtract because positive Cartesian angle difference = negative Screen angle difference
+                            const a2 = rotRad - tipAng; 
 
-                            // Tangent calculation
-                            // Distance from Circle Center to Sharp Corner
                             const distToCorner = rPix / Math.sin(tipAng / 2);
                             
-                            // Bisector angle in Screen coords
-                            // Bisector of a1 and a2. 
                             const bisector = (a1 + a2) / 2;
-                            
-                            // The corner is "behind" the circle relative to the bisector.
-                            // Bisector points "into" the tool body.
-                            // So corner is at `distToCorner` in direction `bisector + PI`.
                             const cornerX = Math.cos(bisector + Math.PI) * distToCorner;
                             const cornerY = Math.sin(bisector + Math.PI) * distToCorner;
 
@@ -1284,12 +1688,10 @@
                             ctx.beginPath();
                             ctx.moveTo(cornerX, cornerY);
                             
-                            // Side 1
                             const x1 = cornerX + Math.cos(a1) * lenPix;
                             const y1 = cornerY + Math.sin(a1) * lenPix;
                             ctx.lineTo(x1, y1);
                             
-                            // Back side (connect ends)
                             const x2 = cornerX + Math.cos(a2) * lenPix;
                             const y2 = cornerY + Math.sin(a2) * lenPix;
                             ctx.lineTo(x2, y2);
@@ -1300,11 +1702,9 @@
                             
                             ctx.restore();
                             
-                            // Circle on top
                             ctx.beginPath(); ctx.arc(pt.x, pt.y, rPix, 0, Math.PI * 2); ctx.stroke();
                         }
                         
-                        // Center dot
                         ctx.fillStyle = 'black';
                         ctx.beginPath();
                         ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2);
@@ -1559,8 +1959,22 @@
                 } else alert("Nepodařilo se rozpoznat žádné body v G-kódu.");
             };
             const parseGCode = () => processGCodeString(gCodeInput);
-            const handleCopyGCode = () => { /* ... same ... */ };
-            const handleDownload = () => { /* ... same ... */ };
+            const handleCopyGCode = () => { 
+                const text = generatedCode.map(l => l.text).join('\n');
+                navigator.clipboard.writeText(text).then(() => {
+                    setCopyFeedback(true);
+                    setTimeout(() => setCopyFeedback(false), 2000);
+                });
+            };
+            const handleDownload = () => {
+                 const text = generatedCode.map(l => l.text).join('\n');
+                 const blob = new Blob([text], { type: 'text/plain' });
+                 const url = URL.createObjectURL(blob);
+                 const a = document.createElement('a');
+                 a.href = url;
+                 a.download = "program.mpf";
+                 a.click();
+            };
             
             const toggleMode = (id) => { 
                 pushHistory();
@@ -1625,10 +2039,14 @@
                             </div>
                         )}
                         <div className="flex border-b border-gray-200 dark:border-gray-700">
-                             {['editor', 'params', 'import'].map(tab => (
+                             {['editor', 'params', 'import', 'AI'].map(tab => (
                                 <button key={tab} onClick={() => setActiveTab(tab)} 
                                     className={`flex-1 p-3 text-sm font-medium capitalize ${activeTab===tab ? 'bg-blue-100 text-blue-700' : 'text-gray-500'}`}>
-                                    {tab}
+                                    {tab === 'AI' ? (
+                                        <div className="flex items-center justify-center gap-1">
+                                            <IconSpark /> AI
+                                        </div>
+                                    ) : tab}
                                 </button>
                             ))}
                         </div>
@@ -1749,6 +2167,22 @@
                                         </button>
                                     </div>
                                 </div>
+                            )}
+                            {activeTab === 'AI' && (
+                                <AiAssistant 
+                                    contourPoints={contourPoints} 
+                                    stockPoints={stockPoints} 
+                                    params={params} 
+                                    onUpdateContour={(pts) => {
+                                        // Auto-add IDs if missing from AI
+                                        const newPts = pts.map((p, i) => ({...p, id: p.id || Date.now() + i}));
+                                        pushHistory();
+                                        setContourPoints(newPts);
+                                        setActiveTab('editor');
+                                        setEditMode('contour');
+                                    }}
+                                    theme={theme}
+                                />
                             )}
                              {activeTab === 'import' && (
                                 <div className="flex flex-col h-full">
