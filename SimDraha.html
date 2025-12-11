@@ -58,7 +58,7 @@
 
         // --- POLYFILL PRO PROCESS.ENV & API KEY MANAGEMENT ---
         const CUSTOM_KEY_STORAGE = 'sinumerik_custom_api_key';
-        const DEFAULT_API_KEY = "AIzaSyDI1KPPxGTT766drTbeQtAWzpHU3fpgtjw"; 
+        const DEFAULT_API_KEY = "AIzaSyCLBHN-IxCTKc0tXDsdp7T0TTj81FlnKlI"; 
         
         // Inicializace: Zkusíme načíst vlastní klíč, jinak použijeme default
         const initialKey = localStorage.getItem(CUSTOM_KEY_STORAGE) || DEFAULT_API_KEY;
@@ -214,7 +214,7 @@
                     alert("Klíč uložen. Nyní se používá váš vlastní klíč.");
                 } else {
                     localStorage.removeItem('sinumerik_custom_api_key');
-                    if(window.process && window.process.env) window.process.env.API_KEY = "AIzaSyDI1KPPxGTT766drTbeQtAWzpHU3fpgtjw";
+                    if(window.process && window.process.env) window.process.env.API_KEY = "AIzaSyCLBHN-IxCTKc0tXDsdp7T0TTj81FlnKlI";
                     alert("Vlastní klíč smazán. Používá se výchozí systémový klíč.");
                 }
                 setShowApiKeyInput(false);
@@ -318,22 +318,37 @@
                         Current CNC Configuration:
                         - Machine: ${params.machineType} (${params.machineStructure})
                         - Control: ${params.controlSystem}
-                        - Params: ${JSON.stringify(params)}
+                        - Params: ${JSON.stringify(params, null, 2)}
                         - Contour Points: ${JSON.stringify(contourPoints)}
                         - Stock Points: ${JSON.stringify(stockPoints)}
                     `;
 
                     const systemInstruction = `Jsi expertní AI asistent pro aplikaci 'Sinumerik CAM Generator'.
                     
+                    TAHÁK PARAMETRŮ (CO MŮŽEŠ MĚNIT V "params"):
+                    - toolRadius (číslo): Rádius špičky nástroje (např. 0.4, 0.8). KRITICKÉ PRO KOREKCE!
+                    - toolName (řetězec): Název nástroje (např. "NŮŽ").
+                    - speed (číslo): Řezná rychlost (m/min).
+                    - feed (číslo): Posuv (mm/ot).
+                    - depthOfCut (číslo): Hloubka třísky (ap).
+                    - roughingStrategy (řetězec): 'longitudinal' (podélně) / 'face' (čelně).
+                    - doFinishing (bool): Zda generovat dokončovací třísku.
+                    - allowanceX, allowanceZ (čísla): Přídavky na dokončení.
+                    - machineType (řetězec): Např. 'LIMS=2000'.
+                    - controlSystem (řetězec): 'sinumerik' / 'fanuc' / 'heidenhain'.
+                    - stockMode, stockDiameter, stockLength... (parametry polotovaru).
+
+                    PRAVIDLO PRO KOREKCI RÁDIUSU (TOOL RADIUS COMPENSATION):
+                    V parametrech je nastaven 'toolRadius' (aktuálně: ${params.toolRadius}).
+                    Pokud generuješ G-kód pro obrobení kontury na čisto:
+                    1. MUSÍŠ použít G41 (vlevo) nebo G42 (vpravo) podle směru obrábění.
+                    2. NEBO pokud generuješ body ručně, musíš souřadnice posunout o rádius a vektorově připočítat korekci (ekvidistanta).
+                    3. NIKDY nejeď středem nástroje přímo po souřadnicích kontury, pokud to není záměr (např. hrubování s přídavkem větším než rádius).
+
                     HLAVNÍ OMEZENÍ APLIKACE A SIMULÁTORU:
                     1. TOTO NENÍ PLNOHODNOTNÝ CAD/CAM. Je to lehký webový nástroj pro generování G-kódu soustružení.
                     2. SIMULÁTOR: Vykresluje pouze explicitní souřadnice (G0/G1/G2/G3). NEUMÍ simulovat/vykreslit vysoké cykly (jako CYCLE95, G71, G72). Pokud vygeneruješ kód s cykly, simulátor ukáže pouze čáru od startu do konce, nikoliv odebírání materiálu.
-                    3. GENERÁTOR: Aplikace má vlastní vestavěný generátor (tlačítko 'Auto'), který umí spočítat hrubovací dráhy. Ty jako AI můžeš buď nastavit parametry pro tento generátor, nebo napsat vlastní G-kód manuálně.
-
-                    TVÉ ÚKOLY:
-                    1. Pokud uživatel chce G-kód pro simulaci ZDE V APLIKACI: Generuj "rozepsaný" (long-hand) kód. Tzn. vypiš jednotlivé průchody G1.
-                    2. Pokud chce kód pro STROJ (s cykly): Můžeš použít CYCLE95/G71, ale MUSÍŠ uživatele varovat: "Pozor: Tento kód obsahuje cykly, které tento webový simulátor nevykreslí (uvidíte jen finální tvar), ale na stroji budou fungovat."
-                    3. Ovládání aplikace (JSON): Pokud chce uživatel změnit tvar, polotovar nebo řezné podmínky, NEVYPISOVAT text, ale vrátit JSON:
+                    3. GENERÁTOR: Pokud chce uživatel změnit parametry, VRAŤ JSON:
                        - Změna kontury: {"type": "contour", "points": [{"type": "G1", "x": 20, "z": -10, "r": 0, "mode": "ABS"}, ...]}
                        - Změna polotovaru: {"type": "stock", "points": [...]}
                        - Změna parametrů: {"type": "params", "data": {"feed": 0.2, "speed": 150, "toolName": "NŮŽ", "roughingStrategy": "face"}}
