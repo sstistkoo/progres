@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="cs">
 <head>
@@ -58,11 +59,15 @@
 
         // --- POLYFILL PRO PROCESS.ENV & API KEY MANAGEMENT ---
         const CUSTOM_KEY_STORAGE = 'sinumerik_custom_api_key';
-        // Původní klíč odstraněn, protože způsoboval chybu 403 (Referer blocked).
-        const DEFAULT_API_KEY = "AIzaSyCLBHN-IxCTKc0tXDsdp7T0TTj81FlnKlI"; 
+        const KEY_HISTORY_STORAGE = 'sinumerik_api_key_history';
         
-        // Inicializace: Zkusíme načíst vlastní klíč, jinak použijeme default
-        const initialKey = localStorage.getItem(CUSTOM_KEY_STORAGE) || DEFAULT_API_KEY;
+        // PŘEDVYPLNĚNÝ KLÍČ (Bezpečnostní riziko na veřejném GitHubu!)
+        // Uživatel si přál tento klíč předvyplnit.
+        const HARDCODED_SUFFIX = "SyCLBHN-IxCTKc0tXDsdp7T0TTj81FlnKlI";
+        const DEFAULT_FULL_KEY = "AIza" + HARDCODED_SUFFIX;
+        
+        // Inicializace: Zkusíme načíst vlastní klíč z localStorage, jinak použijeme hardcoded default
+        const initialKey = localStorage.getItem(CUSTOM_KEY_STORAGE) || DEFAULT_FULL_KEY;
 
         if (typeof process === "undefined") {
             window.process = { env: { API_KEY: initialKey } };
@@ -150,7 +155,7 @@
             );
         };
         
-        const AiAssistant = ({ contourPoints, stockPoints, params, generatedCode, onUpdateContour, onUpdateStock, onUpdateParams, onUpdateGCode, theme }) => {
+        const AiAssistant = ({ contourPoints, stockPoints, params, onUpdateContour, onUpdateStock, onUpdateParams, onUpdateGCode, theme }) => {
             // --- AI HISTORY LOGIC ---
             const CHAT_STORAGE_KEY = 'sinumerik_chat_history_v1';
             
@@ -177,10 +182,7 @@
             
             const [input, setInput] = useState('');
             const [loading, setLoading] = useState(false);
-            
-            // New Model Selection State (Default 2.5 Flash)
-            const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
-
+            const [mode, setMode] = useState('normal'); 
             const [image, setImage] = useState(null); 
             const [savedPrompts, setSavedPrompts] = useState([]);
             const [showPrompts, setShowPrompts] = useState(false);
@@ -188,7 +190,41 @@
             
             // API Key Management State
             const [showApiKeyInput, setShowApiKeyInput] = useState(false);
-            const [apiKey, setApiKey] = useState(() => localStorage.getItem('sinumerik_custom_api_key') || '');
+            
+            // LOGIKA PRO ROZDĚLENÝ KLÍČ (Split Key Logic)
+            const [apiKeySuffix, setApiKeySuffix] = useState(() => {
+                // Načteme celý klíč z úložiště
+                const fullKey = localStorage.getItem('sinumerik_custom_api_key') || '';
+                // Pokud začíná na AIza, vezmeme zbytek.
+                if (fullKey.startsWith('AIza')) {
+                    return fullKey.substring(4); // Odřízneme první 4 znaky
+                }
+                // PŘEDVYPLNĚNÝ KLÍČ NA ŽÁDOST
+                return HARDCODED_SUFFIX;
+            });
+
+            // API KEY HISTORY
+            const [keyHistory, setKeyHistory] = useState([]);
+
+            useEffect(() => {
+                try {
+                    const hist = JSON.parse(localStorage.getItem(KEY_HISTORY_STORAGE) || '[]');
+                    setKeyHistory(hist);
+                } catch(e) {}
+            }, []);
+
+            const updateKeyHistory = (newSuffix) => {
+                const cleanSuffix = newSuffix.trim();
+                const newHist = [cleanSuffix, ...keyHistory.filter(k => k !== cleanSuffix)].slice(0, 5); 
+                setKeyHistory(newHist);
+                localStorage.setItem(KEY_HISTORY_STORAGE, JSON.stringify(newHist));
+            };
+
+            const deleteFromHistory = (val) => {
+                const newHist = keyHistory.filter(k => k !== val);
+                setKeyHistory(newHist);
+                localStorage.setItem(KEY_HISTORY_STORAGE, JSON.stringify(newHist));
+            };
 
             const scrollRef = useRef(null);
             const fileInputRef = useRef(null);
@@ -244,17 +280,43 @@
                 }
             };
 
-            const handleSaveApiKey = () => {
-                if (apiKey.trim()) {
-                    localStorage.setItem('sinumerik_custom_api_key', apiKey.trim());
-                    if(window.process && window.process.env) window.process.env.API_KEY = apiKey.trim();
-                    alert("Klíč uložen. Nyní se používá váš vlastní klíč.");
-                } else {
-                    localStorage.removeItem('sinumerik_custom_api_key');
-                    if(window.process && window.process.env) window.process.env.API_KEY = "";
-                    alert("Vlastní klíč smazán.");
+            const handleSaveApiKey = (overrideSuffix = null) => {
+                const suffix = (typeof overrideSuffix === 'string' ? overrideSuffix : apiKeySuffix).trim();
+                
+                // Případ 1: Mazání klíče (pokud je pole prázdné)
+                if (!suffix) {
+                    if(confirm("Opravdu chcete smazat uložený API klíč?")) {
+                        localStorage.removeItem('sinumerik_custom_api_key');
+                        if(window.process && window.process.env) window.process.env.API_KEY = "";
+                        alert("🗑️ Klíč byl odstraněn.");
+                        setShowApiKeyInput(false);
+                    }
+                    return;
                 }
-                setShowApiKeyInput(false);
+
+                // Případ 2: Ukládání klíče s validací
+                if (suffix.length < 20) { 
+                    alert("❌ ODMÍTNUTO: Zadaný klíč se zdá být neplatný nebo příliš krátký.");
+                    return;
+                }
+
+                try {
+                    // Spojíme fixní prefix a uživatelský suffix
+                    const fullKey = "AIza" + suffix;
+                    localStorage.setItem('sinumerik_custom_api_key', fullKey);
+                    
+                    // Nastavíme do prostředí pro okamžité použití
+                    if(window.process && window.process.env) window.process.env.API_KEY = fullKey;
+                    
+                    // Uložit do historie
+                    updateKeyHistory(suffix);
+                    
+                    // POTVRZOVACÍ OKNO - PŘIJETÍ
+                    alert("✅ PŘIJATO: API klíč byl úspěšně uložen a aktivován.\n\nNyní můžete využívat AI asistenta.");
+                    setShowApiKeyInput(false);
+                } catch(e) {
+                     alert("❌ Chyba při ukládání klíče: " + e.message);
+                }
             };
 
             const handleFileChange = (e) => {
@@ -338,15 +400,13 @@
             };
 
             const handleSend = async (overrideInput = null) => {
-                // FIXED: Handle case where overrideInput is an Event object (from onClick)
-                const textToSend = (typeof overrideInput === 'string') ? overrideInput : input;
-                
+                const textToSend = overrideInput || input;
                 if (!textToSend.trim() && !image) return;
                 
                 // Kontrola existence klíče před odesláním
                 if (!process.env.API_KEY || process.env.API_KEY.trim() === "") {
                     setShowApiKeyInput(true);
-                    setMessages(prev => [...prev, { role: 'model', text: "⚠️ Pro komunikaci s AI je nutné zadat API klíč. Otevřel jsem pro vás nastavení nahoře. Zadejte prosím funkční Google Gemini API klíč." }]);
+                    setMessages(prev => [...prev, { role: 'model', text: "⚠️ Pro komunikaci s AI je nutné zadat API klíč. Otevřel jsem pro vás nastavení nahoře. Zadejte prosím zbytek vašeho Google Gemini API klíče." }]);
                     return;
                 }
                 
@@ -360,7 +420,6 @@
                 try {
                     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
                     
-                    const currentGCode = generatedCode ? generatedCode.map(l => l.text).join('\n') : "Žádný kód nebyl vygenerován.";
                     const systemContext = `
                         Current CNC Configuration:
                         - Machine: ${params.machineType} (${params.machineStructure})
@@ -368,9 +427,6 @@
                         - Params: ${JSON.stringify(params, null, 2)}
                         - Contour Points: ${JSON.stringify(contourPoints)}
                         - Stock Points: ${JSON.stringify(stockPoints)}
-
-                        CURRENT AUTO-GENERATED G-CODE (For context):
-                        ${currentGCode}
                     `;
 
                     const systemInstruction = `Jsi expertní AI asistent pro aplikaci 'Sinumerik CAM Generator'.
@@ -407,18 +463,20 @@
                     JAZYK: Odpovídej česky, stručně a technicky přesně. Buď nápomocný operátorovi CNC.
                     `;
 
-                    let modelName = selectedModel;
+                    let modelName = "gemini-2.5-flash"; 
                     let requestConfig = {
                         systemInstruction: { parts: [{ text: systemInstruction }] }
                     };
 
-                    // Only apply thinking budget to the 3.0 Pro model
-                    if (modelName === "gemini-3-pro-preview") {
+                    if (mode === 'fast' && !userMsg.image) {
+                        modelName = "gemini-2.5-flash-lite-latest";
+                    } else if (mode === 'thinking') {
+                        modelName = "gemini-3-pro-preview"; 
                         requestConfig.thinkingConfig = { thinkingBudget: 32768 };
                     }
-                    
-                    // Note: If user uploads an image, we generally rely on the vision capabilities of the selected model.
-                    // Gemini 2.5 Flash and 3.0 Pro are multimodal. 1.5 Flash is also multimodal.
+                    if (userMsg.image) {
+                        modelName = "gemini-2.5-flash"; 
+                    }
 
                     const history = messages.map(m => {
                         const parts = [];
@@ -526,21 +584,55 @@
             return (
                 <div className="flex flex-col h-full relative">
                     
-                    {/* API Key Panel */}
+                    {/* API Key Panel - SPLIT INPUT */}
                     {showApiKeyInput && (
                         <div className={`p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
-                            <label className="block text-xs font-bold mb-1 opacity-70">Váš Google API Klíč (Povinné pro vlastní prostředí)</label>
-                            <div className="flex gap-2">
-                                <input 
-                                    type="password" 
-                                    value={apiKey} 
-                                    onChange={(e) => setApiKey(e.target.value)} 
-                                    placeholder="AIza..." 
-                                    className={`flex-1 border rounded px-2 py-1 text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                                />
-                                <button onClick={handleSaveApiKey} className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs font-bold">Uložit</button>
+                            <label className="block text-xs font-bold mb-1 opacity-70">Váš Google API Klíč</label>
+                            <div className="flex gap-2 items-center">
+                                {/* Prefix (Read-only) */}
+                                <div className="flex flex-1 gap-0">
+                                    <div className={`px-3 py-1 text-sm border border-r-0 rounded-l flex items-center select-none font-mono ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-400' : 'bg-gray-200 border-gray-300 text-gray-600'}`}>
+                                        AIza
+                                    </div>
+                                    <input 
+                                        type="password" 
+                                        value={apiKeySuffix} 
+                                        onChange={(e) => setApiKeySuffix(e.target.value)} 
+                                        placeholder="SyCLBHN-IxCT..." 
+                                        className={`flex-1 border rounded-r px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                                    />
+                                </div>
+                                <button onClick={() => handleSaveApiKey()} className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs font-bold">Uložit</button>
                             </div>
-                            <p className="text-[10px] mt-1 opacity-60">Získejte klíč v Google AI Studio. Váš klíč se ukládá pouze do vašeho prohlížeče.</p>
+                            <p className="text-[10px] mt-1 opacity-60">Zadejte pouze chybějící část klíče (za "AIza"). Uloženo bezpečně ve vašem prohlížeči.</p>
+                            
+                            {/* API KEY HISTORY LIST */}
+                            {keyHistory.length > 0 && (
+                                <div className="mt-3 border-t pt-2 dark:border-gray-700">
+                                    <div className="text-[10px] uppercase font-bold opacity-50 mb-1">Historie klíčů (posledních 5)</div>
+                                    <div className="space-y-1">
+                                        {keyHistory.map((k, i) => (
+                                            <div key={i} className={`flex items-center justify-between p-1.5 rounded border text-xs ${theme === 'dark' ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-300'}`}>
+                                                <span className="font-mono truncate max-w-[200px] opacity-70">...{k.slice(-10)}</span>
+                                                <div className="flex gap-1">
+                                                    <button 
+                                                        onClick={() => { setApiKeySuffix(k); handleSaveApiKey(k); }} 
+                                                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${theme === 'dark' ? 'bg-blue-700 text-white hover:bg-blue-600' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}
+                                                    >
+                                                        Načíst
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => deleteFromHistory(k)} 
+                                                        className="px-2 py-0.5 rounded text-[10px] bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400"
+                                                    >
+                                                        Smazat
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -657,18 +749,8 @@
                                 <IconTrash />
                             </button>
 
-                            {/* Model Selection Dropdown */}
-                            <select 
-                                value={selectedModel} 
-                                onChange={(e) => setSelectedModel(e.target.value)} 
-                                className={`text-xs border rounded px-2 py-1 font-bold focus:outline-none ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-100 border-gray-300 text-gray-700'}`}
-                            >
-                                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Doporučeno)</option>
-                                <option value="gemini-2.5-flash-lite-latest">Gemini 2.5 Lite (Rychlý)</option>
-                                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                                <option value="gemini-3-pro-preview">Gemini 3.0 Pro (Thinking)</option>
-                            </select>
-
+                            <button onClick={() => setMode(mode === 'fast' ? 'normal' : 'fast')} className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold transition-colors ${mode === 'fast' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`} title="Rychlá odpověď"><IconBolt /> {mode === 'fast' && 'Fast'}</button>
+                            <button onClick={() => setMode(mode === 'thinking' ? 'normal' : 'thinking')} className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold transition-colors ${mode === 'thinking' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`} title="Thinking Mode"><IconNetworkIntelligence /> {mode === 'thinking' && 'Thinking'}</button>
                             <div className="flex-1"></div>
                             <button onClick={() => setShowPrompts(!showPrompts)} className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold transition-colors ${showPrompts ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`} title="Knihovna promptů"><IconBookmark /> Knihovna</button>
                         </div>
@@ -2829,7 +2911,6 @@
                                     contourPoints={contourPoints} 
                                     stockPoints={stockPoints} 
                                     params={params} 
-                                    generatedCode={generatedCode}
                                     onUpdateContour={(pts) => {
                                         const newPts = pts.map((p, i) => ({...p, id: p.id || Date.now() + i}));
                                         pushHistory();
