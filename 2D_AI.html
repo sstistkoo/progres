@@ -268,6 +268,68 @@
             z-index: 1001; /* Nad toolbarem */
         }
 
+        /* --- TOUCH CURSOR (křížek nad prstem na mobilu) --- */
+        .touch-cursor {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+            z-index: 10000;
+            display: none;
+            transform: translate(-50%, -50%);
+        }
+        
+        .touch-cursor.active {
+            display: block;
+            animation: touchCursorAppear 0.2s ease-out;
+        }
+        
+        @keyframes touchCursorAppear {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        .touch-cursor::before,
+        .touch-cursor::after {
+            content: '';
+            position: absolute;
+            background: #ff4444;
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.8),
+                        0 0 3px rgba(255, 255, 255, 0.9);
+        }
+        
+        /* Vertikální čára */
+        .touch-cursor::before {
+            width: 2px;
+            height: 40px;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+        }
+        
+        /* Horizontální čára */
+        .touch-cursor::after {
+            width: 40px;
+            height: 2px;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+        }
+        
+        /* Střed křížku - malý kroužek */
+        .touch-cursor-center {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #ff4444;
+            border: 2px solid white;
+            border-radius: 50%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 5px rgba(255, 68, 68, 0.8);
+        }
+
         .tool-submenu > * {
             pointer-events: auto;
         }
@@ -1588,6 +1650,12 @@
         </div>
 
         <canvas id="canvas"></canvas>
+        
+        <!-- Touch cursor - křížek pro přesné zaměření na mobilu -->
+        <div class="touch-cursor" id="touchCursor">
+            <div class="touch-cursor-center"></div>
+        </div>
+        
         <div class="coords" id="coords">Z: 0.00 | X: 0.00 mm</div>
         <div class="snap-info" id="snapInfo"></div>
         <div class="mode-info" id="modeInfo"></div>
@@ -2535,6 +2603,12 @@ REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
         let cursorPos = {x: 0, y: 0}; // Aktuální poloha kurzoru
         let pendingCircleCenter = null;
         let offsetDistance = 5; // Výchozí vzdálenost offsetu v mm
+        
+        // Touch cursor proměnné
+        let touchCursorTimeout = null;
+        let touchCursorActive = false;
+        let touchCursorOffset = 60; // Offset nad prstem v pixelech
+        const touchCursorDelay = 300; // Prodleva před zobrazením (ms)
     
         // === API KEY MANAGER START ===
         const API_STORAGE_KEY = 'soustruznik_api_keys';
@@ -4761,11 +4835,62 @@ REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
             
             updateSelectionUI();
         }
+        
+        // === TOUCH CURSOR FUNKCE ===
+        function showTouchCursor(screenX, screenY) {
+            const touchCursor = document.getElementById('touchCursor');
+            if (!touchCursor) return;
+            
+            touchCursorActive = true;
+            touchCursor.classList.add('active');
+            
+            // Umístit křížek nad prst s offsetem
+            touchCursor.style.left = screenX + 'px';
+            touchCursor.style.top = (screenY - touchCursorOffset) + 'px';
+        }
+        
+        function hideTouchCursor() {
+            const touchCursor = document.getElementById('touchCursor');
+            if (!touchCursor) return;
+            
+            touchCursorActive = false;
+            touchCursor.classList.remove('active');
+        }
+        
+        function updateTouchCursor(screenX, screenY) {
+            if (!touchCursorActive) return;
+            
+            const touchCursor = document.getElementById('touchCursor');
+            if (!touchCursor) return;
+            
+            touchCursor.style.left = screenX + 'px';
+            touchCursor.style.top = (screenY - touchCursorOffset) + 'px';
+        }
+        
+        function getTouchCursorPosition(screenX, screenY) {
+            // Pokud je touch cursor aktivní, vrátit pozici křížku místo prstu
+            if (touchCursorActive) {
+                return {
+                    x: screenX,
+                    y: screenY - touchCursorOffset
+                };
+            }
+            return { x: screenX, y: screenY };
+        }
 
         canvas.addEventListener('pointerdown', e => {
             const rect = canvas.getBoundingClientRect();
             const sx = e.clientX - rect.left;
             const sy = e.clientY - rect.top;
+            
+            // Touch cursor pro dotyková zařízení
+            if (e.pointerType === 'touch' && mode !== 'pan') {
+                // Spustit timeout pro zobrazení touch cursoru
+                touchCursorTimeout = setTimeout(() => {
+                    showTouchCursor(sx, sy);
+                }, touchCursorDelay);
+            }
+            
             let w = screenToWorld(sx, sy);
             
             // Přichycení - VŽDY pro všechny módy kromě 'pan'
@@ -5245,7 +5370,15 @@ REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
             const rect = canvas.getBoundingClientRect();
             const sx = e.clientX - rect.left;
             const sy = e.clientY - rect.top;
-            let w = screenToWorld(sx, sy);
+            
+            // Aktualizace touch cursoru při pohybu
+            if (touchCursorActive) {
+                updateTouchCursor(sx, sy);
+            }
+            
+            // Pokud je touch cursor aktivní, použít jeho pozici
+            let adjustedPos = getTouchCursorPosition(sx, sy);
+            let w = screenToWorld(adjustedPos.x, adjustedPos.y);
             
             // Přichycení - VŽDY pro všechny módy kromě pan
             let snapResult = {point: w, snapInfo: null};
@@ -5313,12 +5446,28 @@ REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
         });
         
         canvas.addEventListener('pointerup', e => {
+            // Zrušit timeout a skrýt touch cursor
+            if (touchCursorTimeout) {
+                clearTimeout(touchCursorTimeout);
+                touchCursorTimeout = null;
+            }
+            hideTouchCursor();
+            
             // Pouze pro Pan ukončujeme drag
             if (mode === 'pan') {
                 drawing = false;
                 lastTouch = null;
             }
             // Pro Line/Circle se nic neděje na up, vše řeší click (pointerdown)
+        });
+        
+        canvas.addEventListener('pointercancel', e => {
+            // Zrušit touch cursor při přerušení (např. scroll, gesture)
+            if (touchCursorTimeout) {
+                clearTimeout(touchCursorTimeout);
+                touchCursorTimeout = null;
+            }
+            hideTouchCursor();
         });
         
         canvas.addEventListener('wheel', e => {
@@ -5408,4 +5557,4 @@ REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
         });
     </script>
 </body>
-        </html>
+    </html>
