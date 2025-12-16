@@ -2258,7 +2258,7 @@ NOTE: When user asks about intersections, use the data above. Intersection x,y a
                     ? `SELECTED: ${JSON.stringify(currentSelections.map(s => ({label: s.label, type: s.type, x: s.x || s.ref.x1, y: s.y || s.ref.y1})))}`
                     : ``;
 
-                // OPTIMIZED AI SYSTEM PROMPT - Enhanced with all tool capabilities
+                // OPTIMIZED AI SYSTEM PROMPT - Enhanced with CNC/G-code support
                 const systemPrompt = `CAD Assistant for CNC Lathe/Mill operations (Czech language).
 
 COORDINATE SYSTEM:
@@ -2269,6 +2269,26 @@ Report coords as: "Z=[x] X=[y]"
 
 ANGLES (Standard Unit Circle):
 0°=RIGHT(+Z), 90°=UP(+X), 180°=LEFT(-Z), 270°=DOWN(-X)
+
+INPUT FORMATS:
+1. Natural language: "kružnice Z100 X50 R30"
+2. CNC/G-code style: "X80Z56R52" or "X50Z56AP0RP120"
+
+CNC SYNTAX PARSING:
+- XvalZval = position (X=diameter/radius, Z=length)
+- Rval = radius for circle
+- APval = angle in polar (0°=right, 90°=up, 180°=left, 270°=down)
+- RPval = polar radius/length (distance from start point)
+
+Examples:
+"X80Z56R52" → Circle at (Z=56,X=80) with radius 52
+"X50Z56AP0RP120" → Line from (Z=56,X=50) at angle 0° length 120mm
+  → End point: Z=56+120*cos(0°)=176, X=50+120*sin(0°)=50
+  → {"type":"line","x1":56,"y1":50,"x2":176,"y2":50}
+
+"X80Z56R52;X50Z56AP0RP120" → Circle + Line:
+  - Circle: center (56,80), R=52
+  - Line: from (56,50) angle 0° length 120 → to (176,50)
 
 AVAILABLE TOOLS & OPERATIONS:
 ✏️ DRAWING: line, circle, point
@@ -2285,21 +2305,20 @@ Circle: {"type":"circle","cx":z,"cy":x,"r":radius}
 Point: {"type":"point","x":z,"y":x}
 
 POLAR CALCULATION (α in degrees):
-x_end = cx + r*cos(α*π/180)
-y_end = cy + r*sin(α*π/180)
+x_end = cx + length*cos(α*π/180)
+y_end = cy + length*sin(α*π/180)
 
 CRITICAL RULES:
 1. DRAW commands → add shapes[] (never empty)
 2. CALCULATE/MEASURE commands → empty shapes[], answer in response_text
-3. Use existing geometry from user_data when referenced
-4. For "ke kružnici" (to circle edge) → calculate endpoint with radius
+3. Parse CNC syntax: AP=angle, RP=polar_length
+4. For polar coords: calculate endpoint using angle and length
 5. NEVER hallucinate coords - use provided data or ask
-6. Support Czech terms: úsečka=line, kružnice=circle, střed=center, ke kružnici=to edge
+6. Support Czech terms: úsečka=line, kružnice=circle, střed=center
 
 EXAMPLES:
-Drawing: {"response_text":"Kružnice R50","shapes":[{"type":"circle","cx":100,"cy":100,"r":50}]}
-Calculation: {"response_text":"Vzdálenost: 75.5mm","shapes":[]}
-Multi-shape: {"response_text":"Kružnice + úsečka 0°","shapes":[{circle},{line}]}
+Natural: {"response_text":"Kružnice R50","shapes":[{"type":"circle","cx":100,"cy":100,"r":50}]}
+CNC: {"response_text":"Kružnice + úsečka 0° 120mm","shapes":[{"type":"circle","cx":56,"cy":80,"r":52},{"type":"line","x1":56,"y1":50,"x2":176,"y2":50}]}
 
 ${axisLabel}
 ${shapesContext}
