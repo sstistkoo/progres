@@ -198,14 +198,18 @@
         /* Mobil na výšku - dole uvnitř canvasu s offsetem */
         @media (max-width: 768px) and (orientation: portrait) {
             .toolbar {
-                bottom: max(70px, calc(50px + env(safe-area-inset-bottom))); /* Offset od spodku kvůli navigaci */
-                left: 10px;
-                right: 10px;
+                bottom: max(30px, calc(20px + env(safe-area-inset-bottom))); /* Níže, blíže navigaci */
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
                 flex-direction: row;
                 flex-wrap: wrap;
-                padding: 8px;
+                padding: 8px 6px;
                 border-radius: 12px;
-                gap: 8px;
+                gap: 6px;
+                width: auto;
+                max-width: 95%;
+                justify-content: center;
             }
         }
 
@@ -253,7 +257,7 @@
         /* Mobil na výšku - nad toolbarem uvnitř canvasu */
         @media (max-width: 768px) and (orientation: portrait) {
             .tool-submenu {
-                bottom: max(150px, calc(130px + env(safe-area-inset-bottom)));
+                bottom: max(120px, calc(110px + env(safe-area-inset-bottom))); /* Nad toolbarem */
                 left: 10px;
                 right: 10px;
             }
@@ -331,20 +335,32 @@
                 gap: 10px;
             }
             
-            /* Mobil na výšku - menší tlačítka */
+            /* Mobil na výšku - menší tlačítka, 3 vedle sebe */
             @media (orientation: portrait) {
+                .toolbar {
+                    bottom: max(30px, calc(20px + env(safe-area-inset-bottom))); /* Posun více dolů */
+                    left: 50%;
+                    right: auto;
+                    transform: translateX(-50%);
+                    width: auto;
+                    max-width: 90%;
+                }
+                
                 .tool-btn {
-                    min-width: 50px;
-                    min-height: 50px;
-                    padding: 4px 6px;
+                    min-width: 70px;
+                    max-width: 85px;
+                    min-height: 70px;
+                    padding: 8px 4px;
+                    flex: 0 0 auto;
                 }
                 
                 .tool-btn span {
-                    font-size: 18px !important;
+                    font-size: 24px !important;
                 }
                 
                 .tool-btn div {
-                    font-size: 9px !important;
+                    font-size: 10px !important;
+                    white-space: nowrap;
                 }
             }
             
