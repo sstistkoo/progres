@@ -138,31 +138,7 @@
             overflow: hidden;
             background: #0a0a0a;
             width: 100%;
-            /* Na mobilech v portrait módu omezíme výšku na šířku (čtverec) */
-            /* Tím zůstane dole prostor pro toolbar */
-        }
-        
-        /* Mobilní zařízení na výšku - canvas je čtvercový */
-        @media (max-width: 768px) and (orientation: portrait) {
-            .canvas-area {
-                max-height: min(100vw, calc(100vh - 120px)); /* Čtverec nebo viewport - toolbar */
-                height: min(100vw, calc(100vh - 120px));
-            }
-        }
-        
-        /* Mobilní zařízení na šířku - canvas využije celou výšku */
-        @media (max-width: 768px) and (orientation: landscape) {
-            .canvas-area {
-                height: calc(100vh - 80px); /* Plná výška - toolbar */
-                max-height: calc(100vh - 80px);
-            }
-        }
-        
-        /* Desktop - plná výška */
-        @media (min-width: 769px) {
-            .canvas-area {
-                height: 100%;
-            }
+            height: 100%;
         }
 
         canvas {
@@ -172,48 +148,115 @@
             height: 100%;
         }
 
-        /* --- TOOLBAR DOLE --- */
+        /* --- TOOLBAR --- */
         .toolbar {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            top: auto;
-            
             display: flex;
             gap: 15px;
             justify-content: center;
             align-items: center;
-            z-index: 1000; /* Velmi vysoký z-index */
+            z-index: 1000;
             
-            /* Vzhled spodní lišty */
             background: rgba(15, 15, 15, 0.98);
             backdrop-filter: blur(10px);
-            border-top: 1px solid #333;
-            padding: 10px;
-            box-shadow: 0 -3px 15px rgba(0, 0, 0, 0.6);
-            
-            /* Ošetření pro telefony bez tlačítka (iPhone X a novější) */
-            padding-bottom: max(10px, env(safe-area-inset-bottom));
+            border: 1px solid #333;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+        }
+        
+        /* Desktop a tablet - dole */
+        @media (min-width: 769px) {
+            .toolbar {
+                bottom: 0;
+                left: 0;
+                right: 0;
+                flex-direction: row;
+                border-top: 1px solid #333;
+                border-left: none;
+                border-right: none;
+                border-bottom: none;
+                padding: 10px;
+                padding-bottom: max(10px, env(safe-area-inset-bottom));
+            }
+        }
+        
+        /* Mobil na šířku - vpravo */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .toolbar {
+                top: 10px;
+                bottom: 10px;
+                right: 10px;
+                left: auto;
+                flex-direction: column;
+                padding: 10px 8px;
+                border-radius: 12px;
+                gap: 12px;
+                max-height: calc(100vh - 20px);
+                overflow-y: auto;
+            }
+        }
+        
+        /* Mobil na výšku - dole uvnitř canvasu s offsetem */
+        @media (max-width: 768px) and (orientation: portrait) {
+            .toolbar {
+                bottom: max(70px, calc(50px + env(safe-area-inset-bottom))); /* Offset od spodku kvůli navigaci */
+                left: 10px;
+                right: 10px;
+                flex-direction: row;
+                flex-wrap: wrap;
+                padding: 8px;
+                border-radius: 12px;
+                gap: 8px;
+            }
         }
 
         /* --- SUBMENU NAD TOOLBAREM --- */
         .tool-submenu {
             position: absolute;
-            bottom: 70px; /* Nad toolbarem */
-            top: auto;
-            left: 10px;
-            right: 10px;
-            
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
-            z-index: 999; /* Pod toolbarem ale nad ostatním */
+            z-index: 999;
             justify-content: center;
-            
-            /* Animace pro hladké zobrazení */
             animation: slideUp 0.2s ease-out;
             pointer-events: none;
+        }
+        
+        .tool-submenu > * {
+            pointer-events: auto;
+        }
+        
+        /* Desktop - nad toolbarem */
+        @media (min-width: 769px) {
+            .tool-submenu {
+                bottom: 70px;
+                left: 10px;
+                right: 10px;
+            }
+        }
+        
+        /* Mobil na šířku - vlevo od toolbaru */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .tool-submenu {
+                top: 50%;
+                right: 80px;
+                left: 10px;
+                transform: translateY(-50%);
+                animation: slideLeft 0.2s ease-out;
+            }
+            
+            @keyframes slideLeft {
+                from { transform: translateY(-50%) translateX(10px); opacity: 0; }
+                to { transform: translateY(-50%) translateX(0); opacity: 1; }
+            }
+        }
+        
+        /* Mobil na výšku - nad toolbarem uvnitř canvasu */
+        @media (max-width: 768px) and (orientation: portrait) {
+            .tool-submenu {
+                bottom: max(150px, calc(130px + env(safe-area-inset-bottom)));
+                left: 10px;
+                right: 10px;
+            }
         }
         
         /* Zvýšení z-indexu pro AI panel, aby byl nad canvas controls */
@@ -288,18 +331,38 @@
                 gap: 10px;
             }
             
-            .tool-btn {
-                min-width: 60px;
-                min-height: 60px;
-                padding: 6px 8px;
+            /* Mobil na výšku - menší tlačítka */
+            @media (orientation: portrait) {
+                .tool-btn {
+                    min-width: 50px;
+                    min-height: 50px;
+                    padding: 4px 6px;
+                }
+                
+                .tool-btn span {
+                    font-size: 18px !important;
+                }
+                
+                .tool-btn div {
+                    font-size: 9px !important;
+                }
             }
             
-            .tool-btn span {
-                font-size: 20px !important;
-            }
-            
-            .tool-btn div {
-                font-size: 10px !important;
+            /* Mobil na šířku - standardní velikost */
+            @media (orientation: landscape) {
+                .tool-btn {
+                    min-width: 60px;
+                    min-height: 60px;
+                    padding: 6px 8px;
+                }
+                
+                .tool-btn span {
+                    font-size: 20px !important;
+                }
+                
+                .tool-btn div {
+                    font-size: 10px !important;
+                }
             }
             
             /* Controller Modal - Responzivní pro mobil */
