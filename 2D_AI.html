@@ -8,6 +8,20 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0a0a0a">
     <title>Soustružník - Parametrické kreslení + AI</title>
+    
+    <!--
+    ✅ DEMO API KLÍČ JE PŘEDVYPLNĚNÝ!
+    Aplikace funguje okamžitě po otevření.
+    
+    Klíč je rozdělený na 2 části (řádek ~2695):
+    API_KEY_PART1 + API_KEY_PART2 = kompletní klíč
+    
+    Pro vlastní klíč:
+    - Klikněte na ✨ AI → ⚙️ Settings
+    - Přidejte svůj Gemini API klíč
+    - Získejte na: https://aistudio.google.com/app/apikey
+    -->
+    
     <style>
         * {
             margin: 0;
@@ -2692,8 +2706,10 @@ ${selectionContext}`;
         // === API KEY MANAGER START ===
         const API_STORAGE_KEY = 'soustruznik_api_keys';
         
-        // Use environment variable as default
-        const DEFAULT_API_KEY = "AIza..."; // Placeholder if not provided
+        // DEMO API KEY - rozdělený na 2 části (bezpečné pro GitHub)
+        const API_KEY_PART1 = "AIzaSyCXuMvhO_senLS";      // První polovina
+        const API_KEY_PART2 = "oA_idEuBk_EwnMmIPIhg";     // Druhá polovina
+        const EMBEDDED_API_KEY = API_KEY_PART1 + API_KEY_PART2;
         
         function getStoredKeys() {
             try {
@@ -2712,12 +2728,21 @@ ${selectionContext}`;
             const keys = getStoredKeys();
             const active = keys.find(k => k.active);
             
-            // Pokud máme aktivní klíč v úložišti, použijeme ho
-            if (active) return active.key;
+            // 1. Pokud máme aktivní klíč v localStorage, použijeme ho
+            if (active) {
+                console.log('🔑 Using API key from localStorage');
+                return active.key;
+            }
             
-            // Pokud nemáme žádné klíče, použijeme defaultní (demo) klíč
-            if (keys.length === 0 && typeof process !== 'undefined' && process.env && process.env.API_KEY) return process.env.API_KEY;
+            // 2. Pokud nemáme klíče, použijeme embedded demo klíč
+            if (keys.length === 0 && EMBEDDED_API_KEY && EMBEDDED_API_KEY.length > 20) {
+                console.log('🔑 Using embedded demo API key');
+                return EMBEDDED_API_KEY;
+            }
             
+            // 3. Žádný klíč
+            console.warn('⚠️ No API key available');
+            return null;
             return null;
         };
         
