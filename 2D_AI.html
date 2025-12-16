@@ -1210,12 +1210,17 @@
                     </div>
                     
                     <div style="display: flex; gap: 8px; align-items: center;">
-                        <!-- Přepínač modelu - CLEANED UP FOR STABILITY -->
+                        <!-- Přepínač modelu -->
                         <select id="aiModelSelect" style="background: #111; color: #888; border: 1px solid #444; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; outline: none;">
                             <option value="gemini-2.5-flash" selected>⚡ Gemini 2.5 Flash (Rychlý)</option>
                             <option value="gemini-3-pro-preview">🧪 Gemini 3 Pro (Nejchytřejší)</option>
                             <option value="gemini-2.0-flash-exp">⚡ Gemini 2.0 Flash (Exp)</option>
                         </select>
+                        
+                        <!-- AI Memory Button -->
+                        <button onclick="showAIMemory()" title="AI Paměť - Co se AI naučila" style="background: transparent; border: none; cursor: pointer; color: #888; transition: color 0.2s; padding: 4px;">
+                            <span style="font-size: 16px;">🧠</span>
+                        </button>
                         
                         <!-- Debug Metrics Button -->
                         <button onclick="showAIMetrics()" title="Zobrazit AI statistiky" style="background: transparent; border: none; cursor: pointer; color: #888; transition: color 0.2s; padding: 4px;">
@@ -2196,6 +2201,9 @@
             const userMsg = prompt || (currentImageBase64 ? "[Obrázek]" : "...");
             addMessageToChat('user', userMsg);
             
+            // Record command to AI memory
+            if (prompt) window.recordCommand(prompt);
+            
             promptInput.value = ''; // Clear input
             
             // UI Loading state
@@ -2795,6 +2803,139 @@ ${selectionContext}`;
   • Use Gemini 3 Pro for complex tasks`;
             
             alert(metricsText);
+        };
+
+        // === AI LEARNING SYSTEM ===
+        const AI_MEMORY_KEY = 'ai_learned_knowledge';
+        
+        const defaultMemory = {
+            userPreferences: {},
+            commonCommands: {},
+            corrections: {},
+            projectContext: {
+                typicalDimensions: [],
+                workingArea: null,
+                lastUsedTools: []
+            },
+            lastUpdated: null
+        };
+        
+        function loadAIMemory() {
+            try {
+                const stored = localStorage.getItem(AI_MEMORY_KEY);
+                if (stored) return JSON.parse(stored);
+            } catch (e) {
+                console.error('Error loading AI memory:', e);
+            }
+            return JSON.parse(JSON.stringify(defaultMemory));
+        }
+        
+        function saveAIMemory(memory) {
+            try {
+                memory.lastUpdated = new Date().toISOString();
+                localStorage.setItem(AI_MEMORY_KEY, JSON.stringify(memory));
+                console.log('💾 AI memory saved');
+                return true;
+            } catch (e) {
+                console.error('Error saving AI memory:', e);
+                return false;
+            }
+        }
+        
+        window.addAIKnowledge = function(category, key, value) {
+            const memory = loadAIMemory();
+            if (!memory[category]) memory[category] = {};
+            memory[category][key] = value;
+            saveAIMemory(memory);
+            console.log(`📚 AI learned: ${category}.${key} = ${JSON.stringify(value)}`);
+        };
+        
+        window.recordCommand = function(command) {
+            const memory = loadAIMemory();
+            if (!memory.commonCommands[command]) {
+                memory.commonCommands[command] = { count: 0, lastUsed: null };
+            }
+            memory.commonCommands[command].count++;
+            memory.commonCommands[command].lastUsed = new Date().toISOString();
+            saveAIMemory(memory);
+        };
+        
+        window.recordCorrection = function(originalAI, userCorrection) {
+            const memory = loadAIMemory();
+            const key = `${Date.now()}`;
+            memory.corrections[key] = {
+                aiResponse: originalAI,
+                userCorrection: userCorrection,
+                timestamp: new Date().toISOString()
+            };
+            // Keep only last 20
+            const corrections = Object.entries(memory.corrections)
+                .sort((a, b) => b[1].timestamp.localeCompare(a[1].timestamp))
+                .slice(0, 20);
+            memory.corrections = Object.fromEntries(corrections);
+            saveAIMemory(memory);
+            console.log('✏️ AI correction recorded');
+        };
+        
+        window.getAIMemoryContext = function() {
+            const memory = loadAIMemory();
+            return {
+                preferences: memory.userPreferences,
+                topCommands: Object.entries(memory.commonCommands)
+                    .sort((a, b) => b[1].count - a[1].count)
+                    .slice(0, 5)
+                    .map(([cmd, data]) => ({ command: cmd, count: data.count })),
+                recentCorrections: Object.values(memory.corrections).slice(-3)
+            };
+        };
+        
+        window.showAIMemory = function() {
+            const memory = loadAIMemory();
+            const stats = {
+                commands: Object.keys(memory.commonCommands).length,
+                corrections: Object.keys(memory.corrections).length,
+                preferences: Object.keys(memory.userPreferences).length,
+                size: (new Blob([JSON.stringify(memory)]).size / 1024).toFixed(2)
+            };
+            
+            const text = `🧠 AI Paměť
+
+📊 Statistiky:
+  • Příkazů: ${stats.commands}
+  • Oprav: ${stats.corrections}
+  • Preferencí: ${stats.preferences}
+  • Velikost: ${stats.size} KB
+  • Poslední update: ${memory.lastUpdated || 'Nikdy'}
+
+💾 Akce:
+  [Zavřít] - Zavřít toto okno
+  Console: 
+    - exportAIMemory() - Export do souboru
+    - clearAIMemory() - Vymazat vše
+    - addAIKnowledge('userPreferences', 'key', 'value')`;
+            
+            alert(text);
+        };
+        
+        window.clearAIMemory = function() {
+            if (confirm('Opravdu vymazat veškerou naučenou paměť AI?')) {
+                localStorage.removeItem(AI_MEMORY_KEY);
+                console.log('🗑️ AI memory cleared');
+                alert('✅ AI paměť byla vymazána.');
+            }
+        };
+        
+        window.exportAIMemory = function() {
+            const memory = loadAIMemory();
+            const blob = new Blob([JSON.stringify(memory, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ai_memory_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            console.log('💾 AI memory exported');
+            alert('✅ AI paměť exportována!');
         };
 
         window.openSettings = function() {
