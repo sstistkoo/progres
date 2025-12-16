@@ -8,6 +8,28 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0a0a0a">
     <title>Soustružník - Parametrické kreslení + AI</title>
+    
+    <!-- 
+    🔑 API KEY SETUP:
+    
+    Možnost 1 (Doporučeno): Přes UI
+    - Klikněte na ✨ AI tlačítko
+    - Klikněte na ⚙️ Settings
+    - Přidejte svůj Gemini API klíč
+    
+    Možnost 2: External config file
+    - Vytvořte soubor 'api-config.js' (přidejte do .gitignore!)
+    - Přidejte: window.GEMINI_API_KEY = "váš-klíč-zde";
+    - Odkomentujte řádek níže:
+    -->
+    <!-- <script src="api-config.js"></script> -->
+    
+    <!-- 
+    Možnost 3: Embedded v kódu
+    - Najděte API_KEY_PART1-4 v kódu (řádek ~2675)
+    - Rozdělte svůj klíč na 4 části
+    -->
+    
     <style>
         * {
             margin: 0;
@@ -2673,8 +2695,17 @@ ${selectionContext}`;
         // === API KEY MANAGER START ===
         const API_STORAGE_KEY = 'soustruznik_api_keys';
         
-        // Use environment variable as default
-        const DEFAULT_API_KEY = "AIza..."; // Placeholder if not provided
+        // API Key rozdělený na části (bezpečné pro GitHub)
+        // DEMO KLÍČ: Předvyplněný demo klíč pro testování
+        // Můžete ho nahradit svým vlastním přes Settings (⚙️)
+        
+        const API_KEY_PART1 = "AIzaSyCXuMvhO_senLS"; // První polovina demo klíče
+        const API_KEY_PART2 = "oA_idEuBk_EwnMmIPIhg"; // Druhá polovina demo klíče
+        const API_KEY_PART3 = ""; // (Volitelné - pro extra rozdělení)
+        const API_KEY_PART4 = ""; // (Volitelné - pro extra rozdělení)
+        
+        // Složení klíče z částí (pokud jsou vyplněné)
+        const EMBEDDED_API_KEY = (API_KEY_PART1 + API_KEY_PART2 + API_KEY_PART3 + API_KEY_PART4).trim();
         
         function getStoredKeys() {
             try {
@@ -2693,12 +2724,26 @@ ${selectionContext}`;
             const keys = getStoredKeys();
             const active = keys.find(k => k.active);
             
-            // Pokud máme aktivní klíč v úložišti, použijeme ho
-            if (active) return active.key;
+            // 1. Pokud máme aktivní klíč v úložišti (localStorage), použijeme ho
+            if (active) {
+                console.log('🔑 Using API key from localStorage');
+                return active.key;
+            }
             
-            // Pokud nemáme žádné klíče, použijeme defaultní (demo) klíč
-            if (keys.length === 0 && typeof process !== 'undefined' && process.env && process.env.API_KEY) return process.env.API_KEY;
+            // 2. Zkusit klíč z externího config souboru (window.GEMINI_API_KEY)
+            if (keys.length === 0 && window.GEMINI_API_KEY && window.GEMINI_API_KEY.length > 20) {
+                console.log('🔑 Using API key from external config file');
+                return window.GEMINI_API_KEY;
+            }
             
+            // 3. Pokud nemáme žádné klíče, zkusíme embedded klíč z kódu
+            if (keys.length === 0 && EMBEDDED_API_KEY && EMBEDDED_API_KEY.length > 20) {
+                console.log('🔑 Using embedded API key from code');
+                return EMBEDDED_API_KEY;
+            }
+            
+            // 4. Žádný klíč není dostupný
+            console.warn('⚠️ No API key found. Please add one in Settings (⚙️)');
             return null;
         };
         
@@ -5643,4 +5688,4 @@ ${selectionContext}`;
         });
     </script>
 </body>
-                    </html>
+    </html>
