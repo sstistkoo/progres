@@ -136,6 +136,8 @@
             background: #0a0a0a;
             width: 100%;
             height: 100%;
+            /* Prostor pro spodní toolbar - výška toolbaru + safe area */
+            padding-bottom: calc(70px + env(safe-area-inset-bottom));
         }
 
         canvas {
@@ -143,6 +145,7 @@
             touch-action: none;
             width: 100%;
             height: 100%;
+            /* Canvas respektuje padding v canvas-area */
         }
 
         /* --- TOOLBAR DOLE --- */
@@ -157,16 +160,19 @@
             gap: 15px;
             justify-content: center;
             align-items: center;
-            z-index: 100;
+            z-index: 200; /* Zvýšený z-index aby byl nad vším */
             
             /* Vzhled spodní lišty */
-            background: rgba(15, 15, 15, 0.9);
+            background: rgba(15, 15, 15, 0.95); /* Zvýšená neprůhlednost */
             backdrop-filter: blur(10px);
             border-top: 1px solid #333;
             padding: 10px;
             
             /* Ošetření pro telefony bez tlačítka (iPhone X a novější) */
             padding-bottom: max(10px, env(safe-area-inset-bottom));
+            
+            /* Přidání stínu pro lepší viditelnost */
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
         }
 
         /* --- SUBMENU NAD TOOLBAREM --- */
@@ -180,7 +186,7 @@
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
-            z-index: 99;
+            z-index: 201; /* Nad toolbarem */
             justify-content: center;
             
             /* Animace pro hladké zobrazení */
@@ -190,7 +196,7 @@
         
         /* Zvýšení z-indexu pro AI panel, aby byl nad canvas controls */
         #toolsAi {
-            z-index: 150;
+            z-index: 250; /* Nejvyšší úroveň */
         }
 
         .tool-submenu > * {
