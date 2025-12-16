@@ -1203,6 +1203,11 @@
                             <option value="gemini-2.0-flash-exp">⚡ Gemini 2.0 Flash (Exp)</option>
                         </select>
                         
+                        <!-- Debug Metrics Button -->
+                        <button onclick="showAIMetrics()" title="Zobrazit AI statistiky" style="background: transparent; border: none; cursor: pointer; color: #888; transition: color 0.2s; padding: 4px;">
+                            <span style="font-size: 16px;">📊</span>
+                        </button>
+                        
                         <!-- Settings Button -->
                         <button onclick="openSettings()" title="Nastavení API klíče" style="background: transparent; border: none; cursor: pointer; color: #888; transition: color 0.2s; padding: 4px;">
                             <span style="font-size: 18px;">⚙️</span>
@@ -2253,99 +2258,85 @@ NOTE: When user asks about intersections, use the data above. Intersection x,y a
                     ? `SELECTED: ${JSON.stringify(currentSelections.map(s => ({label: s.label, type: s.type, x: s.x || s.ref.x1, y: s.y || s.ref.y1})))}`
                     : ``;
 
-                const systemPrompt = `CAD Assistant for Lathe (Czech).
+                // OPTIMIZED AI SYSTEM PROMPT - Enhanced with all tool capabilities
+                const systemPrompt = `CAD Assistant for CNC Lathe/Mill operations (Czech language).
 
-COORDS: User Z→JSON x, User X→JSON y
-Report back: JSON x→Z, JSON y→X
+COORDINATE SYSTEM:
+Z-axis (horizontal/→) = JSON 'x' property
+X-axis (vertical/↑) = JSON 'y' property
+Origin: (0,0) center
+Report coords as: "Z=[x] X=[y]"
 
-COORDINATE MAPPING (CRITICAL):
-- Horizontal Axis = Z axis = JSON property 'x'
-- Vertical Axis = X axis = JSON property 'y'
+ANGLES (Standard Unit Circle):
+0°=RIGHT(+Z), 90°=UP(+X), 180°=LEFT(-Z), 270°=DOWN(-X)
 
-ANGLE DEFINITIONS (Standard Math Unit Circle applied to Z/X):
-- 0°   = RIGHT (Positive Z direction)
-- 90°  = UP    (Positive X direction)
-- 180° = LEFT  (Negative Z direction)
-- 270° = DOWN  (Negative X direction)
+AVAILABLE TOOLS & OPERATIONS:
+✏️ DRAWING: line, circle, point
+🔧 CONSTRUCTION: tangent, perpendicular, parallel
+✂️ EDITING: trim, extend, offset, mirror, erase
+📐 ANALYSIS: measure, intersections, distance
 
-Example: "Line angle 0 length 50" -> Adds 50 to Z.
-Example: "Line angle 180 length 50" -> Subtracts 50 from Z.
+RESPONSE FORMAT (strict JSON only):
+{"response_text":"Brief Czech confirmation <50 chars","shapes":[...]}
 
-ANTI-HALLUCINATION RULES:
-1. Do NOT stop lines at the axis (0,0) unless explicitly told to.
-2. If user says "to the circle" (ke kružnici), calculating the endpoint using the radius:
-   EndZ = CenterZ + Radius * cos(angle)
-   EndX = CenterX + Radius * sin(angle)
-3. Do NOT invert directions based on negative coordinates. Math is absolute.
+SHAPE TYPES:
+Line: {"type":"line","x1":z1,"y1":x1,"x2":z2,"y2":x2}
+Circle: {"type":"circle","cx":z,"cy":x,"r":radius}
+Point: {"type":"point","x":z,"y":x}
 
-POLAR FORMULA (α in DEGREES):
-x_end = cx + r * cos(α * π/180)
-y_end = cy + r * sin(α * π/180)
+POLAR CALCULATION (α in degrees):
+x_end = cx + r*cos(α*π/180)
+y_end = cy + r*sin(α*π/180)
 
-MANDATORY CALCULATION EXAMPLES:
-For center (100, 100) with radius 50:
+CRITICAL RULES:
+1. DRAW commands → add shapes[] (never empty)
+2. CALCULATE/MEASURE commands → empty shapes[], answer in response_text
+3. Use existing geometry from user_data when referenced
+4. For "ke kružnici" (to circle edge) → calculate endpoint with radius
+5. NEVER hallucinate coords - use provided data or ask
+6. Support Czech terms: úsečka=line, kružnice=circle, střed=center, ke kružnici=to edge
 
-0° (RIGHT):
-  x = 100 + 50*cos(0°) = 100 + 50*1 = 150
-  y = 100 + 50*sin(0°) = 100 + 50*0 = 100
-  → Line goes RIGHT to (150, 100) ✓
-
-90° (UP):
-  x = 100 + 50*cos(90°) = 100 + 50*0 = 100
-  y = 100 + 50*sin(90°) = 100 + 50*1 = 150
-  → Line goes UP to (100, 150) ✓
-
-180° (LEFT):
-  x = 100 + 50*cos(180°) = 100 + 50*(-1) = 50
-  y = 100 + 50*sin(180°) = 100 + 50*0 = 100
-  → Line goes LEFT to (50, 100) ✓
-
-WRONG EXAMPLES (DON'T DO THIS):
-❌ 0° going LEFT - WRONG!
-❌ Using negative for RIGHT direction - WRONG!
-❌ Starting from LEFT side - WRONG!
+EXAMPLES:
+Drawing: {"response_text":"Kružnice R50","shapes":[{"type":"circle","cx":100,"cy":100,"r":50}]}
+Calculation: {"response_text":"Vzdálenost: 75.5mm","shapes":[]}
+Multi-shape: {"response_text":"Kružnice + úsečka 0°","shapes":[{circle},{line}]}
 
 ${axisLabel}
 ${shapesContext}
-${selectionContext}
+${selectionContext}`;
 
-CRITICAL RULES:
-1. When user asks to DRAW/CREATE something → ALWAYS add to shapes array
-2. When user asks to CALCULATE/ANALYZE → shapes array empty []
-3. ONLY JSON output - no text before/after
-4. NO markdown, NO backticks
 
-EXACT FORMAT:
-{"response_text":"Czech reply","shapes":[...geometry...]}
-
-DRAWING EXAMPLES (ALWAYS include shapes):
-User: "kružnice Z150 X100 R88"
-{"response_text":"Vytvořil jsem kružnici se středem Z150 X100, poloměr 88 mm.","shapes":[{"type":"circle","cx":150,"cy":100,"r":88}]}
-
-User: "úsečka Z0 X0 do Z100 X50"
-{"response_text":"Nakreslil jsem úsečku od Z0 X0 do Z100 X50.","shapes":[{"type":"line","x1":0,"y1":0,"x2":100,"y2":50}]}
-
-User: "udělej kružnici X100 Z100 poloměr 50 a od středu úsečku úhel 0° ke kružnici"
-Calculate: 0° = RIGHT direction!
-  x = 100 + 50*cos(0°) = 100 + 50*1 = 150
-  y = 100 + 50*sin(0°) = 100 + 50*0 = 100
-{"response_text":"Vytvořil jsem kružnici a úsečku doprava (0°).","shapes":[{"type":"circle","cx":100,"cy":100,"r":50},{"type":"line","x1":100,"y1":100,"x2":150,"y2":100}]}
-
-User: "úsečka od středu kružnice pod úhlem 90° ke kružnici"
-Calculate: 90° = UP direction!
-  x = 100 + 50*cos(90°) = 100 + 0 = 100
-  y = 100 + 50*sin(90°) = 100 + 50 = 150
-{"response_text":"Úsečka nahoru (90°).","shapes":[{"type":"line","x1":100,"y1":100,"x2":100,"y2":150}]}
-
-CALCULATION EXAMPLES (empty shapes):
-User: "průsečík" (when exists in data)
-{"response_text":"Průsečík je na Z234.8 X164.8.","shapes":[]}
-
-REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
-`;
-
-                // Prepare History - Keep only last 10 messages (5 exchanges) to save tokens
-                let contents = chatSessionHistory.slice(-10);
+                // OPTIMIZED: Smart history management - compress old messages
+                function compressHistory(history, maxMessages = 12) {
+                    if (history.length <= maxMessages) return history;
+                    
+                    // Keep last 6 messages (3 exchanges) in full detail
+                    const recentMessages = history.slice(-6);
+                    const oldMessages = history.slice(0, -6);
+                    
+                    // Count shapes created in old messages for context
+                    let shapeCount = 0;
+                    oldMessages.forEach(msg => {
+                        if (msg.role === 'model' && msg.parts[0]?.text) {
+                            try {
+                                const json = JSON.parse(msg.parts[0].text);
+                                if (json.shapes) shapeCount += json.shapes.length;
+                            } catch(e) {}
+                        }
+                    });
+                    
+                    // Create compressed summary
+                    const summary = {
+                        role: 'user',
+                        parts: [{
+                            text: `[Previous: ${oldMessages.length/2} exchanges, ${shapeCount} shapes created]`
+                        }]
+                    };
+                    
+                    return [summary, ...recentMessages];
+                }
+                
+                let contents = compressHistory(chatSessionHistory, 12);
                 
                 // Add new message to history
                 const newParts = [];
@@ -2396,11 +2387,14 @@ REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
                     delete config.responseSchema;
                 }
 
-                const response = await ai.models.generateContent({
-                    model: selectedModel,
-                    contents: [...contents, { role: 'user', parts: newParts }],
-                    config: config
-                });
+                // OPTIMIZED: Use retry logic with exponential backoff
+                const response = await retryWithBackoff(async () => {
+                    return await ai.models.generateContent({
+                        model: selectedModel,
+                        contents: [...contents, { role: 'user', parts: newParts }],
+                        config: config
+                    });
+                }, 3);
                 
                 // Remove loading bubble
                 container.removeChild(loadingDiv);
@@ -2491,23 +2485,46 @@ REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
                         console.log('Full JSON:', result);
                     }
                     
-                    // 1. Add shapes to canvas
+                    // OPTIMIZED: Add shapes to canvas with validation
                     if (Array.isArray(newShapes) && newShapes.length > 0) {
+                        let addedCount = 0;
                         newShapes.forEach(s => {
-                            if (s.type === 'line') {
-                                window.shapes.push({
-                                    type: 'line',
-                                    x1: s.x1 || 0, y1: s.y1 || 0,
-                                    x2: s.x2 || 0, y2: s.y2 || 0
-                                });
-                            } else if (s.type === 'circle') {
-                                window.shapes.push({
-                                    type: 'circle',
-                                    cx: s.cx || 0, cy: s.cy || 0,
-                                    r: s.r || 10
-                                });
+                            try {
+                                if (s.type === 'line' && 
+                                    typeof s.x1 === 'number' && typeof s.y1 === 'number' &&
+                                    typeof s.x2 === 'number' && typeof s.y2 === 'number') {
+                                    window.shapes.push({
+                                        type: 'line',
+                                        x1: s.x1, y1: s.y1,
+                                        x2: s.x2, y2: s.y2
+                                    });
+                                    addedCount++;
+                                } else if (s.type === 'circle' && 
+                                          typeof s.cx === 'number' && typeof s.cy === 'number' &&
+                                          typeof s.r === 'number' && s.r > 0) {
+                                    window.shapes.push({
+                                        type: 'circle',
+                                        cx: s.cx, cy: s.cy,
+                                        r: s.r
+                                    });
+                                    addedCount++;
+                                } else if (s.type === 'point' &&
+                                          typeof s.x === 'number' && typeof s.y === 'number') {
+                                    // Add construction point
+                                    window.points.push({
+                                        x: s.x,
+                                        y: s.y
+                                    });
+                                    addedCount++;
+                                } else {
+                                    console.warn('⚠️ Invalid shape skipped:', s);
+                                }
+                            } catch (e) {
+                                console.error('Error adding shape:', e, s);
                             }
                         });
+                        
+                        console.log(`✅ Added ${addedCount}/${newShapes.length} shapes`);
                         
                         if (window.updateSnapPoints) window.updateSnapPoints();
                         if (window.draw) window.draw();
@@ -2609,6 +2626,49 @@ REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
         let touchCursorActive = false;
         let touchCursorOffset = 60; // Offset nad prstem v pixelech
         const touchCursorDelay = 300; // Prodleva před zobrazením (ms)
+        
+        // AI Performance metrics
+        let aiMetrics = {
+            totalRequests: 0,
+            successfulRequests: 0,
+            failedRequests: 0,
+            totalTokens: 0,
+            avgLatency: 0
+        };
+        
+        // Retry helper with exponential backoff
+        async function retryWithBackoff(apiCall, maxRetries = 3) {
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const startTime = Date.now();
+                    const result = await apiCall();
+                    const latency = Date.now() - startTime;
+                    
+                    // Update metrics
+                    aiMetrics.totalRequests++;
+                    aiMetrics.successfulRequests++;
+                    aiMetrics.avgLatency = (aiMetrics.avgLatency * (aiMetrics.successfulRequests - 1) + latency) / aiMetrics.successfulRequests;
+                    
+                    return result;
+                } catch (err) {
+                    const isRateLimit = err.message?.includes('429') || 
+                                       err.message?.includes('quota') || 
+                                       err.message?.includes('RESOURCE_EXHAUSTED');
+                    
+                    if (isRateLimit && attempt < maxRetries - 1) {
+                        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+                        console.log(`⏳ Rate limit hit, retrying in ${delay/1000}s...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+                    
+                    // Update failed metrics
+                    aiMetrics.totalRequests++;
+                    aiMetrics.failedRequests++;
+                    throw err;
+                }
+            }
+        }
     
         // === API KEY MANAGER START ===
         const API_STORAGE_KEY = 'soustruznik_api_keys';
@@ -2665,6 +2725,32 @@ REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
             console.log(`🔄 Přepnuto na klíč: ${keys[nextIndex].name || `Klíč ${nextIndex + 1}`}`);
             
             return true; // Úspěšně přepnuto
+        };
+
+        // Show AI performance metrics
+        window.showAIMetrics = function() {
+            const successRate = aiMetrics.totalRequests > 0 
+                ? (aiMetrics.successfulRequests / aiMetrics.totalRequests * 100).toFixed(1)
+                : 0;
+            
+            const metricsText = `📊 AI Performance Metrics
+
+📈 Requests:
+  • Total: ${aiMetrics.totalRequests}
+  • Successful: ${aiMetrics.successfulRequests}
+  • Failed: ${aiMetrics.failedRequests}
+  • Success Rate: ${successRate}%
+
+⏱️ Performance:
+  • Avg Latency: ${aiMetrics.avgLatency.toFixed(0)}ms
+  
+💡 Tips:
+  • Success rate >90% = Good
+  • Latency <2000ms = Good
+  • Use Gemini 2.5 Flash for speed
+  • Use Gemini 3 Pro for complex tasks`;
+            
+            alert(metricsText);
         };
 
         window.openSettings = function() {
@@ -5557,4 +5643,4 @@ REMEMBER: Drawing commands = add shapes! Calculations = empty shapes!
         });
     </script>
 </body>
-    </html>
+                    </html>
