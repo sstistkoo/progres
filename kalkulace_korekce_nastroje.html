@@ -362,13 +362,13 @@
         <!-- Upravíme popisek v horní části -->
         <div class="input-row">
             <div>
-                <label>Aktuální <span class="axisLabel">X</span></label>
+                <label id="displayAxisLabel">X displej při naškrábnutí (poloměr) </label>
                 <div class="input-group">
                     <input type="text" id="current" value="0" />
                 </div>
             </div>
             <div>
-                <label id="targetLabel">naškrábnutý Poloměr (X)</label>
+                <label id="targetLabel">naměřený Poloměr (X)</label>
                 <div class="input-group">
                     <input type="text" id="target" value="0" />
                 </div>
@@ -377,7 +377,7 @@
 
         <div class="grid grid-cols-2">
             <div>
-                <label>Aktuální L<span class="lLabel">1</span></label>
+                <label id="lValueLabel">L1- Hodnota displeje</label>
                 <input type="text" id="currentL" value="0" />
             </div>
             <div>
@@ -393,7 +393,7 @@
         <!-- Upravíme HTML pro zobrazení dvou hodnot displeje -->
         <div class="grid grid-cols-2" style="margin-top: 20px;">
             <div>
-                <h3>Výsledek L<span class="lLabel">1</span>:</h3>
+                <h3 id="lResultLabel">L1- změnit na:</h3>
                 <div class="large-result" id="finalResult">0</div>
             </div>
             <div>
@@ -616,7 +616,7 @@
 
                 document.getElementById('xSection').style.display = 'block';
                 document.getElementById('zSection').style.display = 'none';
-                document.getElementById('workpieceLabel').textContent = state.absoluteIsDiameter ? 'naškrábnutý Průměr (X)' : 'naškrábnutý Poloměr (X)';
+                document.getElementById('workpieceLabel').textContent = state.absoluteIsDiameter ? 'naměřený Průměr (X)' : 'naměřený Poloměr (X)';
 
                 // Upravený formát výpisu výpočtu korekce
                 const resultText = state.absoluteIsDiameter ?
@@ -874,12 +874,18 @@
 
         function updateLabels() {
             if (state.axis === 'X') {
-                const modeText = state.isDiameter ? 'naškrábnutý Průměr (X)' : 'naškrábnutý Poloměr (X)';
+                const modeText = state.isDiameter ? 'naměřený Průměr (X)' : 'naměřený Poloměr (X)';
                 document.getElementById('targetLabel').textContent = modeText;
-                document.getElementById('workpieceLabel').textContent = state.absoluteIsDiameter ? 'naškrábnutý Průměr (X)' : 'naškrábnutý Poloměr (X)';
+                document.getElementById('workpieceLabel').textContent = state.absoluteIsDiameter ? 'naměřený Průměr (X)' : 'naměřený Poloměr (X)';
+                document.getElementById('lValueLabel').textContent = 'L1- Hodnota displeje';
+                document.getElementById('lResultLabel').textContent = 'L1- změnit na:';
+                document.getElementById('displayAxisLabel').textContent = 'X displej při naškrábnutí (poloměr)';
             } else {
                 document.getElementById('targetLabel').textContent = 'naškrábnutá výška kola';
                 document.getElementById('workpieceLabel').textContent = 'naškrábnutá výška kola';
+                document.getElementById('lValueLabel').textContent = 'L2- Hodnota displeje';
+                document.getElementById('lResultLabel').textContent = 'L2- změnit na:';
+                document.getElementById('displayAxisLabel').textContent = 'Z Hodnota displeje';
             }
         }
     </script>

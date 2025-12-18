@@ -208,36 +208,64 @@
                 font-size: 1.2em;
             }
         }
+
+        /* Upravený styl pro modální okno */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
     <h1>Sinumerik 840D Příkazy</h1>
 
     <div class="search-container">
-        <button class="menu-toggle" onclick="toggleCategoriesMenu()">
+        <button class="menu-toggle">
             <i class="fas fa-bars"></i> Kategorie
         </button>
 
         <input type="text"
                class="search-box"
                id="searchBox"
-               placeholder="Hledat příkaz..."
-               oninput="filterCommands(this.value)">
+               placeholder="Hledat příkaz...">
 
-        <button class="quick-codes-toggle" onclick="toggleQuickCodesMenu()">
+        <button class="quick-codes-toggle">
             <i class="fas fa-list"></i> Příkazy
         </button>
     </div>
 
     <div class="side-menu categories-menu" id="categoriesMenu">
-        <button class="menu-close" onclick="toggleCategoriesMenu()">&times;</button>
+        <button class="menu-close">&times;</button>
         <div id="categoriesList">
             <!-- Kategorie se vygenerují dynamicky -->
         </div>
     </div>
 
     <div class="side-menu quick-codes-menu" id="quickCodesMenu">
-        <button class="menu-close" onclick="toggleQuickCodesMenu()">&times;</button>
+        <button class="menu-close">&times;</button>
         <div id="quickCodesList">
             <!-- Příkazy se vygenerují dynamicky -->
         </div>
@@ -348,19 +376,23 @@
         <!-- Skupiny příkazů se vytvoří dynamicky -->
     </div>
 
-    <button id="resetView" class="reset-view" onclick="resetViewToAll()">
+    <button id="resetView" class="reset-view">
         Zobrazit vše
     </button>
 
+    <!-- Přidejte overlay pro modál -->
+    <div id="modalOverlay" class="modal-overlay"></div>
+
     <div id="commandModal" class="modal">
-        <button class="close-button" onclick="closeModal()">&times;</button>
+        <button class="close-button">&times;</button>
         <div class="modal-content" id="modalContent"></div>
     </div>
 
     <script type="text/javascript">
         'use strict';
+        console.log('Script initialization started');
 
-        // Přidat kontrolu podpory prohlížeče
+        // Deklarace proměnných
         var commandGroups = {
             'Základní pohybové příkazy': [
                 'AC', 'ACN', 'ACP', 'IC', 'DC'
@@ -1143,67 +1175,31 @@
             // End of commandsList array
         ];
 
-        var commandList = document.getElementById('commandList');
-        var searchBox = document.getElementById('searchBox');
-
-        // Upravená funkce pro vytvoření seznamu příkazů
-        function createCommandList(commands) {
-            var container = document.getElementById('commandList');
-            container.innerHTML = '';
-
-            for (var [groupName, commandNames] of Object.entries(commandGroups)) {
-                var groupDiv = document.createElement('div');
-                groupDiv.className = 'command-group';
-
-                var titleDiv = document.createElement('div');
-                titleDiv.className = 'group-title';
-                titleDiv.textContent = groupName;
-                groupDiv.appendChild(titleDiv);
-
-                var filteredCommands = commands.filter(cmd =>
-                    commandNames.includes(cmd.name)
-                );
-
-                filteredCommands.forEach(cmd => {
-                    var cmdDiv = document.createElement('div');
-                    cmdDiv.className = 'command-button';
-                    cmdDiv.onclick = () => showDetails(cmd.name);
-                    cmdDiv.innerHTML = `
-                        <div class="command-name">${cmd.name}</div>
-                        <div class="command-brief">${cmd.description.split('.')[0]}.</div>
-                    `;
-                    groupDiv.appendChild(cmdDiv);
-                });
-
-                container.appendChild(groupDiv);
-            }
-        }
-
-        // Update vyhledávání pro práci se skupinami
-        searchBox.addEventListener('input', (e) => {
-            var searchTerm = e.target.value.toLowerCase();
-            var filteredCommands = commandsList.filter(cmd =>
-                cmd.name.toLowerCase().includes(searchTerm) ||
-                cmd.description.toLowerCase().includes(searchTerm)
-            );
-            createCommandList(filteredCommands);
-        });
-
-        // Zobrazení detailů příkazu
+        // Funkce pro práci s modálním oknem
         function showDetails(cmdName) {
-            var command = commandsList.find(cmd => cmd.name === cmdName);
-            var modal = document.getElementById('commandModal');
-            var content = document.getElementById('modalContent');
+            console.log('showDetails called for:', cmdName);
+            const command = commandsList.find(cmd => cmd.name === cmdName);
+            if (!command) {
+                console.error('Command not found:', cmdName);
+                return;
+            }
+
+            const modal = document.getElementById('commandModal');
+            const overlay = document.getElementById('modalOverlay');
+            const content = document.getElementById('modalContent');
+
+            if (!modal || !overlay || !content) {
+                console.error('Modal elements not found');
+                return;
+            }
 
             content.innerHTML = `
                 <h2>${command.name}</h2>
-
                 <h3>Syntax:</h3>
                 <div class="syntax-section">
                     <div class="example-code">${command.syntax}</div>
                     <p class="example-description">${command.description}</p>
                 </div>
-
                 <div class="example-section">
                     <h3>Příklady použití:</h3>
                     ${command.examples.map(example => `
@@ -1215,140 +1211,183 @@
             `;
 
             modal.style.display = 'block';
+            overlay.style.display = 'block';
+            console.log('Modal shown');
         }
 
         function closeModal() {
-            document.getElementById('commandModal').style.display = 'none';
+            const modal = document.getElementById('commandModal');
+            const overlay = document.getElementById('modalOverlay');
+            modal.style.display = 'none';
+            overlay.style.display = 'none';
+            console.log('Modal closed');
         }
 
-        function toggleCategoriesMenu() {
-            document.getElementById('categoriesMenu').classList.toggle('active');
+        // Funkce pro vytváření seznamu příkazů
+        function createCommandList(commands) {
+            console.log('Creating command list...');
+            const container = document.getElementById('commandList');
+            if (!container) {
+                console.error('Command list container not found!');
+                return;
+            }
+            container.innerHTML = '';
+
+            Object.entries(commandGroups).forEach(([groupName, commandNames]) => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'command-group';
+
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'group-title';
+                titleDiv.textContent = groupName;
+                groupDiv.appendChild(titleDiv);
+
+                const filteredCommands = commands.filter(cmd => commandNames.includes(cmd.name));
+                console.log(`Adding ${filteredCommands.length} commands for group ${groupName}`);
+
+                filteredCommands.forEach(cmd => {
+                    const cmdDiv = document.createElement('div');
+                    cmdDiv.className = 'command-button';
+                    cmdDiv.setAttribute('data-command', cmd.name);
+                    cmdDiv.innerHTML = `
+                        <div class="command-name">${cmd.name}</div>
+                        <div class="command-brief">${cmd.description.split('.')[0]}.</div>
+                    `;
+                    groupDiv.appendChild(cmdDiv);
+                });
+
+                container.appendChild(groupDiv);
+            });
         }
 
-        function toggleQuickCodesMenu() {
-            document.getElementById('quickCodesMenu').classList.toggle('active');
-        }
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded');
+
+            // Inicializace
+            createCommandList(commandsList);
+            initializeCategoriesMenu();
+            initializeQuickCodesMenu();
+
+            // Command button click handler
+            document.addEventListener('click', function(e) {
+                const button = e.target.closest('.command-button');
+                if (button) {
+                    const commandName = button.getAttribute('data-command');
+                    if (commandName) {
+                        console.log('Command clicked:', commandName);
+                        showDetails(commandName);
+                    }
+                }
+            });
+
+            // Menu toggle handlers
+            document.querySelector('.menu-toggle').addEventListener('click', toggleCategoriesMenu);
+            document.querySelector('.quick-codes-toggle').addEventListener('click', toggleQuickCodesMenu);
+
+            // Close button handlers
+            document.querySelectorAll('.menu-close').forEach(button => {
+                button.addEventListener('click', function() {
+                    const menu = this.closest('.side-menu');
+                    if (menu) {
+                        menu.classList.remove('active');
+                    }
+                });
+            });
+
+            // Reset view button handler
+            document.getElementById('resetView').addEventListener('click', resetViewToAll);
+
+            // Modal close button handler
+            document.querySelector('.close-button').addEventListener('click', closeModal);
+
+            // Modal overlay click handler
+            document.getElementById('modalOverlay').addEventListener('click', closeModal);
+
+            // Stop propagation on modal content
+            document.getElementById('commandModal').addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+
+            // Search box handler
+            document.getElementById('searchBox').addEventListener('input', function(e) {
+                filterCommands(e.target.value);
+            });
+        });
 
         function initializeCategoriesMenu() {
-            var categoriesList = document.getElementById('categoriesList');
+            console.log('Initializing categories menu');
+            const categoriesList = document.getElementById('categoriesList');
+            categoriesList.innerHTML = ''; // Clear existing content
+
             Object.keys(commandGroups).forEach(category => {
-                var div = document.createElement('div');
+                const div = document.createElement('div');
                 div.className = 'menu-item';
                 div.textContent = category;
-                div.onclick = () => {
+                div.addEventListener('click', () => {
                     filterByCategory(category);
                     toggleCategoriesMenu();
-                };
+                });
                 categoriesList.appendChild(div);
             });
         }
 
         function initializeQuickCodesMenu() {
-            var quickCodesList = document.getElementById('quickCodesList');
-            var allCommands = commandsList.map(cmd => cmd.name)
-                .sort((a, b) => a.localeCompare(b));
+            console.log('Initializing quick codes menu');
+            const quickCodesList = document.getElementById('quickCodesList');
+            quickCodesList.innerHTML = ''; // Clear existing content
 
-            allCommands.forEach(cmd => {
-                var div = document.createElement('div');
+            const allCommands = commandsList.map(cmd => cmd.name).sort();
+            allCommands.forEach(cmdName => {
+                const div = document.createElement('div');
                 div.className = 'menu-item';
-                div.textContent = cmd;
-                div.onclick = () => {
-                    showDetails(cmd);
+                div.textContent = cmdName;
+                div.addEventListener('click', () => {
+                    showDetails(cmdName);
                     toggleQuickCodesMenu();
-                };
+                });
                 quickCodesList.appendChild(div);
             });
         }
 
-        // Přidat funkci filterByCategory před initializeCategoriesMenu
         function filterByCategory(category) {
-            var container = document.getElementById('commandList');
-            container.innerHTML = '';
-
-            // Vytvořit sekci pro vybranou kategorii
-            var groupDiv = document.createElement('div');
-            groupDiv.className = 'command-group';
-
-            var titleDiv = document.createElement('div');
-            titleDiv.className = 'group-title';
-            titleDiv.textContent = category;
-            groupDiv.appendChild(titleDiv);
-
-            // Filtrovat příkazy pro vybranou kategorii
-            var filteredCommands = commandsList.filter(cmd =>
+            console.log('Filtering by category:', category);
+            const commands = commandsList.filter(cmd =>
                 commandGroups[category].includes(cmd.name)
             );
-
-            // Přidat příkazy do skupiny
-            filteredCommands.forEach(cmd => {
-                var cmdDiv = document.createElement('div');
-                cmdDiv.className = 'command-button';
-                cmdDiv.onclick = () => showDetails(cmd.name);
-                cmdDiv.innerHTML = `
-                    <div class="command-name">${cmd.name}</div>
-                    <div class="command-brief">${cmd.description.split('.')[0]}.</div>
-                `;
-                groupDiv.appendChild(cmdDiv);
-            });
-
-            container.appendChild(groupDiv);
+            createCommandList(commands);
             document.getElementById('resetView').classList.add('active');
         }
 
         function resetViewToAll() {
+            console.log('Resetting view');
             createCommandList(commandsList);
             document.getElementById('resetView').classList.remove('active');
         }
 
-        // Přidat inicializaci menu při načtení stránky
-        document.addEventListener('DOMContentLoaded', () => {
-            createCommandList(commandsList);
-            initializeCategoriesMenu();
-            initializeQuickCodesMenu();
-        });
+        // Přidejte tyto funkce nebo upravte existující
+        function toggleCategoriesMenu() {
+            console.log('Toggling categories menu');
+            const menu = document.getElementById('categoriesMenu');
+            menu.classList.toggle('active');
+        }
 
-        // Zavření menu při kliknutí mimo
-        document.addEventListener('click', (e) => {
-            var categoriesMenu = document.getElementById('categoriesMenu');
-            var quickCodesMenu = document.getElementById('quickCodesMenu');
-            var categoriesToggle = document.querySelector('.menu-toggle');
-            var quickCodesToggle = document.querySelector('.quick-codes-toggle');
+        function toggleQuickCodesMenu() {
+            console.log('Toggling quick codes menu');
+            const menu = document.getElementById('quickCodesMenu');
+            menu.classList.toggle('active');
+        }
 
-            if (!categoriesMenu.contains(e.target) && !categoriesToggle.contains(e.target)) {
-                categoriesMenu.classList.remove('active');
-            }
-            if (!quickCodesMenu.contains(e.target) && !quickCodesToggle.contains(e.target)) {
-                quickCodesMenu.classList.remove('active');
-            }
-        });
+        function filterCommands(searchTerm) {
+            console.log('Filtering commands:', searchTerm);
+            const filteredCommands = commandsList.filter(cmd =>
+                cmd.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                cmd.description.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            createCommandList(filteredCommands);
+        }
 
-        // Počáteční zobrazení všech příkazů
-        createCommandList(commandsList);
+        // ...rest of existing code...
     </script>
-
-    <script type="text/javascript">
-        'use strict';
-
-        // Přidat handler pro komunikaci s rodičovským oknem
-        window.addEventListener('message', function(event) {
-            if (event.data.type === 'parentUrl') {
-                window.parentUrl = event.data.url;
-            }
-        });
-
-        // Upravit event handlery pro tlačítka
-        document.addEventListener('DOMContentLoaded', function() {
-            // Zastavit propagaci kliknutí
-            document.addEventListener('click', function(e) {
-                e.stopPropagation();
-            }, true);
-
-            createCommandList(commandsList);
-            initializeCategoriesMenu();
-            initializeQuickCodesMenu();
-        });
-    </script>
-
-    <!-- Přidání uzavíracích tagů -->
 </body>
 </html>
