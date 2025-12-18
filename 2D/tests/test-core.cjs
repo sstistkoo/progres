@@ -138,7 +138,7 @@ describe('Undo/Redo System', () => {
         MockState.reset();
         MockState.saveState({ x: 100, y: 200 });
         MockState.saveState({ x: 300, y: 400 });
-        
+
         assert(MockState.canUndo());
         MockState.undo();
         assert.deepStrictEqual(MockState.currentState, { x: 100, y: 200 });

@@ -26,9 +26,9 @@ function setupCanvasEvents() {
   // Context menu
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
-  // Keyboard
-  document.addEventListener("keydown", onKeyDown);
-  document.addEventListener("keyup", onKeyUp);
+  // ✅ Keyboard nyní spravuje unified keyboard.js
+  // document.addEventListener("keydown", onKeyDown); - REMOVED
+  // document.addEventListener("keyup", onKeyUp); - REMOVED
 }
 
 // ===== MOUSE HANDLERS =====
@@ -848,42 +848,8 @@ function showArcInputModal() {
 }
 
 // ===== KEYBOARD HANDLERS =====
-
-function onKeyDown(e) {
-  if (e.key === "Escape") {
-    window.clearMode();
-  } else if ((e.ctrlKey || e.metaKey) && e.key === "z") {
-    e.preventDefault();
-    if (window.undo) window.undo();
-  } else if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.shiftKey && e.key === "Z"))) {
-    e.preventDefault();
-    if (window.redo) window.redo();
-  } else if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-    e.preventDefault();
-    if (window.saveProject) window.saveProject();
-  } else if (e.key === "Delete" || e.key === "Backspace") {
-    if (window.selectedItems && window.selectedItems.length > 0) {
-      window.selectedItems.forEach((item) => {
-        const idx = window.shapes.indexOf(item);
-        if (idx >= 0) {
-          window.shapes.splice(idx, 1);
-        }
-        const pidx = window.points.indexOf(item);
-        if (pidx >= 0) {
-          window.points.splice(pidx, 1);
-        }
-      });
-      window.selectedItems.length = 0;
-      if (window.updateSnapPoints) window.updateSnapPoints();
-      if (window.saveState) window.saveState();
-      if (window.draw) window.draw();
-    }
-  }
-}
-
-function onKeyUp(e) {
-  // Keyboard events peuvent être přidány zde
-}
+// ✅ Keyboard events nyní spravuje unified keyboard.js
+// Jednotlivé handlers (undo, redo, delete, atd.) se volají odtud
 
 // ===== HELPER FUNCTIONS =====
 

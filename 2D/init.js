@@ -64,8 +64,8 @@ function initializeApp() {
   // Load saved project if exists
   loadAutoSave();
 
-  // Setup keyboard shortcuts
-  setupKeyboardShortcuts();
+  // ✅ Keyboard shortcuts nyní spravuje unified keyboard.js
+  // setupKeyboardShortcuts() již není potřeba
 
   // Auto-save every 30 seconds
   setInterval(() => {
@@ -134,78 +134,13 @@ function autoSave() {
   }
 }
 
-function setupKeyboardShortcuts() {
-  document.addEventListener("keydown", function (e) {
-    // Ctrl+N: Nový projekt
-    if ((e.ctrlKey || e.metaKey) && e.key === "n") {
-      e.preventDefault();
-      if (confirm("Vytvořit nový projekt? (Aktuální práce bude ztracena)")) {
-        if (window.clearAll) window.clearAll();
-      }
-    }
-
-    // Ctrl+E: Export
-    if ((e.ctrlKey || e.metaKey) && e.key === "e") {
-      e.preventDefault();
-      if (window.exportPNG) window.exportPNG();
-    }
-
-    // Ctrl+/: Help
-    if ((e.ctrlKey || e.metaKey) && e.key === "/") {
-      e.preventDefault();
-      showHelp();
-    }
-
-    // A: Select all
-    if (e.key === "a" && !e.ctrlKey && !e.metaKey) {
-      if (window.selectedItems && window.shapes && window.points) {
-        window.selectedItems.length = 0;
-        window.selectedItems.push(...window.shapes, ...window.points);
-        if (window.updateSelectionUI) window.updateSelectionUI();
-      }
-    }
-
-    // D: Deselect
-    if (e.key === "d" && !e.ctrlKey && !e.metaKey) {
-      if (window.selectedItems) {
-        window.selectedItems.length = 0;
-        if (window.updateSelectionUI) window.updateSelectionUI();
-      }
-    }
-
-    // H: Home view
-    if (e.key === "h" && !e.ctrlKey && !e.metaKey) {
-      if (window.resetView) window.resetView();
-    }
-
-    // O: Center to origin
-    if (e.key === "o" && !e.ctrlKey && !e.metaKey) {
-      if (window.centerToOrigin) window.centerToOrigin();
-    }
-
-    // Number keys: Quick mode switch
-    const quickModes = {
-      "1": "line",
-      "2": "circle",
-      "3": "arc",
-      "4": "tangent",
-      "5": "perpendicular",
-      "6": "parallel",
-      "7": "trim",
-      "8": "offset",
-      "9": "mirror",
-      "0": "erase",
-    };
-
-    if (quickModes[e.key]) {
-      e.preventDefault();
-      if (window.setMode) window.setMode(quickModes[e.key]);
-    }
-  });
-}
+// ✅ setupKeyboardShortcuts - nyní nahrazena unified keyboard.js modulem
+// Všechny keyboard shortcuts jsou teď v keyboard.js
 
 function showHelp() {
-  const helpText = `
+  const shortcuts = window.getAllShortcuts ? window.getAllShortcuts() : {};
+
+  let helpText = `
 📖 KLÁVESOVÉ ZKRATKY:
 
 🔧 NÁSTROJE (čísla):
@@ -223,7 +158,6 @@ D - Odebrat výběr
 
 💾 PROJEKTY:
 Ctrl+S - Uložit projekt
-Ctrl+O - Otevřít projekt
 Ctrl+E - Export PNG
 Ctrl+Z - Vrátit
 Ctrl+Y - Zopakovat

@@ -872,15 +872,8 @@ window.updateSelectionUI = function () {
 // ===== EVENT LISTENERS =====
 
 document.addEventListener("DOMContentLoaded", function () {
-  const aiPrompt = document.getElementById("aiPrompt");
-  if (aiPrompt) {
-    aiPrompt.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        if (window.callGemini) window.callGemini();
-      }
-    });
-  }
+  // ✅ Keyboard handler pro aiPrompt nyní spravuje unified keyboard.js
+  // Enter v aiPrompt nyní volá window.callGemini přes keyboard.js
 
   const btnSendAi = document.getElementById("btnSendAi");
   if (btnSendAi) {
