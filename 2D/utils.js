@@ -387,6 +387,63 @@ window.getMirrorPoint = function (px, py, x1, y1, x2, y2) {
   };
 };
 
+// Oříznutí čáry v bodě - vrátí linku oříznutou od bodu k jednomu z konců
+window.trimLine = function (line, cutPoint) {
+  const dx = line.x2 - line.x1;
+  const dy = line.y2 - line.y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  // Vypočítat parametr t na čáře
+  const t =
+    ((cutPoint.x - line.x1) * dx + (cutPoint.y - line.y1) * dy) / (len * len);
+
+  // Pokud t < 0.5, máme oříznutí blíže k počátku
+  if (t < 0.5) {
+    return {
+      type: "line",
+      x1: cutPoint.x,
+      y1: cutPoint.y,
+      x2: line.x2,
+      y2: line.y2,
+    };
+  } else {
+    return {
+      type: "line",
+      x1: line.x1,
+      y1: line.y1,
+      x2: cutPoint.x,
+      y2: cutPoint.y,
+    };
+  }
+};
+
+// Rovnoběžka - vytvoří novou čáru rovnoběžnou se stávající v dané vzdálenosti
+window.parallel = function (line, distance) {
+  const dx = line.x2 - line.x1;
+  const dy = line.y2 - line.y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  const offsetX = (-dy / len) * distance;
+  const offsetY = (dx / len) * distance;
+
+  return {
+    type: "line",
+    x1: line.x1 + offsetX,
+    y1: line.y1 + offsetY,
+    x2: line.x2 + offsetX,
+    y2: line.y2 + offsetY,
+  };
+};
+
+// Export helper functions pro extend mode
+window.lineLineIntersect = function (line1, line2) {
+  return lineIntersection(line1, line2);
+};
+
+window.lineCircleIntersect = function (line, circle) {
+  return intersectLineCircle(line, circle);
+};
+
 // ===== EXPORT =====
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {

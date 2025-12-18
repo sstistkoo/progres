@@ -12,20 +12,16 @@
 // ===== COORDINATE CONVERSION =====
 
 function worldToScreen(wx, wy) {
-  const canvas = document.getElementById("canvas");
   return {
     x: wx * window.zoom + window.panX,
-    y: canvas ? canvas.height / 2 - wy * window.zoom + window.panY : -wy * window.zoom + window.panY,
+    y: window.panY - wy * window.zoom,
   };
 }
 
 function screenToWorld(sx, sy) {
-  const canvas = document.getElementById("canvas");
   return {
     x: (sx - window.panX) / window.zoom,
-    y: canvas
-      ? (canvas.height / 2 - sy + window.panY) / window.zoom
-      : (-sy + panY) / zoom,
+    y: (window.panY - sy) / window.zoom,
   };
 }
 
@@ -78,7 +74,7 @@ function snapPoint(pt) {
   let snapped = { ...pt };
   let snapInfo = null;
 
-  let bestDist = window.snapThreshold || 10;  // Use global snapThreshold from globals.js
+  let bestDist = window.snapDistance; // Max vzdálenost
 
   for (let p of window.cachedSnapPoints) {
     const screenP = worldToScreen(p.x, p.y);
@@ -94,7 +90,8 @@ function snapPoint(pt) {
     }
   }
 
-  if (!snapInfo && window.snapEnabled) {
+  // Pokud jsme nenašli bod, zkusíme mřížku
+  if (!snapInfo && window.snapToGrid) {
     const gx = Math.round(pt.x / window.gridSize) * window.gridSize;
     const gy = Math.round(pt.y / window.gridSize) * window.gridSize;
     const screenG = worldToScreen(gx, gy);
@@ -103,7 +100,7 @@ function snapPoint(pt) {
       (screenG.x - screenPt.x) ** 2 + (screenG.y - screenPt.y) ** 2
     );
 
-    if (dist < bestDist) {
+    if (dist < window.snapDistance) {
       snapped.x = gx;
       snapped.y = gy;
       snapInfo = { type: "grid", x: gx, y: gy };
@@ -111,6 +108,16 @@ function snapPoint(pt) {
   }
 
   return { point: snapped, snapInfo };
+}
+
+// Aktualizace nastavení snappingu z UI prvků
+function updateSnap() {
+  window.snapToGrid = document.getElementById("snapGrid")?.checked || false;
+  window.snapToPoints = document.getElementById("snapPoints")?.checked !== false;
+  const orthoCheckbox = document.getElementById("orthoMode");
+  if (orthoCheckbox) window.orthoMode = orthoCheckbox.checked;
+  const snapDistInput = document.getElementById("snapDistance");
+  if (snapDistInput) window.snapDistance = parseFloat(snapDistInput.value) || 15;
 }
 
 // ===== RENDERING =====
@@ -482,6 +489,8 @@ window.redo = redo;
 window.aiUndo = undo;  // Alias for aiUndo
 window.aiRedo = redo;  // Alias for aiRedo
 window.saveState = saveState;
+window.updateSnap = updateSnap;
+window.updateSnapPoints = updateSnapPoints;
 
 // ===== UTILITY FUNCTIONS =====
 
@@ -526,9 +535,30 @@ window.calculateIntersections = function () {
 };
 
 window.showColorPicker = function () {
-  console.log("[showColorPicker] Otevírám výběr barvy");
-  // TODO: Implementovat color picker modal
-  alert("🎨 Výběr barvy: Bude implementován v příští verzi");
+  if (!window.selectedItems || window.selectedItems.length === 0) {
+    alert("❌ Nejprve vyberte objekty pro změnu barvy!");
+    return;
+  }
+
+  const colorInput = document.createElement("input");
+  colorInput.type = "color";
+  colorInput.value = window.currentColor;
+  colorInput.onchange = function () {
+    window.currentColor = this.value;
+    // Aplikovat barvu na všechny vybrané objekty
+    for (let item of window.selectedItems) {
+      if (item.type === "shape") {
+        for (let s of window.shapes) {
+          if (s === item.obj) {
+            s.color = window.currentColor;
+          }
+        }
+      }
+    }
+    if (window.saveState) window.saveState();
+    if (window.draw) window.draw();
+  };
+  colorInput.click();
 };
 
 window.clearAll = function () {
@@ -564,74 +594,230 @@ window.clearSelection = function () {
 
 // ===== BOOLEAN OPERATIONS =====
 window.booleanUnion = function () {
-  console.log("[booleanUnion] Provádím sjednocení tvaru");
-  if (window.selectedItems.length < 2) {
-    alert("Vyber alespoň 2 tvary!");
+  if (!window.selectedItems || window.selectedItems.length < 2) {
+    alert("❌ Vyberte minimálně 2 objekty pro sjednocení!");
     return;
   }
-  // TODO: Implementovat boolean union
-  alert("🔗 Sjednocení: Bude implementováno v příští verzi");
+  alert("🔗 Sjednocení: Funkce bude implementována - zatím ve vývoji");
 };
 
 window.booleanIntersect = function () {
-  console.log("[booleanIntersect] Provádím průnik tvaru");
-  if (window.selectedItems.length < 2) {
-    alert("Vyber alespoň 2 tvary!");
+  if (!window.selectedItems || window.selectedItems.length < 2) {
+    alert("❌ Vyberte minimálně 2 objekty pro průnik!");
     return;
   }
-  // TODO: Implementovat boolean intersect
-  alert("∩ Průnik: Bude implementován v příští verzi");
+  alert("🔗 Průnik: Funkce bude implementována - zatím ve vývoji");
 };
 
 window.booleanDifference = function () {
-  console.log("[booleanDifference] Provádím rozdíl tvaru");
-  if (window.selectedItems.length < 2) {
-    alert("Vyber alespoň 2 tvary!");
+  if (!window.selectedItems || window.selectedItems.length < 2) {
+    alert("❌ Vyberte minimálně 2 objekty pro rozdíl!");
     return;
   }
-  // TODO: Implementovat boolean difference
-  alert("- Rozdíl: Bude implementován v příští verzi");
+  alert("🔗 Rozdíl: Funkce bude implementována - zatím ve vývoji");
 };
 
 // ===== DIMENSION OPERATIONS =====
 window.deleteAllDimensions = function () {
-  console.log("[deleteAllDimensions] Mažu všechny kóty");
-  if (!window.dimensions) window.dimensions = [];
-  window.dimensions = [];
-  window.saveState();
-  window.draw();
+  const countBefore = window.shapes.filter((s) => s.type === "dimension").length;
+
+  if (countBefore === 0) {
+    alert("❌ Nejsou žádné kóty k smazání!");
+    return;
+  }
+
+  if (confirm(`Opravdu smazat všech ${countBefore} kót(y)?`)) {
+    window.shapes = window.shapes.filter((s) => s.type !== "dimension");
+
+    if (window.saveState) window.saveState();
+    if (window.updateSnapPoints) window.updateSnapPoints();
+    if (window.draw) window.draw();
+
+    alert(`✅ Smazáno ${countBefore} kót(y)`);
+  }
 };
 
 window.dimensionAll = function () {
-  console.log("[dimensionAll] Okótuji všechny čáry a kružnice");
+  if (!window.saveState) return;
+  if (!window.updateSnapPoints) return;
+  if (!window.draw) return;
   if (!window.shapes) window.shapes = [];
-  if (!window.dimensions) window.dimensions = [];
-
-  window.shapes.forEach((shape, idx) => {
-    if (shape.type === "line") {
-      const len = Math.hypot(shape.x2 - shape.x1, shape.y2 - shape.y1);
-      window.dimensions.push({
-        type: "length",
-        id: "dim_" + idx,
-        x: (shape.x1 + shape.x2) / 2,
-        y: (shape.y1 + shape.y2) / 2,
-        value: len.toFixed(2),
-        shapeId: idx
-      });
-    } else if (shape.type === "circle") {
-      window.dimensions.push({
-        type: "radius",
-        id: "dim_" + idx,
-        x: shape.cx,
-        y: shape.cy,
-        value: shape.r.toFixed(2),
-        shapeId: idx
-      });
-    }
-  });
 
   window.saveState();
+  let countAdded = 0;
+
+  for (let s of window.shapes) {
+    if (s.type === "circle") {
+      const displayR = window.xMeasureMode === "diameter" ? s.r * 2 : s.r;
+      const label = window.xMeasureMode === "diameter" ? "⌀" : "R";
+
+      window.shapes.push({
+        type: "dimension",
+        dimType: "radius",
+        target: s,
+        value: displayR,
+        label: label,
+        cx: s.cx,
+        cy: s.cy,
+        r: s.r,
+      });
+
+      window.shapes.push({
+        type: "dimension",
+        dimType: "center",
+        cx: s.cx,
+        cy: s.cy,
+      });
+
+      countAdded++;
+    } else if (s.type === "line") {
+      const dx = s.x2 - s.x1;
+      const dy = s.y2 - s.y1;
+      const len = Math.sqrt(dx * dx + dy * dy);
+
+      window.shapes.push({
+        type: "dimension",
+        dimType: "linear",
+        target: s,
+        value: len,
+        x1: s.x1,
+        y1: s.y1,
+        x2: s.x2,
+        y2: s.y2,
+      });
+
+      countAdded++;
+    }
+  }
+
+  if (countAdded === 0) {
+    alert("❌ Nejsou žádné čáry nebo kružnice k okótování!");
+    return;
+  }
+
+  window.updateSnapPoints();
   window.draw();
+  alert(`✅ Přidáno ${countAdded} kót(y)`);
+};
+
+// ===== ARC TOOL =====
+window.createArc = function (x1, y1, x2, y2, angle) {
+  // angle je úhel oblouku v stupních
+  // Vypočítáme střed a poloměr
+  const mid_x = (x1 + x2) / 2;
+  const mid_y = (y1 + y2) / 2;
+  const d = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+
+  // Polovina úhlu v radiánech
+  const half_angle = (angle * Math.PI) / 360;
+
+  // Poloměr oblouku
+  const r = d / 2 / Math.sin(half_angle);
+
+  // Směr mezi body
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dir_angle = Math.atan2(dy, dx);
+
+  // Střed oblouku (kolmo na polovinu délky)
+  const perp_angle = dir_angle + Math.PI / 2;
+  const h = r * Math.cos(half_angle);
+  const cx = mid_x + h * Math.cos(perp_angle);
+  const cy = mid_y + h * Math.sin(perp_angle);
+
+  const newArc = {
+    type: "arc",
+    cx: cx,
+    cy: cy,
+    r: r,
+    x1: x1,
+    y1: y1,
+    x2: x2,
+    y2: y2,
+    angle: angle,
+    color: window.currentColor || "#ffffff",
+  };
+
+  window.shapes.push(newArc);
+  if (window.saveState) window.saveState();
+  if (window.updateSnapPoints) window.updateSnapPoints();
+  if (window.draw) window.draw();
+};
+
+// ===== ROTATE TOOL =====
+window.beginRotate = function () {
+  if (!window.selectedItems || window.selectedItems.length === 0) {
+    alert("❌ Nejprve vyberte objekty pro rotaci!");
+    return;
+  }
+  window.rotateStep = 0;
+  window.rotateCenter = null;
+  if (window.setMode) window.setMode("rotate");
+};
+
+window.performRotate = function () {
+  if (!window.rotateCenter || !window.selectedItems || window.selectedItems.length === 0) {
+    alert("⚠️ Nejdříve vyberte objekty a střed rotace!");
+    return;
+  }
+
+  if (window.saveState) window.saveState();
+  const angleRad = (window.rotateAngle * Math.PI) / 180;
+  const cos_a = Math.cos(angleRad);
+  const sin_a = Math.sin(angleRad);
+
+  for (let item of window.selectedItems) {
+    if (item.type === "shape") {
+      const s = item.obj;
+
+      if (s.type === "line") {
+        const dx1 = s.x1 - window.rotateCenter.x;
+        const dy1 = s.y1 - window.rotateCenter.y;
+        s.x1 = window.rotateCenter.x + (dx1 * cos_a - dy1 * sin_a);
+        s.y1 = window.rotateCenter.y + (dx1 * sin_a + dy1 * cos_a);
+
+        const dx2 = s.x2 - window.rotateCenter.x;
+        const dy2 = s.y2 - window.rotateCenter.y;
+        s.x2 = window.rotateCenter.x + (dx2 * cos_a - dy2 * sin_a);
+        s.y2 = window.rotateCenter.y + (dx2 * sin_a + dy2 * cos_a);
+      } else if (s.type === "circle") {
+        const dx = s.cx - window.rotateCenter.x;
+        const dy = s.cy - window.rotateCenter.y;
+        s.cx = window.rotateCenter.x + (dx * cos_a - dy * sin_a);
+        s.cy = window.rotateCenter.y + (dx * sin_a + dy * cos_a);
+      } else if (s.type === "arc") {
+        const dx_start = s.x1 - window.rotateCenter.x;
+        const dy_start = s.y1 - window.rotateCenter.y;
+        s.x1 = window.rotateCenter.x + (dx_start * cos_a - dy_start * sin_a);
+        s.y1 = window.rotateCenter.y + (dx_start * sin_a + dy_start * cos_a);
+
+        const dx_end = s.x2 - window.rotateCenter.x;
+        const dy_end = s.y2 - window.rotateCenter.y;
+        s.x2 = window.rotateCenter.x + (dx_end * cos_a - dy_end * sin_a);
+        s.y2 = window.rotateCenter.y + (dx_end * sin_a + dy_end * cos_a);
+
+        const dx_c = s.cx - window.rotateCenter.x;
+        const dy_c = s.cy - window.rotateCenter.y;
+        s.cx = window.rotateCenter.x + (dx_c * cos_a - dy_c * sin_a);
+        s.cy = window.rotateCenter.y + (dx_c * sin_a + dy_c * cos_a);
+      }
+    } else if (item.type === "point") {
+      const p = item.obj;
+      const dx = p.x - window.rotateCenter.x;
+      const dy = p.y - window.rotateCenter.y;
+      p.x = window.rotateCenter.x + (dx * cos_a - dy * sin_a);
+      p.y = window.rotateCenter.y + (dx * sin_a + dy * cos_a);
+    }
+  }
+
+  window.rotateStep = 0;
+  window.rotateCenter = null;
+  window.rotateAngle = 0;
+  window.selectedItems = [];
+  if (window.updateSnapPoints) window.updateSnapPoints();
+  if (window.draw) window.draw();
+  alert(`✅ Rotace o ${window.rotateAngle}° aplikována`);
+  if (window.setMode) window.setMode("pan");
 };
 
 // ===== POLAR SNAP =====

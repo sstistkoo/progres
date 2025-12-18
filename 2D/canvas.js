@@ -88,6 +88,10 @@ function onCanvasMouseDown(e) {
       handleTrimMode(snapped.x, snapped.y);
       break;
 
+    case "extend":
+      handleExtendMode(snapped.x, snapped.y);
+      break;
+
     case "offset":
       handleOffsetMode(snapped.x, snapped.y);
       break;
@@ -501,6 +505,66 @@ function handleParallelMode(x, y) {
   }
 }
 
+function handleExtendMode(x, y) {
+  if (!window.shapes) return;
+
+  // Najdi čáru kterou prodlužujeme
+  const line = window.shapes.find((s) => {
+    if (s.type !== "line") return false;
+    const d = pointToLineDistance(x, y, s.x1, s.y1, s.x2, s.y2);
+    return d < 10 / (window.zoom || 2);
+  });
+
+  if (!line) return;
+
+  // Rozhodnej, kterým koncem prodlužujeme (podle blízkosti ke kurzoru)
+  const dist1 = Math.hypot(x - line.x1, y - line.y1);
+  const dist2 = Math.hypot(x - line.x2, y - line.y2);
+  const extendFromStart = dist1 < dist2;
+
+  // Hledej nejbližší průsečík
+  let closestIntersect = null;
+  let minDist = Infinity;
+
+  for (let i = 0; i < window.shapes.length; i++) {
+    const other = window.shapes[i];
+    if (other === line) continue;
+
+    let intersects = [];
+
+    if (other.type === "line") {
+      const pt = window.lineLineIntersect ? window.lineLineIntersect(line, other) : null;
+      if (pt) intersects.push(pt);
+    } else if (other.type === "circle") {
+      if (window.lineCircleIntersect) {
+        intersects = window.lineCircleIntersect(line, other) || [];
+      }
+    }
+
+    intersects.forEach((pt) => {
+      const d = extendFromStart
+        ? Math.hypot(pt.x - line.x1, pt.y - line.y1)
+        : Math.hypot(pt.x - line.x2, pt.y - line.y2);
+      if (d < minDist) {
+        minDist = d;
+        closestIntersect = pt;
+      }
+    });
+  }
+
+  if (closestIntersect) {
+    if (extendFromStart) {
+      line.x1 = closestIntersect.x;
+      line.y1 = closestIntersect.y;
+    } else {
+      line.x2 = closestIntersect.x;
+      line.y2 = closestIntersect.y;
+    }
+    if (window.updateSnapPoints) window.updateSnapPoints();
+    if (window.saveState) window.saveState();
+  }
+}
+
 function handleTrimMode(x, y) {
   if (!window.shapes) return;
   const line = window.shapes.find((s) => {
@@ -509,98 +573,189 @@ function handleTrimMode(x, y) {
     return d < 10 / (window.zoom || 2);
   });
 
-  if (line) {
+  if (line && window.trimLine) {
+    // Ořezat linku v místě kliknutí
+    const trimmedLine = window.trimLine(line, { x, y });
     const idx = window.shapes.indexOf(line);
-    window.shapes.splice(idx, 1);
+    window.shapes[idx] = trimmedLine;
     if (window.updateSnapPoints) window.updateSnapPoints();
     if (window.saveState) window.saveState();
   }
 }
 
 function handleOffsetMode(x, y) {
-  const dist = window.offsetDistance || 10;
   if (!window.shapes) return;
+  const tolerance = 10 / (window.zoom || 2);
+
   const line = window.shapes.find((s) => {
     if (s.type !== "line") return false;
     const d = pointToLineDistance(x, y, s.x1, s.y1, s.x2, s.y2);
-    return d < 10 / (window.zoom || 2);
+    return d < tolerance;
   });
 
   if (line) {
-    const dx = line.x2 - line.x1;
-    const dy = line.y2 - line.y1;
-    const len = Math.hypot(dx, dy);
-    const nx = -dy / len;
-    const ny = dx / len;
+    // Zeptat se uživatele na vzdálenost offsetu
+    const userInput = prompt(
+      "Zadej vzdálenost odsazení (mm):",
+      window.offsetDistance || 10
+    );
 
-    window.shapes.push({
-      type: "line",
-      x1: line.x1 + nx * dist,
-      y1: line.y1 + ny * dist,
-      x2: line.x2 + nx * dist,
-      y2: line.y2 + ny * dist,
-      color: window.currentColor || "#ffaaff",
-    });
-    if (window.updateSnapPoints) window.updateSnapPoints();
-    if (window.saveState) window.saveState();
+    if (userInput !== null) {
+      const newDist = parseFloat(userInput);
+      if (!isNaN(newDist) && newDist > 0) {
+        if (!window.offsetDistance) window.offsetDistance = newDist;
+
+        // Použít parallel funkci pro vytvoření rovnoběžky
+        if (window.parallel) {
+          const newLine = window.parallel(line, newDist);
+          window.shapes.push(newLine);
+        } else {
+          // Fallback na ruční výpočet
+          const dx = line.x2 - line.x1;
+          const dy = line.y2 - line.y1;
+          const len = Math.hypot(dx, dy);
+          const offsetX = (-dy / len) * newDist;
+          const offsetY = (dx / len) * newDist;
+
+          window.shapes.push({
+            type: "line",
+            x1: line.x1 + offsetX,
+            y1: line.y1 + offsetY,
+            x2: line.x2 + offsetX,
+            y2: line.y2 + offsetY,
+          });
+        }
+
+        if (window.updateSnapPoints) window.updateSnapPoints();
+        if (window.saveState) window.saveState();
+      } else {
+        alert("Neplatná hodnota! Zadej kladné číslo.");
+      }
+    }
   }
 }
 
 function handleMirrorMode(x, y) {
-  if (!window.startPt) {
-    window.startPt = { x, y };
-  } else {
-    if (!window.shapes) return;
-    const mirrorLine = window.shapes.find((s) => {
+  if (!window.shapes) return;
+
+  // KROK 1: Vybrat objekt k zrcadlení (Line nebo Circle)
+  if (!window.selectedShape) {
+    const found = window.shapes.find((s) => {
+      if (s.type === "line") {
+        const d = pointToLineDistance(x, y, s.x1, s.y1, s.x2, s.y2);
+        return d < 10 / (window.zoom || 2);
+      } else if (s.type === "circle") {
+        return (
+          Math.abs(Math.hypot(x - s.cx, y - s.cy) - s.r) < 10 / (window.zoom || 2)
+        );
+      }
+      return false;
+    });
+
+    if (found) {
+      window.selectedShape = found;
+      // TODO: Zvýraznit vybraný objekt vizuálně
+    }
+  }
+  // KROK 2: Vybrat osu zrcadlení (musí to být Line)
+  else {
+    const axisLine = window.shapes.find((s) => {
       if (s.type !== "line") return false;
       const d = pointToLineDistance(x, y, s.x1, s.y1, s.x2, s.y2);
       return d < 10 / (window.zoom || 2);
     });
 
-    if (mirrorLine && window.getMirrorPoint) {
-      const p1 = window.getMirrorPoint(
-        window.startPt.x,
-        window.startPt.y,
-        mirrorLine.x1,
-        mirrorLine.y1,
-        mirrorLine.x2,
-        mirrorLine.y2
-      );
+    if (axisLine && window.getMirrorPoint) {
+      // Provést zrcadlení
+      if (window.selectedShape.type === "line") {
+        const p1 = window.getMirrorPoint(
+          window.selectedShape.x1,
+          window.selectedShape.y1,
+          axisLine.x1,
+          axisLine.y1,
+          axisLine.x2,
+          axisLine.y2
+        );
+        const p2 = window.getMirrorPoint(
+          window.selectedShape.x2,
+          window.selectedShape.y2,
+          axisLine.x1,
+          axisLine.y1,
+          axisLine.x2,
+          axisLine.y2
+        );
 
-      if (p1) {
-        window.shapes.push({
-          type: "line",
-          x1: window.startPt.x,
-          y1: window.startPt.y,
-          x2: p1.x,
-          y2: p1.y,
-          color: window.currentColor || "#aaffaa",
-        });
-        if (window.updateSnapPoints) window.updateSnapPoints();
-        if (window.saveState) window.saveState();
+        if (p1 && p2) {
+          window.shapes.push({
+            type: "line",
+            x1: p1.x,
+            y1: p1.y,
+            x2: p2.x,
+            y2: p2.y,
+          });
+        }
+      } else if (window.selectedShape.type === "circle") {
+        const c = window.getMirrorPoint(
+          window.selectedShape.cx,
+          window.selectedShape.cy,
+          axisLine.x1,
+          axisLine.y1,
+          axisLine.x2,
+          axisLine.y2
+        );
+
+        if (c) {
+          window.shapes.push({
+            type: "circle",
+            cx: c.x,
+            cy: c.y,
+            r: window.selectedShape.r,
+          });
+        }
       }
-    }
 
-    window.startPt = null;
+      // Reset
+      window.selectedShape = null;
+      if (window.updateSnapPoints) window.updateSnapPoints();
+      if (window.saveState) window.saveState();
+    }
   }
 }
 
 function handleEraseMode(x, y) {
   if (!window.shapes) return;
-  const idx = window.shapes.findIndex((s) => {
+  const tolerance = 10 / (window.zoom || 2);
+
+  // Najít v shapes
+  const shapeIdx = window.shapes.findIndex((s) => {
     if (s.type === "line") {
       const d = pointToLineDistance(x, y, s.x1, s.y1, s.x2, s.y2);
-      return d < 10 / (window.zoom || 2);
+      return d < tolerance;
     } else if (s.type === "circle") {
-      return Math.abs(Math.hypot(x - s.cx, y - s.cy) - s.r) < 10 / (window.zoom || 2);
+      return Math.abs(Math.hypot(x - s.cx, y - s.cy) - s.r) < tolerance;
     }
     return false;
   });
 
-  if (idx >= 0) {
-    window.shapes.splice(idx, 1);
+  if (shapeIdx >= 0) {
+    window.shapes.splice(shapeIdx, 1);
     if (window.updateSnapPoints) window.updateSnapPoints();
     if (window.saveState) window.saveState();
+    return;
+  }
+
+  // Najít v points
+  if (window.points) {
+    for (let i = 0; i < window.points.length; i++) {
+      const p = window.points[i];
+      const dist = Math.hypot(x - p.x, y - p.y);
+      if (dist < tolerance) {
+        window.points.splice(i, 1);
+        if (window.updateSnapPoints) window.updateSnapPoints();
+        if (window.saveState) window.saveState();
+        return;
+      }
+    }
   }
 }
 
