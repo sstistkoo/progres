@@ -1,0 +1,399 @@
+/**
+ * UTILS.JS - Utility funkce
+ * - API Key management
+ * - localStorage operace
+ * - Geometrické kalkulace
+ * - Pomocné funkce
+ */
+
+// Globální proměnné jsou inicializovány v globals.js
+// Zde pouze používáme window.API_STORAGE_KEY atd.
+
+function getStoredKeys() {
+  try {
+    return JSON.parse(localStorage.getItem(window.API_STORAGE_KEY || "soustruznik_api_keys") || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveStoredKeys(keys) {
+  localStorage.setItem(window.API_STORAGE_KEY || "soustruznik_api_keys", JSON.stringify(keys));
+}
+
+window.getCurrentApiKey = function () {
+  console.log("[getCurrentApiKey] Hledám API klíč");
+  const keys = getStoredKeys();
+  console.log("[getCurrentApiKey] Klíče v localStorage:", keys);
+  const active = keys.find((k) => k.active);
+  console.log("[getCurrentApiKey] Aktivní klíč:", active);
+
+  if (active) {
+    console.log("🔑 Using API key from localStorage:", active.key.substring(0, 20) + "...");
+    return active.key;
+  }
+
+  // Použij globální API klíč z globals.js
+  const EMBEDDED_API_KEY = window.EMBEDDED_API_KEY;
+  console.log("[getCurrentApiKey] EMBEDDED_API_KEY z globals:", EMBEDDED_API_KEY ? EMBEDDED_API_KEY.substring(0, 20) + "..." : "undefined");
+  if (EMBEDDED_API_KEY && EMBEDDED_API_KEY.length > 20) {
+    console.log("🔑 Using embedded demo API key");
+    return EMBEDDED_API_KEY;
+  }
+
+  console.warn("⚠️ No API key available");
+  return null;
+};
+
+window.switchToNextApiKey = function () {
+  const keys = getStoredKeys();
+  if (keys.length <= 1) {
+    return false;
+  }
+
+  const activeIdx = keys.findIndex((k) => k.active);
+  const nextIdx = (activeIdx + 1) % keys.length;
+
+  keys.forEach((k, i) => {
+    k.active = i === nextIdx;
+  });
+
+  saveStoredKeys(keys);
+  console.log("✅ Switched to next API key");
+  return true;
+};
+
+window.renderKeyList = function () {
+  const list = document.getElementById("apiKeyList");
+  if (!list) return;
+
+  const keys = getStoredKeys();
+  list.innerHTML = "";
+
+  keys.forEach((k, i) => {
+    const li = document.createElement("li");
+    li.style.marginBottom = "10px";
+    li.style.padding = "10px";
+    li.style.background = k.active ? "#4caf50" : "#f0f0f0";
+    li.style.borderRadius = "5px";
+
+    // Pokud je to demo klíč, zobraz tečky, jinak zobraz prvních 20 znaků
+    let displayKey;
+    if (window.EMBEDDED_API_KEY && k.key === window.EMBEDDED_API_KEY) {
+      displayKey = "•".repeat(40) + " (Demo klíč)";
+    } else {
+      displayKey = k.key.substring(0, 20) + "...";
+    }
+
+    li.innerHTML = `
+      <strong>${k.name || `Key ${i + 1}`}</strong>
+      <small style="display:block; margin-top:5px; word-break:break-all; font-family: monospace;">
+        ${displayKey}
+      </small>
+      <button onclick="window.removeApiKey(${i})" style="margin-top:5px; padding:5px 10px; background:#ff6b6b; color:white; border:none; border-radius:3px; cursor:pointer;">
+        Smazat
+      </button>
+    `;
+    list.appendChild(li);
+  });
+};
+
+window.removeApiKey = function (idx) {
+  const keys = getStoredKeys();
+  keys.splice(idx, 1);
+  saveStoredKeys(keys);
+  if (window.renderKeyList) window.renderKeyList();
+};
+
+window.updateKeyIndicator = function () {
+  const indicator = document.getElementById("keyIndicator");
+  if (!indicator) return;
+
+  const key = window.getCurrentApiKey ? window.getCurrentApiKey() : null;
+  if (key) {
+    indicator.innerHTML = `🔑 ${key.substring(0, 15)}...`;
+    indicator.style.color = "#4caf50";
+  } else {
+    indicator.innerHTML = "⚠️ No API key";
+    indicator.style.color = "#ff6b6b";
+  }
+};
+
+window.addApiKey = function () {
+  const input = document.getElementById("newKeyValue");
+  if (!input) return;
+
+  const key = input.value.trim();
+  if (!key) {
+    alert("Vyplň API klíč prosím!");
+    return;
+  }
+
+  const keys = getStoredKeys();
+  keys.push({
+    key: key,
+    name: "Custom Key",
+    active: true
+  });
+
+  // Deaktivuj ostatní klíče
+  keys.forEach((k, i) => {
+    k.active = i === keys.length - 1;
+  });
+
+  saveStoredKeys(keys);
+  input.value = "";
+  if (window.renderKeyList) window.renderKeyList();
+  if (window.updateKeyIndicator) window.updateKeyIndicator();
+  alert("✅ Klíč přidán a aktivován!");
+};
+
+// ===== GEOMETRY FUNCTIONS =====
+
+function lineIntersection(l1, l2) {
+  const x1 = l1.x1, y1 = l1.y1, x2 = l1.x2, y2 = l1.y2;
+  const x3 = l2.x1, y3 = l2.y1, x4 = l2.x2, y4 = l2.y2;
+
+  const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+  if (Math.abs(denom) < 1e-10) return null;
+
+  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+  const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+  if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+    return { x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1) };
+  }
+  return null;
+}
+
+function intersectLineCircle(line, circle) {
+  const x1 = line.x1, y1 = line.y1, x2 = line.x2, y2 = line.y2;
+  const cx = circle.cx, cy = circle.cy, r = circle.r;
+
+  const dx = x2 - x1, dy = y2 - y1;
+  const fx = x1 - cx, fy = y1 - cy;
+
+  const a = dx * dx + dy * dy;
+  const b = 2 * (fx * dx + fy * dy);
+  const c = fx * fx + fy * fy - r * r;
+
+  let discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) return [];
+
+  discriminant = Math.sqrt(discriminant);
+  const t1 = (-b - discriminant) / (2 * a);
+  const t2 = (-b + discriminant) / (2 * a);
+
+  const intersects = [];
+  if (t1 >= 0 && t1 <= 1) {
+    intersects.push({ x: x1 + t1 * dx, y: y1 + t1 * dy });
+  }
+  if (t2 >= 0 && t2 <= 1 && Math.abs(t2 - t1) > 1e-10) {
+    intersects.push({ x: x1 + t2 * dx, y: y1 + t2 * dy });
+  }
+  return intersects;
+}
+
+function intersectCircleCircle(c1, c2) {
+  const dx = c2.cx - c1.cx;
+  const dy = c2.cy - c1.cy;
+  const d = Math.sqrt(dx * dx + dy * dy);
+
+  if (d > c1.r + c2.r || d < Math.abs(c1.r - c2.r) || d < 1e-10) {
+    return [];
+  }
+
+  const a = (c1.r * c1.r - c2.r * c2.r + d * d) / (2 * d);
+  const h = Math.sqrt(c1.r * c1.r - a * a);
+
+  const px = c1.cx + (a * dx) / d;
+  const py = c1.cy + (a * dy) / d;
+
+  const intersects = [
+    { x: px + (h * dy) / d, y: py - (h * dx) / d },
+    { x: px - (h * dy) / d, y: py + (h * dx) / d },
+  ];
+
+  return intersects;
+}
+
+// ===== AI MEMORY SYSTEM =====
+
+window.loadAIMemory = function () {
+  try {
+    const stored = localStorage.getItem("soustruznik_ai_memory");
+    return stored ? JSON.parse(stored) : { commands: [], corrections: [], preferences: {} };
+  } catch (e) {
+    return { commands: [], corrections: [], preferences: {} };
+  }
+};
+
+window.saveAIMemory = function (memory) {
+  try {
+    localStorage.setItem("soustruznik_ai_memory", JSON.stringify(memory));
+  } catch (e) {
+    console.warn("⚠️ Could not save AI memory");
+  }
+};
+
+window.recordCommand = function (userPrompt, aiResponse) {
+  const memory = window.loadAIMemory ? window.loadAIMemory() : { commands: [], corrections: [], preferences: {} };
+  memory.commands.push({
+    timestamp: new Date().toISOString(),
+    user: userPrompt,
+    ai: aiResponse,
+  });
+
+  if (memory.commands.length > 100) {
+    memory.commands = memory.commands.slice(-100);
+  }
+
+  if (window.saveAIMemory) window.saveAIMemory(memory);
+};
+
+window.recordCorrection = function (original, corrected) {
+  const memory = window.loadAIMemory ? window.loadAIMemory() : { commands: [], corrections: [], preferences: {} };
+  memory.corrections.push({
+    timestamp: new Date().toISOString(),
+    original,
+    corrected,
+  });
+
+  if (memory.corrections.length > 50) {
+    memory.corrections = memory.corrections.slice(-50);
+  }
+
+  if (window.saveAIMemory) window.saveAIMemory(memory);
+};
+
+window.getAIMemoryContext = function () {
+  // Načti paměť z localStorage
+  try {
+    const stored = localStorage.getItem("ai_memory");
+    if (stored) {
+      const memory = JSON.parse(stored);
+      // Vrať sumarizovanou paměť pro kontext
+      return {
+        commands: memory.commands || [],
+        corrections: memory.corrections || [],
+        preferences: memory.preferences || {}
+      };
+    }
+  } catch (e) {
+    console.error("Chyba při načítání AI paměti:", e);
+  }
+  return { commands: [], corrections: [], preferences: {} };
+};
+
+// ===== RETRY LOGIC =====
+
+window.retryWithBackoff = async function (fn, maxRetries = 3) {
+  let lastError;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxRetries - 1) {
+        const delayMs = Math.pow(2, attempt) * 1000;
+        console.log(`⏳ Retry ${attempt + 1}/${maxRetries} after ${delayMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  throw lastError;
+};
+
+// ===== CONSTRUCTION FUNCTIONS =====
+
+window.tangentFromPoint = function (px, py, cx, cy, r) {
+  const dx = cx - px;
+  const dy = cy - py;
+  const d = Math.sqrt(dx * dx + dy * dy);
+
+  if (d < r) return [];
+
+  const angle = Math.asin(r / d);
+  const baseAngle = Math.atan2(dy, dx);
+
+  const angle1 = baseAngle + angle;
+  const angle2 = baseAngle - angle;
+
+  const t1x = cx - r * Math.sin(angle1);
+  const t1y = cy + r * Math.cos(angle1);
+
+  const t2x = cx - r * Math.sin(angle2);
+  const t2y = cy + r * Math.cos(angle2);
+
+  return [
+    { x: t1x, y: t1y },
+    { x: t2x, y: t2y },
+  ];
+};
+
+window.perpendicular = function (px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  if (len === 0) return null;
+
+  const t = ((px - x1) * dx + (py - y1) * dy) / (len * len);
+  const footX = x1 + t * dx;
+  const footY = y1 + t * dy;
+
+  const perpLen = len * 2;
+  return {
+    x1: px,
+    y1: py,
+    x2: px + (footX - px) / len * perpLen,
+    y2: py + (footY - py) / len * perpLen,
+  };
+};
+
+window.parallel = function (px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+
+  return {
+    x1: px,
+    y1: py,
+    x2: px + dx,
+    y2: py + dy,
+  };
+};
+
+window.trimLine = function (line, trimPoint, maxDist = 5) {
+  // Oříznutí čáry u bodu
+  return line;
+};
+
+window.getMirrorPoint = function (px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  if (len === 0) return null;
+
+  const t = ((px - x1) * dx + (py - y1) * dy) / (len * len);
+  const footX = x1 + t * dx;
+  const footY = y1 + t * dy;
+
+  return {
+    x: 2 * footX - px,
+    y: 2 * footY - py,
+  };
+};
+
+// ===== EXPORT =====
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    lineIntersection,
+    intersectLineCircle,
+    intersectCircleCircle,
+  };
+}
+
+console.log("✅ Utils loaded");

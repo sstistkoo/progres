@@ -1,0 +1,901 @@
+/**
+ * UI.JS - Uživatelské rozhraní a event handlery
+ * - Modal management
+ * - Button handlers
+ * - User interactions
+ * - Settings panels
+ */
+
+// Globální proměnné jsou inicializovány v globals.js
+
+// ===== DEBOUNCE PRO CATEGORY SWITCHING =====
+let lastCategoryChangeTime = 0;
+const CATEGORY_DEBOUNCE_MS = 500; // Ochrana proti dvojímu volání
+
+window.setMode = function (m) {
+  window.mode = m;
+  document.querySelectorAll(".tool-btn").forEach((b) => {
+    if (!b.id.startsWith("btnCat")) b.classList.remove("active");
+  });
+
+  const btnPan = document.getElementById("btnPanCanvas");
+  if (btnPan) btnPan.classList.remove("active");
+
+  const btnMap = {
+    pan: "btnPanCanvas",
+    line: "btnLine",
+    circle: "btnCircle",
+    arc: "btnArc",
+    point: "btnPoint",
+    trim: "btnTrim",
+    extend: "btnExtend",
+    tangent: "btnTangent",
+    perpendicular: "btnPerpendicular",
+    parallel: "btnParallel",
+    offset: "btnOffset",
+    mirror: "btnMirror",
+    erase: "btnErase",
+    measure: "btnMeasure",
+    dimension: "btnDimension",
+    select: "btnAiSelect",
+    ai: "btnCatAi",
+    align: "align",
+    rotate: "rotate",
+  };
+
+  if (btnMap[m] && document.getElementById(btnMap[m])) {
+    document.getElementById(btnMap[m]).classList.add("active");
+  }
+
+  const btnAiSelect = document.getElementById("btnAiSelect");
+  if (btnAiSelect) {
+    if (m === "select") {
+      btnAiSelect.style.background = "#7c3aed";
+      btnAiSelect.style.borderColor = "#8b5cf6";
+      btnAiSelect.style.color = "#fff";
+    } else {
+      btnAiSelect.style.background = "#333";
+      btnAiSelect.style.borderColor = "#444";
+      btnAiSelect.style.color = "#ccc";
+    }
+  }
+
+  const modeInfo = document.getElementById("modeInfo");
+  const infoTexts = {
+    select: "👆 Klikni na objekty pro výběr (Shift pro vícenásobný výběr)",
+    point: "📍 Klikni pro vytvoření bodu",
+    line: "📏 Klikni pro 1. bod, pak klikni pro 2. bod",
+    circle: "⭕ Klikni střed, klikni obvod (pak zadej poloměr)",
+    arc: "🌙 Klikni start → end → zadat úhel (stupně)",
+    tangent: "⟂ Klikni bod, pak kružnici",
+    perpendicular: "┴ Klikni bod, pak čáru",
+    parallel: "∥ Klikni bod, pak čáru",
+    trim: "✂️ Klikni na čáru pro oříznutí",
+    extend: "↔️ Klikni na čáru pro protažení do průsečíku",
+    offset: "⇄ Klikni na čáru pro odsazení",
+    mirror: "🪞 Klikni na objekt (zdroj), pak na čáru (osa)",
+    erase: "🗑️ Klikni na objekt pro smazání",
+    measure: "📏 Klikni na objekt pro zobrazení rozměrů",
+    pan: "✋ Táhni pro posun pohledu",
+    ai: "✨ Napiš příkaz pro Gemini AI",
+    align: "⚖️ Krok 1: Klikni na REFERENČNÍ bod objektu",
+    rotate: "🔁 Krok 1: Klikni na STŘED rotace",
+    dimension: "📐 Klikni na objekty pro vytvoření rozměrů",
+  };
+
+  if (modeInfo) {
+    if (infoTexts[m]) {
+      modeInfo.textContent = infoTexts[m];
+      modeInfo.classList.add("show");
+      if (m !== "pan" && m !== "select" && m !== "align") {
+        setTimeout(() => {
+          if (modeInfo) modeInfo.classList.remove("show");
+        }, 5000);
+      }
+    } else {
+      modeInfo.classList.remove("show");
+    }
+  }
+
+  window.selectedShape = null;
+  window.startPt = null;
+  window.drawing = false;
+  window.tempShape = null;
+  if (window.draw) window.draw();
+};
+
+window.showToolCategory = function (category) {
+  // ===== DEBOUNCE: Ochrana proti dvojímu volání =====
+  const now = Date.now();
+  if (now - lastCategoryChangeTime < CATEGORY_DEBOUNCE_MS) {
+    return;
+  }
+  lastCategoryChangeTime = now;
+
+  const menuId =
+    "tools" + category.charAt(0).toUpperCase() + category.slice(1);
+  const menuEl = document.getElementById(menuId);
+  const btnId =
+    "btnCat" + category.charAt(0).toUpperCase() + category.slice(1);
+  const btnEl = document.getElementById(btnId);
+
+  // Speciální handling pro AI - nevřít ho stejně jako ostatní panely
+  if (category === "ai") {
+    // Pro AI zkusíme toggle
+    if (window.currentCategory === category && menuEl && menuEl.style.display !== "none") {
+      // AI je otevřené, zavři ho
+      if (menuEl) menuEl.style.display = "none";
+      if (btnEl) btnEl.classList.remove("active");
+      window.currentCategory = null;
+      window.toggleAiPanel(false);
+      return;
+    }
+
+    // Zavři všechny ostatní panely
+    document.querySelectorAll(".tool-submenu").forEach((menu) => {
+      if (menu.id !== "toolsAi") {
+        menu.style.display = "none";
+      }
+    });
+
+    document.querySelectorAll(".toolbar .tool-btn").forEach((btn) => {
+      if (btn.id && btn.id.startsWith("btnCat")) {
+        btn.classList.remove("active");
+      }
+    });
+
+    // Otevři AI
+    if (menuEl) {
+      menuEl.style.display = "flex";
+      if (btnEl) btnEl.classList.add("active");
+      window.currentCategory = category;
+      if (window.toggleAiPanel) {
+        window.toggleAiPanel(true);
+      }
+
+      setTimeout(() => {
+        const input = document.getElementById("aiPrompt");
+        if (input) {
+          input.focus();
+        }
+      }, 200);
+    }
+    return;
+  }
+
+  // Normální handling pro ostatní panely
+  if (window.currentCategory === category && menuEl && menuEl.style.display !== "none") {
+    menuEl.style.display = "none";
+    if (btnEl) btnEl.classList.remove("active");
+    window.currentCategory = null;
+    if (window.mode !== "pan" && window.mode !== "select") {
+      window.setMode("pan");
+    }
+    return;
+  }
+
+  document.querySelectorAll(".tool-submenu").forEach((menu) => {
+    menu.style.display = "none";
+  });
+
+  document.querySelectorAll(".toolbar .tool-btn").forEach((btn) => {
+    if (btn.id && btn.id.startsWith("btnCat")) {
+      btn.classList.remove("active");
+    }
+  });
+
+  if (window.mode !== "pan" && window.mode !== "select") {
+    window.setMode("pan");
+  }
+
+  if (menuEl) {
+    menuEl.style.display = "flex";
+    if (btnEl) btnEl.classList.add("active");
+    window.currentCategory = category;
+  }
+};
+
+// ===== SETTINGS & PREFERENCES =====
+
+window.openSettings = function () {
+  const modal = document.getElementById("settingsModal");
+  if (modal) {
+    modal.style.display = "flex";
+    if (window.renderKeyList) window.renderKeyList();
+    if (window.updateKeyIndicator) window.updateKeyIndicator();
+  }
+};
+
+window.closeSettings = function () {
+  const modal = document.getElementById("settingsModal");
+  if (modal) modal.style.display = "none";
+};
+
+window.openAIPreferences = function () {
+  const modal = document.getElementById("aiPreferencesModal");
+  if (modal) {
+    modal.style.display = "flex";
+    if (window.renderPreferencesList) window.renderPreferencesList();
+  }
+};
+
+window.closeAIPreferences = function () {
+  const modal = document.getElementById("aiPreferencesModal");
+  if (modal) modal.style.display = "none";
+};
+
+// ===== VIEW CONTROLS =====
+
+window.togglePan = function () {
+  if (window.mode === "pan") {
+    window.mode = null;
+    const btn = document.getElementById("btnPanCanvas");
+    if (btn) btn.classList.remove("active");
+    const info = document.getElementById("modeInfo");
+    if (info) info.classList.remove("show");
+  } else {
+    window.setMode("pan");
+  }
+};
+
+window.resetView = function () {
+  if (!window.shapes || !window.points) return;
+
+  if (window.shapes.length === 0 && window.points.length === 0) {
+    if (window.zoom) window.zoom = 1;
+    if (window.panX !== undefined) window.panX = window.canvas ? window.canvas.width / 2 : 0;
+    if (window.panY !== undefined) window.panY = window.canvas ? -window.canvas.height / 2 : 0;
+    if (window.draw) window.draw();
+    return;
+  }
+
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+
+  window.shapes.forEach((s) => {
+    if (s.type === "line") {
+      minX = Math.min(minX, s.x1, s.x2);
+      maxX = Math.max(maxX, s.x1, s.x2);
+      minY = Math.min(minY, s.y1, s.y2);
+      maxY = Math.max(maxY, s.y1, s.y2);
+    } else if (s.type === "circle") {
+      minX = Math.min(minX, s.cx - s.r);
+      maxX = Math.max(maxX, s.cx + s.r);
+      minY = Math.min(minY, s.cy - s.r);
+      maxY = Math.max(maxY, s.cy + s.r);
+    }
+  });
+
+  window.points.forEach((p) => {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  });
+
+  if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) return;
+
+  const canvas = document.getElementById("canvas");
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const rangeX = maxX - minX;
+  const rangeY = maxY - minY;
+
+  const margin = 1.1;
+  const zoomX = (canvas.width / rangeX) * margin;
+  const zoomY = (canvas.height / rangeY) * margin;
+
+  if (window.zoom !== undefined) {
+    window.zoom = Math.min(zoomX, zoomY, 100);
+    window.zoom = Math.max(window.zoom, 0.1);
+  }
+
+  if (window.panX !== undefined) window.panX = canvas.width / 2 - centerX * (window.zoom || 2);
+  if (window.panY !== undefined) window.panY = canvas.height / 2 + centerY * (window.zoom || 2);
+
+  if (window.draw) window.draw();
+};
+
+window.centerToOrigin = function () {
+  const canvas = document.getElementById("canvas");
+  if (window.panX !== undefined) window.panX = canvas.width / 2;
+  if (window.panY !== undefined) window.panY = canvas.height / 2;
+  if (window.draw) window.draw();
+};
+
+window.clearMode = function () {
+  mode = null;
+  startPt = null;
+  tempShape = null;
+  selectedShape = null;
+  drawing = false;
+
+  document.querySelectorAll(".tool-btn").forEach((b) => {
+    if (!b.id.startsWith("btnCat")) b.classList.remove("active");
+  });
+
+  const btnPan = document.getElementById("btnPanCanvas");
+  if (btnPan) btnPan.classList.remove("active");
+
+  const info = document.getElementById("modeInfo");
+  if (info) info.classList.remove("show");
+
+  if (window.draw) window.draw();
+};
+
+// ===== CLEAR ALL =====
+
+window.clearAll = function () {
+  if (confirm("Vymazat vše?")) {
+    if (window.shapes) window.shapes.length = 0;
+    if (window.points) window.points.length = 0;
+    if (window.selectedItems) window.selectedItems.length = 0;
+    if (window.updateSnapPoints) window.updateSnapPoints();
+    if (window.draw) window.draw();
+  }
+};
+
+// ===== EXPORT & IMPORT =====
+
+window.exportPNG = function () {
+  const canvas = document.getElementById("canvas");
+  const link = document.createElement("a");
+  link.download = "soustruzeni_" + Date.now() + ".png";
+  link.href = canvas.toDataURL();
+  link.click();
+};
+
+window.saveProject = function () {
+  const project = {
+    version: "1.0",
+    date: new Date().toISOString(),
+    settings: {
+      axisMode: window.axisMode,
+      xMeasureMode: window.xMeasureMode,
+      gridSize: window.gridSize,
+      zoom: window.zoom,
+      panX: window.panX,
+      panY: window.panY,
+    },
+    shapes: window.shapes || [],
+    points: window.points || [],
+  };
+
+  const json = JSON.stringify(project, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+  const timeStr = now.toTimeString().slice(0, 5).replace(":", "-");
+  link.download = `projekt_${dateStr}_${timeStr}.json`;
+
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+window.loadProject = function (input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  if (!file.name.endsWith(".json")) {
+    alert("❌ Chyba: Můžeš načíst pouze .json soubory!");
+    input.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = function (e) {
+    try {
+      const project = JSON.parse(e.target.result);
+
+      if (!project.shapes || !Array.isArray(project.shapes)) {
+        throw new Error("Neplatná struktura projektu");
+      }
+
+      if ((window.shapes && window.shapes.length > 0) ||
+          (window.points && window.points.length > 0)) {
+        const confirm_load = window.confirm(
+          "⚠️ Načtením projektu přepíšeš aktuální kreslení.\n\nChceš pokračovat?"
+        );
+        if (!confirm_load) {
+          input.value = "";
+          return;
+        }
+      }
+
+      if (window.shapes) {
+        window.shapes.length = 0;
+        window.shapes.push(...(project.shapes || []));
+      }
+      if (window.points) {
+        window.points.length = 0;
+        window.points.push(...(project.points || []));
+      }
+
+      if (project.settings) {
+        if (project.settings.axisMode) window.axisMode = project.settings.axisMode;
+        if (project.settings.xMeasureMode) window.xMeasureMode = project.settings.xMeasureMode;
+        if (project.settings.gridSize !== undefined) window.gridSize = project.settings.gridSize;
+        if (project.settings.zoom !== undefined) window.zoom = project.settings.zoom;
+        if (project.settings.panX !== undefined) window.panX = project.settings.panX;
+        if (project.settings.panY !== undefined) window.panY = project.settings.panY;
+      }
+
+      if (window.updateSnapPoints) window.updateSnapPoints();
+      if (window.draw) window.draw();
+    } catch (error) {
+      alert("❌ Chyba při načítání projektu:\n\n" + error.message);
+    }
+
+    input.value = "";
+  };
+
+  reader.onerror = function () {
+    alert("❌ Chyba při čtení souboru!");
+    input.value = "";
+  };
+
+  reader.readAsText(file);
+};
+
+// ===== CLOSE MODALS ON OUTSIDE CLICK =====
+
+document.addEventListener("DOMContentLoaded", function () {
+  const modals = [
+    "settingsModal",
+    "aiPreferencesModal",
+    "circleModal",
+    "constraintModal",
+    "quickInputModal",
+    "controllerModal",
+    "directionModal",
+  ];
+
+  modals.forEach((modalId) => {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.addEventListener("click", (e) => {
+        if (e.target.id === modalId) {
+          modal.style.display = "none";
+        }
+      });
+    }
+  });
+});
+
+// ===== EXPORT =====
+window.showControllerModal = function () {
+  const modal = document.getElementById("controllerModal");
+  if (modal) modal.style.display = "flex";
+};
+
+window.closeControllerModal = function () {
+  const modal = document.getElementById("controllerModal");
+  if (modal) modal.style.display = "none";
+};
+
+// ===== CONTROLLER DIRECTION & LENGTH =====
+window.showControllerDirectionModal = function () {
+  window.directionTarget = "controller";
+  const modal = document.getElementById("directionModal");
+  if (modal) modal.style.display = "flex";
+};
+
+window.showControllerLengthModal = function () {
+  window.lengthTarget = "controller";
+  const modal = document.getElementById("lengthModal");
+  if (modal) {
+    modal.style.display = "flex";
+    const input = document.getElementById("lengthInput");
+    if (input) {
+      input.value = "";
+      setTimeout(() => input.focus(), 100);
+    }
+  }
+};
+
+// Update direction modal to handle both targets
+const originalInsertDirection = window.insertDirection;
+window.insertDirection = function (angle) {
+
+  if (window.directionTarget === "controller") {
+    // Vloží do controllerInput
+    const input = document.getElementById("controllerInput");
+    if (input) {
+      input.value += "AP" + angle + " ";
+    }
+  } else {
+    // Vloží do quickInputDisplay (originální chování)
+    const display = document.getElementById("quickInputDisplay");
+    if (display) {
+      display.value += "AP" + angle + " ";
+      display.scrollTop = display.scrollHeight;
+    }
+  }
+
+  window.directionTarget = null;
+  window.closeDirectionModal();
+};
+
+// Update length modal to handle both targets
+const originalConfirmLength = window.confirmLength;
+window.confirmLength = function () {
+  const input = document.getElementById("lengthInput");
+  if (!input) return;
+
+  const value = input.value.trim();
+  if (!value) {
+    alert("Zadej prosím délku!");
+    return;
+  }
+
+  const type = window.lengthType || "L";
+
+  if (window.lengthTarget === "controller") {
+    const controllerInput = document.getElementById("controllerInput");
+    if (controllerInput) {
+      controllerInput.value += type + value + " ";
+    }
+  } else {
+    const display = document.getElementById("quickInputDisplay");
+    if (display) {
+      display.value += type + value + " ";
+      display.scrollTop = display.scrollHeight;
+    }
+  }
+
+  window.lengthTarget = null;
+  window.closeLengthModal();
+};
+
+window.closeControllerModal = function () {
+  const modal = document.getElementById("controllerModal");
+  if (modal) modal.style.display = "none";
+};
+
+// ===== CONTROLLER FUNCTIONS =====
+
+window.setControllerMode = function (mode) {
+  window.controllerMode = mode;
+  const display = document.getElementById("controllerModeDisplay");
+  if (display) {
+    display.textContent = mode === "G90" ? "G90 (Absolutní)" : "G91 (Přírůstkové)";
+  }
+
+  const btnG90 = document.getElementById("btnG90");
+  const btnG91 = document.getElementById("btnG91");
+  if (btnG90) {
+    btnG90.style.background = mode === "G90" ? "#3a7bc8" : "#2a2a2a";
+    btnG90.style.color = mode === "G90" ? "white" : "#888";
+  }
+  if (btnG91) {
+    btnG91.style.background = mode === "G91" ? "#3a7bc8" : "#2a2a2a";
+    btnG91.style.color = mode === "G91" ? "white" : "#888";
+  }
+};
+
+window.insertControllerToken = function (token) {
+  const input = document.getElementById("controllerInput");
+  if (!input) return;
+
+  input.value += token;
+};
+
+window.backspaceControllerToken = function () {
+  const input = document.getElementById("controllerInput");
+  if (!input) return;
+
+  input.value = input.value.slice(0, -1);
+};
+
+window.clearControllerInput = function () {
+  const input = document.getElementById("controllerInput");
+  if (input) input.value = "";
+};
+
+window.confirmControllerInput = function () {
+  const input = document.getElementById("controllerInput");
+  if (!input || !input.value.trim()) {
+    alert("Zadej prosím příkaz!");
+    return;
+  }
+
+  const command = input.value.trim();
+
+  // Zde bude logika pro spuštění příkazu - zatím jen log
+  window.closeControllerModal();
+};
+
+// Přepínání sekcí v panelech
+window.toggleCoordSection = function (sectionId) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+
+  const isHidden = section.style.display === "none";
+  section.style.display = isHidden ? "block" : "none";
+
+  const toggleSpan = document.getElementById(sectionId + "Toggle");
+  if (toggleSpan) {
+    toggleSpan.textContent = isHidden ? "▲" : "▼";
+  }
+};
+
+// Souřadnice - Bod
+window.setPointFromCursor = function () {
+  const el = document.getElementById("quickPointZ");
+  if (!el || !window.cursorX) return;
+
+  document.getElementById("quickPointZ").value = (window.cursorY || 0).toFixed(2);
+  document.getElementById("quickPointX").value = (window.cursorX || 0).toFixed(2);
+};
+
+window.quickAddPoint = function () {
+  const z = parseFloat(document.getElementById("quickPointZ").value);
+  const x = parseFloat(document.getElementById("quickPointX").value);
+
+  if (isNaN(z) || isNaN(x)) {
+    alert("Zadej prosím Z a X souřadnice");
+    return;
+  }
+
+  window.shapes.push({ type: "point", z, x });
+  window.saveState();
+  window.draw();
+  document.getElementById("quickPointZ").value = "";
+  document.getElementById("quickPointX").value = "";
+};
+
+// Souřadnice - Čára
+window.addLineByCoords = function () {
+  const z1 = parseFloat(document.getElementById("lineZ1").value);
+  const x1 = parseFloat(document.getElementById("lineX1").value);
+  const z2 = parseFloat(document.getElementById("lineZ2").value);
+  const x2 = parseFloat(document.getElementById("lineX2").value);
+
+  if (isNaN(z1) || isNaN(x1) || isNaN(z2) || isNaN(x2)) {
+    alert("Zadej prosím souřadnice obou bodů");
+    return;
+  }
+
+  window.shapes.push({ type: "line", z1, x1, z2, x2 });
+  window.saveState();
+  window.draw();
+  document.getElementById("lineZ1").value = "";
+  document.getElementById("lineX1").value = "";
+  document.getElementById("lineZ2").value = "";
+  document.getElementById("lineX2").value = "";
+};
+
+// Souřadnice - Kružnice
+window.quickAddCircle = function () {
+  const z = parseFloat(document.getElementById("quickCircleZ").value);
+  const x = parseFloat(document.getElementById("quickCircleX").value);
+  const r = parseFloat(document.getElementById("quickCircleR").value);
+
+  if (isNaN(z) || isNaN(x) || isNaN(r)) {
+    alert("Zadej prosím střed a poloměr");
+    return;
+  }
+
+  window.shapes.push({ type: "circle", z, x, r });
+  window.saveState();
+  window.draw();
+  document.getElementById("quickCircleZ").value = "";
+  document.getElementById("quickCircleX").value = "";
+  document.getElementById("quickCircleR").value = "";
+};
+
+// Ostatní - Export a Projekty
+window.exportPNG = function () {
+  const canvas = document.getElementById("canvas");
+  if (!canvas) return;
+
+  const link = document.createElement("a");
+  link.href = canvas.toDataURL("image/png");
+  link.download = "kresba_" + new Date().getTime() + ".png";
+  link.click();
+};
+
+window.saveProject = function () {
+  const project = {
+    shapes: window.shapes || [],
+    settings: {
+      gridSize: window.gridSize,
+      axisMode: window.axisMode,
+      xMeasureMode: window.xMeasureMode
+    }
+  };
+
+  const json = JSON.stringify(project, null, 2);
+  const link = document.createElement("a");
+  link.href = "data:application/json;charset=utf-8," + encodeURIComponent(json);
+  link.download = "projekt_" + new Date().getTime() + ".json";
+  link.click();
+};
+
+window.loadProject = function (input) {
+  if (!input.files || !input.files[0]) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const project = JSON.parse(e.target.result);
+      window.shapes = project.shapes || [];
+      if (project.settings) {
+        window.gridSize = project.settings.gridSize || window.gridSize;
+        window.axisMode = project.settings.axisMode || window.axisMode;
+        window.xMeasureMode = project.settings.xMeasureMode || window.xMeasureMode;
+      }
+      window.saveState();
+      window.draw();
+    } catch (err) {
+      alert("Chyba při načítání projektu: " + err.message);
+    }
+  };
+  reader.readAsText(input.files[0]);
+};
+
+// Stubní funkce - Snap
+window.updateSnap = function () {
+};
+
+// Stubní funkce pro transformace
+window.showColorPicker = function () {
+};
+
+window.booleanUnion = function () {
+};
+
+window.booleanIntersect = function () {
+};
+
+window.booleanDifference = function () {
+};
+
+// ===== COORDINATE SETUP FUNCTIONS =====
+window.toggleCoordSection = function (sectionId) {
+  const section = document.getElementById(sectionId);
+  if (section) {
+    const isHidden = section.style.display === "none";
+    section.style.display = isHidden ? "block" : "none";
+  }
+};
+
+window.setPointFromCursor = function () {
+  // TODO: Implementovat - vezmi aktuální pozici myši a nastav ji jako bod
+};
+
+window.quickAddPoint = function () {
+  const xInput = document.getElementById("coordPointX");
+  const yInput = document.getElementById("coordPointY");
+  if (xInput && yInput) {
+    const x = parseFloat(xInput.value) || 0;
+    const y = parseFloat(yInput.value) || 0;
+    if (!window.points) window.points = [];
+    window.points.push({ x, y });
+    window.saveState();
+    window.draw();
+  }
+};
+
+window.setLineStart = function () {
+  // TODO: Implementovat - vezmi aktuální pozici myši pro počátek čáry
+};
+
+window.setLineEnd = function () {
+  // TODO: Implementovat - vezmi aktuální pozici myši pro konec čáry
+};
+
+window.addLineByCoords = function () {
+  const x1 = parseFloat(document.getElementById("coordLineX1")?.value) || 0;
+  const y1 = parseFloat(document.getElementById("coordLineY1")?.value) || 0;
+  const x2 = parseFloat(document.getElementById("coordLineX2")?.value) || 0;
+  const y2 = parseFloat(document.getElementById("coordLineY2")?.value) || 0;
+  if (!window.shapes) window.shapes = [];
+  window.shapes.push({ type: "line", x1, y1, x2, y2, color: window.currentColor || "#fff" });
+  window.saveState();
+  window.draw();
+};
+
+window.setCircleCenter = function () {
+  // TODO: Implementovat - vezmi aktuální pozici myši pro střed
+};
+
+window.quickAddCircle = function () {
+  const cx = parseFloat(document.getElementById("coordCircleCX")?.value) || 0;
+  const cy = parseFloat(document.getElementById("coordCircleCY")?.value) || 0;
+  const r = parseFloat(document.getElementById("coordCircleR")?.value) || 1;
+  if (!window.shapes) window.shapes = [];
+  window.shapes.push({ type: "circle", cx, cy, r, color: window.currentColor || "#fff" });
+  window.saveState();
+  window.draw();
+};
+
+window.addLinePolar = function () {
+  // TODO: Implementovat polární souřadnice
+};
+
+window.addPointPolar = function () {
+  // TODO: Implementovat polární souřadnice
+};
+
+// ===== CONSTRAINT FUNCTIONS =====
+window.showConstraintModal = function () {
+  const modal = document.getElementById("constraintModal");
+  if (modal) {
+    modal.style.display = "flex";
+  }
+};
+
+window.closeConstraintModal = function () {
+  const modal = document.getElementById("constraintModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+};
+
+window.applyConstraint = function (type) {
+  // TODO: Implementovat různé typy fixací (distance, radius, horizontal, vertical, atd.)
+};
+
+window.removeConstraint = function (which) {
+  // TODO: Implementovat
+};
+
+window.cancelConstraintValue = function () {
+  // TODO: Implementovat
+};
+
+window.confirmConstraintPoint = function () {
+  // TODO: Implementovat
+};
+
+window.confirmConstraintDistance = function () {
+  // TODO: Implementovat
+};
+
+window.confirmConstraintRadius = function () {
+  // TODO: Implementovat
+};
+
+window.confirmConstraintPolarAngle = function () {
+  // TODO: Implementovat
+};
+
+// ===== CIRCLE MODAL =====
+window.closeCircleModal = function () {
+  const modal = document.getElementById("circleModal");
+  if (modal) modal.style.display = "none";
+};
+
+window.confirmCircle = function () {
+  // TODO: Implementovat
+};
+
+// ===== HELP MODAL =====
+window.showQuickInputHelp = function () {
+  const helpModal = document.getElementById("quickInputHelpModal");
+  if (helpModal) {
+    helpModal.style.display = "flex";
+  }
+};
+
+window.closeQuickInputHelp = function () {
+  const helpModal = document.getElementById("quickInputHelpModal");
+  if (helpModal) {
+    helpModal.style.display = "none";
+  }
+};
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    setMode,
+    showToolCategory,
+    openSettings,
+    closeSettings,
+  };
+}
