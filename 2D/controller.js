@@ -569,41 +569,5 @@ window.parseControllerInput = function (
   return null;
 };
 
-// ===== KEYBOARD EVENTS - ALT+K pro otevření controlleru =====
-
-// Inicializace keyboard shortcutů
-document.addEventListener("keydown", (e) => {
-  // ALT + K = Otevřít Ovladač
-  if ((e.altKey || e.metaKey) && e.key.toLowerCase() === "k") {
-    e.preventDefault();
-    window.showControllerModal();
-  }
-
-  // ESC = Zavřít Ovladač
-  if (e.key === "Escape") {
-    const controllerModal = document.getElementById("controllerModal");
-    if (controllerModal && controllerModal.style.display === "flex") {
-      window.closeControllerModal();
-      e.preventDefault();
-    }
-  }
-
-  // Enter v controllerInput = Potvrdit příkaz
-  const controllerInput = document.getElementById("controllerInput");
-  if (controllerInput && document.activeElement === controllerInput) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      window.confirmControllerInput();
-    }
-    // Backspace
-    if (e.key === "Backspace") {
-      e.preventDefault();
-      window.backspaceControllerToken();
-    }
-  }
-});
-
-// Export pro modulární systém
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = window;
-}
+// ✅ Keyboard events nyní spravuje unified keyboard.js
+// Controller funkce jsou volány z keyboard.js
