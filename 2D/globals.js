@@ -21,11 +21,13 @@ window.zoom = 2;
 window.gridSize = 10;
 
 // ===== SETTINGS =====
-window.axisMode = "XY"; // XY or ZX
+window.axisMode = "lathe"; // lathe nebo carousel
 window.xMeasureMode = "diameter"; // radius or diameter
 window.displayDecimals = 2;
-window.snapEnabled = true;
-window.snapThreshold = 5; // pixels
+window.snapToGrid = false;
+window.snapToPoints = true;
+window.snapDistance = 15; // pixels
+window.orthoMode = true; // Ortogonální přichycení
 
 // ===== DRAWING MODE & STATE =====
 window.mode = "pan"; // pan, line, circle, point, etc.
@@ -37,9 +39,20 @@ window.drawing = false;
 window.cursorPos = { x: 0, y: 0 };
 window.controllerMode = "G90"; // G90 nebo G91 pro ovladač
 
+// ===== CONSTRAINT MODE =====
+window.constraintMode = null;
+window.constraintSelection = [];
+
+// ===== ALIGN MODE =====
+window.alignStep = 0;
+window.alignRefPoint = null;
+window.alignTargetPoint = null;
+window.alignLine = null;
+window.alignAxis = null;
+
 // ===== COLOR & STYLING =====
 window.currentColor = "#ff0000";
-window.offsetDistance = 10;
+window.offsetDistance = 5; // mm - výchozí vzdálenost offsetu
 window.strokeColor = "#ffffff";
 window.fillColor = "#00ff00";
 window.gridColor = "#333333";
@@ -50,6 +63,25 @@ window.snapPointColor = "#ffff00";
 window.polarSnapEnabled = false;
 window.polarSnapInterval = 15; // degrees
 window.polarSnapAngles = [];
+
+// ===== ROTATE MODE =====
+window.rotateStep = 0; // 0=center, 1=awaiting angle
+window.rotateCenter = null; // Střed rotace
+window.rotateAngle = 0; // Úhel rotace
+
+// ===== MEASURE MODE =====
+window.measureInfo = null; // Posledí změřená hodnota
+
+// ===== DIMENSION MODE =====
+window.dimensions = []; // Pole kót
+window.constraintNames = {
+  point: "Bod fixace",
+  distance: "Vzdálenost",
+  radius: "Poloměr",
+  polarAngle: "Polární úhel",
+  horizontal: "Vodorovně",
+  vertical: "Svisle"
+};
 
 // ===== UNDO/REDO =====
 window.history = [];

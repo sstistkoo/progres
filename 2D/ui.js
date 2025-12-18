@@ -304,23 +304,95 @@ window.centerToOrigin = function () {
 };
 
 window.clearMode = function () {
-  mode = null;
-  startPt = null;
-  tempShape = null;
-  selectedShape = null;
-  drawing = false;
+  // Zrušit aktuální mód
+  window.mode = null;
 
+  // Zrušit constraint mód
+  window.constraintMode = null;
+  window.constraintSelection = [];
+  if (window.cancelConstraintValue) window.cancelConstraintValue();
+
+  // Zrušit align mód
+  window.alignStep = 0;
+  window.alignRefPoint = null;
+  window.alignTargetPoint = null;
+  window.alignLine = null;
+  window.alignAxis = null;
+
+  // Zrušit startPt (pokud byl nějaký rozdělaný tvar)
+  window.startPt = null;
+  window.tempShape = null;
+  window.selectedShape = null;
+  window.drawing = false;
+
+  // Odstranit active ze všech tlačítek (kromě kategorií)
   document.querySelectorAll(".tool-btn").forEach((b) => {
     if (!b.id.startsWith("btnCat")) b.classList.remove("active");
   });
 
+  // Odstranit active z Posun tlačítka
   const btnPan = document.getElementById("btnPanCanvas");
   if (btnPan) btnPan.classList.remove("active");
 
+  // Skrýt mode info
   const info = document.getElementById("modeInfo");
   if (info) info.classList.remove("show");
 
+  // Překreslit canvas
   if (window.draw) window.draw();
+
+  // Krátký vizuální feedback
+  const snapInfo = document.getElementById("snapInfo");
+  if (snapInfo) {
+    snapInfo.textContent = "✕ Mód zrušen";
+    snapInfo.style.display = "block";
+    setTimeout(() => (snapInfo.style.display = "none"), 800);
+  }
+};
+
+// ===== COORDINATE LABELS =====
+
+window.updateCoordinateLabels = function() {
+  // Aktualizovat popisky podle režimu
+  const labels =
+    window.axisMode === "lathe"
+      ? { axis1: "Z", axis2: "X" }
+      : { axis1: "X", axis2: "Y" };
+  // Popisky se aktualizují v drawAxes
+};
+
+// ===== GRID SPACING =====
+
+window.updateGridSpacing = function() {
+  const gridSpacingInput = document.getElementById("gridSpacing");
+  if (gridSpacingInput) {
+    window.gridSize = parseFloat(gridSpacingInput.value) || 10;
+    if (window.draw) window.draw();
+  }
+};
+
+window.setGridSpacing = function(size) {
+  window.gridSize = size;
+  const gridSpacingInput = document.getElementById("gridSpacing");
+  if (gridSpacingInput) gridSpacingInput.value = size;
+  if (window.draw) window.draw();
+};
+
+// ===== TOGGLE SECTIONS =====
+
+window.toggleSection = function(sectionId) {
+  const section = document.getElementById(sectionId + "Section");
+  const toggle = document.getElementById(sectionId + "Toggle");
+
+  if (section && toggle) {
+    if (section.style.display === "none") {
+      section.style.display = "block";
+      toggle.textContent = "▲";
+    } else {
+      section.style.display = "none";
+      toggle.textContent = "▼";
+    }
+  }
 };
 
 // ===== CLEAR ALL =====
@@ -557,58 +629,7 @@ window.closeControllerModal = function () {
   if (modal) modal.style.display = "none";
 };
 
-// ===== CONTROLLER FUNCTIONS =====
-
-window.setControllerMode = function (mode) {
-  window.controllerMode = mode;
-  const display = document.getElementById("controllerModeDisplay");
-  if (display) {
-    display.textContent = mode === "G90" ? "G90 (Absolutní)" : "G91 (Přírůstkové)";
-  }
-
-  const btnG90 = document.getElementById("btnG90");
-  const btnG91 = document.getElementById("btnG91");
-  if (btnG90) {
-    btnG90.style.background = mode === "G90" ? "#3a7bc8" : "#2a2a2a";
-    btnG90.style.color = mode === "G90" ? "white" : "#888";
-  }
-  if (btnG91) {
-    btnG91.style.background = mode === "G91" ? "#3a7bc8" : "#2a2a2a";
-    btnG91.style.color = mode === "G91" ? "white" : "#888";
-  }
-};
-
-window.insertControllerToken = function (token) {
-  const input = document.getElementById("controllerInput");
-  if (!input) return;
-
-  input.value += token;
-};
-
-window.backspaceControllerToken = function () {
-  const input = document.getElementById("controllerInput");
-  if (!input) return;
-
-  input.value = input.value.slice(0, -1);
-};
-
-window.clearControllerInput = function () {
-  const input = document.getElementById("controllerInput");
-  if (input) input.value = "";
-};
-
-window.confirmControllerInput = function () {
-  const input = document.getElementById("controllerInput");
-  if (!input || !input.value.trim()) {
-    alert("Zadej prosím příkaz!");
-    return;
-  }
-
-  const command = input.value.trim();
-
-  // Zde bude logika pro spuštění příkazu - zatím jen log
-  window.closeControllerModal();
-};
+// Controller functions jsou v controller.js - zde necháme pouze modal show/close
 
 // Přepínání sekcí v panelech
 window.toggleCoordSection = function (sectionId) {

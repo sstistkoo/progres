@@ -145,44 +145,86 @@ window.addAIPreference = function () {
 
 // ===== AI MEMORY & METRICS =====
 window.showAIMemory = function () {
-  const context = window.getAIMemoryContext ? window.getAIMemoryContext() : { topCommands: [], successfulPatterns: [] };
-  let msg = "🧠 AI PAMĚŤ:\n\n";
-  msg += "📊 Nejčastější příkazy:\n" + (context.topCommands.length > 0
-    ? context.topCommands.map((c) => `  • "${c.command}" (${c.count}×)`).join("\n")
-    : "  Žádné zatím");
-  msg += "\n\n✅ Úspěšné vzory:\n" + (context.successfulPatterns.length > 0
-    ? context.successfulPatterns.map((p) => `  • ${p.input} → ${p.shapeCount} tvarů`).join("\n")
-    : "  Žádné zatím");
-  alert(msg);
+  try {
+    const memory = JSON.parse(localStorage.getItem("soustruznik_ai_memory") || "{}");
+    const patterns = memory.successfulPatterns || [];
+
+    let msg = "🧠 AI SE NAUČILA:\n\n";
+    if (patterns.length > 0) {
+      msg += "✅ Úspěšné vzory:\n";
+      patterns.slice(-10).forEach((p) => {
+        msg += `  • "${p.input}" → ${p.shapeCount} tvarů\n`;
+      });
+    } else {
+      msg += "Zatím se nic nenaučila. Posílej jí příkazy!";
+    }
+    alert(msg);
+  } catch (e) {
+    alert("❌ Nelze načíst paměť: " + e.message);
+  }
 };
 
 window.showAIMetrics = function () {
-  const metrics = window.aiMetrics || { totalRequests: 0, successfulRequests: 0, failedRequests: 0, avgLatency: 0 };
-  let msg = "📊 AI STATISTIKY:\n\n";
-  msg += "Celkem požadavků: " + metrics.totalRequests + "\n";
-  msg += "Úspěšných: " + metrics.successfulRequests + "\n";
-  msg += "Selhalo: " + metrics.failedRequests + "\n";
-  msg += "Průměrná latence: " + metrics.avgLatency.toFixed(0) + "ms";
-  alert(msg);
+  try {
+    const memory = JSON.parse(localStorage.getItem("soustruznik_ai_memory") || "{}");
+    const patterns = memory.successfulPatterns || [];
+
+    let msg = "📊 AI STATISTIKY:\n\n";
+    msg += "Úspěšných příkazů: " + patterns.length + "\n";
+    msg += "Poslední: " + (patterns.length > 0 ? patterns[patterns.length - 1].input : "žádný");
+    alert(msg);
+  } catch (e) {
+    alert("❌ Chyba: " + e.message);
+  }
 };
 
 // ===== IMAGE HANDLING =====
+window.handleImageSelect = function (input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const result = e.target.result;
+    window.currentImageBase64 = result.split(",")[1];
+    window.currentImageMimeType = file.type;
+
+    const previewImg = document.getElementById("aiPreviewImg");
+    if (previewImg) previewImg.src = result;
+
+    const preview = document.getElementById("aiImagePreview");
+    if (preview) preview.style.display = "block";
+
+    const fileNameEl = document.getElementById("aiFileName");
+    if (fileNameEl) fileNameEl.textContent = file.name;
+  };
+
+  reader.onerror = () => {
+    alert("⚠️ Nepodařilo se přečíst soubor.");
+  };
+
+  reader.readAsDataURL(file);
+};
+
 window.clearImage = function () {
+  window.currentImageBase64 = null;
+  window.currentImageMimeType = null;
+
   const input = document.getElementById("aiImageInput");
-  if (input) {
-    input.value = "";
-  }
+  if (input) input.value = "";
+
   const preview = document.getElementById("aiImagePreview");
-  if (preview) {
-    preview.style.display = "none";
-    preview.src = "";
-  }
+  if (preview) preview.style.display = "none";
+
+  const fileNameEl = document.getElementById("aiFileName");
+  if (fileNameEl) fileNameEl.textContent = "";
 };
 
 window.clearChat = function () {
-  const chatWindow = document.getElementById("chatWindow");
-  if (chatWindow) {
-    chatWindow.innerHTML = "";
+  const container = document.getElementById("aiChatHistory");
+  if (container) {
+    const messages = container.querySelectorAll(".chat-msg");
+    messages.forEach(msg => msg.remove());
   }
 };
 
@@ -302,64 +344,120 @@ window.toggleAiPanel = function (open) {
   }
 };
 
+// ===== RETRY WITH BACKOFF (Pro API chyby) =====
+window.retryWithBackoff = async function (apiCall, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const startTime = Date.now();
+      const result = await apiCall();
+      const latency = Date.now() - startTime;
+      console.log(`✅ API call successful in ${latency}ms`);
+      return result;
+    } catch (err) {
+      const isRateLimit =
+        err.message?.includes("429") ||
+        err.message?.includes("quota") ||
+        err.message?.includes("RESOURCE_EXHAUSTED");
+
+      if (isRateLimit && attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        console.log(`⏳ Rate limit hit, retrying in ${delay / 1000}s...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+
+      throw err;
+    }
+  }
+};
+
+// ===== AI MEMORY: Learn from patterns =====
+const AI_MEMORY_KEY = "soustruznik_ai_memory";
+
+window.getAIMemoryContext = function () {
+  try {
+    const memory = JSON.parse(localStorage.getItem(AI_MEMORY_KEY) || "{}");
+    const commands = memory.commands || [];
+    const patterns = memory.successfulPatterns || [];
+
+    const context = [];
+    if (commands.length > 0) {
+      context.push(`📌 Naposledy používané příkazy: ${commands.slice(-3).map(c => c.text).join(", ")}`);
+    }
+    if (patterns.length > 0) {
+      context.push(`✅ Úspěšné vzory: ${patterns.slice(-2).map(p => p.input).join(", ")}`);
+    }
+
+    return context.join("\n");
+  } catch (e) {
+    return "";
+  }
+};
+
+window.recordAISuccess = function (prompt, shapes) {
+  try {
+    const memory = JSON.parse(localStorage.getItem(AI_MEMORY_KEY) || "{}");
+
+    if (!memory.successfulPatterns) memory.successfulPatterns = [];
+    memory.successfulPatterns.push({
+      input: prompt.toLowerCase().substring(0, 50),
+      shapeCount: shapes.length,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (memory.successfulPatterns.length > 50) {
+      memory.successfulPatterns = memory.successfulPatterns.slice(-50);
+    }
+
+    localStorage.setItem(AI_MEMORY_KEY, JSON.stringify(memory));
+    console.log("🎓 AI learned from success:", { prompt: prompt.substring(0, 30), shapes: shapes.length });
+  } catch (e) {
+    console.warn("Could not save AI memory:", e);
+  }
+};
+
+// ===== MAIN AI CALL =====
 window.callGemini = async function () {
   const promptInput = document.getElementById("aiPrompt");
-  if (!promptInput) {
-    return;
-  }
+  const container = document.getElementById("aiChatHistory");
+  if (!promptInput || !container) return;
 
-  const userPrompt = promptInput.value.trim();
-  if (!userPrompt) {
+  const prompt = promptInput.value.trim();
+  if (!prompt) {
     alert("Zadej prosím příkaz pro AI!");
     return;
   }
 
   if (window.processingAI) {
-    alert("AI zpracovává předchozí příkaz. Čekej prosím...");
+    alert("AI zpracovává předchozí příkaz...");
     return;
   }
+
   window.processingAI = true;
   promptInput.disabled = true;
-  const btn = document.getElementById("btnSendAi");
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "⏳ Zpracovávám...";
-  }
 
-  const chatWindow = document.getElementById("chatWindow");
-  if (chatWindow) {
-    const userMsg = document.createElement("div");
-    userMsg.className = "message user-message";
-    userMsg.innerHTML = `<strong>Ty:</strong> ${escapeHtml(userPrompt)}`;
-    chatWindow.appendChild(userMsg);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-  }
-
-  const apiKey = window.getCurrentApiKey ? window.getCurrentApiKey() : null;
-
-  if (!apiKey) {
-    const errorMsg = "❌ Chyba: Nemáte nastaveného API klíč!";
-    if (chatWindow) {
-      const msg = document.createElement("div");
-      msg.className = "message ai-message error";
-      msg.innerHTML = `<strong>Gemini:</strong> ${errorMsg}`;
-      chatWindow.appendChild(msg);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
-
-    processingAI = false;
-    promptInput.disabled = false;
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "Poslat AI ✨";
-    }
-    promptInput.value = "";
-    alert("❌ Připrav si API klíč Gemini!");
-    return;
-  }
+  // Add loading indicator
+  const loadingDiv = document.createElement("div");
+  loadingDiv.style.cssText = "text-align: center; color: #666; padding: 12px; font-size: 12px;";
+  loadingDiv.innerHTML = '<div class="loading-dots"><div></div><div></div><div></div></div> Čekám na odpověď...';
+  container.appendChild(loadingDiv);
+  container.scrollTop = container.scrollHeight;
 
   try {
-    const contextInfo = window.buildDrawingContext ? window.buildDrawingContext() : "";
+    const apiKey = window.getCurrentApiKey ? window.getCurrentApiKey() : null;
+    if (!apiKey) {
+      throw new Error("Nemáte API klíč. Otevřete ⚙️ Nastavení.");
+    }
+
+    // Build full system prompt with all critical instructions
+    const modeIndicator = window.mode ? `Current mode: ${window.mode}` : "";
+    const xMeasureMode = window.xMeasureMode || "diameter";
+    const modeExplanation =
+      xMeasureMode === "diameter"
+        ? "X values in context are shown as DIAMETER (user sees X=100 for ⌀100). Create shapes with these exact values - conversion is automatic."
+        : "X values in context are shown as RADIUS (user sees X=50 for R50). Create shapes with these exact values.";
+
+    const learningContext = window.getAIMemoryContext ? window.getAIMemoryContext() : "";
 
     const systemPrompt = `CAD Assistant for CNC Lathe/Mill operations (Czech language).
 
@@ -368,6 +466,9 @@ Z-axis (horizontal/→) = JSON 'x' property
 X-axis (vertical/↑) = JSON 'y' property
 Origin: (0,0) center
 Report coords as: "Z=[x] X=[y]"
+
+🔧 CURRENT MODE: ${modeIndicator}
+${modeExplanation}
 
 ANGLES (Standard Unit Circle):
 0°=RIGHT(+Z), 90°=UP(+X), 180°=LEFT(-Z), 270°=DOWN(-X)
@@ -385,6 +486,12 @@ CNC SYNTAX PARSING:
 Examples:
 "X80Z56R52" → Circle at (Z=56,X=80) with radius 52
 "X50Z56AP0RP120" → Line from (Z=56,X=50) at angle 0° length 120mm
+  → End point: Z=56+120*cos(0°)=176, X=50+120*sin(0°)=50
+  → {"type":"line","x1":56,"y1":50,"x2":176,"y2":50}
+
+"X80Z56R52;X50Z56AP0RP120" → Circle + Line:
+  - Circle: center (56,80), R=52
+  - Line: from (56,50) angle 0° length 120 → to (176,50)
 
 IMPORTANT FOR POLAR LINES:
 When user says "úsečka OD STŘEDU kružnice" or "line FROM CENTER of circle":
@@ -394,144 +501,218 @@ When user says "úsečka OD STŘEDU kružnice" or "line FROM CENTER of circle":
   * x2 = x1 + length*cos(angle_degrees * π/180)
   * y2 = y1 + length*sin(angle_degrees * π/180)
 
-CRITICAL RULES:
-1. Parse CNC syntax: AP=angle, RP=polar_length
-2. For polar coords: calculate endpoint using angle and length
-3. NEVER hallucinate coords - use provided data or ask
-4. Support Czech terms: úsečka=line, kružnice=circle, střed=center
+- Example 1: Center Z=100,X=100 + line angle 0° length 120mm
+  → x2 = 100 + 120*cos(0°) = 100 + 120*1 = 220
+  → y2 = 100 + 120*sin(0°) = 100 + 120*0 = 100
+  → Line: {"type":"line","x1":100,"y1":100,"x2":220,"y2":100}
 
-RESPONSE FORMAT (strict JSON):
-{"response_text":"Brief Czech confirmation","shapes":[...]}
+- Example 2: Center Z=96,X=78 + line angle 5° length 250mm
+  → x2 = 96 + 250*cos(5°) = 96 + 250*0.9962 = 345
+  → y2 = 78 + 250*sin(5°) = 78 + 250*0.0872 = 100
+  → Line: {"type":"line","x1":96,"y1":78,"x2":345,"y2":100}
+
+⚠️ CRITICAL RULES FOR LINES:
+1. ALWAYS calculate BOTH x2 AND y2 using the angle and length
+2. DO NOT provide only y2 without x2 - both must be present
+3. Use the FULL formulas:
+   - x2 = x1 + length*cos(angle_in_radians)
+   - y2 = y1 + length*sin(angle_in_radians)
+4. Even if you're unsure about x, always provide calculated x2
+5. A line with x1==x2 AND y1==y2 is invisible (zero length)!
+
+RESPONSE FORMAT (strict JSON only):
+{"response_text":"Brief Czech confirmation <50 chars","shapes":[...]}
 
 SHAPE TYPES:
 Line: {"type":"line","x1":z1,"y1":x1,"x2":z2,"y2":x2}
 Circle: {"type":"circle","cx":z,"cy":x,"r":radius}
-Point: {"type":"point","x":z,"y":x}`;
+Point: {"type":"point","x":z,"y":x}
+
+${learningContext}`;
+
+    const contextInfo = window.buildDrawingContext ? window.buildDrawingContext() : "Prázdné kreslení";
 
     const fullPrompt = `${systemPrompt}
 
 Aktuální kreslení:
 ${contextInfo}
 
-Uživatel: ${userPrompt}
+Uživatel: ${prompt}`;
 
-Odpověz česky, stručně a prakticky. Pokud mám nakreslit něco - vrať JSON s shapes.`;
-
+    // Call API with retry
+    const startTime = performance.now();
     const response = await window.retryWithBackoff(async () => {
-      const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1024,
-          },
-        }),
-      });
+      const resp = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: fullPrompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2048,
+            },
+          }),
+        }
+      );
 
       if (!resp.ok) {
         const error = await resp.json().catch(() => ({}));
-        throw new Error(
-          error.error?.message || `HTTP ${resp.status}: ${resp.statusText}`
-        );
+        throw new Error(error.error?.message || `HTTP ${resp.status}`);
       }
 
       return await resp.json();
     }, 3);
 
-    let aiResponse = "";
+    const apiTime = performance.now() - startTime;
+    console.log(`⏱️ API response in ${(apiTime / 1000).toFixed(1)}s`);
 
-    if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
-      aiResponse = response.candidates[0].content.parts[0].text;
+    if (container.contains(loadingDiv)) container.removeChild(loadingDiv);
+
+    // Parse response
+    let aiResponseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    if (!aiResponseText) {
+      throw new Error("AI nevrátila text");
+    }
+
+    console.log("AI Response (raw):", aiResponseText.substring(0, 200));
+
+    // Aggressive JSON cleaning
+    let cleanedJson = aiResponseText
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/g, "");
+
+    const firstBrace = cleanedJson.indexOf("{");
+    const lastBrace = cleanedJson.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleanedJson = cleanedJson.substring(firstBrace, lastBrace + 1);
+    }
+
+    // Fix incomplete JSON
+    const openBraces = (cleanedJson.match(/\{/g) || []).length;
+    const closeBraces = (cleanedJson.match(/\}/g) || []).length;
+    const openBrackets = (cleanedJson.match(/\[/g) || []).length;
+    const closeBrackets = (cleanedJson.match(/\]/g) || []).length;
+
+    if (openBrackets > closeBrackets) {
+      cleanedJson += "]".repeat(openBrackets - closeBrackets);
+    }
+    if (openBraces > closeBraces) {
+      cleanedJson += "}".repeat(openBraces - closeBraces);
+    }
+
+    // Fix missing x2
+    cleanedJson = cleanedJson.replace(
+      /\{"type":"line","x1":([^,]+),"y1":([^,]+),"y2":([^}]+)\}/g,
+      '{"type":"line","x1":$1,"y1":$2,"x2":$1,"y2":$3}'
+    );
+
+    // Shorten long numbers
+    cleanedJson = cleanedJson.replace(/(\d+\.\d{6})\d{4,}/g, "$1");
+    cleanedJson = cleanedJson.replace(/,\s*([}\]])/g, "$1");
+
+    let result;
+    try {
+      result = JSON.parse(cleanedJson);
+    } catch (e) {
+      console.error("JSON Parse Error:", e);
+      throw new Error("Nevalidní JSON odpověď");
+    }
+
+    const replyText = result.response_text || "Hotovo.";
+    const newShapes = result.shapes || [];
+
+    console.log("Parsed result:", { replyText, shapeCount: newShapes.length });
+
+    // Add shapes to canvas
+    if (Array.isArray(newShapes) && newShapes.length > 0) {
+      const convertY = (y) => (xMeasureMode === "diameter" ? y / 2 : y);
+
+      newShapes.forEach((s) => {
+        try {
+          if (
+            s.type === "line" &&
+            typeof s.x1 === "number" &&
+            typeof s.y1 === "number" &&
+            typeof s.x2 === "number" &&
+            typeof s.y2 === "number"
+          ) {
+            window.shapes.push({
+              type: "line",
+              x1: s.x1,
+              y1: convertY(s.y1),
+              x2: s.x2,
+              y2: convertY(s.y2),
+            });
+          } else if (
+            s.type === "circle" &&
+            typeof s.cx === "number" &&
+            typeof s.cy === "number" &&
+            typeof s.r === "number" &&
+            s.r > 0
+          ) {
+            window.shapes.push({
+              type: "circle",
+              cx: s.cx,
+              cy: convertY(s.cy),
+              r: s.r,
+            });
+          } else if (
+            s.type === "point" &&
+            typeof s.x === "number" &&
+            typeof s.y === "number"
+          ) {
+            window.points.push({ x: s.x, y: convertY(s.y) });
+          }
+        } catch (e) {
+          console.error("Error adding shape:", e);
+        }
+      });
+
+      if (window.updateSnapPoints) window.updateSnapPoints();
+      if (window.draw) window.draw();
+
+      // Learn from success
+      window.recordAISuccess(prompt, newShapes);
+    }
+
+    // Add to chat
+    const msgDiv = document.createElement("div");
+    msgDiv.className = "chat-msg model";
+    if (newShapes.length > 0) {
+      msgDiv.innerHTML = `<span class="shape-tag">✏️ +${newShapes.length} tvarů</span><br>${escapeHtml(replyText)}`;
     } else {
-      aiResponse = "❌ Neplatná odpověď od API";
+      msgDiv.innerHTML = escapeHtml(replyText);
     }
-
-    if (chatWindow) {
-      const msg = document.createElement("div");
-      msg.className = "message ai-message";
-      msg.innerHTML = `<strong>Gemini:</strong> <p>${escapeHtml(aiResponse)
-        .replace(/\n/g, "<br>")
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/_(.*?)_/g, "<em>$1</em>")}</p>`;
-      chatWindow.appendChild(msg);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
-
-    if (window.recordCommand) {
-      window.recordCommand(userPrompt, aiResponse);
-    }
-
-    window.chatHistory.push({
-      user: userPrompt,
-      ai: aiResponse,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Uložit chat historii do localStorage
-    if (window.saveChatHistory) {
-      window.saveChatHistory();
-    }
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
 
     promptInput.value = "";
+    window.clearImage?.();
 
-    if (window.updateAiStats) {
-      window.updateAiStats();
-    }
-  } catch (error) {
-    let errorMessage = "❌ Chyba komunikace s API";
-    let shouldRetry = false;
+  } catch (err) {
+    console.error("callGemini error:", err);
 
-    if (error.message.includes("429")) {
-      errorMessage =
-        "⚠️ Příliš mnoho požadavků. Přepínám na další API klíč...";
+    if (container.contains(loadingDiv)) container.removeChild(loadingDiv);
 
-      // Automatické přepnutí na další klíč
-      if (window.switchToNextApiKey && window.switchToNextApiKey()) {
-        errorMessage += " ✅ Klíč přepnut. Znovu odesílám zprávu...";
-        shouldRetry = true;
-      } else {
-        errorMessage += " ⚠️ Další klíč není dostupný. Čekej prosím 60 sekund...";
-      }
-    } else if (error.message.includes("401")) {
-      errorMessage = "❌ Neplatný API klíč!";
-    } else if (error.message.includes("403")) {
-      errorMessage = "❌ API klíč nemá dovolené práva!";
-    } else {
-      errorMessage = `❌ Chyba: ${error.message}`;
+    const errorDiv = document.createElement("div");
+    errorDiv.className = "chat-msg model";
+    errorDiv.style.color = "#ff6b6b";
+
+    let errorMsg = "❌ " + (err.message || "Neznámá chyba");
+    if (err.message.includes("API klíč")) {
+      errorMsg += "\n\n💡 Otevři ⚙️ Nastavení a vlož API klíč.";
     }
 
-    if (chatWindow) {
-      const msg = document.createElement("div");
-      msg.className = "message ai-message error";
-      msg.innerHTML = `<strong>Gemini:</strong> ${errorMessage}`;
-      chatWindow.appendChild(msg);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
+    errorDiv.textContent = errorMsg;
+    container.appendChild(errorDiv);
+    container.scrollTop = container.scrollHeight;
 
-    if (!shouldRetry) {
-      alert(errorMessage);
-    }
-
+    alert(errorMsg);
+  } finally {
     window.processingAI = false;
     promptInput.disabled = false;
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "Poslat AI ✨";
-    }
-
-    // Pokud byl klíč přepnut, znovu odešli stejnou zprávu
-    if (shouldRetry) {
-      promptInput.value = userPrompt;
-      setTimeout(() => {
-        if (window.callGemini) {
-          window.callGemini();
-        }
-      }, 1500); // Čekej 1.5 sekundy před opakováním
-    }
   }
 };
 
@@ -720,6 +901,48 @@ document.addEventListener("DOMContentLoaded", function () {
   // Event listener removed - using inline onclick="window.showToolCategory('ai')" instead
   // (Was causing double-invocation: onclick + event listener)
 });
+
+// ===== HELPER: HTML escaping =====
+function escapeHtml(text) {
+  const map = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  };
+  return String(text || "").replace(/[&<>"']/g, (m) => map[m]);
+}
+
+// ===== HELPER: Build drawing context =====
+window.buildDrawingContext = function () {
+  const shapes = window.shapes || [];
+  const points = window.points || [];
+  let context = "";
+
+  if (points.length > 0) {
+    context += `🔹 BODY (${points.length}):\n`;
+    points.forEach((p, i) => {
+      context += `  ${i + 1}. [${p.x.toFixed(1)}, ${p.y.toFixed(1)}]\n`;
+    });
+  }
+
+  if (shapes.length > 0) {
+    context += `\n📐 OBJEKTY (${shapes.length}):\n`;
+    shapes.forEach((s, i) => {
+      if (s.type === "line") {
+        const len = Math.sqrt((s.x2 - s.x1) ** 2 + (s.y2 - s.y1) ** 2).toFixed(1);
+        context += `  ${i + 1}. Čára: [${s.x1.toFixed(1)},${s.y1.toFixed(1)}] → [${s.x2.toFixed(1)},${s.y2.toFixed(1)}] (délka: ${len})\n`;
+      } else if (s.type === "circle") {
+        context += `  ${i + 1}. Kružnice: střed [${s.cx.toFixed(1)},${s.cy.toFixed(1)}], r=${s.r.toFixed(1)}\n`;
+      } else if (s.type === "arc") {
+        context += `  ${i + 1}. Oblouk: [${s.x1.toFixed(1)},${s.y1.toFixed(1)}] → [${s.x2.toFixed(1)},${s.y2.toFixed(1)}], úhel=${(s.angle || 0).toFixed(1)}°\n`;
+      }
+    });
+  }
+
+  return context || "Prázdné kreslení - zatím nic";
+};
 
 // ===== EXPORT =====
 if (typeof module !== "undefined" && module.exports) {

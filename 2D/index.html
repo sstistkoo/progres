@@ -43,6 +43,7 @@
     <script src="drawing.js"></script>
     <script src="canvas.js"></script>
     <script src="ui.js"></script>
+    <script src="controller.js"></script>
     <script src="ai.js"></script>
     <script src="init.js"></script>
   </head>
@@ -1768,8 +1769,68 @@
         </div>
       </div>
     </div>
-    <div id="directionModal" class="modal-overlay"></div>
-    <div id="controllerHelpModal" class="modal-overlay"></div>
+    <div id="directionModal" class="modal-overlay" style="display: none">
+      <div class="modal-window" style="max-width: 350px">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px">
+          <h2 style="color: #6ab0ff; font-size: 18px; margin: 0">🧭 Směrové kreslení</h2>
+          <button onclick="window.closeDirectionModal()" style="background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer">&times;</button>
+        </div>
+
+        <p style="color: #aaa; font-size: 12px; margin-bottom: 15px">Klikni na šipku, automaticky se vloží příkaz do zadání:</p>
+
+        <!-- Direction Pad (8-way) -->
+        <div style="display: grid; grid-template-columns: repeat(3, 80px); grid-template-rows: repeat(3, 80px); gap: 5px; justify-content: center">
+          <!-- Row 1: ↖ ↑ ↗ -->
+          <button onclick="window.insertDirectionCommand('NW')" title="Šikmo vlevo nahoru (↖)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↖</button>
+          <button onclick="window.insertDirectionCommand('N')" title="Nahoru (↑)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↑</button>
+          <button onclick="window.insertDirectionCommand('NE')" title="Šikmo vpravo nahoru (↗)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↗</button>
+
+          <!-- Row 2: ← · → -->
+          <button onclick="window.insertDirectionCommand('W')" title="Doleva (←)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">←</button>
+          <div style="display: flex; align-items: center; justify-content: center; background: #1a1a1a; border-radius: 8px; color: #666; font-size: 36px">●</div>
+          <button onclick="window.insertDirectionCommand('E')" title="Doprava (→)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">→</button>
+
+          <!-- Row 3: ↙ ↓ ↘ -->
+          <button onclick="window.insertDirectionCommand('SW')" title="Šikmo vlevo dolů (↙)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↙</button>
+          <button onclick="window.insertDirectionCommand('S')" title="Dolů (↓)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↓</button>
+          <button onclick="window.insertDirectionCommand('SE')" title="Šikmo vpravo dolů (↘)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↘</button>
+        </div>
+
+        <div style="margin-top: 15px; text-align: center">
+          <button onclick="window.closeDirectionModal()" style="padding: 8px 16px; background: #3a7bc8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px">Zavřít</button>
+        </div>
+      </div>
+    </div>
+    <div id="controllerHelpModal" class="modal-overlay" style="display: none">
+      <div class="modal-window" style="max-width: 650px; max-height: 80vh; overflow-y: auto">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px">
+          <h2 style="color: #6ab0ff; font-size: 18px; margin: 0">❓ Nápověda - Ovladač</h2>
+          <button onclick="window.closeControllerHelp()" style="background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer">&times;</button>
+        </div>
+
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; font-size: 12px; color: #ccc">
+          <h3 style="color: #90cdf4; margin-top: 0">📐 Základní příkazy</h3>
+          <div style="background: #222; padding: 10px; border-radius: 4px; margin-bottom: 10px">
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">X80 Z120</code> - Bod na souřadnicích X=80, Z=120</div>
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">G1 X100 Z200</code> - Čára do bodu X=100, Z=200</div>
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">G0 X50</code> - Skok (bez čáry) na X=50</div>
+          </div>
+
+          <h3 style="color: #90cdf4">⭕ Kružnice a oblouky</h3>
+          <div style="background: #222; padding: 10px; border-radius: 4px; margin-bottom: 10px">
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">R50</code> - Kružnice s poloměrem 50mm</div>
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">CR30</code> - Kružnice s minimálním poloměrem</div>
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">G2 X100 Z150 R25</code> - Oblouk CW</div>
+          </div>
+
+          <h3 style="color: #90cdf4">📏 Polární souřadnice</h3>
+          <div style="background: #222; padding: 10px; border-radius: 4px">
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">AP0 RP120</code> - Čára úhel 0°, délka 120mm</div>
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">L50 A90</code> - Délka 50, úhel 90°</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- QUICK INPUT MODAL - Klávesnice pro CNC příkazy -->
     <div id="quickInputModal" class="modal-overlay" style="display: none">
