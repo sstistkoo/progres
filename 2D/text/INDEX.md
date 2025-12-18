@@ -57,7 +57,7 @@ init.js (200 řádků)
 controller.js (620 řádků)
     ↓
 ai.js (956 řádků)
-    
+
 keyboard.js (350+ řádků) ← NOVÝ MODUL (Unifikované handlery)
 ```
 
@@ -315,7 +315,7 @@ A: V `text/` folder a v kořenovém adresáři (toto INDEX.md)
 
 ---
 
-**Poslední aktualizace:** Keyboard refactoring (commit 31ab2cb)  
-**Status:** ✅ Ready for Production  
-**Testy:** ✅ 57/57 passing  
+**Poslední aktualizace:** Keyboard refactoring (commit 31ab2cb)
+**Status:** ✅ Ready for Production
+**Testy:** ✅ 57/57 passing
 **Contributors:** Soustružník AI Development Team
