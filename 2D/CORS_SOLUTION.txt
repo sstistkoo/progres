@@ -1,0 +1,114 @@
+🚨 CORS CHYBA - Řešení
+
+Pokud vidíš chybu:
+```
+Failed to load resource: net::ERR_FAILED
+Access to script at 'file:///...' blocked by CORS policy
+```
+
+PŘÍČINA:
+  Aplikace se otevírá přes "file://" protokol
+  Moderní prohlížeče blokují skriptů z file:// z bezpečnostních důvodů
+
+ŘEŠENÍ - Použij HTTP server:
+
+═════════════════════════════════════════════════════
+
+🔹 METODA 1: VS Code Live Server (nejjednoduší)
+
+1. Instalace:
+   Extensions → Vyhledej "Live Server" → Instaluj
+
+2. Spuštění:
+   - Pravý klik na index.html
+   - "Open with Live Server"
+
+3. Automaticky se otevře: http://localhost:5500/
+
+✅ HOTOVO! Aplikace bude fungovat!
+
+═════════════════════════════════════════════════════
+
+🔹 METODA 2: Python (bez instalací)
+
+1. Otevři Terminal/PowerShell:
+   ```bash
+   cd C:\Users\stistko\CascadeProjects\test_base\2D
+   python -m http.server 8000
+   ```
+
+2. Otevři: http://localhost:8000
+
+✅ HOTOVO! Aplikace bude fungovat!
+
+═════════════════════════════════════════════════════
+
+🔹 METODA 3: Node.js (http-server)
+
+1. Instalace:
+   ```bash
+   npm install -g http-server
+   ```
+
+2. Spuštění:
+   ```bash
+   cd C:\Users\stistko\CascadeProjects\test_base\2D
+   http-server
+   ```
+
+3. Otevři: http://localhost:8080
+
+✅ HOTOVO! Aplikace bude fungovat!
+
+═════════════════════════════════════════════════════
+
+🔹 METODA 4: PHP (pokud máš PHP)
+
+1. Spuštění:
+   ```bash
+   cd C:\Users\stistko\CascadeProjects\test_base\2D
+   php -S localhost:8000
+   ```
+
+2. Otevři: http://localhost:8000
+
+✅ HOTOVO! Aplikace bude fungovat!
+
+═════════════════════════════════════════════════════
+
+🎯 JAKOU METODU VYBRAT?
+
+- 👍 METODA 1 (VS Code) - Nejjednoduší, doporučuji!
+- 👍 METODA 2 (Python) - Python je na Windowsu přednastaven
+- 👍 METODA 3 (Node) - Jestli už máš Node.js
+- 👍 METODA 4 (PHP) - Poslední možnost
+
+═════════════════════════════════════════════════════
+
+✅ PO SPUŠTĚNÍ:
+
+1. Aplikace se otevře v prohlížeči
+2. Měl bys vidět: "✅ Globals initialized"
+3. V DevTools Console by neměly být chyby
+4. Canvas by měl fungovat
+5. Zkus stisknutí [1] a nakreslit čáru
+
+═════════════════════════════════════════════════════
+
+🆘 STÁLE CHYBA?
+
+1. Zkontroluj DevTools (F12) → Console
+2. Mělo by tam být: "✅ Globals initialized"
+3. Jestli tam není, obnoví si stránku (Ctrl+R)
+4. Zkus CTRL+Shift+Delete a vymaž cache
+
+═════════════════════════════════════════════════════
+
+📌 DOPORUČUJI METODU 1 (Live Server):
+
+1. VS Code → Extensions
+2. Vyhledej "Live Server"
+3. Instaluj (autor: Ritwick Dey)
+4. Pravý klik na index.html
+5. "Open with Live Server"
+6. HOTOVO! 🎉
