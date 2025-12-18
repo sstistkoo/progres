@@ -131,6 +131,6 @@ git push
 
 ---
 
-**Vytvořeno:** Unifikace keyboard handlerů z 4 modulů do jednoho  
-**Status:** ✅ Aktivní, 57/57 testy prošly  
+**Vytvořeno:** Unifikace keyboard handlerů z 4 modulů do jednoho
+**Status:** ✅ Aktivní, 57/57 testy prošly
 **Poslední aktualizace:** Refactoring commit 385ae55

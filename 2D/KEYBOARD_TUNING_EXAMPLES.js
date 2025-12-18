@@ -236,11 +236,11 @@ V keyboardConfig:
 V handleGlobalKeyDown:
 
   const keyMatches = event.key === shortcut.key;
-  const ctrlMatches = (shortcut.ctrl === undefined || 
+  const ctrlMatches = (shortcut.ctrl === undefined ||
                       shortcut.ctrl === (event.ctrlKey || event.metaKey));
                       ↑ Tohle kombinuje Ctrl i Meta!
 
-Efekt: 
+Efekt:
   - Windows: Ctrl+N funguje
   - Mac: Cmd+N funguje
   - Oba se nakonfigurují jednou!
@@ -265,7 +265,7 @@ Nyní upravit na (keyboard.js, handleGlobalKeyDown, řádka ~280):
       e.preventDefault();
       return;
     }
-    
+
     // 2. Zavřít AI panel (pokud existuje)
     const aiPanel = document.getElementById("aiPanel");
     if (aiPanel && aiPanel.style.display === "flex") {
@@ -273,7 +273,7 @@ Nyní upravit na (keyboard.js, handleGlobalKeyDown, řádka ~280):
       e.preventDefault();
       return;
     }
-    
+
     // 3. Clear drawing mode
     if (window.clearMode) window.clearMode();
     e.preventDefault();

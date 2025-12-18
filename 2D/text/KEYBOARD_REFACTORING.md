@@ -80,9 +80,9 @@ window.getAllShortcuts()        // Vrátí všechny shortcuts pro Help UI
 
 ```javascript
 // V keyboard.js, řádek ~32:
-window.keyboardConfig.file.new = { 
-  key: "n", 
-  ctrl: true, 
+window.keyboardConfig.file.new = {
+  key: "n",
+  ctrl: true,
   alt: true      // ← Přidáno
 };
 ```
@@ -91,10 +91,10 @@ window.keyboardConfig.file.new = {
 
 ```javascript
 // V keyboard.js, řádek ~55:
-window.keyboardConfig.file.layer = { 
-  key: "l", 
-  ctrl: true, 
-  shift: true 
+window.keyboardConfig.file.layer = {
+  key: "l",
+  ctrl: true,
+  shift: true
 };
 
 // V keyboard.js, handleGlobalKeyDown, řádka ~280:
