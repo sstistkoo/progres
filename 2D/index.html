@@ -999,6 +999,64 @@
               <span style="font-size: 20px">📏✨</span>
               <div style="font-size: 10px; margin-top: 2px">Okotovat vše</div>
             </button>
+
+            <!-- Transformace -->
+            <button
+              class="tool-btn"
+              onclick="window.setMode('align')"
+              title="Zarovnat a posunout"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">⚖️</span>
+              <div style="font-size: 10px; margin-top: 2px">Zarovnání</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('rotate')"
+              title="Otočit objekty"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">🔁</span>
+              <div style="font-size: 10px; margin-top: 2px">Rotace</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.showColorPicker()"
+              title="Změnit barvu"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">🎨</span>
+              <div style="font-size: 10px; margin-top: 2px">Barva</div>
+            </button>
+
+            <!-- Booleovské operace -->
+            <button
+              class="tool-btn"
+              onclick="window.booleanUnion()"
+              title="Sjednocení"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">∪</span>
+              <div style="font-size: 10px; margin-top: 2px">Sjednocení</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.booleanIntersect()"
+              title="Průnik"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">∩</span>
+              <div style="font-size: 10px; margin-top: 2px">Průnik</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.booleanDifference()"
+              title="Rozdíl"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">−</span>
+              <div style="font-size: 10px; margin-top: 2px">Rozdíl</div>
+            </button>
           </div>
         </div>
       </div>
@@ -1239,48 +1297,6 @@
             overflow-y: auto;
           "
         >
-          <!-- Transformace -->
-          <div style="margin-bottom: 8px">
-            <div style="padding: 8px 10px; background: #2a2a2a; border-radius: 6px">
-              <strong style="color: #6ab0ff; font-size: 13px">🔄 Transformace</strong>
-            </div>
-            <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap">
-              <button class="tool-btn" onclick="window.setMode('align')" style="margin: 0; flex: 1; min-width: 100px" title="Zarovnat a posunout">
-                <span style="font-size: 20px">⚖️</span>
-                <div style="font-size: 10px; margin-top: 2px">Zarovnání</div>
-              </button>
-              <button class="tool-btn" onclick="window.setMode('rotate')" style="margin: 0; flex: 1; min-width: 100px" title="Otočit objekty">
-                <span style="font-size: 20px">🔁</span>
-                <div style="font-size: 10px; margin-top: 2px">Rotace</div>
-              </button>
-              <button class="tool-btn" onclick="window.showColorPicker()" style="margin: 0; flex: 1; min-width: 100px" title="Změnit barvu">
-                <span style="font-size: 20px">🎨</span>
-                <div style="font-size: 10px; margin-top: 2px">Barva</div>
-              </button>
-            </div>
-          </div>
-
-          <!-- Boolean operace -->
-          <div style="margin-bottom: 8px">
-            <div style="padding: 8px 10px; background: #2a2a2a; border-radius: 6px">
-              <strong style="color: #6ab0ff; font-size: 13px">🔗 Booleovské operace</strong>
-            </div>
-            <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap">
-              <button class="tool-btn" onclick="window.booleanUnion()" style="margin: 0; flex: 1; min-width: 100px" title="Sjednocení">
-                <span style="font-size: 20px">∪</span>
-                <div style="font-size: 10px; margin-top: 2px">Sjednocení</div>
-              </button>
-              <button class="tool-btn" onclick="window.booleanIntersect()" style="margin: 0; flex: 1; min-width: 100px" title="Průnik">
-                <span style="font-size: 20px">∩</span>
-                <div style="font-size: 10px; margin-top: 2px">Průnik</div>
-              </button>
-              <button class="tool-btn" onclick="window.booleanDifference()" style="margin: 0; flex: 1; min-width: 100px" title="Rozdíl">
-                <span style="font-size: 20px">−</span>
-                <div style="font-size: 10px; margin-top: 2px">Rozdíl</div>
-              </button>
-            </div>
-          </div>
-
           <!-- Akce -->
           <div style="margin-bottom: 8px">
             <div style="padding: 8px 10px; background: #2a2a2a; border-radius: 6px">
@@ -1364,6 +1380,10 @@
               <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; margin-bottom: 8px">
                 <input type="checkbox" id="showPoints" checked onchange="window.draw()" style="width: 16px; height: 16px" />
                 <span>Body</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; margin-bottom: 8px">
+                <input type="checkbox" id="enableMeasureInput" onchange="window.toggleMeasureInput()" style="width: 16px; height: 16px" />
+                <span>Míra - zadání rozměrů</span>
               </label>
               <!-- Mřížka -->
               <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #333">

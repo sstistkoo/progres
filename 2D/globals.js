@@ -28,6 +28,7 @@ window.snapToGrid = false;
 window.snapToPoints = true;
 window.snapDistance = 15; // pixels
 window.orthoMode = true; // Ortogonální přichycení
+window.measureInputEnabled = false; // Míra - zadávání rozměrů
 
 // ===== DRAWING MODE & STATE =====
 window.mode = "pan"; // pan, line, circle, point, etc.

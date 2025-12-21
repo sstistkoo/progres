@@ -569,5 +569,71 @@ window.parseControllerInput = function (
   return null;
 };
 
+// ===== MEASURE INPUT (MÍRA) =====
+window.measureInputEnabled = false;
+
+window.toggleMeasureInput = function () {
+  const checkbox = document.getElementById("enableMeasureInput");
+  window.measureInputEnabled = checkbox ? checkbox.checked : false;
+};
+
+window.showMeasureInputDialog = function (shapeType) {
+  if (!window.measureInputEnabled) return null;
+
+  let title = "";
+  let prompt_text = "";
+  let defaultValue = "";
+
+  if (shapeType === "line") {
+    title = "Délka úsečky";
+    prompt_text = "Zadej délku úsečky (mm):";
+    defaultValue = "50";
+  } else if (shapeType === "circle") {
+    title = "Poloměr kružnice";
+    prompt_text = "Zadej poloměr kružnice (mm):";
+    defaultValue = "25";
+  } else if (shapeType === "rectangle") {
+    title = "Rozměry obdélníku";
+    prompt_text = "Zadej šířku a výšku (oddělené mezerou):\nPř: 100 50";
+    defaultValue = "100 50";
+  }
+
+  const result = prompt(prompt_text, defaultValue);
+
+  if (result === null) return null; // User cancelled
+
+  return {
+    shapeType: shapeType,
+    value: result.trim(),
+    title: title
+  };
+};
+
+window.processMeasureInput = function (measureData) {
+  if (!measureData || !measureData.value) return null;
+
+  const value = measureData.value;
+
+  if (measureData.shapeType === "line") {
+    const distance = parseFloat(value);
+    if (!isNaN(distance) && distance > 0) {
+      return { type: "line", distance: distance };
+    }
+  } else if (measureData.shapeType === "circle") {
+    const radius = parseFloat(value);
+    if (!isNaN(radius) && radius > 0) {
+      return { type: "circle", radius: radius };
+    }
+  } else if (measureData.shapeType === "rectangle") {
+    const parts = value.split(/[\s,]+/).map(p => parseFloat(p));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[0] > 0 && parts[1] > 0) {
+      return { type: "rectangle", width: parts[0], height: parts[1] };
+    }
+  }
+
+  alert("Neplatný vstup!");
+  return null;
+};
+
 // ✅ Keyboard events nyní spravuje unified keyboard.js
 // Controller funkce jsou volány z keyboard.js
