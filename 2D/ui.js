@@ -53,10 +53,26 @@ window.setMode = function (m) {
       btnAiSelect.style.background = "#7c3aed";
       btnAiSelect.style.borderColor = "#8b5cf6";
       btnAiSelect.style.color = "#fff";
+
+      // Schovat ostatní panely a zobrazit canvas když se vejde select mode
+      document.getElementById("toolsDrawing").style.display = "none";
+      document.getElementById("toolsEdit").style.display = "none";
+      document.getElementById("toolsCoords").style.display = "none";
+      document.getElementById("toolsOther").style.display = "none";
+      document.getElementById("toolsAi").style.display = "block";
     } else {
       btnAiSelect.style.background = "#333";
       btnAiSelect.style.borderColor = "#444";
       btnAiSelect.style.color = "#ccc";
+
+      // Zobrazit patřičný panel pro režim
+      if (m === "pan" || m === "line" || m === "circle" || m === "arc" || m === "point" || m === "trim" || m === "extend" || m === "tangent" || m === "perpendicular" || m === "parallel" || m === "offset" || m === "mirror" || m === "erase" || m === "measure" || m === "dimension") {
+        document.getElementById("toolsDrawing").style.display = "block";
+        document.getElementById("toolsEdit").style.display = "none";
+        document.getElementById("toolsCoords").style.display = "none";
+        document.getElementById("toolsOther").style.display = "none";
+        document.getElementById("toolsAi").style.display = "none";
+      }
     }
   }
 

@@ -70,7 +70,7 @@ function updateSnapPoints() {
   }
 }
 
-function snapPoint(pt) {
+function snapPointInternal(pt) {
   let snapped = { ...pt };
   let snapInfo = null;
 
@@ -139,23 +139,109 @@ function draw() {
   // Nakreslit tvary
   window.shapes.forEach((s) => drawShape(ctx, s, canvas));
 
-  // Nakreslit body
-  if (document.getElementById("showPoints")?.checked) {
+  // Nakreslit body - VŽDYCKY, ne jen když je zaškrtnut checkbox
+  if (window.cachedSnapPoints && window.cachedSnapPoints.length > 0) {
     window.cachedSnapPoints.forEach((p) => {
-      const sp = worldToScreen(p.x, p.y);
-      ctx.beginPath;
-
       if (p.type === "point") {
+        const sp = worldToScreen(p.x, p.y);
+        ctx.beginPath();
         ctx.fillStyle = "#ff4444";
         ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
-      } else if (p.type === "intersection") {
-        ctx.fillStyle = "#ffffff";
-        ctx.arc(sp.x, sp.y, 3, 0, Math.PI * 2);
-      } else {
-        ctx.fillStyle = "#a0a0a0";
-        ctx.arc(sp.x, sp.y, 3, 0, Math.PI * 2);
+        ctx.fill();
       }
-      ctx.fill();
+    });
+  }
+
+  // Nakreslit ostatní snap body (průsečíky, endpoints) - jen pokud je zaškrtnut
+  if (document.getElementById("showPoints")?.checked) {
+    window.cachedSnapPoints.forEach((p) => {
+      if (p.type !== "point") {
+        const sp = worldToScreen(p.x, p.y);
+        ctx.beginPath();
+
+        if (p.type === "intersection") {
+          ctx.fillStyle = "#ffffff";
+          ctx.arc(sp.x, sp.y, 3, 0, Math.PI * 2);
+        } else {
+          ctx.fillStyle = "#a0a0a0";
+          ctx.arc(sp.x, sp.y, 3, 0, Math.PI * 2);
+        }
+        ctx.fill();
+      }
+    });
+  }
+
+  // ===== KRESLENÍ VYBRANÝCH POLOŽEK =====
+  if (window.selectedItems && window.selectedItems.length > 0) {
+    window.selectedItems.forEach((item) => {
+      ctx.save();
+
+      if (item.category === "shape") {
+        const s = item.ref;
+
+        // Zvýraznění (magenta)
+        ctx.strokeStyle = "#ff66ff";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+
+        if (s.type === "line") {
+          const p1 = worldToScreen(s.x1, s.y1);
+          const p2 = worldToScreen(s.x2, s.y2);
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+        } else if (s.type === "circle") {
+          const c = worldToScreen(s.cx, s.cy);
+          ctx.arc(c.x, c.y, s.r * window.zoom, 0, Math.PI * 2);
+        }
+
+        ctx.stroke();
+
+        // Popisek s písmenem
+        if (item.label) {
+          const labelPos = s.type === "line"
+            ? worldToScreen((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2)
+            : worldToScreen(s.cx, s.cy);
+
+          // Pozadí (černé)
+          ctx.fillStyle = "#000000";
+          ctx.font = "bold 16px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          const textWidth = 20;
+          const textHeight = 20;
+          ctx.fillRect(labelPos.x - textWidth / 2, labelPos.y - 30 - textHeight / 2, textWidth, textHeight);
+
+          // Text (žlutý)
+          ctx.fillStyle = "#ffff00";
+          ctx.fillText(item.label, labelPos.x, labelPos.y - 30);
+        }
+      } else if (item.category === "point") {
+        const p = worldToScreen(item.x, item.y);
+
+        // Zvýraznění (magenta)
+        ctx.fillStyle = "#ff66ff";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Popisek s písmenem
+        if (item.label) {
+          // Pozadí (černé)
+          ctx.fillStyle = "#000000";
+          ctx.font = "bold 16px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          const textWidth = 20;
+          const textHeight = 20;
+          ctx.fillRect(p.x - textWidth / 2, p.y - 30 - textHeight / 2, textWidth, textHeight);
+
+          // Text (žlutý)
+          ctx.fillStyle = "#ffff00";
+          ctx.fillText(item.label, p.x, p.y - 30);
+        }
+      }
+
+      ctx.restore();
     });
   }
 }
@@ -382,6 +468,105 @@ function drawShape(ctx, s, canvas) {
     ctx.arc(p2.x, p2.y, 3, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  // ===== KÓTY (DIMENSIONS) =====
+  if (s.type === "dimension") {
+    ctx.strokeStyle = "#ffa500";
+    ctx.fillStyle = "#ffff99";
+    ctx.lineWidth = 1.5;
+    ctx.font = "bold 12px Arial";
+
+    if (s.dimType === "linear") {
+      const p1 = worldToScreen(s.x1, s.y1);
+      const p2 = worldToScreen(s.x2, s.y2);
+
+      const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+      const offsetDist = 25;
+      const offsetX = Math.cos(angle + Math.PI / 2) * offsetDist;
+      const offsetY = Math.sin(angle + Math.PI / 2) * offsetDist;
+
+      const dp1x = p1.x + offsetX;
+      const dp1y = p1.y + offsetY;
+      const dp2x = p2.x + offsetX;
+      const dp2y = p2.y + offsetY;
+
+      // Svislé čáry (čárkované)
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(dp1x, dp1y);
+      ctx.moveTo(p2.x, p2.y);
+      ctx.lineTo(dp2x, dp2y);
+      ctx.stroke();
+
+      // Hlavní čára
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(dp1x, dp1y);
+      ctx.lineTo(dp2x, dp2y);
+      ctx.stroke();
+
+      // Šipky
+      drawArrow(ctx, dp1x, dp1y, angle, 8);
+      drawArrow(ctx, dp2x, dp2y, angle + Math.PI, 8);
+
+      // Text
+      const textX = (dp1x + dp2x) / 2;
+      const textY = (dp1y + dp2y) / 2 - 10;
+      ctx.fillStyle = "#1a1a1a";
+      ctx.fillRect(textX - 25, textY - 12, 50, 16);
+      ctx.fillStyle = "#ffff99";
+      ctx.textAlign = "center";
+      if (s.value !== null && s.value !== undefined) {
+        ctx.fillText(`${s.value.toFixed(1)}`, textX, textY);
+      }
+      ctx.textAlign = "start";
+    } else if (s.dimType === "radius") {
+      const c = worldToScreen(s.cx, s.cy);
+      const angle = Math.PI / 4;
+      const r = s.r * zoom;
+      const ex = c.x + r * Math.cos(angle);
+      const ey = c.y + r * Math.sin(angle);
+
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+
+      drawArrow(ctx, ex, ey, angle, 8);
+
+      ctx.fillStyle = "#1a1a1a";
+      ctx.fillRect(ex + 10, ey - 12, 60, 16);
+      ctx.fillStyle = "#ffff99";
+      if (s.value !== null && s.value !== undefined) {
+        ctx.fillText(`${s.label}${s.value.toFixed(1)}`, ex + 15, ey);
+      }
+    } else if (s.dimType === "center") {
+      const c = worldToScreen(s.cx, s.cy);
+      const size = 8;
+
+      ctx.beginPath();
+      ctx.moveTo(c.x - size, c.y);
+      ctx.lineTo(c.x + size, c.y);
+      ctx.moveTo(c.x, c.y - size);
+      ctx.lineTo(c.x, c.y + size);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawArrow(ctx, x, y, angle, size) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-size, -size / 2);
+  ctx.lineTo(-size, size / 2);
+  ctx.closePath();
+  ctx.fillStyle = "#ffa500";
+  ctx.fill();
+  ctx.restore();
 }
 
 // ===== UNDO/REDO =====
@@ -491,6 +676,12 @@ window.aiRedo = redo;  // Alias for aiRedo
 window.saveState = saveState;
 window.updateSnap = updateSnap;
 window.updateSnapPoints = updateSnapPoints;
+window.screenToWorld = screenToWorld;
+window.worldToScreen = worldToScreen;
+window.snapPoint = function(x, y) {
+  const result = snapPointInternal({ x, y });
+  return result.point;
+};
 
 // ===== UTILITY FUNCTIONS =====
 
@@ -622,19 +813,16 @@ window.deleteAllDimensions = function () {
   const countBefore = window.shapes.filter((s) => s.type === "dimension").length;
 
   if (countBefore === 0) {
-    alert("❌ Nejsou žádné kóty k smazání!");
     return;
   }
 
-  if (confirm(`Opravdu smazat všech ${countBefore} kót(y)?`)) {
-    window.shapes = window.shapes.filter((s) => s.type !== "dimension");
+  window.shapes = window.shapes.filter((s) => s.type !== "dimension");
 
-    if (window.saveState) window.saveState();
-    if (window.updateSnapPoints) window.updateSnapPoints();
-    if (window.draw) window.draw();
+  if (window.saveState) window.saveState();
+  if (window.updateSnapPoints) window.updateSnapPoints();
+  if (window.draw) window.draw();
 
-    alert(`✅ Smazáno ${countBefore} kót(y)`);
-  }
+  console.log(`✅ Smazáno ${countBefore} kót(y)`);
 };
 
 window.dimensionAll = function () {
@@ -691,13 +879,13 @@ window.dimensionAll = function () {
   }
 
   if (countAdded === 0) {
-    alert("❌ Nejsou žádné čáry nebo kružnice k okótování!");
+    console.log("❌ Nejsou žádné čáry nebo kružnice k okótování!");
     return;
   }
 
   window.updateSnapPoints();
   window.draw();
-  alert(`✅ Přidáno ${countAdded} kót(y)`);
+  console.log(`✅ Přidáno ${countAdded} kót(y)`);
 };
 
 // ===== ARC TOOL =====
