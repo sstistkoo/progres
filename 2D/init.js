@@ -24,9 +24,7 @@ function initializeApp() {
 
   // Initialize API Key with demo if needed
   const keys = JSON.parse(localStorage.getItem("soustruznik_api_keys") || "[]");
-  console.log("[init] Stored keys from localStorage:", keys);
   if (keys.length === 0 && window.EMBEDDED_API_KEY) {
-    console.log("[init] Přidávám demo klíč. EMBEDDED_API_KEY:", window.EMBEDDED_API_KEY.substring(0, 20) + "...");
     // Add embedded demo key automatically
     keys.push({
       key: window.EMBEDDED_API_KEY,
@@ -34,7 +32,6 @@ function initializeApp() {
       active: true
     });
     localStorage.setItem("soustruznik_api_keys", JSON.stringify(keys));
-    console.log("[init] ✅ Demo klíč přidán a uložen do localStorage");
   }
 
   // Setup canvas resolution
@@ -76,8 +73,6 @@ function initializeApp() {
       autoSave();
     }
   }, 30000);
-
-  console.log("✅ Aplikace inicializována");
 }
 
 function startAnimationLoop() {
@@ -109,7 +104,6 @@ function loadAutoSave() {
           if (project.settings.panX !== undefined) window.panX = project.settings.panX;
           if (project.settings.panY !== undefined) window.panY = project.settings.panY;
         }
-        console.log("✅ AutoSave načten");
         if (window.updateSnapPoints) window.updateSnapPoints();
       }
     }

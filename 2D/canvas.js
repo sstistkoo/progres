@@ -34,7 +34,6 @@ function setupCanvasEvents() {
 // ===== MOUSE HANDLERS =====
 
 function onCanvasMouseDown(e) {
-  console.log("[onCanvasMouseDown] Klik na canvas, mode:", window.mode);
   if (!window.mode || !window.snapPoint) {
     console.error("[onCanvasMouseDown] ❌ mode nebo snapPoint chybí!", { mode: window.mode, snapPoint: !!window.snapPoint });
     return;
@@ -47,7 +46,6 @@ function onCanvasMouseDown(e) {
 
   const worldPt = window.screenToWorld(screenX, screenY);
   const snapped = window.snapPoint(worldPt.x, worldPt.y);
-  console.log("[onCanvasMouseDown] Snappeno:", { snapped, worldPt });
 
   if (e.button === 2) {
     // Pravé tlačítko = zrušit
@@ -312,16 +310,13 @@ function onCanvasTouchEnd(e) {
 // ===== MODE HANDLERS =====
 
 function handlePointMode(x, y) {
-  console.log("[handlePointMode] Přidávám bod", { x, y }, "window.points:", window.points);
   if (!window.points) {
     console.error("[handlePointMode] ❌ window.points neexistuje!");
     return;
   }
   window.points.push({ x, y, temp: false });
-  console.log("[handlePointMode] ✅ Bod přidán! Celkem bodů:", window.points.length);
   if (window.updateSnapPoints) {
     window.updateSnapPoints();
-    console.log("[handlePointMode] Snap body aktualizovány:", window.cachedSnapPoints.length);
   }
 }
 
@@ -422,13 +417,11 @@ function handleSelectMode(x, y, shiftKey) {
     if (index > -1) {
       // Už je vybraný - odeber ho když se klikne znovu
       window.selectedItems.splice(index, 1);
-      console.log("[handleSelectMode] ❌ Zrušen výběr");
     } else {
       // Přidej label
       const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       const label = labels[window.selectedItems.length % labels.length];
       window.selectedItems.push({ ...found, label });
-      console.log("[handleSelectMode] ✅ Vybrán/a:", found, "Label:", label);
     }
   }
 
@@ -856,7 +849,6 @@ function handleDimensionMode(x, y) {
 
   if (existingDim) {
     // Úprava existující kóty - BEZ PROMPTU, pouze se přidá nová kóta
-    console.log("[handleDimensionMode] Kliknutí na existující kótu - ignorováno");
     return;
   }
 
@@ -873,11 +865,8 @@ function handleDimensionMode(x, y) {
   });
 
   if (!shape) {
-    console.log("[handleDimensionMode] Žádný objekt k okótování");
     return;
   }
-
-  console.log("[handleDimensionMode] Okótuji objekt:", shape.type);
 
   if (shape.type === "line") {
     // Lineární kóta
@@ -897,8 +886,6 @@ function handleDimensionMode(x, y) {
       y2: shape.y2,
       color: "#ffa500",
     });
-
-    console.log("[handleDimensionMode] ✅ Lineární kóta přidána");
   } else if (shape.type === "circle") {
     // Radius kóta + center
     const displayR = window.xMeasureMode === "diameter" ? shape.r * 2 : shape.r;
@@ -924,7 +911,6 @@ function handleDimensionMode(x, y) {
       color: "#ffa500",
     });
 
-    console.log("[handleDimensionMode] ✅ Radius kóta a center přidány");
   }
 
   if (window.saveState) window.saveState();

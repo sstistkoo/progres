@@ -686,7 +686,6 @@ window.snapPoint = function(x, y) {
 // ===== UTILITY FUNCTIONS =====
 
 window.calculateIntersections = function () {
-  console.log("[calculateIntersections] Hledám průsečíky mezi tvary");
   const intersections = [];
 
   // Najdi průsečíky mezi všemi tvary
@@ -712,8 +711,6 @@ window.calculateIntersections = function () {
       }
     }
   }
-
-  console.log("[calculateIntersections] Nalezeno průsečíků:", intersections.length);
 
   // Přidej průsečíky jako body
   intersections.forEach(pt => {
@@ -753,18 +750,34 @@ window.showColorPicker = function () {
 };
 
 window.clearAll = function () {
-  console.log("[clearAll] Odstraňuji všechny tvary");
   if (confirm("Opravdu chceš vymazat všechny tvary?")) {
     window.shapes = [];
     window.points = [];
     window.selectedItems = [];
+
+    // Zapsat přímo PRÁZDNÝ projekt do localStorage (ne jen smazat)
+    try {
+      const emptyProject = {
+        version: "1.0",
+        date: new Date().toISOString(),
+        settings: {
+          zoom: window.zoom || 1,
+          panX: window.panX || 0,
+          panY: window.panY || 0,
+        },
+        shapes: [],
+        points: [],
+      };
+      localStorage.setItem('autosave_project', JSON.stringify(emptyProject));
+    } catch (e) {
+    }
+
     if (window.saveState) window.saveState();
     if (window.draw) window.draw();
   }
 };
 
 window.exportPNG = function () {
-  console.log("[exportPNG] Exportuji plátno jako PNG");
   const canvas = document.getElementById("canvas");
   if (!canvas) return;
 
@@ -776,7 +789,6 @@ window.exportPNG = function () {
 
 // ===== SELECTION & STATE =====
 window.clearSelection = function () {
-  console.log("[clearSelection] Čistím výběr");
   if (!window.selectedItems) window.selectedItems = [];
   window.selectedItems = [];
   window.selectedShape = null;
@@ -819,10 +831,6 @@ window.deleteAllDimensions = function () {
   window.shapes = window.shapes.filter((s) => s.type !== "dimension");
 
   if (window.saveState) window.saveState();
-  if (window.updateSnapPoints) window.updateSnapPoints();
-  if (window.draw) window.draw();
-
-  console.log(`✅ Smazáno ${countBefore} kót(y)`);
 };
 
 window.dimensionAll = function () {
@@ -879,13 +887,11 @@ window.dimensionAll = function () {
   }
 
   if (countAdded === 0) {
-    console.log("❌ Nejsou žádné čáry nebo kružnice k okótování!");
     return;
   }
 
   window.updateSnapPoints();
   window.draw();
-  console.log(`✅ Přidáno ${countAdded} kót(y)`);
 };
 
 // ===== ARC TOOL =====
@@ -1011,7 +1017,6 @@ window.performRotate = function () {
 // ===== POLAR SNAP =====
 window.togglePolarSnapLegacy = function () {
   window.polarSnapEnabled = !window.polarSnapEnabled;
-  console.log("[togglePolarSnapLegacy] Polární snap:", window.polarSnapEnabled);
   const checkbox = document.getElementById("polarSnapCheckboxLegacy");
   if (checkbox) {
     checkbox.checked = window.polarSnapEnabled;

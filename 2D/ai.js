@@ -8,6 +8,120 @@
 
 // Globální proměnné jsou inicializovány v globals.js
 
+// Inicializuj request timestamps
+window.requestTimestamps = (() => {
+  try {
+    const stored = localStorage.getItem("ai_request_timestamps");
+    if (stored) {
+      const timestamps = JSON.parse(stored);
+      const now = Date.now();
+      return timestamps.filter(ts => now - ts < 60000);
+    }
+  } catch (e) {}
+  return [];
+})();
+
+// Ulož timestamps do localStorage
+window.saveRequestTimestamps = function() {
+  try {
+    localStorage.setItem("ai_request_timestamps", JSON.stringify(window.requestTimestamps));
+  } catch (e) {
+    console.warn("⚠️ Nelze uložit timestamps:", e);
+  }
+};
+
+// Zruš aktuální AI request
+window.cancelAIRequest = function() {
+  window.processingAI = false;
+
+  const promptInput = document.getElementById("aiPrompt");
+  const btnCancel = document.getElementById("btnCancel");
+  const btnGenerate = document.getElementById("btnGenerate");
+
+  if (promptInput) promptInput.disabled = false;
+  if (btnCancel) btnCancel.style.display = "none";
+  if (btnGenerate) btnGenerate.style.display = "inline-block";
+
+  const container = document.getElementById("aiChatHistory");
+  if (container) {
+    const loadingDivs = container.querySelectorAll("div[style*='loading-dots']");
+    loadingDivs.forEach(div => div.remove());
+
+    const cancelMsg = document.createElement("div");
+    cancelMsg.className = "chat-msg model";
+    cancelMsg.style.color = "#ef4444";
+    cancelMsg.textContent = "❌ Požadavek zrušen";
+    container.appendChild(cancelMsg);
+    container.scrollTop = container.scrollHeight;
+  }
+};
+// Mapy limitů pro jednotlivé modely (Requests Per Minute)
+window.MODEL_LIMITS = {
+  "gemini-2.5-flash-lite": { rpm: 15, name: "Gemini 2.5 Flash Lite" },
+  "gemini-2.5-flash": { rpm: 10, name: "Gemini 2.5 Flash" },
+  "gemini-3-pro-preview": { rpm: 2, name: "Gemini 3 Pro" },
+  "gemini-2.0-flash-exp": { rpm: 15, name: "Gemini 2.0 Flash Exp" }
+};
+
+window.REQUESTS_WINDOW_MS = 60000; // 1 minuta
+
+// Získej aktuální limit na základě vybraného modelu
+window.getCurrentModelLimit = function() {
+  const modelSelect = document.getElementById("aiModelSelect");
+  const selectedModel = modelSelect?.value || "gemini-2.5-flash-lite";
+  const limit = window.MODEL_LIMITS[selectedModel];
+  return limit ? limit.rpm : 15; // Fallback na 15
+};
+
+window.getCurrentModel = function() {
+  const modelSelect = document.getElementById("aiModelSelect");
+  return modelSelect?.value || "gemini-2.5-flash-lite";
+};
+
+// Přidej request do queue
+// ===== JEDNODUCHÉ POSLÁNÍ REQUESTU BEZ QUEUE =====
+// Aktualizuj UI s informací o limitech
+window.updateQueueDisplay = function() {
+  const now = Date.now();
+  window.requestTimestamps = window.requestTimestamps.filter(
+    ts => now - ts < window.REQUESTS_WINDOW_MS
+  );
+  window.saveRequestTimestamps(); // Ulož aktualizované timestamps
+
+  const maxRequests = window.getCurrentModelLimit();
+  const usedSlots = window.requestTimestamps.length;
+  const availableSlots = maxRequests - usedSlots;
+
+  const meterDiv = document.getElementById("aiLimitMeter");
+  if (!meterDiv) return;
+
+  // Jen čísla - integrované do stránky
+  const text = `${usedSlots}/${maxRequests}`;
+  meterDiv.textContent = text;
+
+  // Varuj když se blížíš limitu
+  if (availableSlots <= 2) {
+    meterDiv.style.color = "#ff9800";
+  } else if (usedSlots >= maxRequests) {
+    meterDiv.style.color = "#f87171";
+  } else {
+    meterDiv.style.color = "#888";
+  }
+
+  // Zablokuj/Odblokuj tlačítko
+  const btnGenerate = document.getElementById("btnGenerate");
+
+  if (btnGenerate) {
+    if (availableSlots <= 0) {
+      btnGenerate.disabled = true;
+      btnGenerate.style.opacity = "0.5";
+    } else {
+      btnGenerate.disabled = false;
+      btnGenerate.style.opacity = "1";
+    }
+  }
+};
+
 // ===== AI SELECT TOGGLE =====
 window.toggleAiSelect = function () {
   window.aiSelectMode = !window.aiSelectMode;
@@ -348,22 +462,26 @@ window.toggleAiPanel = function (open) {
 window.retryWithBackoff = async function (apiCall, maxRetries = 3) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const startTime = Date.now();
       const result = await apiCall();
-      const latency = Date.now() - startTime;
-      console.log(`✅ API call successful in ${latency}ms`);
       return result;
     } catch (err) {
       const isRateLimit =
         err.message?.includes("429") ||
         err.message?.includes("quota") ||
+        err.message?.includes("Quota exceeded") ||
         err.message?.includes("RESOURCE_EXHAUSTED");
 
       if (isRateLimit && attempt < maxRetries - 1) {
-        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-        console.log(`⏳ Rate limit hit, retrying in ${delay / 1000}s...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        // Exponenciální backoff bez viditelného čekání: 2s, 4s, 8s
+        const delayMs = Math.pow(2, attempt + 1) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
+      }
+
+      // Pokud to není rate limit nebo už jsme vyčerpali pokusy, vyhoď error
+      if (attempt === maxRetries - 1 || !isRateLimit) {
+        console.error("❌ API Error:", err.message);
+        throw err;
       }
 
       throw err;
@@ -410,17 +528,14 @@ window.recordAISuccess = function (prompt, shapes) {
     }
 
     localStorage.setItem(AI_MEMORY_KEY, JSON.stringify(memory));
-    console.log("🎓 AI learned from success:", { prompt: prompt.substring(0, 30), shapes: shapes.length });
   } catch (e) {
-    console.warn("Could not save AI memory:", e);
   }
 };
 
 // ===== MAIN AI CALL =====
 window.callGemini = async function () {
   const promptInput = document.getElementById("aiPrompt");
-  const container = document.getElementById("aiChatHistory");
-  if (!promptInput || !container) return;
+  if (!promptInput) return;
 
   const prompt = promptInput.value.trim();
   if (!prompt) {
@@ -428,13 +543,40 @@ window.callGemini = async function () {
     return;
   }
 
+  // Zobraz Cancel button
+  const btnCancel = document.getElementById("btnCancel");
+  const btnGenerate = document.getElementById("btnGenerate");
+  if (btnCancel) btnCancel.style.display = "inline-block";
+  if (btnGenerate) btnGenerate.style.display = "none";
+
   if (window.processingAI) {
-    alert("AI zpracovává předchozí příkaz...");
+    alert("AI zpracovává předchozí příkaz. Čekej prosím.");
     return;
   }
 
+  // Pošli přímo na AI
+  window.callGeminiDirect();
+};
+
+// Volání AI - pošle request přímo na API
+window.callGeminiDirect = async function () {
+  const promptInput = document.getElementById("aiPrompt");
+  const container = document.getElementById("aiChatHistory");
+  if (!promptInput || !container) return;
+
+  const prompt = promptInput.value.trim();
+  if (!prompt) return;
+
   window.processingAI = true;
   promptInput.disabled = true;
+
+  // Zobraz user zprávu hned
+  const userMsgDiv = document.createElement("div");
+  userMsgDiv.className = "chat-msg user";
+  userMsgDiv.style.marginBottom = "10px";
+  userMsgDiv.innerHTML = `<strong>Ty:</strong> ${escapeHtml(prompt)}`;
+  container.appendChild(userMsgDiv);
+  container.scrollTop = container.scrollHeight;
 
   // Add loading indicator
   const loadingDiv = document.createElement("div");
@@ -452,12 +594,21 @@ window.callGemini = async function () {
     // Build full system prompt with all critical instructions
     const modeIndicator = window.mode ? `Current mode: ${window.mode}` : "";
     const xMeasureMode = window.xMeasureMode || "diameter";
-    const modeExplanation =
-      xMeasureMode === "diameter"
-        ? "X values in context are shown as DIAMETER (user sees X=100 for ⌀100). Create shapes with these exact values - conversion is automatic."
-        : "X values in context are shown as RADIUS (user sees X=50 for R50). Create shapes with these exact values.";
 
     const learningContext = window.getAIMemoryContext ? window.getAIMemoryContext() : "";
+
+    const modeExplanation =
+      xMeasureMode === "diameter"
+        ? `X-AXIS MODE: DIAMETER (⌀)
+User shows values as diameter from center axis.
+Example: User says "X=100" = 50mm from center (radius=50)
+You MUST respond with DIAMETER values: "X=100" even though internal radius=50
+The application will automatically convert diameter→radius for rendering.`
+        : `X-AXIS MODE: RADIUS (R)
+User shows values as radius distance from center axis.
+Example: User says "X=50" = exactly 50mm from center
+You MUST respond with RADIUS values: "X=50"
+No conversion needed, use values exactly as specified.`;
 
     const systemPrompt = `CAD Assistant for CNC Lathe/Mill operations (Czech language).
 
@@ -478,14 +629,16 @@ INPUT FORMATS:
 2. CNC/G-code style: "X80Z56R52" or "X50Z56AP0RP120"
 
 CNC SYNTAX PARSING:
-- XvalZval = position (X=diameter/radius, Z=length)
+- XvalZval = position (X=diameter/radius depending on mode, Z=length)
 - Rval = radius for circle
 - APval = angle in polar (0°=right, 90°=up, 180°=left, 270°=down)
 - RPval = polar radius/length (distance from start point)
 
-Examples:
-"X80Z56R52" → Circle at (Z=56,X=80) with radius 52
-"X50Z56AP0RP120" → Line from (Z=56,X=50) at angle 0° length 120mm
+Examples (when in DIAMETER mode):
+"X80Z56R52" → Circle at (Z=56,X=80⌀) with radius 52 (diameter=104)
+            User sees center at X=80 (which is 80mm from axis, diameter)
+"X50Z56AP0RP120" → Line from (Z=56,X=50⌀) at angle 0° length 120mm
+                 User sees start X=50 (50mm from axis, diameter)
   → End point: Z=56+120*cos(0°)=176, X=50+120*sin(0°)=50
   → {"type":"line","x1":56,"y1":50,"x2":176,"y2":50}
 
@@ -510,6 +663,31 @@ When user says "úsečka OD STŘEDU kružnice" or "line FROM CENTER of circle":
   → x2 = 96 + 250*cos(5°) = 96 + 250*0.9962 = 345
   → y2 = 78 + 250*sin(5°) = 78 + 250*0.0872 = 100
   → Line: {"type":"line","x1":96,"y1":78,"x2":345,"y2":100}
+
+⭕ CIRCUMCIRCLE (kružnice procházející 3 body A, B, C):
+When user says "kružnici procházející body A B C" or "circle through 3 points":
+1. Use the 3 points from context (e.g., points A(x1,y1), B(x2,y2), C(x3,y3))
+2. Calculate circumcircle center (cx, cy) and radius r:
+
+CIRCUMCIRCLE FORMULA:
+Let: A=(x1,y1), B=(x2,y2), C=(x3,y3)
+D = 2*(x1*(y2-y3) + x2*(y3-y1) + x3*(y1-y2))
+If D ≈ 0: Points are collinear, cannot draw circle
+
+If D ≠ 0:
+ux = ((x1²+y1²)*(y2-y3) + (x2²+y2²)*(y3-y1) + (x3²+y3²)*(y1-y2)) / D
+uy = ((x1²+y1²)*(x3-x2) + (x2²+y2²)*(x1-x3) + (x3²+y3²)*(x2-x1)) / D
+cx = ux
+cy = uy
+r = √((x1-cx)² + (y1-cy)²)
+
+Example: Points A(0,0), B(100,0), C(50,86.6)
+- D = 2*(0*(0-86.6) + 100*(86.6-0) + 50*(0-0)) = 17320
+- ux = ((0)*(0-86.6) + (10000)*(86.6-0) + (9966)*(0-0)) / 17320 = 50
+- uy = ((0)*(50-100) + (10000)*(0-50) + (9966)*(100-0)) / 17320 ≈ 57.7
+- cx=50, cy=57.7, r=√((0-50)²+(0-57.7)²) ≈ 76.3
+
+3. Return the circle as: {"type":"circle","cx":cx,"cy":cy,"r":r}
 
 ⚠️ CRITICAL RULES FOR LINES:
 1. ALWAYS calculate BOTH x2 AND y2 using the angle and length
@@ -541,9 +719,10 @@ Uživatel: ${prompt}`;
 
     // Call API with retry
     const startTime = performance.now();
+    const selectedModel = window.getCurrentModel();
     const response = await window.retryWithBackoff(async () => {
       const resp = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey,
+        "https://generativelanguage.googleapis.com/v1beta/models/" + selectedModel + ":generateContent?key=" + apiKey,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -563,10 +742,9 @@ Uživatel: ${prompt}`;
       }
 
       return await resp.json();
-    }, 3);
+    }, 5);
 
     const apiTime = performance.now() - startTime;
-    console.log(`⏱️ API response in ${(apiTime / 1000).toFixed(1)}s`);
 
     if (container.contains(loadingDiv)) container.removeChild(loadingDiv);
 
@@ -575,8 +753,6 @@ Uživatel: ${prompt}`;
     if (!aiResponseText) {
       throw new Error("AI nevrátila text");
     }
-
-    console.log("AI Response (raw):", aiResponseText.substring(0, 200));
 
     // Aggressive JSON cleaning
     let cleanedJson = aiResponseText
@@ -616,18 +792,15 @@ Uživatel: ${prompt}`;
     try {
       result = JSON.parse(cleanedJson);
     } catch (e) {
-      console.error("JSON Parse Error:", e);
       throw new Error("Nevalidní JSON odpověď");
     }
 
     const replyText = result.response_text || "Hotovo.";
     const newShapes = result.shapes || [];
 
-    console.log("Parsed result:", { replyText, shapeCount: newShapes.length });
-
     // Add shapes to canvas
     if (Array.isArray(newShapes) && newShapes.length > 0) {
-      const convertY = (y) => (xMeasureMode === "diameter" ? y / 2 : y);
+      const xMeasureMode = window.xMeasureMode || "diameter";
 
       newShapes.forEach((s) => {
         try {
@@ -641,9 +814,9 @@ Uživatel: ${prompt}`;
             window.shapes.push({
               type: "line",
               x1: s.x1,
-              y1: convertY(s.y1),
+              y1: s.y1,
               x2: s.x2,
-              y2: convertY(s.y2),
+              y2: s.y2,
             });
           } else if (
             s.type === "circle" &&
@@ -652,21 +825,22 @@ Uživatel: ${prompt}`;
             typeof s.r === "number" &&
             s.r > 0
           ) {
+            // Konvertuj poloměr pokud je xMeasureMode = "diameter"
+            const convertedR = xMeasureMode === "diameter" ? s.r / 2 : s.r;
             window.shapes.push({
               type: "circle",
               cx: s.cx,
-              cy: convertY(s.cy),
-              r: s.r,
+              cy: s.cy,
+              r: convertedR,
             });
           } else if (
             s.type === "point" &&
             typeof s.x === "number" &&
             typeof s.y === "number"
           ) {
-            window.points.push({ x: s.x, y: convertY(s.y) });
+            window.points.push({ x: s.x, y: s.y });
           }
         } catch (e) {
-          console.error("Error adding shape:", e);
         }
       });
 
@@ -692,27 +866,35 @@ Uživatel: ${prompt}`;
     window.clearImage?.();
 
   } catch (err) {
-    console.error("callGemini error:", err);
 
     if (container.contains(loadingDiv)) container.removeChild(loadingDiv);
 
     const errorDiv = document.createElement("div");
     errorDiv.className = "chat-msg model";
     errorDiv.style.color = "#ff6b6b";
+    errorDiv.style.whiteSpace = "pre-wrap";
 
     let errorMsg = "❌ " + (err.message || "Neznámá chyba");
-    if (err.message.includes("API klíč")) {
+
+    // Lepší zpráva pro quota exceeded
+    if (err.message.includes("quota") || err.message.includes("Quota exceeded")) {
+      errorMsg = "⏳ KVÓTA PŘEKROČENA\n\n💡 Aplikace již automaticky čekala a zkusila znovu.\n\nMožnosti:\n• Čekej 1-2 minuty a zkus znovu\n• Přidej svůj vlastní API klíč (⚙️ Nastavení)\n• Jdi na: https://console.cloud.google.com\n\nGemini 2.5 Flash Lite má 15 RPM limit na bezplatném plánu.";
+    } else if (err.message.includes("API klíč")) {
       errorMsg += "\n\n💡 Otevři ⚙️ Nastavení a vlož API klíč.";
     }
 
     errorDiv.textContent = errorMsg;
     container.appendChild(errorDiv);
     container.scrollTop = container.scrollHeight;
-
-    alert(errorMsg);
   } finally {
     window.processingAI = false;
     promptInput.disabled = false;
+
+    // Skryj Cancel button, zobraz Generate button
+    const btnCancel = document.getElementById("btnCancel");
+    const btnGenerate = document.getElementById("btnGenerate");
+    if (btnCancel) btnCancel.style.display = "none";
+    if (btnGenerate) btnGenerate.style.display = "inline-block";
   }
 };
 
@@ -895,23 +1077,31 @@ document.addEventListener("DOMContentLoaded", function () {
   // (Was causing double-invocation: onclick + event listener)
 });
 
-// ===== HELPER: HTML escaping =====
-function escapeHtml(text) {
-  const map = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;",
-  };
-  return String(text || "").replace(/[&<>"']/g, (m) => map[m]);
-}
-
 // ===== HELPER: Build drawing context =====
 window.buildDrawingContext = function () {
   const shapes = window.shapes || [];
   const points = window.points || [];
+  const selectedItems = window.selectedItems || [];
   let context = "";
+
+  // Zobraz vybrané objekty
+  if (selectedItems.length > 0) {
+    context += `⭐ VYBRANÉ OBJEKTY (${selectedItems.length}):\n`;
+    selectedItems.forEach((item) => {
+      if (item.category === "point") {
+        context += `  ✓ Bod [${item.x?.toFixed(1) || "?"}, ${item.y?.toFixed(1) || "?"}] (Label: ${item.label || "?"})\n`;
+      } else if (item.category === "shape" && item.type) {
+        if (item.type === "circle") {
+          context += `  ✓ Kružnice: střed [${item.cx?.toFixed(1) || "?"}, ${item.cy?.toFixed(1) || "?"}], r=${item.r?.toFixed(1) || "?"} (Label: ${item.label || "?"})\n`;
+        } else if (item.type === "line") {
+          context += `  ✓ Čára: [${item.x1?.toFixed(1) || "?"}, ${item.y1?.toFixed(1) || "?"}] → [${item.x2?.toFixed(1) || "?"}, ${item.y2?.toFixed(1) || "?"}] (Label: ${item.label || "?"})\n`;
+        } else {
+          context += `  ✓ ${item.type}: (Label: ${item.label || "?"})\n`;
+        }
+      }
+    });
+    context += "\n";
+  }
 
   if (points.length > 0) {
     context += `🔹 BODY (${points.length}):\n`;
@@ -935,6 +1125,656 @@ window.buildDrawingContext = function () {
   }
 
   return context || "Prázdné kreslení - zatím nic";
+};
+
+// ===== AI TEST SUITE =====
+window.AI_TEST_PROMPTS = [
+  // ===== LEVEL 1: VELMI JEDNODUCHÉ =====
+  {
+    level: "VELMI JEDNODUCHÉ",
+    name: "L1-1: Bod",
+    prompt: "bod Z100 X100",
+    expectedShapes: 1,
+    expectedType: "point",
+    complexity: 1
+  },
+  {
+    level: "VELMI JEDNODUCHÉ",
+    name: "L1-2: Jednoduchá čára",
+    prompt: "čára Z0 X0 do Z100 X100",
+    expectedShapes: 1,
+    expectedType: "line",
+    complexity: 1
+  },
+  {
+    level: "VELMI JEDNODUCHÉ",
+    name: "L1-3: Jednoduchá kružnice",
+    prompt: "kružnice Z100 X100 R50",
+    expectedShapes: 1,
+    expectedType: "circle",
+    complexity: 1
+  },
+
+  // ===== LEVEL 2: JEDNODUCHÉ =====
+  {
+    level: "JEDNODUCHÉ",
+    name: "L2-1: CNC syntax kružnice",
+    prompt: "X80Z56R52",
+    expectedShapes: 1,
+    expectedType: "circle",
+    complexity: 2
+  },
+  {
+    level: "JEDNODUCHÉ",
+    name: "L2-2: Dvě čáry",
+    prompt: "čára Z0 X0 do Z100 X0, čára Z100 X0 do Z100 X100",
+    expectedShapes: 2,
+    expectedType: "line",
+    complexity: 2
+  },
+  {
+    level: "JEDNODUCHÉ",
+    name: "L2-3: Dvě kružnice",
+    prompt: "kružnice Z100 X100 R30, kružnice Z200 X100 R40",
+    expectedShapes: 2,
+    expectedType: "circle",
+    complexity: 2
+  },
+  {
+    level: "JEDNODUCHÉ",
+    name: "L2-4: Mix - čára a kružnice",
+    prompt: "čára Z0 X0 do Z100 X100, kružnice Z200 X200 R50",
+    expectedShapes: 2,
+    expectedType: ["line", "circle"],
+    complexity: 2
+  },
+
+  // ===== LEVEL 3: STŘEDNÍ =====
+  {
+    level: "STŘEDNÍ",
+    name: "L3-1: Čára z centra kružnice",
+    prompt: "kružnice Z100 X100 R50, pak čára od středu úhel 0° délka 100",
+    expectedShapes: 2,
+    expectedType: ["circle", "line"],
+    complexity: 3
+  },
+  {
+    level: "STŘEDNÍ",
+    name: "L3-2: CNC - pozice + radius",
+    prompt: "X50Z56R52, X100Z56R40",
+    expectedShapes: 2,
+    expectedType: "circle",
+    complexity: 3
+  },
+  {
+    level: "STŘEDNÍ",
+    name: "L3-3: Obdélník (4 čáry)",
+    prompt: "čára Z0 X0 do Z100 X0, čára Z100 X0 do Z100 X100, čára Z100 X100 do Z0 X100, čára Z0 X100 do Z0 X0",
+    expectedShapes: 4,
+    expectedType: "line",
+    complexity: 3
+  },
+  {
+    level: "STŘEDNÍ",
+    name: "L3-4: Tři kružnice různých velikostí",
+    prompt: "kružnice Z50 X50 R20, kružnice Z150 X150 R35, kružnice Z250 X100 R45",
+    expectedShapes: 3,
+    expectedType: "circle",
+    complexity: 3
+  },
+
+  // ===== LEVEL 4: POKROČILÉ =====
+  {
+    level: "POKROČILÉ",
+    name: "L4-1: Čára se středem - úhel 45°",
+    prompt: "kružnice Z100 X100 R60, pak čára od středu úhel 45° délka 120",
+    expectedShapes: 2,
+    expectedType: ["circle", "line"],
+    complexity: 4
+  },
+  {
+    level: "POKROČILÉ",
+    name: "L4-2: Více čar v jednom",
+    prompt: "čára Z0 X0 do Z50 X50, čára Z50 X50 do Z100 X0, čára Z100 X0 do Z150 X50",
+    expectedShapes: 3,
+    expectedType: "line",
+    complexity: 4
+  },
+  {
+    level: "POKROČILÉ",
+    name: "L4-3: Průměr místo poloměru",
+    prompt: "kružnice Z100 X100 ⌀100",
+    expectedShapes: 1,
+    expectedType: "circle",
+    complexity: 4
+  },
+  {
+    level: "POKROČILÉ",
+    name: "L4-4: Mix - kružnice, čára, body",
+    prompt: "bod Z50 X50, kružnice Z100 X100 R40, čára Z150 X150 do Z200 X200",
+    expectedShapes: 3,
+    expectedType: ["point", "circle", "line"],
+    complexity: 4
+  },
+
+  // ===== LEVEL 5: VELMI POKROČILÉ =====
+  {
+    level: "VELMI POKROČILÉ",
+    name: "L5-1: Čára od kružnice s úhlem a délkou",
+    prompt: "kružnice Z100 X100 R50, pak čára od středu úhel 30° délka 150",
+    expectedShapes: 2,
+    expectedType: ["circle", "line"],
+    complexity: 5
+  },
+  {
+    level: "VELMI POKROČILÉ",
+    name: "L5-2: Složitý CNC syntax",
+    prompt: "X80Z56R52;X50Z56AP0RP120",
+    expectedShapes: 2,
+    expectedType: ["circle", "line"],
+    complexity: 5
+  },
+  {
+    level: "VELMI POKROČILÉ",
+    name: "L5-3: Kreis s čárou z centra - více úhlů",
+    prompt: "kružnice Z100 X100 R50, čára od středu 0° 80, čára od středu 90° 80",
+    expectedShapes: 3,
+    expectedType: ["circle", "line", "line"],
+    complexity: 5
+  },
+  {
+    level: "VELMI POKROČILÉ",
+    name: "L5-4: Komplexní mix",
+    prompt: "bod Z0 X0, čára Z0 X0 do Z100 X100, kružnice Z100 X100 R40, čára od středu 45° 100",
+    expectedShapes: 4,
+    expectedType: ["point", "line", "circle", "line"],
+    complexity: 5
+  },
+
+  // ===== LEVEL 6: EXPERT =====
+  {
+    level: "EXPERT",
+    name: "L6-1: Dvě kružnice + čáry mezi nimi",
+    prompt: "kružnice Z50 X50 R30, kružnice Z150 X150 R40, čára Z50 X50 do Z150 X150",
+    expectedShapes: 3,
+    expectedType: ["circle", "circle", "line"],
+    complexity: 6
+  },
+  {
+    level: "EXPERT",
+    name: "L6-2: Polygon - šestiúhelník",
+    prompt: "čára Z100 X0 do Z150 X50, čára Z150 X50 do Z150 X150, čára Z150 X150 do Z100 X200, čára Z100 X200 do Z50 X150, čára Z50 X150 do Z50 X50, čára Z50 X50 do Z100 X0",
+    expectedShapes: 6,
+    expectedType: "line",
+    complexity: 6
+  },
+  {
+    level: "EXPERT",
+    name: "L6-3: Tři kružnice v řadě + čáry",
+    prompt: "kružnice Z50 X100 R30, kružnice Z150 X100 R35, kružnice Z250 X100 R40, čára Z50 X100 do Z150 X100, čára Z150 X100 do Z250 X100",
+    expectedShapes: 5,
+    expectedType: ["circle", "circle", "circle", "line", "line"],
+    complexity: 6
+  },
+  {
+    level: "EXPERT",
+    name: "L6-4: Závitový profil (teoreticky)",
+    prompt: "kružnice Z100 X50 R20, kružnice Z150 X50 R20, kružnice Z200 X50 R20, čára Z100 X50 do Z200 X50",
+    expectedShapes: 4,
+    expectedType: ["circle", "circle", "circle", "line"],
+    complexity: 6
+  }
+];
+
+window.runAITest = async function(testIndex = 0) {
+  if (testIndex >= window.AI_TEST_PROMPTS.length) {
+    alert("✅ Všechny testy hotovy!");
+    return;
+  }
+
+  const test = window.AI_TEST_PROMPTS[testIndex];
+  const promptInput = document.getElementById("aiPrompt");
+  const container = document.getElementById("aiChatHistory");
+
+  if (!promptInput || !container) {
+    alert("❌ AI panel nenalezen!");
+    return;
+  }
+
+  // Zobraz test zprávu
+  const testDiv = document.createElement("div");
+  testDiv.className = "chat-msg model";
+  testDiv.style.color = "#60a5fa";
+  testDiv.style.fontWeight = "bold";
+  testDiv.textContent = `🧪 TEST ${testIndex + 1}/${window.AI_TEST_PROMPTS.length}: ${test.name}`;
+  container.appendChild(testDiv);
+  container.scrollTop = container.scrollHeight;
+
+  // Nastav prompt a chvíli čekej
+  promptInput.value = test.prompt;
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // Spusť AI
+  if (window.callGemini) {
+    await window.callGemini();
+  }
+
+  // Čekat na výsledek (5 sekund)
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  // Ověř výsledky
+  const shapeCount = (window.shapes || []).length;
+  let testResult = `\n📊 Výsledek: ${shapeCount} tvarů`;
+
+  if (shapeCount >= test.expectedShapes) {
+    testResult += ` ✅`;
+  } else {
+    testResult += ` ❌ (očekáváno ${test.expectedShapes})`;
+  }
+
+  // Zobraz výsledek
+  const resultDiv = document.createElement("div");
+  resultDiv.className = "chat-msg model";
+  resultDiv.style.color = shapeCount >= test.expectedShapes ? "#10b981" : "#ef4444";
+  resultDiv.textContent = testResult;
+  container.appendChild(resultDiv);
+  container.scrollTop = container.scrollHeight;
+
+  // Pokračuj další test za 3 sekundy
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  window.runAITest(testIndex + 1);
+};
+
+window.closeAITestModal = function() {
+  const modal = document.getElementById("aiTestModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+};
+
+// Formátuj CNC příkazy přidáním mezer (např. X80Z56R52 → X80 Z56 R52)
+window.formatCNCCommand = function(text) {
+  if (!text) return text;
+  // Přidej mezery před G, X, Z, R, D, L, A, AP, RP, CR atd.
+  return text.replace(/([GXZRDALC])/g, ' $1').replace(/^\s+/, '').replace(/\s+/g, ' ');
+};
+
+// Validuj CNC příkaz - vrátí chybovou zprávu nebo null pokud je OK
+window.validateCNCCommand = function(text) {
+  if (!text || text.trim() === '') return 'Prázdný příkaz';
+
+  // Odstraň mezery pro analýzu
+  const clean = text.replace(/\s+/g, '').toUpperCase();
+
+  // Kontrola G-kódů
+  if (clean.match(/^G[0-3]/)) {
+    // G0, G1, G2, G3 - vyžadují parametry
+    if (!/[XZ]/.test(clean)) {
+      return '❌ Chybí souřadnice: Přidej X nebo Z (např. G0X50Z100)';
+    }
+  }
+
+  // Kontrola samostatného R (radius) - měl by být součást G-kódu nebo kruh
+  if (clean.match(/^R\d/) && !clean.match(/^[GX]/)) {
+    return '❌ R (radius) se musí psát s G-kódem (např. G0R50) nebo X/Z souřadnicemi';
+  }
+
+  // Kontrola R/CR v kruhu - měly by být s X a Z
+  if (clean.match(/R\d/) && !clean.match(/[XZ]/)) {
+    return '❌ Radius R se musí kombinovat se souřadnicemi X nebo Z';
+  }
+
+  // Kontrola polárních souřadnic
+  if (clean.match(/(RP|AP)/) && !clean.match(/[LXZ]/)) {
+    return '❌ Polární souřadnice (RP, AP) se musí kombinovat s L (délka) nebo X/Z';
+  }
+
+  return null; // Bez chyby
+};
+
+// Auto-formatuj a validuj po zmáčknutí ";"
+window.handleSemicolonInInput = function(inputElement) {
+  if (!inputElement) return;
+
+  const fullText = inputElement.value;
+  const parts = fullText.split(';');
+
+  // Zpracuj poslední část (tu, kterou jsme právě zadali)
+  const lastPart = parts[parts.length - 2] || ''; // Text před posledním ;
+
+  if (lastPart.trim()) {
+    // Validuj poslední příkaz
+    const error = window.validateCNCCommand(lastPart);
+
+    if (error) {
+      // Zobraz chybu v odpovídajícím error elementu
+      let errorElement = null;
+      if (inputElement.id === 'quickInputDisplay') {
+        errorElement = document.getElementById('quickInputError');
+      } else if (inputElement.id === 'aiPrompt') {
+        errorElement = document.getElementById('cncInputError');
+      }
+
+      if (errorElement) {
+        errorElement.textContent = error;
+        errorElement.style.display = 'block';
+        setTimeout(() => {
+          errorElement.style.display = 'none';
+        }, 4000);
+      } else {
+        alert(error);
+      }
+    }
+
+    // Nahraď poslední část formátovanou verzí
+    const formattedPart = window.formatCNCCommand(lastPart);
+    const newText = parts.slice(0, -2).join(';') +
+                   (parts.slice(0, -2).length > 0 ? '; ' : '') +
+                   formattedPart + '; ';
+
+    inputElement.value = newText;
+    inputElement.scrollLeft = inputElement.scrollWidth;
+  }
+};
+
+// Přidej event listener pro oba input fieldy
+window.setupCNCInputListeners = function() {
+  // Pro quickInputDisplay (AI klávesnice)
+  const quickDisplay = document.getElementById('quickInputDisplay');
+  if (quickDisplay) {
+    quickDisplay.addEventListener('keypress', function(e) {
+      if (e.key === ';') {
+        e.preventDefault();
+        this.value += '; ';
+        window.handleSemicolonInInput(this);
+      }
+    });
+
+    // Alternativně při změně textu
+    quickDisplay.addEventListener('input', function() {
+      if (this.value.includes(';')) {
+        window.handleSemicolonInInput(this);
+      }
+    });
+  }
+
+  // Pro aiPrompt (hlavní input v AI panelu)
+  const aiPrompt = document.getElementById('aiPrompt');
+  if (aiPrompt) {
+    aiPrompt.addEventListener('keypress', function(e) {
+      if (e.key === ';') {
+        e.preventDefault();
+        this.value += '; ';
+        window.handleSemicolonInInput(this);
+      }
+    });
+  }
+};
+
+// Inicializuj při načtení
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(() => {
+    window.setupCNCInputListeners();
+    window.updateQueueDisplay(); // Inicializuj UI queue display
+
+    // Přidej listener na změnu modelu
+    const modelSelect = document.getElementById("aiModelSelect");
+    if (modelSelect) {
+      modelSelect.addEventListener("change", function() {
+        // Reset timestamps aby se aplikoval nový limit hned
+        window.requestTimestamps = [];
+        window.updateQueueDisplay();
+
+        // Zobraz zprávu o změně limitu
+        const modelName = window.MODEL_LIMITS[this.value]?.name || "Model";
+        const limit = window.MODEL_LIMITS[this.value]?.rpm || 15;
+        const container = document.getElementById("aiChatHistory");
+        if (container) {
+          const infoDiv = document.createElement("div");
+          infoDiv.className = "chat-msg model";
+          infoDiv.style.color = "#90cdf4";
+          infoDiv.textContent = `✅ Vybrán: ${modelName} (${limit} requestů/min)`;
+          container.appendChild(infoDiv);
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+    }
+  }, 500);
+});
+
+window.showTestOptions = function(testIndex) {
+  const test = window.AI_TEST_PROMPTS[testIndex];
+  const modal = document.getElementById("aiTestModal");
+  const content = document.getElementById("aiTestContent");
+
+  if (!modal || !content) return;
+
+  content.innerHTML = `
+    <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #444">
+      <div style="margin-bottom: 12px">
+        <h3 style="color: #90cdf4; margin: 0 0 8px 0; font-size: 14px">📋 Test ${testIndex + 1}: ${test.name}</h3>
+        <p style="color: #aaa; margin: 0 0 8px 0; font-size: 12px">
+          <strong>Úroveň:</strong> ${test.level} |
+          <strong>Složitost:</strong> ${test.complexity} |
+          <strong>Očekávané tvary:</strong> ${test.expectedShapes}
+        </p>
+      </div>
+      <div style="background: #111; padding: 10px; border-radius: 4px; border: 1px solid #333; font-family: monospace; font-size: 12px; color: #90ee90; word-wrap: break-word; max-height: 100px; overflow-y: auto">
+        ${window.formatCNCCommand(test.prompt)}
+      </div>
+    </div>
+
+    <div style="background: #0a3a2a; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #22c55e">
+      <p style="color: #90cdf4; margin: 0 0 10px 0; font-size: 13px; font-weight: bold">Vyberte co chcete dělat:</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+        <button onclick="window.runSelectedTest(${testIndex})" style="padding: 12px; background: #22c55e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; text-align: center">
+          <div style="font-size: 18px; margin-bottom: 4px">🎨</div>
+          VYKRESLI NA PLÁTNO
+        </button>
+        <button onclick="window.showTestResponse(${testIndex})" style="padding: 12px; background: #3a7bc8; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; text-align: center">
+          <div style="font-size: 18px; margin-bottom: 4px">📝</div>
+          ZOBRAZ ODPOVĚĎ
+        </button>
+      </div>
+    </div>
+  `;
+};
+
+window.runSelectedTest = function(testIndex) {
+  const test = window.AI_TEST_PROMPTS[testIndex];
+  const promptInput = document.getElementById("aiPrompt");
+  if (promptInput) {
+    promptInput.value = test.prompt;
+    window.closeAITestModal();
+    if (window.callGemini) window.callGemini();
+  }
+};
+
+// ===== Spustit všechny testy v queue =====
+window.runAllTests = function() {
+  const modal = document.getElementById("aiTestModal");
+  const content = document.getElementById("aiTestContent");
+
+  if (!modal || !content) return;
+
+  // UI - zobraz progress
+  content.innerHTML = `
+    <div style="background: #0a2a1a; padding: 15px; border-radius: 8px; border-left: 3px solid #22c55e">
+      <h3 style="color: #22c55e; margin: 0 0 10px 0">⚙️ Zařazuji testy...</h3>
+      <p style="color: #888; font-size: 12px; margin: 0">Všechny testy se postupně zařadí do queue a vykonají s ohledem na rate limit.</p>
+      <div id="allTestsProgress" style="margin-top: 12px; font-size: 11px; color: #aaa"></div>
+    </div>
+  `;
+
+  const progressDiv = document.getElementById("allTestsProgress");
+
+  // Zařaď všechny testy do queue
+  let enqueued = 0;
+  window.AI_TEST_PROMPTS.forEach((test, idx) => {
+    setTimeout(() => {
+      const promptInput = document.getElementById("aiPrompt");
+      if (promptInput) {
+        promptInput.value = test.prompt;
+        if (window.callGemini) {
+          window.callGemini();
+          enqueued++;
+
+          if (progressDiv) {
+            progressDiv.innerHTML = `
+              ✅ Zařazeno: <strong>${enqueued}/${window.AI_TEST_PROMPTS.length}</strong> testů<br>
+              📊 Queue: ${window.aiRequestQueue ? window.aiRequestQueue.length : 0} čekajících requestů
+            `;
+          }
+        }
+      }
+    }, idx * 100); // Rozestup 100ms mezi zařazením
+  });
+
+  // Zavři modal po chvíli
+  setTimeout(() => {
+    if (progressDiv) {
+      progressDiv.innerHTML = `
+        <div style="color: #22c55e">✅ Všechny testy zařazeny do queue!</div>
+        <div style="color: #888; margin-top: 8px; font-size: 10px">Kontroluj console a UI status pro průběh...</div>
+      `;
+    }
+  }, window.AI_TEST_PROMPTS.length * 100 + 500);
+};
+
+window.showTestResponse = function(testIndex) {
+  const test = window.AI_TEST_PROMPTS[testIndex];
+  const modal = document.getElementById("aiTestModal");
+  const content = document.getElementById("aiTestContent");
+
+  if (!modal || !content) return;
+
+  content.innerHTML = `
+    <div style="background: #0a1a3a; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #3a7bc8">
+      <h3 style="color: #90cdf4; margin: 0 0 10px 0; font-size: 14px">✨ Spouštím AI...</h3>
+      <p style="color: #aaa; font-size: 12px; margin: 0">Test: ${test.name} (${test.level})</p>
+    </div>
+  `;
+
+  // Spusť AI a pak zobraz výsledek
+  const promptInput = document.getElementById("aiPrompt");
+  if (promptInput) {
+    promptInput.value = test.prompt;
+
+    // Zavolej Gemini a pak zobraz v výsledku
+    if (window.callGemini) {
+      window.callGemini().then(() => {
+        // Chvíli počkej na zpracování
+        setTimeout(() => {
+          const chatHistory = document.getElementById("aiChatHistory");
+          let response = "❌ Odpověď nebyla obdržena";
+
+          if (chatHistory) {
+            // Najdi poslední zprávu od AI (chat-msg model)
+            const messages = chatHistory.querySelectorAll(".chat-msg.model");
+            if (messages.length > 0) {
+              const lastMessage = messages[messages.length - 1];
+              response = lastMessage.innerText || lastMessage.textContent;
+            }
+          }
+
+          content.innerHTML = `
+            <div style="background: #0a2a1a; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #22c55e">
+              <h3 style="color: #22c55e; margin: 0 0 10px 0; font-size: 14px">✅ Odpověď z AI:</h3>
+              <div style="background: #111; padding: 12px; border-radius: 4px; border: 1px solid #333; font-family: monospace; font-size: 11px; color: #90ee90; word-wrap: break-word; max-height: 300px; overflow-y: auto; white-space: pre-wrap">
+                ${response}
+              </div>
+            </div>
+
+            <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; margin-bottom: 15px">
+              <h3 style="color: #90cdf4; margin: 0 0 10px 0; font-size: 14px">📊 Detaily testu:</h3>
+              <div style="font-size: 12px; color: #aaa; line-height: 1.6">
+                <div><strong>Prompt:</strong> <code style="color: #90ee90">${window.formatCNCCommand(test.prompt)}</code></div>
+                <div style="margin-top: 8px"><strong>Očekávané tvary:</strong> ${test.expectedShapes}</div>
+                <div><strong>Typ:</strong> ${Array.isArray(test.expectedType) ? test.expectedType.join(', ') : test.expectedType}</div>
+                <div><strong>Složitost:</strong> ${test.complexity}</div>
+              </div>
+            </div>
+          `;
+        }, 500);
+      }).catch(() => {
+        content.innerHTML = `
+          <div style="background: #3a1a1a; padding: 15px; border-radius: 8px; border: 2px solid #ff6b6b; color: #ff6b6b">
+            ❌ Chyba při volání AI. Zkontroluj API klíč a připojení.
+          </div>
+        `;
+      });
+    }
+  }
+};
+
+window.showAITestPanel = function() {
+  const modal = document.getElementById("aiTestModal");
+  if (!modal) return;
+
+  // Seskupi testy podle levelu
+  const grouped = {};
+  window.AI_TEST_PROMPTS.forEach((t, i) => {
+    if (!grouped[t.level]) grouped[t.level] = [];
+    grouped[t.level].push({ ...t, index: i + 1, actualIndex: i });
+  });
+
+  let html = `
+    <div style="margin-bottom: 15px; padding: 12px; background: #0a2a1a; border-radius: 6px; border-left: 3px solid #22c55e">
+      <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+        <p style="color: #90cdf4; margin: 0; font-size: 12px">
+          Celkem: <strong>${window.AI_TEST_PROMPTS.length}</strong> testů
+        </p>
+        <button onclick="window.runAllTests()" style="
+          padding: 6px 12px;
+          background: linear-gradient(135deg, #c084fc 0%, #ec4899 100%);
+          border: none;
+          border-radius: 4px;
+          color: white;
+          cursor: pointer;
+          font-weight: bold;
+          font-size: 11px;
+          transition: all 0.2s
+        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+          ▶️ VŠECHNY TESTY
+        </button>
+      </div>
+      <p style="color: #888; margin: 0; font-size: 11px">
+        Klikni na test pro jednotlivé možnosti, nebo spusť všechny najednou
+      </p>
+    </div>
+  `;
+
+  // Zobraz testy seřazené podle levelu
+  Object.keys(grouped).forEach(level => {
+    html += `<h3 style="color: #6ab0ff; margin: 12px 0 8px 0; font-size: 13px; border-bottom: 1px solid #444; padding-bottom: 6px">━ ${level} ━</h3>`;
+    html += `<div style="display: grid; grid-template-columns: 1fr; gap: 6px; margin-bottom: 12px">`;
+
+    grouped[level].forEach(t => {
+      html += `
+        <button onclick="window.showTestOptions(${t.actualIndex})" style="
+          padding: 10px 12px;
+          background: #1a1a1a;
+          border: 1px solid #333;
+          border-radius: 6px;
+          color: #e0e0e0;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.2s;
+          font-size: 12px
+        " onmouseover="this.style.borderColor='#6ab0ff'; this.style.background='#222'" onmouseout="this.style.borderColor='#333'; this.style.background='#1a1a1a'">
+          <div style="font-weight: bold; color: #6ab0ff">${t.index}. ${t.name}</div>
+          <div style="font-size: 11px; color: #888; margin-top: 4px">
+            Prompt: "${window.formatCNCCommand(t.prompt).substring(0, 40)}${window.formatCNCCommand(t.prompt).length > 40 ? '...' : ''}" | Tvary: ${t.expectedShapes}
+          </div>
+        </button>
+      `;
+    });
+
+    html += `</div>`;
+  });
+
+  document.getElementById("aiTestContent").innerHTML = html;
+  modal.style.display = "flex";
 };
 
 // ===== EXPORT =====
