@@ -192,6 +192,22 @@ function draw() {
         } else if (s.type === "circle") {
           const c = worldToScreen(s.cx, s.cy);
           ctx.arc(c.x, c.y, s.r * window.zoom, 0, Math.PI * 2);
+
+          // Zobrazit střed kružnice
+          ctx.fillStyle = "#ffff00";
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (s.type === "rectangle") {
+          const p1 = worldToScreen(s.x1, s.y1);
+          const p2 = worldToScreen(s.x2, s.y2);
+
+          const x = Math.min(p1.x, p2.x);
+          const y = Math.min(p1.y, p2.y);
+          const width = Math.abs(p2.x - p1.x);
+          const height = Math.abs(p2.y - p1.y);
+
+          ctx.strokeRect(x, y, width, height);
         }
 
         ctx.stroke();
@@ -243,6 +259,77 @@ function draw() {
 
       ctx.restore();
     });
+
+    // Zobrazení vzdálenosti mezi 2 vybranými body
+    if (window.selectedItems.length === 2) {
+      const item1 = window.selectedItems[0];
+      const item2 = window.selectedItems[1];
+
+      if (item1.category === "point" && item2.category === "point") {
+        const p1 = worldToScreen(item1.x, item1.y);
+        const p2 = worldToScreen(item2.x, item2.y);
+
+        // Linka mezi body
+        ctx.strokeStyle = "#00ffff";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Vzdálenost
+        const dist = Math.sqrt((item1.x - item2.x) ** 2 + (item1.y - item2.y) ** 2);
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+
+        ctx.fillStyle = "#000000";
+        ctx.font = "bold 12px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const text = `${dist.toFixed(2)} mm`;
+        const textWidth = ctx.measureText(text).width + 8;
+        const textHeight = 16;
+        ctx.fillRect(midX - textWidth / 2, midY - 12 - textHeight / 2, textWidth, textHeight);
+
+        ctx.fillStyle = "#00ffff";
+        ctx.fillText(text, midX, midY - 12);
+      }
+    }
+  }
+
+  // Nakreslit tempShape (náhled během kreslení)
+  if (window.tempShape) {
+    ctx.strokeStyle = "#4a9eff";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+
+    if (window.tempShape.type === "line") {
+      const p1 = worldToScreen(window.tempShape.x1, window.tempShape.y1);
+      const p2 = worldToScreen(window.tempShape.x2, window.tempShape.y2);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    } else if (window.tempShape.type === "circle") {
+      const c = worldToScreen(window.tempShape.cx, window.tempShape.cy);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, window.tempShape.r * window.zoom, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (window.tempShape.type === "rectangle") {
+      const p1 = worldToScreen(window.tempShape.x1, window.tempShape.y1);
+      const p2 = worldToScreen(window.tempShape.x2, window.tempShape.y2);
+
+      const x = Math.min(p1.x, p2.x);
+      const y = Math.min(p1.y, p2.y);
+      const width = Math.abs(p2.x - p1.x);
+      const height = Math.abs(p2.y - p1.y);
+
+      ctx.strokeRect(x, y, width, height);
+    }
+
+    ctx.setLineDash([]);
   }
 }
 
@@ -425,16 +512,20 @@ function drawShape(ctx, s, canvas) {
     ctx.beginPath();
     ctx.arc(c.x, c.y, s.r * zoom, 0, Math.PI * 2);
     ctx.stroke();
+  }
 
-    if (document.getElementById("showDims")?.checked) {
-      ctx.fillStyle = strokeColor;
-      ctx.font = "12px Arial";
-      if (xMeasureMode === "diameter") {
-        ctx.fillText(`⌀${(s.r * 2).toFixed(1)}`, c.x + s.r * zoom + 5, c.y);
-      } else {
-        ctx.fillText(`R${s.r.toFixed(1)}`, c.x + s.r * zoom + 5, c.y);
-      }
-    }
+  if (s.type === "rectangle") {
+    const p1 = worldToScreen(s.x1, s.y1);
+    const p2 = worldToScreen(s.x2, s.y2);
+
+    const x = Math.min(p1.x, p2.x);
+    const y = Math.min(p1.y, p2.y);
+    const width = Math.abs(p2.x - p1.x);
+    const height = Math.abs(p2.y - p1.y);
+
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, width, height);
   }
 
   if (s.type === "arc") {
@@ -551,6 +642,94 @@ function drawShape(ctx, s, canvas) {
       ctx.moveTo(c.x, c.y - size);
       ctx.lineTo(c.x, c.y + size);
       ctx.stroke();
+    } else if (s.dimType === "rectWidth") {
+      const p1 = worldToScreen(s.x1, s.y1);
+      const p2 = worldToScreen(s.x2, s.y2);
+
+      const angle = 0; // Vodorovná
+      const offsetDist = 25;
+      const offsetY = -offsetDist;
+
+      const dp1x = p1.x;
+      const dp1y = p1.y + offsetY;
+      const dp2x = p2.x;
+      const dp2y = p2.y + offsetY;
+
+      // Svislé čáry (čárkované)
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(dp1x, dp1y);
+      ctx.moveTo(p2.x, p2.y);
+      ctx.lineTo(dp2x, dp2y);
+      ctx.stroke();
+
+      // Hlavní čára
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(dp1x, dp1y);
+      ctx.lineTo(dp2x, dp2y);
+      ctx.stroke();
+
+      // Šipky
+      drawArrow(ctx, dp1x, dp1y, 0, 8);
+      drawArrow(ctx, dp2x, dp2y, Math.PI, 8);
+
+      // Text
+      const textX = (dp1x + dp2x) / 2;
+      const textY = dp1y - 10;
+      ctx.fillStyle = "#1a1a1a";
+      ctx.fillRect(textX - 25, textY - 12, 50, 16);
+      ctx.fillStyle = "#ffff99";
+      ctx.textAlign = "center";
+      if (s.value !== null && s.value !== undefined) {
+        ctx.fillText(`${s.value.toFixed(1)}`, textX, textY);
+      }
+      ctx.textAlign = "start";
+    } else if (s.dimType === "rectHeight") {
+      const p1 = worldToScreen(s.x1, s.y1);
+      const p2 = worldToScreen(s.x1, s.y2);
+
+      const angle = Math.PI / 2; // Svislá
+      const offsetDist = 30;
+      const offsetX = -offsetDist;
+
+      const dp1x = p1.x + offsetX;
+      const dp1y = p1.y;
+      const dp2x = p2.x + offsetX;
+      const dp2y = p2.y;
+
+      // Vodorovné čáry (čárkované)
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(dp1x, dp1y);
+      ctx.moveTo(p2.x, p2.y);
+      ctx.lineTo(dp2x, dp2y);
+      ctx.stroke();
+
+      // Hlavní čára
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(dp1x, dp1y);
+      ctx.lineTo(dp2x, dp2y);
+      ctx.stroke();
+
+      // Šipky
+      drawArrow(ctx, dp1x, dp1y, Math.PI / 2, 8);
+      drawArrow(ctx, dp2x, dp2y, -Math.PI / 2, 8);
+
+      // Text
+      const textX = dp1x - 15;
+      const textY = (dp1y + dp2y) / 2;
+      ctx.fillStyle = "#1a1a1a";
+      ctx.fillRect(textX - 25, textY - 12, 50, 16);
+      ctx.fillStyle = "#ffff99";
+      ctx.textAlign = "center";
+      if (s.value !== null && s.value !== undefined) {
+        ctx.fillText(`${s.value.toFixed(1)}`, textX, textY);
+      }
+      ctx.textAlign = "start";
     }
   }
 }
@@ -883,6 +1062,35 @@ window.dimensionAll = function () {
       });
 
       countAdded++;
+    } else if (s.type === "rectangle") {
+      const w = Math.abs(s.x2 - s.x1);
+      const h = Math.abs(s.y2 - s.y1);
+
+      // Kóta šířky
+      window.shapes.push({
+        type: "dimension",
+        dimType: "rectWidth",
+        target: s,
+        value: w,
+        x1: s.x1,
+        y1: s.y1,
+        x2: s.x2,
+        y2: s.y1,
+      });
+
+      // Kóta výšky
+      window.shapes.push({
+        type: "dimension",
+        dimType: "rectHeight",
+        target: s,
+        value: h,
+        x1: s.x1,
+        y1: s.y1,
+        x2: s.x1,
+        y2: s.y2,
+      });
+
+      countAdded += 2;
     }
   }
 

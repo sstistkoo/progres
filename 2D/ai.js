@@ -8,6 +8,21 @@
 
 // Globální proměnné jsou inicializovány v globals.js
 
+// API Usage Stats
+let apiUsageStats = {
+  totalCalls: 0,
+  totalTokensIn: 0,
+  totalTokensOut: 0,
+  dailyCalls: 0,
+  lastReset: new Date().toISOString(),
+};
+
+// Inicializuj API stats na začátku
+document.addEventListener("DOMContentLoaded", () => {
+  loadApiStats();
+  updateApiUsageUI();
+});
+
 // Inicializuj request timestamps
 window.requestTimestamps = (() => {
   try {
@@ -29,6 +44,111 @@ window.saveRequestTimestamps = function() {
     console.warn("⚠️ Nelze uložit timestamps:", e);
   }
 };
+
+// Ulož API stats
+function saveApiStats() {
+  try {
+    localStorage.setItem("api_usage_stats", JSON.stringify(apiUsageStats));
+    updateApiUsageUI();
+  } catch (e) {
+    console.warn("⚠️ Nelze uložit API stats:", e);
+  }
+}
+
+// Načti API stats
+function loadApiStats() {
+  const stored = localStorage.getItem("api_usage_stats");
+  if (stored) {
+    try {
+      apiUsageStats = JSON.parse(stored);
+      checkAndResetDailyStats();
+    } catch (e) {
+      console.warn("Could not parse API stats", e);
+    }
+  }
+  scheduleMidnightReset();
+}
+
+// Zkontroluj a resetuj denní statistiky
+function checkAndResetDailyStats() {
+  const lastResetDate = new Date(apiUsageStats.lastReset);
+  const today = new Date();
+
+  if (
+    lastResetDate.getDate() !== today.getDate() ||
+    lastResetDate.getMonth() !== today.getMonth() ||
+    lastResetDate.getFullYear() !== today.getFullYear()
+  ) {
+    console.log("🔄 Nový den - resetuji denní statistiky");
+    apiUsageStats.dailyCalls = 0;
+    apiUsageStats.lastReset = new Date().toISOString();
+    saveApiStats();
+  }
+}
+
+// Naplánuj reset v 10:00
+function scheduleMidnightReset() {
+  const now = new Date();
+  const resetTime = new Date(now);
+  resetTime.setHours(10, 0, 0, 0);
+
+  if (resetTime <= now) {
+    resetTime.setDate(resetTime.getDate() + 1);
+  }
+
+  const timeUntilReset = resetTime - now;
+
+  setTimeout(() => {
+    console.log("🌅 10:00 - resetuji denní limit API");
+    apiUsageStats.dailyCalls = 0;
+    apiUsageStats.lastReset = new Date().toISOString();
+    saveApiStats();
+    updateApiUsageUI();
+    scheduleMidnightReset();
+  }, timeUntilReset);
+}
+
+// Ruční reset API stats
+window.resetApiStats = function () {
+  if (confirm("Opravdu resetovat API statistiky?")) {
+    apiUsageStats = {
+      totalCalls: 0,
+      totalTokensIn: 0,
+      totalTokensOut: 0,
+      dailyCalls: 0,
+      lastReset: new Date().toISOString(),
+    };
+    saveApiStats();
+    alert("✅ API statistiky resetovány");
+  }
+};
+
+// Aktualizuj UI s API stats
+function updateApiUsageUI() {
+  const usage = document.getElementById("apiUsageInfo");
+  if (!usage) return;
+
+  const apiCallsCount = window.requestTimestamps?.length || 0;
+  const API_FREE_LIMIT = window.getCurrentModelLimit?.() || 15;
+  const keyName = window.getCurrentApiKeyName?.() || "Žádný klíč";
+
+  const percentage = Math.round((apiCallsCount / API_FREE_LIMIT) * 100);
+  const color =
+    apiCallsCount >= API_FREE_LIMIT
+      ? "#ff4444"
+      : apiCallsCount > 10
+      ? "#ff9900"
+      : "#44ff44";
+
+  usage.innerHTML = `
+    <div style="font-size: 11px; color: #aaa; text-align: center;">
+      🔑 ${keyName}<br/>
+      📊 API limit: <span style="color: ${color}; font-weight: bold">${apiCallsCount}/${API_FREE_LIMIT}</span> za minutu<br/>
+      <div style="margin-top: 4px; font-size: 10px; color: #666;">📈 Dnes: <span style="color: #888">${apiUsageStats.dailyCalls || 0}</span> | Celkem: <span style="color: #888">${apiUsageStats.totalCalls}</span></div><br/>
+      <button onclick="window.resetApiStats()" style="font-size: 9px; padding: 2px 6px; margin-top: 2px; background: #333; border: 1px solid #555; color: #aaa; cursor: pointer; border-radius: 3px; width: 100%; margin-right: 0;">🔄 Reset</button>
+    </div>
+  `;
+}
 
 // Zruš aktuální AI request
 window.cancelAIRequest = function() {
@@ -125,15 +245,23 @@ window.updateQueueDisplay = function() {
 // ===== AI SELECT TOGGLE =====
 window.toggleAiSelect = function () {
   window.aiSelectMode = !window.aiSelectMode;
-  const btn = document.getElementById("btnAiSelect");
-  if (btn) {
+
+  // Aktualizuj všechna select tlačítka (v AI sekci i na canvas)
+  const selectBtns = document.querySelectorAll('[id*="Select"]');
+  selectBtns.forEach(btn => {
     if (window.aiSelectMode) {
       btn.style.background = "#3a7bc8";
-      if (window.setMode) window.setMode("select");
+      btn.style.borderColor = "#5b8ef5";
     } else {
       btn.style.background = "#333";
-      if (window.clearMode) window.clearMode();
+      btn.style.borderColor = "#444";
     }
+  });
+
+  if (window.aiSelectMode) {
+    if (window.setMode) window.setMode("select");
+  } else {
+    if (window.clearMode) window.clearMode();
   }
 };
 
@@ -865,6 +993,12 @@ Uživatel: ${prompt}`;
     promptInput.value = "";
     window.clearImage?.();
 
+    // Aktualizuj API usage stats
+    apiUsageStats.totalCalls = (apiUsageStats.totalCalls || 0) + 1;
+    apiUsageStats.dailyCalls = (apiUsageStats.dailyCalls || 0) + 1;
+    saveApiStats();
+    updateApiUsageUI();
+
   } catch (err) {
 
     if (container.contains(loadingDiv)) container.removeChild(loadingDiv);
@@ -1043,7 +1177,30 @@ window.updateSelectionUI = function () {
 
   if (infoEl) {
     if (selectedCount > 0) {
-      infoEl.textContent = `Vybráno: ${selectedCount} objektů`;
+      let infoText = `📌 Vybráno: ${selectedCount} objektů`;
+
+      // Přidej vzdálenost pokud jsou vybrané 2 body
+      if (selectedCount === 2) {
+        const item1 = window.selectedItems[0];
+        const item2 = window.selectedItems[1];
+
+        if (item1.category === "point" && item2.category === "point") {
+          const dist = Math.sqrt((item1.x - item2.x) ** 2 + (item1.y - item2.y) ** 2);
+          infoText += ` | 📏 Vzdálenost AB: ${dist.toFixed(2)} mm`;
+        }
+      }
+
+      // Přidej informaci o střídavých typech
+      if (selectedCount >= 2) {
+        const hasPoints = window.selectedItems.some(i => i.category === "point");
+        const hasShapes = window.selectedItems.some(i => i.category === "shape");
+
+        if (hasPoints && hasShapes) {
+          infoText += " | ⚙️ (bod+tvar)";
+        }
+      }
+
+      infoEl.textContent = infoText;
       infoEl.style.display = "block";
     } else {
       infoEl.style.display = "none";

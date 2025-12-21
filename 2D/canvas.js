@@ -34,9 +34,14 @@ function setupCanvasEvents() {
 // ===== MOUSE HANDLERS =====
 
 function onCanvasMouseDown(e) {
-  if (!window.mode || !window.snapPoint) {
-    console.error("[onCanvasMouseDown] ❌ mode nebo snapPoint chybí!", { mode: window.mode, snapPoint: !!window.snapPoint });
+  if (!window.snapPoint) {
+    console.error("[onCanvasMouseDown] ❌ snapPoint chybí!", { snapPoint: !!window.snapPoint });
     return;
+  }
+
+  // Pokud mode není nastaven, nastav "pan"
+  if (!window.mode) {
+    window.mode = "pan";
   }
 
   const canvas = e.target;
@@ -50,6 +55,13 @@ function onCanvasMouseDown(e) {
   if (e.button === 2) {
     // Pravé tlačítko = zrušit
     window.clearMode();
+    return;
+  }
+
+  if (e.button === 1) {
+    // Prostřední tlačítko = pan
+    window.panStart = { x: screenX, y: screenY };
+    window.panning = true;
     return;
   }
 
@@ -69,6 +81,14 @@ function onCanvasMouseDown(e) {
 
     case "circle":
       handleCircleMode(snapped.x, snapped.y);
+      break;
+
+    case "rectangle":
+      handleRectangleMode(snapped.x, snapped.y);
+      break;
+
+    case "circumcircle":
+      handleCircumcircleMode(snapped.x, snapped.y);
       break;
 
     case "select":
@@ -173,10 +193,59 @@ function onCanvasMouseMove(e) {
       r: r,
     };
     if (window.draw) window.draw();
+  } else if (window.mode === "rectangle" && window.startPt) {
+    window.tempShape = {
+      type: "rectangle",
+      x1: window.startPt.x,
+      y1: window.startPt.y,
+      x2: snapped.x,
+      y2: snapped.y,
+    };
+    if (window.draw) window.draw();
+  } else if (window.mode === "circumcircle" && window.circumcirclePoints && window.circumcirclePoints.length > 0) {
+    // Zobrazení dočasné linky a bodů pro circumcircle
+    if (!window.tempCircumcirclePoints) {
+      window.tempCircumcirclePoints = [];
+    }
+    window.tempCircumcirclePoints = [...window.circumcirclePoints];
+    if (window.draw) window.draw();
   }
 }
 
 function onCanvasMouseUp(e) {
+  // Dokončení obdélníku (tažení)
+  if (window.mode === "rectangle" && window.drawing && window.startPt) {
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+
+    const worldPt = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
+    const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
+
+    if (!window.shapes) return;
+
+    // Vytvoř obdélník pouze pokud má nenulovou velikost
+    if (snapped.x !== window.startPt.x && snapped.y !== window.startPt.y) {
+      window.shapes.push({
+        type: "rectangle",
+        x1: window.startPt.x,
+        y1: window.startPt.y,
+        x2: snapped.x,
+        y2: snapped.y,
+        color: window.currentColor || "#4a9eff",
+      });
+      if (window.updateSnapPoints) window.updateSnapPoints();
+      if (window.saveState) window.saveState();
+    }
+
+    window.startPt = null;
+    window.tempShape = null;
+    window.drawing = false;
+    if (window.draw) window.draw();
+    return;
+  }
+
   window.panning = false;
   window.panStart = null;
 }
@@ -199,8 +268,9 @@ function onCanvasWheel(e) {
 
   const worldAfter = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
 
-  if (window.panX !== undefined) window.panX += (worldBefore.x - worldAfter.x) * (window.zoom || 2);
-  if (window.panY !== undefined) window.panY += (worldBefore.y - worldAfter.y) * (window.zoom || 2);
+  // Správná kompenzace - bez násobení zoomem
+  if (window.panX !== undefined) window.panX += worldBefore.x - worldAfter.x;
+  if (window.panY !== undefined) window.panY += worldBefore.y - worldAfter.y;
 
   if (window.draw) window.draw();
 }
@@ -360,6 +430,169 @@ function handleCircleMode(x, y) {
   }
 }
 
+function handleRectangleMode(x, y) {
+  // Při kliknutí se začne kreslení tažením
+  window.startPt = { x, y };
+  window.drawing = true;
+}
+
+function handleCircumcircleMode(x, y) {
+  // Nejdříve zkontroluj, zda jsou vybrané 3 body (A, B, C)
+  if (window.selectedItems && window.selectedItems.length === 3) {
+    const itemA = window.selectedItems[0];
+    const itemB = window.selectedItems[1];
+    const itemC = window.selectedItems[2];
+
+    // Všechny tři musejí být body
+    if (itemA.category === "point" && itemB.category === "point" && itemC.category === "point") {
+      const p1 = { x: itemA.x, y: itemA.y };
+      const p2 = { x: itemB.x, y: itemB.y };
+      const p3 = { x: itemC.x, y: itemC.y };
+
+      // Výpočet circumcircle (kružnice procházející 3 body)
+      const ax = p1.x;
+      const ay = p1.y;
+      const bx = p2.x;
+      const by = p2.y;
+      const cx = p3.x;
+      const cy = p3.y;
+
+      const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+
+      if (Math.abs(d) < 0.0001) {
+        // Body jsou kolineární - nemohu udělat kružnici
+        alert("⚠️ Body A, B, C jsou na jedné přímce - kružnice nelze vytvořit!");
+        window.selectedItems = [];
+        if (window.draw) window.draw();
+        return;
+      }
+
+      const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d;
+      const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d;
+      const r = Math.sqrt((ax - ux) ** 2 + (ay - uy) ** 2);
+
+      if (!window.shapes) window.shapes = [];
+      window.shapes.push({
+        type: "circle",
+        cx: ux,
+        cy: uy,
+        r: r,
+        color: window.currentColor || "#00ff00",
+      });
+
+      window.selectedItems = []; // Vymaž výběr
+      if (window.updateSnapPoints) window.updateSnapPoints();
+      if (window.saveState) window.saveState();
+      if (window.draw) window.draw();
+      return;
+    }
+  }
+
+  // Normální režim - sbírání 3 bodů klikáním
+  if (!window.circumcirclePoints) {
+    window.circumcirclePoints = [];
+  }
+
+  window.circumcirclePoints.push({ x, y });
+
+  if (window.circumcirclePoints.length === 3) {
+    // Máme 3 body - spočítej kružnici
+    const p1 = window.circumcirclePoints[0];
+    const p2 = window.circumcirclePoints[1];
+    const p3 = window.circumcirclePoints[2];
+
+    // Výpočet circumcircle (kružnice procházející 3 body)
+    const ax = p1.x;
+    const ay = p1.y;
+    const bx = p2.x;
+    const by = p2.y;
+    const cx = p3.x;
+    const cy = p3.y;
+
+    const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+
+    if (Math.abs(d) < 0.0001) {
+      // Body jsou kolineární - nemohu udělat kružnici
+      alert("⚠️ Body jsou na jedné přímce - kružnice nelze vytvořit!");
+      window.circumcirclePoints = [];
+      if (window.draw) window.draw();
+      return;
+    }
+
+    const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d;
+    const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d;
+    const r = Math.sqrt((ax - ux) ** 2 + (ay - uy) ** 2);
+
+    if (!window.shapes) window.shapes = [];
+    window.shapes.push({
+      type: "circle",
+      cx: ux,
+      cy: uy,
+      r: r,
+      color: window.currentColor || "#00ff00",
+    });
+
+    window.circumcirclePoints = [];
+    if (window.updateSnapPoints) window.updateSnapPoints();
+    if (window.saveState) window.saveState();
+  }
+}
+
+// Pomocná funkce pro vytvoření circumcircle ze 3 vybraných bodů
+window.createCircumcircleFromSelectedPoints = function() {
+  if (!window.selectedItems || window.selectedItems.length !== 3) return;
+
+  const itemA = window.selectedItems[0];
+  const itemB = window.selectedItems[1];
+  const itemC = window.selectedItems[2];
+
+  // Všechny tři musejí být body
+  if (itemA.category !== "point" || itemB.category !== "point" || itemC.category !== "point") {
+    alert("⚠️ Všechny 3 prvky musejí být body!");
+    return;
+  }
+
+  const p1 = { x: itemA.x, y: itemA.y };
+  const p2 = { x: itemB.x, y: itemB.y };
+  const p3 = { x: itemC.x, y: itemC.y };
+
+  // Výpočet circumcircle (kružnice procházející 3 body)
+  const ax = p1.x;
+  const ay = p1.y;
+  const bx = p2.x;
+  const by = p2.y;
+  const cx = p3.x;
+  const cy = p3.y;
+
+  const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+
+  if (Math.abs(d) < 0.0001) {
+    // Body jsou kolineární - nemohu udělat kružnici
+    alert("⚠️ Body A, B, C jsou na jedné přímce - kružnice nelze vytvořit!");
+    window.selectedItems = [];
+    if (window.draw) window.draw();
+    return;
+  }
+
+  const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d;
+  const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d;
+  const r = Math.sqrt((ax - ux) ** 2 + (ay - uy) ** 2);
+
+  if (!window.shapes) window.shapes = [];
+  window.shapes.push({
+    type: "circle",
+    cx: ux,
+    cy: uy,
+    r: r,
+    color: window.currentColor || "#00ff00",
+  });
+
+  window.selectedItems = []; // Vymaž výběr
+  if (window.updateSnapPoints) window.updateSnapPoints();
+  if (window.saveState) window.saveState();
+  if (window.draw) window.draw();
+};
+
 function handleSelectMode(x, y, shiftKey) {
   if (!window.selectedItems) window.selectedItems = [];
 
@@ -429,6 +662,52 @@ function handleSelectMode(x, y, shiftKey) {
 }
 
 function handleTangentMode(x, y) {
+  // Nejdříve zkontroluj, zda jsou vybrané prvky (A, B)
+  if (window.selectedItems && window.selectedItems.length >= 2) {
+    const itemA = window.selectedItems[0];
+    const itemB = window.selectedItems[1];
+
+    // Tečna: bod (A) a kružnice (B) NEBO kružnice (A) a bod (B)
+    let point = null;
+    let circle = null;
+
+    if (itemA.category === "point" && itemB.category === "shape" && itemB.type === "circle") {
+      point = itemA;
+      circle = itemB.ref;
+    } else if (itemB.category === "point" && itemA.category === "shape" && itemA.type === "circle") {
+      point = itemB;
+      circle = itemA.ref;
+    }
+
+    if (point && circle && window.tangentFromPoint) {
+      const tangents = window.tangentFromPoint(
+        point.x,
+        point.y,
+        circle.cx,
+        circle.cy,
+        circle.r
+      );
+
+      tangents.forEach((t) => {
+        window.shapes.push({
+          type: "line",
+          x1: point.x,
+          y1: point.y,
+          x2: t.x,
+          y2: t.y,
+          color: window.currentColor || "#ff00ff",
+        });
+      });
+
+      if (window.updateSnapPoints) window.updateSnapPoints();
+      if (window.saveState) window.saveState();
+      window.selectedItems = []; // Vymaž výběr
+      if (window.draw) window.draw();
+      return;
+    }
+  }
+
+  // Normální režim - bez vybraných prvků
   if (!window.startPt) {
     window.startPt = { x, y };
   } else {
@@ -470,6 +749,52 @@ function handleTangentMode(x, y) {
 }
 
 function handlePerpendicularMode(x, y) {
+  // Nejdříve zkontroluj, zda jsou vybrané prvky (A, B)
+  if (window.selectedItems && window.selectedItems.length >= 2) {
+    const itemA = window.selectedItems[0];
+    const itemB = window.selectedItems[1];
+
+    // Kolmice: bod (A) a čára (B) NEBO čára (A) a bod (B)
+    let point = null;
+    let line = null;
+
+    if (itemA.category === "point" && itemB.category === "shape" && itemB.type === "line") {
+      point = itemA;
+      line = itemB.ref;
+    } else if (itemB.category === "point" && itemA.category === "shape" && itemA.type === "line") {
+      point = itemB;
+      line = itemA.ref;
+    }
+
+    if (point && line && window.perpendicular) {
+      const perpLine = window.perpendicular(
+        point.x,
+        point.y,
+        line.x1,
+        line.y1,
+        line.x2,
+        line.y2
+      );
+
+      if (perpLine) {
+        window.shapes.push({
+          type: "line",
+          x1: perpLine.x1,
+          y1: perpLine.y1,
+          x2: perpLine.x2,
+          y2: perpLine.y2,
+          color: window.currentColor || "#00ffff",
+        });
+        if (window.updateSnapPoints) window.updateSnapPoints();
+        if (window.saveState) window.saveState();
+        window.selectedItems = []; // Vymaž výběr
+        if (window.draw) window.draw();
+        return;
+      }
+    }
+  }
+
+  // Normální režim - bez vybraných prvků
   if (!window.startPt) {
     window.startPt = { x, y };
   } else {
@@ -509,6 +834,47 @@ function handlePerpendicularMode(x, y) {
 }
 
 function handleParallelMode(x, y) {
+  // Nejdříve zkontroluj, zda jsou vybrané prvky (A, B)
+  if (window.selectedItems && window.selectedItems.length >= 2) {
+    const itemA = window.selectedItems[0];
+    const itemB = window.selectedItems[1];
+
+    // Rovnoběžka: bod (A) a čára (B) NEBO čára (A) a bod (B)
+    let point = null;
+    let line = null;
+
+    if (itemA.category === "point" && itemB.category === "shape" && itemB.type === "line") {
+      point = itemA;
+      line = itemB.ref;
+    } else if (itemB.category === "point" && itemA.category === "shape" && itemA.type === "line") {
+      point = itemB;
+      line = itemA.ref;
+    }
+
+    if (point && line && window.parallel) {
+      // Vzdálenost = vzdálenost bodu od čáry
+      const offsetDist = Math.abs(pointToLineDistance(point.x, point.y, line.x1, line.y1, line.x2, line.y2));
+      const parLine = window.parallel(line, offsetDist);
+
+      if (parLine) {
+        window.shapes.push({
+          type: "line",
+          x1: parLine.x1,
+          y1: parLine.y1,
+          x2: parLine.x2,
+          y2: parLine.y2,
+          color: window.currentColor || "#ffff00",
+        });
+        if (window.updateSnapPoints) window.updateSnapPoints();
+        if (window.saveState) window.saveState();
+        window.selectedItems = []; // Vymaž výběr
+        if (window.draw) window.draw();
+        return;
+      }
+    }
+  }
+
+  // Normální režim - bez vybraných prvků
   if (!window.startPt) {
     window.startPt = { x, y };
   } else {
@@ -602,6 +968,51 @@ function handleExtendMode(x, y) {
 }
 
 function handleTrimMode(x, y) {
+  // Nejdříve zkontroluj, zda jsou vybrané prvky (A, B...)
+  if (window.selectedItems && window.selectedItems.length >= 1) {
+    // Pokud jsou vybrané čáry, ořízni je k bodu/průsečíku
+    const linesToTrim = window.selectedItems.filter(item =>
+      item.category === "shape" && item.type === "line"
+    );
+
+    if (linesToTrim.length > 0) {
+      // Pokud je vybrán bod, ořízni všechny čáry k tomuto bodu
+      const pointItems = window.selectedItems.filter(item => item.category === "point");
+
+      linesToTrim.forEach(lineItem => {
+        const line = lineItem.ref;
+
+        if (pointItems.length > 0) {
+          // Ořízni k prvnímu vybranému bodu
+          const point = pointItems[0];
+          const trimmedLine = window.trimLine(line, { x: point.x, y: point.y });
+          const idx = window.shapes.indexOf(line);
+          if (idx >= 0) window.shapes[idx] = trimmedLine;
+        } else if (linesToTrim.length > 1) {
+          // Pokud máš více čar vybraných, ořízni k prvnímu průsečíku
+          const otherLines = linesToTrim.filter(l => l !== lineItem).map(l => l.ref);
+
+          for (let otherLine of otherLines) {
+            const intersection = window.lineLineIntersect ? window.lineLineIntersect(line, otherLine) : null;
+            if (intersection) {
+              const trimmedLine = window.trimLine(line, intersection);
+              const idx = window.shapes.indexOf(line);
+              if (idx >= 0) window.shapes[idx] = trimmedLine;
+              break;
+            }
+          }
+        }
+      });
+
+      window.selectedItems = []; // Vymaž výběr
+      if (window.updateSnapPoints) window.updateSnapPoints();
+      if (window.saveState) window.saveState();
+      if (window.draw) window.draw();
+      return;
+    }
+  }
+
+  // Normální režim - bez vybraných prvků
   if (!window.shapes) return;
   const line = window.shapes.find((s) => {
     if (s.type !== "line") return false;
@@ -860,6 +1271,24 @@ function handleDimensionMode(x, y) {
     } else if (s.type === "circle") {
       const dToCenter = Math.hypot(x - s.cx, y - s.cy);
       return Math.abs(dToCenter - s.r) < tolerance;
+    } else if (s.type === "rectangle") {
+      // Detekce kliknutí na strany obdélníku
+      const x1 = Math.min(s.x1, s.x2);
+      const x2 = Math.max(s.x1, s.x2);
+      const y1 = Math.min(s.y1, s.y2);
+      const y2 = Math.max(s.y1, s.y2);
+
+      // Vodorovné strany (top/bottom)
+      const dHorizontal = Math.abs(y - y1) < tolerance || Math.abs(y - y2) < tolerance;
+      if (dHorizontal && x >= x1 - tolerance && x <= x2 + tolerance) {
+        return true;
+      }
+
+      // Svislé strany (left/right)
+      const dVertical = Math.abs(x - x1) < tolerance || Math.abs(x - x2) < tolerance;
+      if (dVertical && y >= y1 - tolerance && y <= y2 + tolerance) {
+        return true;
+      }
     }
     return false;
   });
@@ -910,7 +1339,44 @@ function handleDimensionMode(x, y) {
       cy: shape.cy,
       color: "#ffa500",
     });
+  } else if (shape.type === "rectangle") {
+    // Detekuj kterou stranu klikl
+    const x1 = Math.min(shape.x1, shape.x2);
+    const x2 = Math.max(shape.x1, shape.x2);
+    const y1 = Math.min(shape.y1, shape.y2);
+    const y2 = Math.max(shape.y1, shape.y2);
 
+    const tolerance2 = 15 / (window.zoom || 2);
+
+    if (Math.abs(y - y1) < tolerance2 || Math.abs(y - y2) < tolerance2) {
+      // Klikl na vodorovnou stranu - okótuj šířku
+      const w = Math.abs(shape.x2 - shape.x1);
+      window.shapes.push({
+        type: "dimension",
+        dimType: "rectWidth",
+        target: shape,
+        value: w,
+        x1: shape.x1,
+        y1: shape.y1,
+        x2: shape.x2,
+        y2: shape.y1,
+        color: "#ffa500",
+      });
+    } else {
+      // Klikl na svislou stranu - okótuj výšku
+      const h = Math.abs(shape.y2 - shape.y1);
+      window.shapes.push({
+        type: "dimension",
+        dimType: "rectHeight",
+        target: shape,
+        value: h,
+        x1: shape.x1,
+        y1: shape.y1,
+        x2: shape.x1,
+        y2: shape.y2,
+        color: "#ffa500",
+      });
+    }
   }
 
   if (window.saveState) window.saveState();
