@@ -227,12 +227,28 @@ function onCanvasMouseUp(e) {
 
     // Vytvoř obdélník pouze pokud má nenulovou velikost
     if (snapped.x !== window.startPt.x && snapped.y !== window.startPt.y) {
+      let x2 = snapped.x;
+      let y2 = snapped.y;
+
+      // Pokud je "Míra" zapnuta, zeptej se na rozměry
+      if (window.measureInputEnabled) {
+        const measureData = window.showMeasureInputDialog("rectangle");
+        if (measureData !== null) {
+          const processedData = window.processMeasureInput(measureData);
+          if (processedData && processedData.width && processedData.height) {
+            // Nastav x2 a y2 podle zadaných rozměrů
+            x2 = window.startPt.x + processedData.width;
+            y2 = window.startPt.y + processedData.height;
+          }
+        }
+      }
+
       window.shapes.push({
         type: "rectangle",
         x1: window.startPt.x,
         y1: window.startPt.y,
-        x2: snapped.x,
-        y2: snapped.y,
+        x2: x2,
+        y2: y2,
         color: window.currentColor || "#4a9eff",
       });
       if (window.updateSnapPoints) window.updateSnapPoints();
@@ -395,12 +411,37 @@ function handleLineMode(x, y) {
     window.startPt = { x, y };
   } else {
     if (!window.shapes) return;
+
+    // Pokud je "Míra" zapnuta, zeptej se na délku
+    let finalX = x;
+    let finalY = y;
+
+    if (window.measureInputEnabled) {
+      const measureData = window.showMeasureInputDialog("line");
+      if (measureData === null) {
+        window.startPt = null;
+        return; // User cancelled
+      }
+
+      const processedData = window.processMeasureInput(measureData);
+      if (processedData && processedData.distance) {
+        // Vypočítej směr od startPt k aktuální pozici
+        const dx = x - window.startPt.x;
+        const dy = y - window.startPt.y;
+        const currentAngle = Math.atan2(dy, dx);
+
+        // Nastav nový endpoint podle zadané vzdálenosti
+        finalX = window.startPt.x + processedData.distance * Math.cos(currentAngle);
+        finalY = window.startPt.y + processedData.distance * Math.sin(currentAngle);
+      }
+    }
+
     window.shapes.push({
       type: "line",
       x1: window.startPt.x,
       y1: window.startPt.y,
-      x2: x,
-      y2: y,
+      x2: finalX,
+      y2: finalY,
       color: window.currentColor || "#ff0000",
     });
     window.startPt = null;
@@ -415,12 +456,28 @@ function handleCircleMode(x, y) {
     window.startPt = { x, y };
   } else {
     if (!window.shapes) return;
-    const r = Math.sqrt((x - window.startPt.x) ** 2 + (y - window.startPt.y) ** 2);
+
+    // Pokud je "Míra" zapnuta, zeptej se na poloměr
+    let radius = Math.sqrt((x - window.startPt.x) ** 2 + (y - window.startPt.y) ** 2);
+
+    if (window.measureInputEnabled) {
+      const measureData = window.showMeasureInputDialog("circle");
+      if (measureData === null) {
+        window.startPt = null;
+        return; // User cancelled
+      }
+
+      const processedData = window.processMeasureInput(measureData);
+      if (processedData && processedData.radius) {
+        radius = processedData.radius;
+      }
+    }
+
     window.shapes.push({
       type: "circle",
       cx: window.startPt.x,
       cy: window.startPt.y,
-      r: r,
+      r: radius,
       color: window.currentColor || "#00ff00",
     });
     window.startPt = null;
