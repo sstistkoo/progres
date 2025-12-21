@@ -22,22 +22,16 @@ function saveStoredKeys(keys) {
 }
 
 window.getCurrentApiKey = function () {
-  console.log("[getCurrentApiKey] Hledám API klíč");
   const keys = getStoredKeys();
-  console.log("[getCurrentApiKey] Klíče v localStorage:", keys);
   const active = keys.find((k) => k.active);
-  console.log("[getCurrentApiKey] Aktivní klíč:", active);
 
   if (active) {
-    console.log("🔑 Using API key from localStorage:", active.key.substring(0, 20) + "...");
     return active.key;
   }
 
   // Použij globální API klíč z globals.js
   const EMBEDDED_API_KEY = window.EMBEDDED_API_KEY;
-  console.log("[getCurrentApiKey] EMBEDDED_API_KEY z globals:", EMBEDDED_API_KEY ? EMBEDDED_API_KEY.substring(0, 20) + "..." : "undefined");
   if (EMBEDDED_API_KEY && EMBEDDED_API_KEY.length > 20) {
-    console.log("🔑 Using embedded demo API key");
     return EMBEDDED_API_KEY;
   }
 
@@ -59,23 +53,31 @@ window.switchToNextApiKey = function () {
   });
 
   saveStoredKeys(keys);
-  console.log("✅ Switched to next API key");
   return true;
 };
 
 window.renderKeyList = function () {
-  const list = document.getElementById("apiKeyList");
+  const list = document.getElementById("keyList");
   if (!list) return;
 
   const keys = getStoredKeys();
   list.innerHTML = "";
 
+  if (keys.length === 0) {
+    list.innerHTML = `<div style="padding: 10px; color: #555; font-style: italic; text-align: center;">Žádné klíče</div>`;
+    return;
+  }
+
   keys.forEach((k, i) => {
-    const li = document.createElement("li");
-    li.style.marginBottom = "10px";
-    li.style.padding = "10px";
-    li.style.background = k.active ? "#4caf50" : "#f0f0f0";
-    li.style.borderRadius = "5px";
+    const div = document.createElement("div");
+    div.style.cssText = `
+      background: ${k.active ? "#1a4d2e" : "#333"};
+      border: 1px solid ${k.active ? "#4caf50" : "#555"};
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    `;
 
     // Pokud je to demo klíč, zobraz tečky, jinak zobraz prvních 20 znaků
     let displayKey;
@@ -85,17 +87,38 @@ window.renderKeyList = function () {
       displayKey = k.key.substring(0, 20) + "...";
     }
 
-    li.innerHTML = `
-      <strong>${k.name || `Key ${i + 1}`}</strong>
-      <small style="display:block; margin-top:5px; word-break:break-all; font-family: monospace;">
+    const statusBadge = k.active ? `<span style="color: #4caf50; font-weight: bold;">✓ AKTIVNÍ</span>` : `<span style="color: #999;">Neaktivní</span>`;
+
+    div.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+        <strong style="color: #fff;">${k.name || `Key ${i + 1}`}</strong>
+        ${statusBadge}
+      </div>
+      <div style="font-family: monospace; color: #aaa; margin-bottom: 5px; word-break: break-all;">
         ${displayKey}
-      </small>
-      <button onclick="window.removeApiKey(${i})" style="margin-top:5px; padding:5px 10px; background:#ff6b6b; color:white; border:none; border-radius:3px; cursor:pointer;">
-        Smazat
-      </button>
+      </div>
+      <div style="display: flex; gap: 5px;">
+        <button onclick="window.switchApiKey(${i})" style="padding: 4px 8px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">
+          Použít
+        </button>
+        <button onclick="window.removeApiKey(${i})" style="padding: 4px 8px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">
+          Smazat
+        </button>
+      </div>
     `;
-    list.appendChild(li);
+    list.appendChild(div);
   });
+};
+
+window.switchApiKey = function (idx) {
+  const keys = getStoredKeys();
+  keys.forEach((k, i) => {
+    k.active = i === idx;
+  });
+  saveStoredKeys(keys);
+  if (window.renderKeyList) window.renderKeyList();
+  if (window.updateKeyIndicator) window.updateKeyIndicator();
+  alert("✅ Klíč aktivován!");
 };
 
 window.removeApiKey = function (idx) {
@@ -103,6 +126,7 @@ window.removeApiKey = function (idx) {
   keys.splice(idx, 1);
   saveStoredKeys(keys);
   if (window.renderKeyList) window.renderKeyList();
+  if (window.updateKeyIndicator) window.updateKeyIndicator();
 };
 
 window.updateKeyIndicator = function () {
@@ -121,6 +145,7 @@ window.updateKeyIndicator = function () {
 
 window.addApiKey = function () {
   const input = document.getElementById("newKeyValue");
+  const nameInput = document.getElementById("newKeyName");
   if (!input) return;
 
   const key = input.value.trim();
@@ -129,10 +154,11 @@ window.addApiKey = function () {
     return;
   }
 
+  const name = nameInput?.value.trim() || "Custom Key";
   const keys = getStoredKeys();
   keys.push({
     key: key,
-    name: "Custom Key",
+    name: name,
     active: true
   });
 
@@ -143,6 +169,7 @@ window.addApiKey = function () {
 
   saveStoredKeys(keys);
   input.value = "";
+  if (nameInput) nameInput.value = "";
   if (window.renderKeyList) window.renderKeyList();
   if (window.updateKeyIndicator) window.updateKeyIndicator();
   alert("✅ Klíč přidán a aktivován!");
@@ -297,7 +324,6 @@ window.retryWithBackoff = async function (fn, maxRetries = 3) {
       lastError = error;
       if (attempt < maxRetries - 1) {
         const delayMs = Math.pow(2, attempt) * 1000;
-        console.log(`⏳ Retry ${attempt + 1}/${maxRetries} after ${delayMs}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }
@@ -453,4 +479,4 @@ if (typeof module !== "undefined" && module.exports) {
   };
 }
 
-console.log("✅ Utils loaded");
+// ===== RETRY LOGIC =====

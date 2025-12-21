@@ -293,8 +293,6 @@ window.setupUnifiedKeyboard = function() {
 
   document.addEventListener("keydown", window.handleGlobalKeyDown);
   document.addEventListener("keyup", window.handleGlobalKeyUp);
-
-  console.log("✓ Unified keyboard system initialized");
 };
 
 /**

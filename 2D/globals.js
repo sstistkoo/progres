@@ -112,5 +112,3 @@ window.aiMetrics = {
 
 // ===== ANIMATION =====
 window.animationFrameId = null;
-
-console.log("✅ Globals initialized");

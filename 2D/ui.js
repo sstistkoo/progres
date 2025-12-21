@@ -553,6 +553,12 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
   });
+
+  // Inicializuj seznam klíčů a indikátor
+  setTimeout(() => {
+    if (window.renderKeyList) window.renderKeyList();
+    if (window.updateKeyIndicator) window.updateKeyIndicator();
+  }, 100);
 });
 
 // ===== EXPORT =====
