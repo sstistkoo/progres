@@ -1,20 +1,65 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# CNC AI Programátor Pro
 
-# Run and deploy your AI Studio app
+Inteligentní asistent pro programování CNC strojů s podporou více ovládacích systémů (SINUMERIK, FANUC, HEIDENHAIN).
 
-This contains everything you need to run your app locally.
+## Spuštění na Lokálním Disku
 
-View your app in AI Studio: https://ai.studio/apps/drive/1XjGZ0aLi59k4gwpOTPvgVcbMM7Xzi_hH
+Aplikace je nyní plně funkční na lokálním disku bez potřeby internetu (kromě inicializace Gemini API).
 
-## Run Locally
+### Předpoklady
 
-**Prerequisites:**  Node.js
+- **Node.js** (verze 16+)
+- **Gemini API Key** (zdarma na https://aistudio.google.com)
 
+### Instalace a Spuštění
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. **Instalace závislostí:**
+
+   ```bash
+   npm install
+   ```
+
+2. **Konfigurace API klíče:**
+
+   - Otevři soubor `.env`
+   - Vložte váš Gemini API klíč:
+     ```
+     API_KEY=your-api-key-here
+     ```
+
+3. **Spuštění lokálně:**
+
+   ```bash
+   npm run dev
+   ```
+
+   Aplikace se otevře automaticky na `http://localhost:5173`
+
+4. **Build pro produkci:**
+
+   ```bash
+   npm run build
+   ```
+
+5. **Preview buildu:**
+   ```bash
+   npm run preview
+   ```
+
+## Funkce
+
+- ✅ 编集 a zlepšování G-kódu
+- ✅ Kalkulačka nástrojů
+- ✅ Automatická detekce CNC systému
+- ✅ Chat s AI (Gemini)
+- ✅ Ukládání programů
+- ✅ Referenční manuál
+- ✅ Nastavení stroje
+
+## Technologické Stack
+
+- React 18
+- TypeScript
+- Vite
+- Tailwind CSS
+- Google Gemini AI
