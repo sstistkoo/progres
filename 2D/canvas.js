@@ -34,7 +34,11 @@ function setupCanvasEvents() {
 // ===== MOUSE HANDLERS =====
 
 function onCanvasMouseDown(e) {
-  if (!window.mode || !window.snapPoint) return;
+  console.log("[onCanvasMouseDown] Klik na canvas, mode:", window.mode);
+  if (!window.mode || !window.snapPoint) {
+    console.error("[onCanvasMouseDown] ❌ mode nebo snapPoint chybí!", { mode: window.mode, snapPoint: !!window.snapPoint });
+    return;
+  }
 
   const canvas = e.target;
   const rect = canvas.getBoundingClientRect();
@@ -43,6 +47,7 @@ function onCanvasMouseDown(e) {
 
   const worldPt = window.screenToWorld(screenX, screenY);
   const snapped = window.snapPoint(worldPt.x, worldPt.y);
+  console.log("[onCanvasMouseDown] Snappeno:", { snapped, worldPt });
 
   if (e.button === 2) {
     // Pravé tlačítko = zrušit
@@ -110,6 +115,10 @@ function onCanvasMouseDown(e) {
 
     case "arc":
       handleArcMode(snapped.x, snapped.y);
+      break;
+
+    case "dimension":
+      handleDimensionMode(snapped.x, snapped.y);
       break;
   }
 
@@ -303,9 +312,17 @@ function onCanvasTouchEnd(e) {
 // ===== MODE HANDLERS =====
 
 function handlePointMode(x, y) {
-  if (!window.points) return;
+  console.log("[handlePointMode] Přidávám bod", { x, y }, "window.points:", window.points);
+  if (!window.points) {
+    console.error("[handlePointMode] ❌ window.points neexistuje!");
+    return;
+  }
   window.points.push({ x, y, temp: false });
-  if (window.updateSnapPoints) window.updateSnapPoints();
+  console.log("[handlePointMode] ✅ Bod přidán! Celkem bodů:", window.points.length);
+  if (window.updateSnapPoints) {
+    window.updateSnapPoints();
+    console.log("[handlePointMode] Snap body aktualizovány:", window.cachedSnapPoints.length);
+  }
 }
 
 function handleLineMode(x, y) {
@@ -360,10 +377,16 @@ function handleSelectMode(x, y, shiftKey) {
   });
 
   if (found_point) {
-    found = found_point;
+    found = {
+      category: "point",
+      x: found_point.x,
+      y: found_point.y,
+      ref: found_point,
+    };
   } else {
     // Hledat blízký tvar
     const found_shape = window.shapes && window.shapes.find((s) => {
+      if (s.type === "dimension") return false; // Přeskočit kóty
       if (s.type === "line") {
         const d = pointToLineDistance(x, y, s.x1, s.y1, s.x2, s.y2);
         return d < tolerance;
@@ -372,18 +395,44 @@ function handleSelectMode(x, y, shiftKey) {
       }
       return false;
     });
-    if (found_shape) found = found_shape;
+
+    if (found_shape) {
+      found = {
+        category: "shape",
+        type: found_shape.type,
+        ref: found_shape,
+      };
+    }
   }
 
-  if (!shiftKey) {
-    window.selectedItems.length = 0;
+  // V režimu select se vždycky přidávají položky, ne aby se čistily
+  // (jen pokud není explicitně smazáno)
+
+  if (found) {
+    // Hledat, zda je už vybraný
+    const index = window.selectedItems.findIndex((i) => {
+      if (found.category === "point" && i.category === "point") {
+        return Math.abs(i.x - found.x) < 0.0001 && Math.abs(i.y - found.y) < 0.0001;
+      } else if (found.category === "shape" && i.category === "shape") {
+        return i.ref === found.ref;
+      }
+      return false;
+    });
+
+    if (index > -1) {
+      // Už je vybraný - odeber ho když se klikne znovu
+      window.selectedItems.splice(index, 1);
+      console.log("[handleSelectMode] ❌ Zrušen výběr");
+    } else {
+      // Přidej label
+      const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const label = labels[window.selectedItems.length % labels.length];
+      window.selectedItems.push({ ...found, label });
+      console.log("[handleSelectMode] ✅ Vybrán/a:", found, "Label:", label);
+    }
   }
 
-  if (found && !window.selectedItems.includes(found)) {
-    window.selectedItems.push(found);
-  }
-
-  if (window.updateSelectionUI) window.updateSelectionUI();
+  if (window.draw) window.draw();
 }
 
 function handleTangentMode(x, y) {
@@ -478,14 +527,8 @@ function handleParallelMode(x, y) {
     });
 
     if (line && window.parallel) {
-      const parLine = window.parallel(
-        window.startPt.x,
-        window.startPt.y,
-        line.x1,
-        line.y1,
-        line.x2,
-        line.y2
-      );
+      const offsetDist = 10; // Default distance
+      const parLine = window.parallel(line, offsetDist);
 
       if (parLine) {
         window.shapes.push({
@@ -792,6 +835,102 @@ function handleMeasureMode(x, y) {
   }
 }
 
+function handleDimensionMode(x, y) {
+  const tolerance = 10 / (window.zoom || 2);
+
+  // 1. Hledej existující kóty pro úpravu
+  const existingDim = window.shapes && window.shapes.find((s) => {
+    if (s.type !== "dimension") return false;
+
+    if (s.dimType === "linear") {
+      const d = pointToLineDistance(x, y, s.x1, s.y1, s.x2, s.y2);
+      return d < tolerance;
+    } else if (s.dimType === "radius") {
+      const dToCenter = Math.hypot(x - s.cx, y - s.cy);
+      return Math.abs(dToCenter - s.r * window.zoom) < tolerance;
+    } else if (s.dimType === "center") {
+      return Math.hypot(x - s.cx, y - s.cy) < tolerance;
+    }
+    return false;
+  });
+
+  if (existingDim) {
+    // Úprava existující kóty - BEZ PROMPTU, pouze se přidá nová kóta
+    console.log("[handleDimensionMode] Kliknutí na existující kótu - ignorováno");
+    return;
+  }
+
+  // 2. Vytváří nové kóty - hledej objekty k okótování
+  const shape = window.shapes && window.shapes.find((s) => {
+    if (s.type === "line") {
+      const d = pointToLineDistance(x, y, s.x1, s.y1, s.x2, s.y2);
+      return d < tolerance;
+    } else if (s.type === "circle") {
+      const dToCenter = Math.hypot(x - s.cx, y - s.cy);
+      return Math.abs(dToCenter - s.r) < tolerance;
+    }
+    return false;
+  });
+
+  if (!shape) {
+    console.log("[handleDimensionMode] Žádný objekt k okótování");
+    return;
+  }
+
+  console.log("[handleDimensionMode] Okótuji objekt:", shape.type);
+
+  if (shape.type === "line") {
+    // Lineární kóta
+    const len = Math.hypot(
+      shape.x2 - shape.x1,
+      shape.y2 - shape.y1
+    );
+
+    window.shapes.push({
+      type: "dimension",
+      dimType: "linear",
+      target: shape,
+      value: len,
+      x1: shape.x1,
+      y1: shape.y1,
+      x2: shape.x2,
+      y2: shape.y2,
+      color: "#ffa500",
+    });
+
+    console.log("[handleDimensionMode] ✅ Lineární kóta přidána");
+  } else if (shape.type === "circle") {
+    // Radius kóta + center
+    const displayR = window.xMeasureMode === "diameter" ? shape.r * 2 : shape.r;
+    const label = window.xMeasureMode === "diameter" ? "⌀" : "R";
+
+    window.shapes.push({
+      type: "dimension",
+      dimType: "radius",
+      target: shape,
+      value: displayR,
+      label: label,
+      cx: shape.cx,
+      cy: shape.cy,
+      r: shape.r,
+      color: "#ffa500",
+    });
+
+    window.shapes.push({
+      type: "dimension",
+      dimType: "center",
+      cx: shape.cx,
+      cy: shape.cy,
+      color: "#ffa500",
+    });
+
+    console.log("[handleDimensionMode] ✅ Radius kóta a center přidány");
+  }
+
+  if (window.saveState) window.saveState();
+  if (window.draw) window.draw();
+}
+
 function handleArcMode(x, y) {
   if (!window.startPt) {
     window.startPt = { x, y };
@@ -881,9 +1020,121 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
   return Math.hypot(px - xx, py - yy);
 }
 
+// ===== HELPER FUNKCE PRO GEOMETRII =====
+
+function tangentFromPoint(circle, point) {
+  const dx = point.x - circle.cx;
+  const dy = point.y - circle.cy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist < circle.r) return null; // Bod uvnitř kružnice
+
+  const angle = Math.atan2(dy, dx);
+  const tangentAngle = Math.asin(circle.r / dist);
+
+  const tangents = [];
+  for (let sign of [-1, 1]) {
+    const a = angle + sign * tangentAngle;
+    const touchX =
+      circle.cx + circle.r * Math.cos(a + (sign * Math.PI) / 2);
+    const touchY =
+      circle.cy + circle.r * Math.sin(a + (sign * Math.PI) / 2);
+    tangents.push({
+      x1: point.x,
+      y1: point.y,
+      x2: touchX,
+      y2: touchY,
+    });
+  }
+  return tangents;
+}
+
+function perpendicular(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  // Směrový vektor kolmice
+  const perpX = (-dy / len) * 50; // Délka kolmice 50mm
+  const perpY = (dx / len) * 50;
+
+  return {
+    x1: px - perpX,
+    y1: py - perpY,
+    x2: px + perpX,
+    y2: py + perpY,
+  };
+}
+
+function parallel(line, distance) {
+  const dx = line.x2 - line.x1;
+  const dy = line.y2 - line.y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  const offsetX = (-dy / len) * distance;
+  const offsetY = (dx / len) * distance;
+
+  return {
+    x1: line.x1 + offsetX,
+    y1: line.y1 + offsetY,
+    x2: line.x2 + offsetX,
+    y2: line.y2 + offsetY,
+  };
+}
+
+function trimLine(x1, y1, x2, y2, cutX, cutY) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  const t = ((cutX - x1) * dx + (cutY - y1) * dy) / (len * len);
+
+  if (t < 0.5) {
+    return {
+      x1: cutX,
+      y1: cutY,
+      x2: x2,
+      y2: y2,
+    };
+  } else {
+    return {
+      x1: x1,
+      y1: y1,
+      x2: cutX,
+      y2: cutY,
+    };
+  }
+}
+
+function getMirrorPoint(px, py, lx1, ly1, lx2, ly2) {
+  // Line: A*x + B*y + C = 0
+  const A = ly1 - ly2;
+  const B = lx2 - lx1;
+  const C = -A * lx1 - B * ly1;
+
+  // Vzdálenost bodu od přímky
+  const dist = (A * px + B * py + C) / Math.sqrt(A * A + B * B);
+
+  // Zrcadlový bod
+  const k = -2 * dist / Math.sqrt(A * A + B * B);
+
+  return {
+    x: px + k * A,
+    y: py + k * B,
+  };
+}
+
 // ===== INITIALIZATION =====
 
-document.addEventListener("DOMContentLoaded", setupCanvasEvents);
+// ✅ setupCanvasEvents je nyní volaná z init.js
+// Aby se předešlo dvojitému volání a zajistilo se, že jsou globální funkce připraveny
+
+// ===== EXPORT HELPER FUNCTIONS =====
+window.perpendicular = perpendicular;
+window.parallel = parallel;
+window.trimLine = trimLine;
+window.getMirrorPoint = getMirrorPoint;
+window.tangentFromPoint = tangentFromPoint;
 
 // ===== EXPORT =====
 if (typeof module !== "undefined" && module.exports) {

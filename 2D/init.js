@@ -58,6 +58,9 @@ function initializeApp() {
   // Initialize drawing state
   if (window.updateSnapPoints) window.updateSnapPoints();
 
+  // Setup canvas event handlers (mousedown, mousemove, etc.)
+  if (window.setupCanvasEvents) window.setupCanvasEvents();
+
   // Start animation loop
   startAnimationLoop();
 

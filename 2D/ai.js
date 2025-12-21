@@ -924,12 +924,12 @@ window.buildDrawingContext = function () {
     context += `\n📐 OBJEKTY (${shapes.length}):\n`;
     shapes.forEach((s, i) => {
       if (s.type === "line") {
-        const len = Math.sqrt((s.x2 - s.x1) ** 2 + (s.y2 - s.y1) ** 2).toFixed(1);
-        context += `  ${i + 1}. Čára: [${s.x1.toFixed(1)},${s.y1.toFixed(1)}] → [${s.x2.toFixed(1)},${s.y2.toFixed(1)}] (délka: ${len})\n`;
+        const len = Math.sqrt(((s.x2 || 0) - (s.x1 || 0)) ** 2 + ((s.y2 || 0) - (s.y1 || 0)) ** 2).toFixed(1);
+        context += `  ${i + 1}. Čára: [${(s.x1 || 0).toFixed(1)},${(s.y1 || 0).toFixed(1)}] → [${(s.x2 || 0).toFixed(1)},${(s.y2 || 0).toFixed(1)}] (délka: ${len})\n`;
       } else if (s.type === "circle") {
-        context += `  ${i + 1}. Kružnice: střed [${s.cx.toFixed(1)},${s.cy.toFixed(1)}], r=${s.r.toFixed(1)}\n`;
+        context += `  ${i + 1}. Kružnice: střed [${(s.cx || 0).toFixed(1)},${(s.cy || 0).toFixed(1)}], r=${(s.r || 0).toFixed(1)}\n`;
       } else if (s.type === "arc") {
-        context += `  ${i + 1}. Oblouk: [${s.x1.toFixed(1)},${s.y1.toFixed(1)}] → [${s.x2.toFixed(1)},${s.y2.toFixed(1)}], úhel=${(s.angle || 0).toFixed(1)}°\n`;
+        context += `  ${i + 1}. Oblouk: [${(s.x1 || 0).toFixed(1)},${(s.y1 || 0).toFixed(1)}] → [${(s.x2 || 0).toFixed(1)},${(s.y2 || 0).toFixed(1)}], úhel=${((s.angle || 0)).toFixed(1)}°\n`;
       }
     });
   }
