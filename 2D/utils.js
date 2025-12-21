@@ -39,6 +39,23 @@ window.getCurrentApiKey = function () {
   return null;
 };
 
+window.getCurrentApiKeyName = function () {
+  const keys = getStoredKeys();
+  const active = keys.find((k) => k.active);
+
+  if (active) {
+    return active.name || "Neznámý klíč";
+  }
+
+  // Vrátit název embeded klíče
+  const EMBEDDED_API_KEY = window.EMBEDDED_API_KEY;
+  if (EMBEDDED_API_KEY && EMBEDDED_API_KEY.length > 20) {
+    return "Demo Key";
+  }
+
+  return "Žádný klíč";
+};
+
 window.switchToNextApiKey = function () {
   const keys = getStoredKeys();
   if (keys.length <= 1) {

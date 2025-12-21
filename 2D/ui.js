@@ -27,6 +27,7 @@ window.setMode = function (m) {
     circle: "btnCircle",
     arc: "btnArc",
     point: "btnPoint",
+    rectangle: "btnRectangle",
     trim: "btnTrim",
     extend: "btnExtend",
     tangent: "btnTangent",
@@ -54,21 +55,27 @@ window.setMode = function (m) {
       btnAiSelect.style.borderColor = "#8b5cf6";
       btnAiSelect.style.color = "#fff";
 
-      // Schovat ostatní panely a zobrazit canvas když se vejde select mode
+      // Schovat všechny panely - NE otevírat AI automaticky
       document.getElementById("toolsDrawing").style.display = "none";
       document.getElementById("toolsEdit").style.display = "none";
       document.getElementById("toolsCoords").style.display = "none";
       document.getElementById("toolsOther").style.display = "none";
-      document.getElementById("toolsAi").style.display = "block";
+      document.getElementById("toolsAi").style.display = "none";
     } else {
       btnAiSelect.style.background = "#333";
       btnAiSelect.style.borderColor = "#444";
       btnAiSelect.style.color = "#ccc";
 
       // Zobrazit patřičný panel pro režim
-      if (m === "pan" || m === "line" || m === "circle" || m === "arc" || m === "point" || m === "trim" || m === "extend" || m === "tangent" || m === "perpendicular" || m === "parallel" || m === "offset" || m === "mirror" || m === "erase" || m === "measure" || m === "dimension") {
+      if (m === "pan" || m === "line" || m === "circle" || m === "arc" || m === "point" || m === "rectangle" || m === "trim" || m === "extend" || m === "tangent" || m === "perpendicular" || m === "parallel" || m === "offset" || m === "mirror" || m === "erase" || m === "measure") {
         document.getElementById("toolsDrawing").style.display = "block";
         document.getElementById("toolsEdit").style.display = "none";
+        document.getElementById("toolsCoords").style.display = "none";
+        document.getElementById("toolsOther").style.display = "none";
+        document.getElementById("toolsAi").style.display = "none";
+      } else if (m === "dimension") {
+        document.getElementById("toolsDrawing").style.display = "none";
+        document.getElementById("toolsEdit").style.display = "block";
         document.getElementById("toolsCoords").style.display = "none";
         document.getElementById("toolsOther").style.display = "none";
         document.getElementById("toolsAi").style.display = "none";
@@ -82,7 +89,9 @@ window.setMode = function (m) {
     point: "📍 Klikni pro vytvoření bodu",
     line: "📏 Klikni pro 1. bod, pak klikni pro 2. bod",
     circle: "⭕ Klikni střed, klikni obvod (pak zadej poloměr)",
+    circumcircle: "🔵 Klikni na 3 body pro kružnici skrze ně",
     arc: "🌙 Klikni start → end → zadat úhel (stupně)",
+    rectangle: "▭ Klikni pro 1. roh, pak pro 2. roh (protilehlý)",
     tangent: "⟂ Klikni bod, pak kružnici",
     perpendicular: "┴ Klikni bod, pak čáru",
     parallel: "∥ Klikni bod, pak čáru",
@@ -117,6 +126,22 @@ window.setMode = function (m) {
   window.startPt = null;
   window.drawing = false;
   window.tempShape = null;
+
+  // Speciální handling pro circumcircle - když jsou vybrané 3 body, vykresli hned
+  if (m === "circumcircle" && window.selectedItems && window.selectedItems.length === 3) {
+    const itemA = window.selectedItems[0];
+    const itemB = window.selectedItems[1];
+    const itemC = window.selectedItems[2];
+
+    // Pokud všechny tři jsou body, vytvoř kružnici
+    if (itemA.category === "point" && itemB.category === "point" && itemC.category === "point") {
+      setTimeout(() => {
+        if (window.createCircumcircleFromSelectedPoints) {
+          window.createCircumcircleFromSelectedPoints();
+        }
+      }, 100);
+    }
+  }
   if (window.draw) window.draw();
 };
 
