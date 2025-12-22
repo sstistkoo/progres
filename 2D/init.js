@@ -74,6 +74,9 @@ function initializeApp() {
   // Initialize drawing state
   if (window.updateSnapPoints) window.updateSnapPoints();
 
+  // ✅ IHNED nakresli poprvé, aby se zobrazila mřížka
+  if (window.draw) window.draw();
+
   // Setup canvas event handlers (mousedown, mousemove, etc.)
   if (window.setupCanvasEvents) window.setupCanvasEvents();
 
