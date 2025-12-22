@@ -531,24 +531,12 @@ function draw() {
         ctx.arc(screenPos.x, screenPos.y, 10, 0, Math.PI * 2);
         ctx.fill();
 
-        // PÍSMENO (A, B, C...)
+        // PÍSMENO (A, B, C...) - BEZ POZADÍ
         if (item.label) {
-          // Pozadí (tmavě modré)
-          ctx.fillStyle = "#003399";
+          ctx.fillStyle = "#ffffff";
           ctx.font = "bold 14px Arial";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          const labelWidth = 24;
-          const labelHeight = 24;
-          ctx.fillRect(
-            screenPos.x - labelWidth / 2,
-            screenPos.y - 25 - labelHeight / 2,
-            labelWidth,
-            labelHeight
-          );
-
-          // Bílé písmeno
-          ctx.fillStyle = "#ffffff";
           ctx.fillText(item.label, screenPos.x, screenPos.y - 25);
         }
       }
