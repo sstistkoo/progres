@@ -61,11 +61,11 @@ function initializeApp() {
   window.zoom = window.Soustruznik.state.zoom;
   window.panX = window.Soustruznik.state.panX;
   window.panY = window.Soustruznik.state.panY;
-  
+
   console.log("🔧 State nastaveno:", { zoom: window.zoom, panX: window.panX, panY: window.panY });
-  console.log("🔧 Test screenToWorld:", { 
-    p1: window.screenToWorld(0, 0), 
-    p2: window.screenToWorld(canvas.width, canvas.height) 
+  console.log("🔧 Test screenToWorld:", {
+    p1: window.screenToWorld(0, 0),
+    p2: window.screenToWorld(canvas.width, canvas.height)
   });
 
   if (!window.shapes) window.shapes = [];
@@ -231,7 +231,10 @@ function handleWindowResize() {
 // ===== INITIALIZATION ON PAGE LOAD =====
 
 document.addEventListener("DOMContentLoaded", function () {
-  initializeApp();
+  // Počkej na načtení CSS a renderování
+  setTimeout(() => {
+    initializeApp();
+  }, 100);
 });
 
 window.addEventListener("resize", handleWindowResize);
