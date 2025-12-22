@@ -882,8 +882,7 @@ function snapPointToGeometry(x, y) {
           snappedTo = `kružnice (${shape.cx.toFixed(0)},${shape.cy.toFixed(0)})`;
           minDist = Math.abs(dist - shape.r);
         }
-      }
-      // POZN: Obdélníky již nejsou - jsou konvertovány na 4 linie hned od vytvoření else if (shape.type === "arc") {
+      } else if (shape.type === "arc") {
         // Přichyť na oblouk
         const dx = x - shape.cx;
         const dy = y - shape.cy;
