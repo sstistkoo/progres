@@ -61,7 +61,7 @@ function initializeApp() {
   console.log("🔧 INIT: Testing function availability:");
   console.log("🔧 window.showToolCategory exists:", typeof window.showToolCategory === 'function');
   console.log("🔧 window.draw exists:", typeof window.draw === 'function');
-  
+
   // Initialize defaults if not already set
   // ✅ Sync s namespace - zoom, panX, panY se mají čtít z window.Soustruznik.state
   if (window.Soustruznik.state.zoom === undefined) {
