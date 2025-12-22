@@ -60,7 +60,8 @@ function onCanvasMouseDown(e) {
     window.mode = "pan";
   }
 
-  console.log("[onCanvasMouseDown] mode =", window.mode, "colorPickerMode =", window.colorPickerMode);
+  // DEBUG: Commented out to reduce console spam
+  // console.log("[onCanvasMouseDown] mode =", window.mode, "colorPickerMode =", window.colorPickerMode);
 
   const canvas = e.target;
   const rect = canvas.getBoundingClientRect();
