@@ -700,6 +700,11 @@ function draw() {
         angleDiff = (angleDiff * 180) / Math.PI;
         if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
+        // Když jsou to strany obdélníka (rect-side), jsou automaticky 90°
+        if (item1.ref.type === "rect-side" && item2.ref.type === "rect-side" && item1.ref.parent === item2.ref.parent) {
+          angleDiff = 90; // Strany obdélníka jsou vždy 90°
+        }
+
         // Vzdálenost mezi kliknutými body na usečkách
         const clickDist = Math.hypot(
           (item2.clickX || item2.ref.x1) - (item1.clickX || item1.ref.x1),
