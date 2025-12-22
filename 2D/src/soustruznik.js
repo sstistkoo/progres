@@ -169,12 +169,4 @@ window.Soustruznik = {
   }
 };
 
-// ============================================================
-// LOG - Potvrzení že namespace byl vytvořen
-// ============================================================
-console.log('✅ Soustruznik namespace initialized');
-console.log('   window.Soustruznik.state:', window.Soustruznik.state);
-console.log('   window.Soustruznik.state.zoom:', window.Soustruznik.state.zoom);
-console.log('   window.Soustruznik.state.panX:', window.Soustruznik.state.panX);
-console.log('   window.Soustruznik.state.panY:', window.Soustruznik.state.panY);
-console.log('   window.Soustruznik.methods:', Object.keys(window.Soustruznik.methods).length, 'funkcí');
+

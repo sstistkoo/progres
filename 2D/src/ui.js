@@ -1414,9 +1414,7 @@ if (window.Soustruznik && window.Soustruznik.methods) {
   window.Soustruznik.methods.setDimensionTextColor = window.setDimensionTextColor;
 }
 
-console.log('✅ FÁZA 5: ui.js - Namespace methods mapped');
-console.log('   window.Soustruznik.methods.setDimensionLineColor:', typeof window.Soustruznik?.methods?.setDimensionLineColor);
-console.log('   window.Soustruznik.methods.initializeDimensionSettings:', typeof window.Soustruznik?.methods?.initializeDimensionSettings);
+
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
