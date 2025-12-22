@@ -335,14 +335,20 @@ function draw() {
 
       ctx.strokeRect(x, y, width, height);
 
-      // Kreslit koncové body (rohy) během náhledu
+      // Kreslit všechny 4 rohy obdélníku během náhledu
+      const corners = [
+        { x: x, y: y },                    // Horní levý roh
+        { x: x + width, y: y },            // Horní pravý roh
+        { x: x + width, y: y + height },   // Dolní pravý roh
+        { x: x, y: y + height }            // Dolní levý roh
+      ];
+
       ctx.fillStyle = "#4a9eff";
-      ctx.beginPath();
-      ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(p2.x, p2.y, 3, 0, Math.PI * 2);
-      ctx.fill();
+      corners.forEach((corner) => {
+        ctx.beginPath();
+        ctx.arc(corner.x, corner.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
     }
 
     ctx.setLineDash([]);
@@ -579,14 +585,20 @@ function drawShape(ctx, s, canvas) {
       ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
       ctx.strokeRect(x, y, width, height);
 
-      // Kreslit koncové body (rohy)
+      // Kreslit všechny 4 rohy obdélníku
+      const corners = [
+        { x: x, y: y },                    // Horní levý roh
+        { x: x + width, y: y },            // Horní pravý roh
+        { x: x + width, y: y + height },   // Dolní pravý roh
+        { x: x, y: y + height }            // Dolní levý roh
+      ];
+
       ctx.fillStyle = strokeColor;
-      ctx.beginPath();
-      ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(p2.x, p2.y, 3, 0, Math.PI * 2);
-      ctx.fill();
+      corners.forEach((corner) => {
+        ctx.beginPath();
+        ctx.arc(corner.x, corner.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
     }
   }
 
