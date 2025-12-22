@@ -2,8 +2,8 @@
 
 ## ✅ STATUS: HOTOVO
 
-**Datum:** 2024-11  
-**Větev:** refactor/global-state  
+**Datum:** 2024-11
+**Větev:** refactor/global-state
 **Commit:** (bude přidán na konci)
 
 ---
@@ -68,7 +68,7 @@ window.Soustruznik.state.displayDecimals === 2           // true
 ## 🎮 Funkční Testy
 
 ### Test 1: Line Drawing ✅
-**Scénář:** Nakresli čáru  
+**Scénář:** Nakresli čáru
 **Očekávaný výsledek:** Shape se přidá do window.shapes
 
 ```javascript
@@ -85,7 +85,7 @@ window.Soustruznik.state.shapes.length > 0    // true (sync)
 ```
 
 ### Test 2: Circle Drawing ✅
-**Scénář:** Nakresli kružnici  
+**Scénář:** Nakresli kružnici
 **Očekávaný výsledek:** Shape se přidá do window.shapes
 
 ```javascript
@@ -100,7 +100,7 @@ window.shapes[window.shapes.length-1].type === 'circle'   // true
 ```
 
 ### Test 3: Color Change ✅
-**Scénář:** Změň barvu kóty  
+**Scénář:** Změň barvu kóty
 **Očekávaný výsledek:** Barva se změní v namespace a localStorage
 
 ```javascript
@@ -113,7 +113,7 @@ localStorage.getItem('dimensionLineColor') === '#00ff00'  // true
 ```
 
 ### Test 4: Controller Mode Switch ✅
-**Scénář:** Přepni mód G90 <-> G91  
+**Scénář:** Přepni mód G90 <-> G91
 **Očekávaný výsledek:** Mode se změní v namespace
 
 ```javascript
@@ -125,7 +125,7 @@ window.Soustruznik.state.controllerMode === 'G91'       // true
 ```
 
 ### Test 5: Undo/Redo ✅
-**Scénář:** Přidej shape, then undo  
+**Scénář:** Přidej shape, then undo
 **Očekávaný výsledek:** Shape se odebere z history
 
 ```javascript
@@ -225,18 +225,18 @@ Object.defineProperty delegate = ~0.01ms
 ## 🚨 Known Issues & Workarounds
 
 ### Issue 1: Stub Methods
-**Problem:** window.Soustruznik.methods mají stubs  
-**Status:** ✅ Expected - budou implementovány postupem  
+**Problem:** window.Soustruznik.methods mají stubs
+**Status:** ✅ Expected - budou implementovány postupem
 **Workaround:** Staré funkce stále fungují přes window.*
 
 ### Issue 2: Partial Integration
-**Problem:** Ne všechny funkce ještě delegují do namespace  
-**Status:** ✅ Expected - progressive refactor  
+**Problem:** Ne všechny funkce ještě delegují do namespace
+**Status:** ✅ Expected - progressive refactor
 **Workaround:** Budou doplňovány v dalších iteracích
 
 ### Issue 3: localStorage Persistence
-**Problem:** Barvy se ukazují správně  
-**Status:** ✅ Works correctly  
+**Problem:** Barvy se ukazují správně
+**Status:** ✅ Works correctly
 **Note:** localStorage je synchronizován
 
 ---
@@ -332,8 +332,8 @@ Overall:             ████████░░ 86%
 
 **🎉 GLOBAL STATE REFACTOR COMPLETE!**
 
-All 6 phases implemented, tested, and committed.  
-Zero breaking changes. 100% backward compatible.  
+All 6 phases implemented, tested, and committed.
+Zero breaking changes. 100% backward compatible.
 Ready for production deployment.
 
 **Status: ✅ READY FOR FINALIZATION**
