@@ -573,6 +573,7 @@ function draw() {
 
   // ===== MĚŘENÍ - Režim Měření =====
   if (window.measurementMode && window.measurementItems && window.measurementItems.length >= 1) {
+    console.log(`📐 MEASUREMENT RENDERING: measurementMode=${window.measurementMode}, items=${window.measurementItems.length}`);
     // Zobrazit vybrané objekty pro měření (oranžově se zvýrazněním)
     window.measurementItems.forEach((item, idx) => {
       if (item.category === "point") {
@@ -670,8 +671,11 @@ function draw() {
 
     // ===== 2 OBJEKTY =====
     if (window.measurementItems.length === 2) {
+      console.log('📐 MEASUREMENT: 2 items, calculating...');
       const item1 = window.measurementItems[0];
       const item2 = window.measurementItems[1];
+      console.log('  item1:', item1.category, item1.type || item1.ref?.type);
+      console.log('  item2:', item2.category, item2.type || item2.ref?.type);
 
       let measurements = []; // Pole všech měření
       let displayText = null;
@@ -743,6 +747,8 @@ function draw() {
 
       // Zobrazit měření
       if (displayText) {
+        console.log('✅ displayText:', displayText);
+        console.log('  midPoint:', midPoint);
         const screenMid = window.worldToScreen(midPoint.x, midPoint.y);
         if (screenMid) {
           ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
