@@ -930,6 +930,10 @@ window.loadProject = function (input) {
     try {
       const project = JSON.parse(e.target.result);
       window.shapes = project.shapes || [];
+      
+      // Konvertuj obdélníky na 4 usečky (pro snadnější měření)
+      window.shapes = convertRectanglesToLines(window.shapes);
+      
       if (project.settings) {
         window.gridSize = project.settings.gridSize || window.gridSize;
         window.axisMode = project.settings.axisMode || window.axisMode;

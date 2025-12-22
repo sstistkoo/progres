@@ -2009,7 +2009,6 @@ const originalHandleSelectMode = window.handleSelectMode || handleSelectMode;
 
 window.handleSelectMode = function(x, y, shiftKey) {
   if (window.measurementMode) {
-    console.log(`🔍 MEASUREMENT: Klik na (${x.toFixed(1)}, ${y.toFixed(1)}), zoom=${window.zoom}, tolerance=${5 / (window.zoom || 2)}`);
     // V režimu měření sbíraj maximálně 2 objekty
     const tolerance = 5 / (window.zoom || 2);
     let found = null;
@@ -2020,7 +2019,6 @@ window.handleSelectMode = function(x, y, shiftKey) {
     });
 
     if (found_point) {
-      console.log('✅ Nalezen bod:', found_point);
       found = {
         category: "point",
         x: found_point.x,
@@ -2029,7 +2027,6 @@ window.handleSelectMode = function(x, y, shiftKey) {
       };
     } else {
       // Hledat tvar
-      console.log(`  Hledám tvary, máme ${window.shapes ? window.shapes.length : 0} tvarů`);
       const found_shape = window.shapes && window.shapes.find((s) => {
         if (s.type === "dimension") return false;
         if (s.type === "line") {
@@ -2037,23 +2034,6 @@ window.handleSelectMode = function(x, y, shiftKey) {
           return d < tolerance;
         } else if (s.type === "circle") {
           return Math.abs(Math.hypot(x - s.cx, y - s.cy) - s.r) < tolerance;
-        } else if (s.type === "rectangle") {
-          // Detekovat kliknutí na stranu obdélníka
-          const minX = Math.min(s.x1, s.x2);
-          const maxX = Math.max(s.x1, s.x2);
-          const minY = Math.min(s.y1, s.y2);
-          const maxY = Math.max(s.y1, s.y2);
-
-          // Horní strana
-          if (Math.abs(y - minY) < tolerance && x > minX - tolerance && x < maxX + tolerance) return true;
-          // Dolní strana
-          if (Math.abs(y - maxY) < tolerance && x > minX - tolerance && x < maxX + tolerance) return true;
-          // Levá strana
-          if (Math.abs(x - minX) < tolerance && y > minY - tolerance && y < maxY + tolerance) return true;
-          // Pravá strana
-          if (Math.abs(x - maxX) < tolerance && y > minY - tolerance && y < maxY + tolerance) return true;
-
-          return false;
         }
         return false;
       });
@@ -2061,60 +2041,23 @@ window.handleSelectMode = function(x, y, shiftKey) {
       if (found_shape) {
         // Pokud je to usečka, spočítej nejbližší bod na usečce (kde uživatel klikl)
         let clickPoint = { x: x, y: y };
-        let lineRef = found_shape;
-
         if (found_shape.type === "line") {
           clickPoint = pointToLineClosestPoint(x, y, found_shape.x1, found_shape.y1, found_shape.x2, found_shape.y2);
-        } else if (found_shape.type === "rectangle") {
-          // Zjistit kterou stranu obdélníka klikl a vytvořit virtuální usečku
-          const minX = Math.min(found_shape.x1, found_shape.x2);
-          const maxX = Math.max(found_shape.x1, found_shape.x2);
-          const minY = Math.min(found_shape.y1, found_shape.y2);
-          const maxY = Math.max(found_shape.y1, found_shape.y2);
-
-          // Zjisti kterou stranu klikl a vytvoř virtuální usečku
-          const distTop = Math.abs(y - minY);
-          const distBottom = Math.abs(y - maxY);
-          const distLeft = Math.abs(x - minX);
-          const distRight = Math.abs(x - maxX);
-
-          const minDist = Math.min(distTop, distBottom, distLeft, distRight);
-
-          if (minDist === distTop) {
-            // Horní strana
-            lineRef = { x1: minX, y1: minY, x2: maxX, y2: minY, type: "rect-side", parent: found_shape };
-            clickPoint = { x: Math.max(minX, Math.min(x, maxX)), y: minY };
-          } else if (minDist === distBottom) {
-            // Dolní strana
-            lineRef = { x1: minX, y1: maxY, x2: maxX, y2: maxY, type: "rect-side", parent: found_shape };
-            clickPoint = { x: Math.max(minX, Math.min(x, maxX)), y: maxY };
-          } else if (minDist === distLeft) {
-            // Levá strana
-            lineRef = { x1: minX, y1: minY, x2: minX, y2: maxY, type: "rect-side", parent: found_shape };
-            clickPoint = { x: minX, y: Math.max(minY, Math.min(y, maxY)) };
-          } else {
-            // Pravá strana
-            lineRef = { x1: maxX, y1: minY, x2: maxX, y2: maxY, type: "rect-side", parent: found_shape };
-            clickPoint = { x: maxX, y: Math.max(minY, Math.min(y, maxY)) };
-          }
         }
 
         found = {
           category: "shape",
           type: (found_shape.type === "rectangle") ? "line" : found_shape.type, // Strany obdélníka jsou "line"
-          ref: lineRef,
+          ref: found_shape,
           clickX: clickPoint.x, // Bod kde uživatel klikl
           clickY: clickPoint.y,
         };
-        console.log('✅ Nalezen tvar:', found);
       } else {
-        console.log('❌ Žádný objekt nenalezen');
       }
       // Pokud nic není najito, nic se nepřidá (ne vytvářet nové body!)
     }
 
     if (found) {
-      console.log('📌 Přidávám do measurementItems:', found);
       // Zjisti jestli je už vybraný
       const index = window.measurementItems.findIndex((i) => {
         if (found.category === "point" && i.category === "point") {
@@ -2151,13 +2094,8 @@ window.handleSelectMode = function(x, y, shiftKey) {
 
         if (canAdd) {
           window.measurementItems.push(found);
-          console.log('✅ Přidán do measurementItems. Celkem:', window.measurementItems.length);
-        } else {
-          console.log('⚠️ Ignorováno - špatný typ objektu');
         }
       }
-
-      console.log('📊 MeasurementItems:', window.measurementItems);
     }
 
     if (window.draw) window.draw();
