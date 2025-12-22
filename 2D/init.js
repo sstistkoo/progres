@@ -60,7 +60,7 @@ function initializeApp() {
   // Initialize defaults if not already set
   // ✅ Sync s namespace - zoom, panX, panY se mají čtít z window.Soustruznik.state
   if (window.Soustruznik.state.zoom === undefined) {
-    window.Soustruznik.state.zoom = 2;
+    window.Soustruznik.state.zoom = 10;  // Zvětšit pro lepší viditelnost mřížky
   }
   if (window.Soustruznik.state.panX === undefined) {
     window.Soustruznik.state.panX = canvas.width / 2;

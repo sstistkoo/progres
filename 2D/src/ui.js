@@ -283,6 +283,7 @@ window.setMode = function (m) {
 };
 
 window.showToolCategory = function (category) {
+  console.log("🔧 showToolCategory called with:", category);
   // ===== DEBOUNCE: Ochrana proti dvojímu volání =====
   const now = Date.now();
   if (now - lastCategoryChangeTime < CATEGORY_DEBOUNCE_MS) {
