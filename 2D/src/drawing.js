@@ -119,6 +119,24 @@ function snapPointInternal(pt) {
   return { point: snapped, snapInfo };
 }
 
+// ===== HELPER FUNCTIONS =====
+
+/**
+ * Vrátí nejbližší bod na čáře k danému bodu
+ */
+function pointToLineClosestPoint(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return { x: x1, y: y1 };
+
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (len * len)));
+  return {
+    x: x1 + t * dx,
+    y: y1 + t * dy
+  };
+}
+
 // Aktualizace nastavení snappingu z UI prvků
 function updateSnap() {
   window.snapToGrid = document.getElementById("snapGrid")?.checked || false;
@@ -532,19 +550,74 @@ function draw() {
         ctx.arc(screenPos.x, screenPos.y, 10, 0, Math.PI * 2);
         ctx.fill();
 
-        // PÍSMENO (A, B, C...) - BEZ POZADÍ
+        // PÍSMENO (A, B, C...) - S CERNYM OUTLINENEM
         if (item.label) {
           ctx.globalAlpha = 1; // Zajisti plnou opacity
-          ctx.fillStyle = "#ffffff";
           ctx.font = "bold 14px Arial";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
+          
+          // Cerny outline
+          ctx.strokeStyle = "#000000";
+          ctx.lineWidth = 3;
+          ctx.strokeText(item.label, screenPos.x, screenPos.y - 25);
+          
+          // Bily text pres outline
+          ctx.fillStyle = "#ffffff";
           ctx.fillText(item.label, screenPos.x, screenPos.y - 25);
         }
       }
     });
     ctx.globalAlpha = 1; // Resetuj alpha na konci
-  }
+    
+    // ===== MěŘENÍ VZDALENOSTI =====
+    // Pokud jsou vybrány bod a čára (nebo druhé prvky), vypocitej a zobraz vzdalenost
+    if (window.selectedItems && window.selectedItems.length >= 2) {
+      const item1 = window.selectedItems[0];
+      const item2 = window.selectedItems[1];
+      
+      let distance = null;
+      let midPoint = null;
+      
+      // Bod + čára
+      if (item1.category === "point" && item2.category === "shape" && item2.ref.type === "line") {
+        const line = item2.ref;
+        const closest = pointToLineClosestPoint(item1.x, item1.y, line.x1, line.y1, line.x2, line.y2);
+        distance = Math.hypot(closest.x - item1.x, closest.y - item1.y);
+        midPoint = { x: (item1.x + closest.x) / 2, y: (item1.y + closest.y) / 2 };
+      } else if (item2.category === "point" && item1.category === "shape" && item1.ref.type === "line") {
+        const line = item1.ref;
+        const closest = pointToLineClosestPoint(item2.x, item2.y, line.x1, line.y1, line.x2, line.y2);
+        distance = Math.hypot(closest.x - item2.x, closest.y - item2.y);
+        midPoint = { x: (item2.x + closest.x) / 2, y: (item2.y + closest.y) / 2 };
+      }
+      // Bod + bod
+      else if (item1.category === "point" && item2.category === "point") {
+        distance = Math.hypot(item2.x - item1.x, item2.y - item1.y);
+        midPoint = { x: (item1.x + item2.x) / 2, y: (item1.y + item2.y) / 2 };
+      }
+      
+      // Vypis vzdalenost
+      if (distance !== null && midPoint) {
+        const screenMid = window.worldToScreen(midPoint.x, midPoint.y);
+        if (screenMid) {
+          ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+          ctx.font = "bold 12px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          const text = `${distance.toFixed(2)} mm`;
+          const textWidth = ctx.measureText(text).width + 8;
+          const textHeight = 16;
+          
+          // Cerny box
+          ctx.fillRect(screenMid.x - textWidth / 2, screenMid.y - textHeight / 2, textWidth, textHeight);
+          
+          // Vzdy viditelna barva (cyan nebo zluta)
+          ctx.fillStyle = "#00ffff";
+          ctx.fillText(text, screenMid.x, screenMid.y);
+        }
+      }
+    }
 }
 
 function drawGrid(ctx, canvas) {
