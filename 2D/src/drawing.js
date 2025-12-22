@@ -673,14 +673,22 @@ function draw() {
       const item1 = window.measurementItems[0];
       const item2 = window.measurementItems[1];
 
-      let measurement = null;
+      let measurements = []; // Pole všech měření
       let displayText = null;
       let midPoint = null;
 
-      // 2 USEČKY → Úhel mezi nimi
-      if (item1.category === "shape" && item1.ref.type === "line" && 
-          item2.category === "shape" && item2.ref.type === "line") {
-        
+      // Typ měření určuje PRVNÍ vybraný objekt
+      const isFirstLine = item1.category === "shape" && item1.ref.type === "line";
+      const isFirstPoint = item1.category === "point";
+      const isSecondLine = item2.category === "shape" && item2.ref.type === "line";
+      const isSecondPoint = item2.category === "point";
+
+      // ===== MĚŘENÍ USEČKY (první objekt = usečka) =====
+      if (isFirstLine && isSecondLine) {
+        // Obě jsou usečky - zobrazit délky obou + úhel
+        const len1 = Math.hypot(item1.ref.x2 - item1.ref.x1, item1.ref.y2 - item1.ref.y1);
+        const len2 = Math.hypot(item2.ref.x2 - item2.ref.x1, item2.ref.y2 - item2.ref.y1);
+
         const dx1 = item1.ref.x2 - item1.ref.x1;
         const dy1 = item1.ref.y2 - item1.ref.y1;
         const dx2 = item2.ref.x2 - item2.ref.x1;
@@ -689,48 +697,40 @@ function draw() {
         const angle1 = Math.atan2(dy1, dx1);
         const angle2 = Math.atan2(dy2, dx2);
         let angleDiff = Math.abs(angle1 - angle2);
-        
-        // Převeď na stupně a normalizuj na 0-180
         angleDiff = (angleDiff * 180) / Math.PI;
         if (angleDiff > 180) angleDiff = 360 - angleDiff;
-        
+
+        measurements.push(`Usečka 1: ${len1.toFixed(2)} mm`);
+        measurements.push(`Usečka 2: ${len2.toFixed(2)} mm`);
+        measurements.push(`Úhel: ${angleDiff.toFixed(1)}°`);
+
         midPoint = {
           x: ((item1.ref.x1 + item1.ref.x2) / 2 + (item2.ref.x1 + item2.ref.x2) / 2) / 2,
           y: ((item1.ref.y1 + item1.ref.y2) / 2 + (item2.ref.y1 + item2.ref.y2) / 2) / 2
         };
-        displayText = `Úhel: ${angleDiff.toFixed(1)}°`;
-        measurement = angleDiff;
+        displayText = measurements.join(" | ");
       }
-      // BOD + ČÁRA → Vzdálenost
-      else if ((item1.category === "point" && item2.category === "shape" && item2.ref.type === "line") ||
-               (item2.category === "point" && item1.category === "shape" && item1.ref.type === "line")) {
-        const point = item1.category === "point" ? item1 : item2;
-        const line = item1.category === "shape" ? item1.ref : item2.ref;
-        
-        const closest = pointToLineClosestPoint(point.x, point.y, line.x1, line.y1, line.x2, line.y2);
-        const distance = Math.hypot(closest.x - point.x, closest.y - point.y);
-        midPoint = { x: (point.x + closest.x) / 2, y: (point.y + closest.y) / 2 };
-        displayText = `Vzdálenost: ${distance.toFixed(2)} mm`;
-        measurement = distance;
-      }
-      // BOD + BOD → Vzdálenost
-      else if (item1.category === "point" && item2.category === "point") {
+
+      // ===== MĚŘENÍ BODŮ (první objekt = bod) =====
+      else if (isFirstPoint && isSecondPoint) {
+        // Oba jsou body - zobrazit vzdálenost
         const distance = Math.hypot(item2.x - item1.x, item2.y - item1.y);
         midPoint = { x: (item1.x + item2.x) / 2, y: (item1.y + item2.y) / 2 };
         displayText = `Vzdálenost: ${distance.toFixed(2)} mm`;
-        measurement = distance;
       }
-      // KRUŽNICE + KRUŽNICE → Vzdálenost mezi středy
-      else if (item1.category === "shape" && item1.ref.type === "circle" &&
-               item2.category === "shape" && item2.ref.type === "circle") {
-        const distance = Math.hypot(item2.ref.cx - item1.ref.cx, item2.ref.cy - item1.ref.cy);
-        midPoint = { x: (item1.ref.cx + item2.ref.cx) / 2, y: (item1.ref.cy + item2.ref.cy) / 2 };
-        displayText = `Vzdálenost středů: ${distance.toFixed(2)} mm`;
-        measurement = distance;
+
+      // Pokud typ druhého objektu neodpovídá typу prvního, ignoruj
+      else if (isFirstLine && !isSecondLine) {
+        // Čekáme na druhou usečku, ignoruj ostatní objekty
+        displayText = null;
+      }
+      else if (isFirstPoint && !isSecondPoint) {
+        // Čekáme na druhý bod, ignoruj ostatní objekty
+        displayText = null;
       }
 
       // Zobrazit měření
-      if (measurement !== null && midPoint) {
+      if (displayText) {
         const screenMid = window.worldToScreen(midPoint.x, midPoint.y);
         if (screenMid) {
           ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
