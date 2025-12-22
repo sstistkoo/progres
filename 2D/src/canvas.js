@@ -2101,7 +2101,7 @@ window.handleSelectMode = function(x, y, shiftKey) {
 
         found = {
           category: "shape",
-          type: found_shape.type,
+          type: (found_shape.type === "rectangle") ? "line" : found_shape.type, // Strany obdélníka jsou "line"
           ref: lineRef,
           clickX: clickPoint.x, // Bod kde uživatel klikl
           clickY: clickPoint.y,
