@@ -569,12 +569,42 @@ function draw() {
       }
     });
     ctx.globalAlpha = 1; // Resetuj alpha na konci
+  }
 
-    // ===== MěŘENÍ VZDALENOSTI =====
-    // Pokud jsou vybrány bod a čára (nebo druhé prvky), vypocitej a zobraz vzdalenost
-    if (window.selectedItems && window.selectedItems.length >= 2) {
-      const item1 = window.selectedItems[0];
-      const item2 = window.selectedItems[1];
+  // ===== MĚŘENÍ - Režim Měření =====
+  if (window.measurementMode && window.measurementItems && window.measurementItems.length >= 1) {
+    // Zobrazit vybrané objekty pro měření (modře se zvýrazněním)
+    window.measurementItems.forEach((item, idx) => {
+      if (item.category === "point") {
+        const screenPos = window.worldToScreen(item.x, item.y);
+        if (screenPos) {
+          ctx.strokeStyle = "#ff8800"; // Oranžová pro měřní
+          ctx.lineWidth = 3;
+          ctx.globalAlpha = 1;
+          ctx.beginPath();
+          ctx.arc(screenPos.x, screenPos.y, 14, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Vyplnění
+          ctx.fillStyle = "rgba(255, 136, 0, 0.2)";
+          ctx.beginPath();
+          ctx.arc(screenPos.x, screenPos.y, 12, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Číslo (1, 2)
+          ctx.fillStyle = "#ff8800";
+          ctx.font = "bold 14px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(idx + 1, screenPos.x, screenPos.y - 25);
+        }
+      }
+    });
+
+    // Pokud jsou 2 objekty, vypočítej a zobraz vzdálenost v UI
+    if (window.measurementItems.length === 2) {
+      const item1 = window.measurementItems[0];
+      const item2 = window.measurementItems[1];
 
       let distance = null;
       let midPoint = null;
@@ -597,24 +627,30 @@ function draw() {
         midPoint = { x: (item1.x + item2.x) / 2, y: (item1.y + item2.y) / 2 };
       }
 
-      // Vypis vzdalenost
+      // Zobrazit vzdálenost na plátně
       if (distance !== null && midPoint) {
         const screenMid = window.worldToScreen(midPoint.x, midPoint.y);
         if (screenMid) {
-          ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-          ctx.font = "bold 12px Arial";
+          ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+          ctx.font = "bold 14px Arial";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           const text = `${distance.toFixed(2)} mm`;
-          const textWidth = ctx.measureText(text).width + 8;
-          const textHeight = 16;
+          const textWidth = ctx.measureText(text).width + 10;
+          const textHeight = 20;
 
-          // Cerny box
+          // Černý box
           ctx.fillRect(screenMid.x - textWidth / 2, screenMid.y - textHeight / 2, textWidth, textHeight);
 
-          // Vzdy viditelna barva (cyan nebo zluta)
-          ctx.fillStyle = "#00ffff";
+          // Oranžový text
+          ctx.fillStyle = "#ff8800";
           ctx.fillText(text, screenMid.x, screenMid.y);
+        }
+
+        // Zobrazit také v UI info
+        const info = document.getElementById("modeInfo");
+        if (info) {
+          info.innerHTML = `📏 <strong>VZDÁLENOST:</strong> <span style="color: #ff8800; font-size: 16px"><strong>${distance.toFixed(2)} mm</strong></span><br/><small>Klikni na nový objekt pro nové měření</small>`;
         }
       }
     }
