@@ -2103,9 +2103,7 @@ window.handleSelectMode = function(x, y, shiftKey) {
   }
 };
 
-console.log('✅ FÁZA 6: canvas.js - Event handler namespace integration');
-console.log('   Canvas state stored in window.Soustruznik.state');
-console.log('   Event handlers use getCanvasState() for compatibility');
+
 // ===== EXPORT =====
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {

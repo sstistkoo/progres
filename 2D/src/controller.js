@@ -14,13 +14,13 @@ if (window.Soustruznik && window.Soustruznik.methods) {
   window.Soustruznik.methods.setControllerMode = window.setControllerMode;
   window.Soustruznik.methods.confirmControllerInput = window.confirmControllerInput;
   window.Soustruznik.methods.parseGCode = window.parseGCode;
-  
+
   // Modal functions
   window.Soustruznik.methods.showControllerModal = window.showControllerModal;
   window.Soustruznik.methods.closeControllerModal = window.closeControllerModal;
   window.Soustruznik.methods.showDirectionModal = window.showDirectionModal;
   window.Soustruznik.methods.closeDirectionModal = window.closeDirectionModal;
-  
+
   // Measure input
   window.Soustruznik.methods.toggleMeasureInput = window.toggleMeasureInput;
   window.Soustruznik.methods.processMeasureInput = window.processMeasureInput;
@@ -684,7 +684,5 @@ window.processMeasureInput = function (measureData) {
 // Všechny klíčové controller funkce jsou nyní dostupné
 // na window.Soustruznik.methods a také stále na window.*
 
-console.log('✅ FÁZA 4: controller.js - Namespace methods mapped');
-console.log('   window.Soustruznik.methods.setControllerMode:', typeof window.Soustruznik?.methods?.setControllerMode);
-console.log('   window.Soustruznik.methods.parseGCode:', typeof window.Soustruznik?.methods?.parseGCode);
+
 
