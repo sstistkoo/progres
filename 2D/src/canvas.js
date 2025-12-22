@@ -55,11 +55,6 @@ function setupCanvasEvents() {
 // ===== MOUSE HANDLERS =====
 
 function onCanvasMouseDown(e) {
-  if (!window.snapPoint) {
-    console.error("[onCanvasMouseDown] ❌ snapPoint chybí!", { snapPoint: !!window.snapPoint });
-    return;
-  }
-
   // Pokud mode není nastaven, nastav "pan"
   if (!window.mode) {
     window.mode = "pan";
@@ -74,7 +69,7 @@ function onCanvasMouseDown(e) {
 
   const worldPt = window.screenToWorld(screenX, screenY);
   if (!worldPt) return;  // Guard: screenToWorld vracela undefined
-  const snapped = window.snapPoint(worldPt.x, worldPt.y);
+  const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
 
   if (e.button === 2) {
     // Pravé tlačítko = zrušit

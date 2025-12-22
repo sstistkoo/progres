@@ -213,3 +213,6 @@ Object.defineProperty(window, 'screenToWorld', {
     return window.Soustruznik.methods.screenToWorld.call(window.Soustruznik, {x: sx, y: sy});
   }
 });
+
+// ===== PLACEHOLDER - Bude definováno v drawing.js =====
+// snapPoint, updateSnapPoints a další funkcí budou přiřazeny v drawing.js

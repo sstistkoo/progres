@@ -45,8 +45,9 @@ if (!window.Soustruznik.methods.screenToWorld) {
 // Pouze se zde odkažují!
 
 // ===== COORDINATE CONVERSION =====
+// Vytváříme lokální proměnné - globální verze budou dostupné přes Object.defineProperty v globals.js
 
-function worldToScreen(wx, wy) {
+const worldToScreen = (wx, wy) => {
   try {
     const result = window.Soustruznik.methods.worldToScreen.call(window.Soustruznik, {x: wx, y: wy});
     return result || { x: wx, y: wy };  // Fallback na vstupní hodnotu
@@ -54,9 +55,9 @@ function worldToScreen(wx, wy) {
     console.warn("⚠️ worldToScreen error:", e);
     return { x: wx, y: wy };  // Fallback na vstupní hodnotu
   }
-}
+};
 
-function screenToWorld(sx, sy) {
+const screenToWorld = (sx, sy) => {
   try {
     const result = window.Soustruznik.methods.screenToWorld.call(window.Soustruznik, {x: sx, y: sy});
     return result || { x: sx, y: sy };  // Fallback na vstupní hodnotu
@@ -64,7 +65,7 @@ function screenToWorld(sx, sy) {
     console.warn("⚠️ screenToWorld error:", e);
     return { x: sx, y: sy };  // Fallback na vstupní hodnotu
   }
-}
+};
 
 // ===== SNAP POINTS & GEOMETRY =====
 
@@ -992,8 +993,7 @@ window.aiRedo = redo;  // Alias for aiRedo
 window.saveState = saveState;
 window.updateSnap = updateSnap;
 window.updateSnapPoints = updateSnapPoints;
-window.screenToWorld = screenToWorld;
-window.worldToScreen = worldToScreen;
+// window.screenToWorld a window.worldToScreen jsou nyní mapovány v globals.js přes Object.defineProperty
 window.snapPoint = function(x, y) {
   const result = snapPointInternal({ x, y });
   return result.point;
