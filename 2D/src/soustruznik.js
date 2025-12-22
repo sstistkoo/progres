@@ -136,6 +136,17 @@ window.Soustruznik = {
     hideModal: function() {},
     updateUI: function() {},
     
+    // --- CONTROLLER (CNC) ---
+    setControllerMode: function(mode) {},
+    confirmControllerInput: function() {},
+    parseGCode: function(input, mode) {},
+    showControllerModal: function() {},
+    closeControllerModal: function() {},
+    showDirectionModal: function() {},
+    closeDirectionModal: function() {},
+    toggleMeasureInput: function() {},
+    processMeasureInput: function(data) {},
+    
     // --- UTILITIES ---
     distance: function(p1, p2) {},
     angle: function(p1, p2) {},
