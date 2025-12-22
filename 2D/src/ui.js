@@ -347,7 +347,11 @@ window.showToolCategory = function (category) {
   }
 
   // Normální handling pro ostatní panely
+  console.log("🔧 Current category:", window.currentCategory, "requested:", category);
+  console.log("🔧 Panel display status:", menuEl ? menuEl.style.display : "menuEl is null");
+  
   if (window.currentCategory === category && menuEl && menuEl.style.display !== "none") {
+    console.log("🔧 CLOSING panel - same category already open");
     menuEl.style.display = "none";
     if (btnEl) btnEl.classList.remove("active");
     window.currentCategory = null;
@@ -357,6 +361,7 @@ window.showToolCategory = function (category) {
     return;
   }
 
+  console.log("🔧 OPENING panel - hiding all others first");
   document.querySelectorAll(".tool-submenu").forEach((menu) => {
     menu.style.display = "none";
   });
@@ -372,9 +377,17 @@ window.showToolCategory = function (category) {
   }
 
   if (menuEl) {
+    console.log("🔧 Setting panel display to flex");
     menuEl.style.display = "flex";
-    if (btnEl) btnEl.classList.add("active");
+    console.log("🔧 Panel display after setting:", menuEl.style.display);
+    if (btnEl) {
+      btnEl.classList.add("active");
+      console.log("🔧 Button activated");
+    }
     window.currentCategory = category;
+    console.log("🔧 Current category set to:", category);
+  } else {
+    console.log("🔧 ERROR: menuEl is null!");
   }
 };
 
