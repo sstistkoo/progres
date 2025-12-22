@@ -157,11 +157,21 @@ function draw() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (document.getElementById("showGrid")?.checked) {
+  const showGrid = document.getElementById("showGrid")?.checked;
+  const showAxes = document.getElementById("showAxes")?.checked;
+  
+  // Loguj jen při inicializaci nebo změně
+  if (window.lastGridState !== showGrid || window.lastAxesState !== showAxes) {
+    console.log("✅ draw() volána:", { showGrid, showAxes, shapesCount: window.shapes?.length || 0 });
+    window.lastGridState = showGrid;
+    window.lastAxesState = showAxes;
+  }
+
+  if (showGrid) {
     drawGrid(ctx, canvas);
   }
 
-  if (document.getElementById("showAxes")?.checked) {
+  if (showAxes) {
     drawAxes(ctx, canvas);
   }
 
