@@ -99,8 +99,8 @@ function snapPointInternal(pt) {
   let bestDist = window.snapDistance; // Max vzdálenost
 
   for (let p of window.cachedSnapPoints) {
-    const screenP = _worldToScreen(p.x, p.y);
-    const screenPt = _worldToScreen(pt.x, pt.y);
+    const screenP = window.worldToScreen(p.x, p.y);
+    const screenPt = window.worldToScreen(pt.x, pt.y);
     const dist = Math.sqrt(
       (screenP.x - screenPt.x) ** 2 + (screenP.y - screenPt.y) ** 2
     );
@@ -116,8 +116,8 @@ function snapPointInternal(pt) {
   if (!snapInfo && window.snapToGrid) {
     const gx = Math.round(pt.x / window.gridSize) * window.gridSize;
     const gy = Math.round(pt.y / window.gridSize) * window.gridSize;
-    const screenG = worldToScreen(gx, gy);
-    const screenPt = worldToScreen(pt.x, pt.y);
+    const screenG = window.worldToScreen(gx, gy);
+    const screenPt = window.worldToScreen(pt.x, pt.y);
     const dist = Math.sqrt(
       (screenG.x - screenPt.x) ** 2 + (screenG.y - screenPt.y) ** 2
     );
@@ -172,7 +172,8 @@ function draw() {
   if (window.cachedSnapPoints && window.cachedSnapPoints.length > 0) {
     window.cachedSnapPoints.forEach((p) => {
       if (p.type === "point") {
-        const sp = worldToScreen(p.x, p.y);
+        const sp = window.worldToScreen(p.x, p.y);
+        if (!sp) return;
         ctx.beginPath();
         ctx.fillStyle = "#ff4444";
         ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
@@ -185,8 +186,8 @@ function draw() {
   if (document.getElementById("showPoints")?.checked) {
     window.cachedSnapPoints.forEach((p) => {
       if (p.type !== "point") {
-        const sp = _worldToScreen(p.x, p.y);
-        if (!sp) return;  // Guard: _worldToScreen vracela undefined
+        const sp = window.worldToScreen(p.x, p.y);
+        if (!sp) return;  // Guard: window.worldToScreen vracela undefined
         ctx.beginPath();
 
         if (p.type === "intersection") {
@@ -215,12 +216,12 @@ function draw() {
         ctx.beginPath();
 
         if (s.type === "line") {
-          const p1 = worldToScreen(s.x1, s.y1);
-          const p2 = worldToScreen(s.x2, s.y2);
+          const p1 = window.worldToScreen(s.x1, s.y1);
+          const p2 = window.worldToScreen(s.x2, s.y2);
           ctx.moveTo(p1.x, p1.y);
           ctx.lineTo(p2.x, p2.y);
         } else if (s.type === "circle") {
-          const c = worldToScreen(s.cx, s.cy);
+          const c = window.worldToScreen(s.cx, s.cy);
           ctx.arc(c.x, c.y, s.r * window.zoom, 0, Math.PI * 2);
 
           // Zobrazit střed kružnice
@@ -229,8 +230,8 @@ function draw() {
           ctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
           ctx.fill();
         } else if (s.type === "rectangle") {
-          const p1 = worldToScreen(s.x1, s.y1);
-          const p2 = worldToScreen(s.x2, s.y2);
+          const p1 = window.worldToScreen(s.x1, s.y1);
+          const p2 = window.worldToScreen(s.x2, s.y2);
 
           const x = Math.min(p1.x, p2.x);
           const y = Math.min(p1.y, p2.y);
@@ -245,8 +246,8 @@ function draw() {
         // Popisek s písmenem
         if (item.label) {
           const labelPos = s.type === "line"
-            ? worldToScreen((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2)
-            : worldToScreen(s.cx, s.cy);
+            ? window.worldToScreen((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2)
+            : window.worldToScreen(s.cx, s.cy);
 
           // Pozadí (černé)
           ctx.fillStyle = "#000000";
@@ -262,7 +263,7 @@ function draw() {
           ctx.fillText(item.label, labelPos.x, labelPos.y - 30);
         }
       } else if (item.category === "point") {
-        const p = worldToScreen(item.x, item.y);
+        const p = window.worldToScreen(item.x, item.y);
 
         // Zvýraznění (magenta)
         ctx.fillStyle = "#ff66ff";
@@ -296,8 +297,8 @@ function draw() {
       const item2 = window.selectedItems[1];
 
       if (item1.category === "point" && item2.category === "point") {
-        const p1 = worldToScreen(item1.x, item1.y);
-        const p2 = worldToScreen(item2.x, item2.y);
+        const p1 = window.worldToScreen(item1.x, item1.y);
+        const p2 = window.worldToScreen(item2.x, item2.y);
 
         // Linka mezi body
         ctx.strokeStyle = "#00ffff";
@@ -336,20 +337,20 @@ function draw() {
     ctx.setLineDash([5, 5]);
 
     if (window.tempShape.type === "line") {
-      const p1 = worldToScreen(window.tempShape.x1, window.tempShape.y1);
-      const p2 = worldToScreen(window.tempShape.x2, window.tempShape.y2);
+      const p1 = window.worldToScreen(window.tempShape.x1, window.tempShape.y1);
+      const p2 = window.worldToScreen(window.tempShape.x2, window.tempShape.y2);
       ctx.beginPath();
       ctx.moveTo(p1.x, p1.y);
       ctx.lineTo(p2.x, p2.y);
       ctx.stroke();
     } else if (window.tempShape.type === "circle") {
-      const c = worldToScreen(window.tempShape.cx, window.tempShape.cy);
+      const c = window.worldToScreen(window.tempShape.cx, window.tempShape.cy);
       ctx.beginPath();
       ctx.arc(c.x, c.y, window.tempShape.r * window.zoom, 0, Math.PI * 2);
       ctx.stroke();
     } else if (window.tempShape.type === "rectangle") {
-      const p1 = worldToScreen(window.tempShape.x1, window.tempShape.y1);
-      const p2 = worldToScreen(window.tempShape.x2, window.tempShape.y2);
+      const p1 = window.worldToScreen(window.tempShape.x1, window.tempShape.y1);
+      const p2 = window.worldToScreen(window.tempShape.x2, window.tempShape.y2);
 
       const x = Math.min(p1.x, p2.x);
       const y = Math.min(p1.y, p2.y);
@@ -364,8 +365,8 @@ function draw() {
 }
 
 function drawGrid(ctx, canvas) {
-  let tl = screenToWorld(0, 0);
-  let br = screenToWorld(canvas.width, canvas.height);
+  let tl = window.screenToWorld(0, 0);
+  let br = window.screenToWorld(canvas.width, canvas.height);
 
   // Fallback na defaultní values když worldToScreen vrací undefined
   if (!tl || !br) {
@@ -393,7 +394,7 @@ function drawGrid(ctx, canvas) {
     const ey = Math.ceil(Math.max(tl.y, br.y) / fineGrid) * fineGrid;
 
     for (let x = sx; x <= ex; x += fineGrid) {
-      const p = worldToScreen(x, 0);
+      const p = window.worldToScreen(x, 0);
       if (!p) continue;
       ctx.beginPath();
       ctx.moveTo(p.x, 0);
@@ -402,7 +403,7 @@ function drawGrid(ctx, canvas) {
     }
 
     for (let y = sy; y <= ey; y += fineGrid) {
-      const p = worldToScreen(0, y);
+      const p = window.worldToScreen(0, y);
       if (!p) continue;
       ctx.beginPath();
       ctx.moveTo(0, p.y);
@@ -421,7 +422,7 @@ function drawGrid(ctx, canvas) {
   const ey = Math.ceil(Math.max(tl.y, br.y) / displayGrid) * displayGrid;
 
   for (let x = sx; x <= ex; x += displayGrid) {
-    const p = worldToScreen(x, 0);
+    const p = window.worldToScreen(x, 0);
     if (!p) continue;
     ctx.beginPath();
     ctx.moveTo(p.x, 0);
@@ -430,7 +431,7 @@ function drawGrid(ctx, canvas) {
   }
 
   for (let y = sy; y <= ey; y += displayGrid) {
-    const p = worldToScreen(0, y);
+    const p = window.worldToScreen(0, y);
     if (!p) continue;
     ctx.beginPath();
     ctx.moveTo(0, p.y);
@@ -453,7 +454,7 @@ function drawAxes(ctx, canvas) {
   ctx.strokeStyle = "#3a3a3a";
   ctx.lineWidth = 2;
 
-  const ox = worldToScreen(0, 0);
+  const ox = window.worldToScreen(0, 0);
 
   // Fallback když worldToScreen vrací undefined
   if (!ox) return;
