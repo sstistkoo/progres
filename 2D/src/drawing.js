@@ -159,6 +159,10 @@ function draw() {
   console.log("🎨 Canvas position - offsetTop:", canvas.offsetTop, "offsetLeft:", canvas.offsetLeft);
   console.log("🎨 Canvas getBoundingClientRect:", canvas.getBoundingClientRect());
   console.log("🎨 Canvas parent getBoundingClientRect:", canvas.parentElement.getBoundingClientRect());
+  console.log("🎨 Canvas style - width:", canvas.style.width, "height:", canvas.style.height);
+  console.log("🎨 Canvas computed style - width:", getComputedStyle(canvas).width, "height:", getComputedStyle(canvas).height);
+  console.log("🎨 Canvas computed style - display:", getComputedStyle(canvas).display, "visibility:", getComputedStyle(canvas).visibility);
+  console.log("🎨 Canvas parent style - display:", getComputedStyle(canvas.parentElement).display, "overflow:", getComputedStyle(canvas.parentElement).overflow);
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -835,18 +839,18 @@ function drawGrid(ctx, canvas) {
   ctx.moveTo(0, 0);
   ctx.lineTo(canvas.width, canvas.height);
   ctx.stroke();
-  
+
   // TEST: Nakreslit druhý kříž
   ctx.beginPath();
   ctx.moveTo(canvas.width, 0);
   ctx.lineTo(0, canvas.height);
   ctx.stroke();
-  
+
   // TEST: Nakreslit žlutý obdélník kolem okrajů
   ctx.strokeStyle = "#FFFF00";
   ctx.lineWidth = 10;
   ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-  
+
   console.log("🔴 TEST: Červená čára + kříž + žlutý rámeček nakresleny, canvas:", canvas.width, "x", canvas.height);
   ctx.lineWidth = 1;
 
