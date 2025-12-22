@@ -456,6 +456,9 @@ function drawAxes(ctx, canvas) {
   ctx.lineWidth = 2;
 
   const ox = worldToScreen(0, 0);
+  
+  // Fallback když worldToScreen vrací undefined
+  if (!ox) return;
 
   if (ox.y >= 0 && ox.y <= canvas.height) {
     ctx.setLineDash([15, 5, 3, 5]);
