@@ -40,6 +40,17 @@ function updateSnapPoints() {
       window.cachedSnapPoints.push({ x: s.x2, y: s.y2, type: "endpoint" });
     } else if (s.type === "circle") {
       window.cachedSnapPoints.push({ x: s.cx, y: s.cy, type: "center" });
+    } else if (s.type === "arc") {
+      // Arc endpoint
+      window.cachedSnapPoints.push({ x: s.x1, y: s.y1, type: "endpoint" });
+      window.cachedSnapPoints.push({ x: s.x2, y: s.y2, type: "endpoint" });
+      window.cachedSnapPoints.push({ x: s.cx, y: s.cy, type: "center" });
+    } else if (s.type === "rectangle") {
+      // Přidat všechny 4 rohy obdélníku
+      window.cachedSnapPoints.push({ x: s.x1, y: s.y1, type: "endpoint" });
+      window.cachedSnapPoints.push({ x: s.x2, y: s.y1, type: "endpoint" });
+      window.cachedSnapPoints.push({ x: s.x2, y: s.y2, type: "endpoint" });
+      window.cachedSnapPoints.push({ x: s.x1, y: s.y2, type: "endpoint" });
     }
   });
 
