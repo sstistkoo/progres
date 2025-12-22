@@ -185,6 +185,8 @@ function onCanvasMouseMove(e) {
   }
 
   window.cursorPos = { x: screenX, y: screenY };
+  window.lastMouseX = screenX;
+  window.lastMouseY = screenY;
 
   const worldPt = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
   const snapped = (window.snapPoint && worldPt) ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
