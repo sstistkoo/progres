@@ -354,53 +354,105 @@ function draw() {
     ctx.setLineDash([]);
   }
 
-  // ===== ZVÝRAZNĚNÍ PŘICHYCENÉHO BODU =====
-  // Zobrazit cercích kolem bodu pod kurzorem + info panel
-  const cursorPos = { x: window.lastMouseX, y: window.lastMouseY };
-  if (cursorPos.x !== undefined && cursorPos.y !== undefined) {
-    const snapResult = snapPointInternal(cursorPos);
-    
-    if (snapResult.snapInfo) {
-      const sp = window.worldToScreen(snapResult.point.x, snapResult.point.y);
-      
-      // Velký kroužek kolem přichyceného bodu (žlutá)
-      ctx.strokeStyle = "#ffff00";
-      ctx.lineWidth = 3;
+  // ===== VYKRESLENÍ VYBRANÉHO BODU (Persistent highlight) =====
+  if (window.selectedSnapPoint) {
+    const selectedSp = window.worldToScreen(window.selectedSnapPoint.x, window.selectedSnapPoint.y);
+    if (selectedSp) {
+      // VELKÝ ZVÝRAZNĚNÝ KRUH - ZELENÁ BARVA
+      ctx.strokeStyle = "#00ff00";
+      ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.arc(sp.x, sp.y, 10, 0, Math.PI * 2);
+      ctx.arc(selectedSp.x, selectedSp.y, 15, 0, Math.PI * 2);
       ctx.stroke();
-      
-      // Vnitřní menší kroužek (oranžová)
-      ctx.strokeStyle = "#ff8800";
+
+      // Vnitřní kruh (tmavě zelená)
+      ctx.strokeStyle = "#00aa00";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(sp.x, sp.y, 6, 0, Math.PI * 2);
+      ctx.arc(selectedSp.x, selectedSp.y, 10, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Zobrazit info v snap-info panelu
+      // Vyplnění středu (průhledně zelená)
+      ctx.fillStyle = "rgba(0, 255, 0, 0.1)";
+      ctx.beginPath();
+      ctx.arc(selectedSp.x, selectedSp.y, 12, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Info o vybraném bodu
       const snapInfoEl = document.getElementById("snapInfo");
       if (snapInfoEl) {
-        const zoom = window.Soustruznik.state.zoom || window.zoom || 1;
-        const displayX = snapResult.point.x.toFixed(2);
-        const displayY = snapResult.point.y.toFixed(2);
-
-        let infoText = `Z=${displayX} X=${displayY}`;
-        
-        // Přidat typ bodu
-        if (snapResult.snapInfo.type === "point") infoText += " (bod)";
-        else if (snapResult.snapInfo.type === "endpoint") infoText += " (konec)";
-        else if (snapResult.snapInfo.type === "center") infoText += " (střed)";
-        else if (snapResult.snapInfo.type === "intersection") infoText += " (průsečík)";
-        else if (snapResult.snapInfo.type === "grid") infoText += " (mřížka)";
-
-        snapInfoEl.textContent = infoText;
+        const displayX = window.selectedSnapPoint.x.toFixed(2);
+        const displayY = window.selectedSnapPoint.y.toFixed(2);
+        let typeStr = window.selectedSnapPoint.type;
+        if (typeStr === "endpoint") typeStr = "konec";
+        else if (typeStr === "center") typeStr = "střed";
+        else if (typeStr === "intersection") typeStr = "průsečík";
+        else if (typeStr === "grid") typeStr = "mřížka";
+        snapInfoEl.textContent = `✓ Vybraný: Z=${displayX} X=${displayY} [${typeStr}]`;
         snapInfoEl.classList.add("show");
+        snapInfoEl.style.backgroundColor = "rgba(0, 200, 0, 0.8)";
       }
-    } else {
-      // Skrýt snapInfo, pokud není přichyceno na bod
-      const snapInfoEl = document.getElementById("snapInfo");
-      if (snapInfoEl) {
-        snapInfoEl.classList.remove("show");
+    }
+  }
+
+  // ===== ZVÝRAZNĚNÍ PŘICHYCENÉHO BODU =====
+  // Zobrazit cercích kolem bodu pod kurzorem + info panel
+  if (window.lastMouseX !== undefined && window.lastMouseY !== undefined) {
+    // Konvertuj obrazovkové souřadnice na světové
+    const worldPt = window.screenToWorld(window.lastMouseX, window.lastMouseY);
+    if (worldPt) {
+      const snapResult = snapPointInternal(worldPt);
+
+      if (snapResult.snapInfo) {
+        const sp = window.worldToScreen(snapResult.point.x, snapResult.point.y);
+
+        // Velký kroužek kolem přichyceného bodu (žlutá) - jen když není vybraný
+        if (!window.selectedSnapPoint || (window.selectedSnapPoint.x !== snapResult.point.x || window.selectedSnapPoint.y !== snapResult.point.y)) {
+          ctx.strokeStyle = "#ffff00";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, 10, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Vnitřní menší kroužek (oranžová)
+          ctx.strokeStyle = "#ff8800";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, 6, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Zobrazit info v snap-info panelu (pokud není vybraný bod)
+        if (!window.selectedSnapPoint) {
+          const snapInfoEl = document.getElementById("snapInfo");
+          if (snapInfoEl) {
+            const zoom = window.Soustruznik.state.zoom || window.zoom || 1;
+            const displayX = snapResult.point.x.toFixed(2);
+            const displayY = snapResult.point.y.toFixed(2);
+
+            let infoText = `Z=${displayX} X=${displayY}`;
+
+            // Přidat typ bodu
+            if (snapResult.snapInfo.type === "point") infoText += " (bod)";
+            else if (snapResult.snapInfo.type === "endpoint") infoText += " (konec)";
+            else if (snapResult.snapInfo.type === "center") infoText += " (střed)";
+            else if (snapResult.snapInfo.type === "intersection") infoText += " (průsečík)";
+            else if (snapResult.snapInfo.type === "grid") infoText += " (mřížka)";
+
+            infoText += " (klikni pro výběr)";
+            snapInfoEl.textContent = infoText;
+            snapInfoEl.classList.add("show");
+            snapInfoEl.style.backgroundColor = "rgba(255, 136, 0, 0.7)";
+          }
+        }
+      } else {
+        // Skrýt snapInfo, pokud není přichyceno na bod a není vybraný bod
+        if (!window.selectedSnapPoint) {
+          const snapInfoEl = document.getElementById("snapInfo");
+          if (snapInfoEl) {
+            snapInfoEl.classList.remove("show");
+          }
+        }
       }
     }
   }

@@ -62,6 +62,11 @@ Object.defineProperty(window, 'panY', {
   set: (v) => { window.Soustruznik.state.panY = v; }
 });
 
+Object.defineProperty(window, 'selectedSnapPoint', {
+  get: () => window.Soustruznik.state.selectedSnapPoint,
+  set: (v) => { window.Soustruznik.state.selectedSnapPoint = v; }
+});
+
 Object.defineProperty(window, 'defaultDrawColor', {
   get: () => window.Soustruznik.state.defaultDrawColor,
   set: (v) => { window.Soustruznik.state.defaultDrawColor = v; }
