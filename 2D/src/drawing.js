@@ -163,6 +163,16 @@ function draw() {
   console.log("🎨 Canvas computed style - width:", getComputedStyle(canvas).width, "height:", getComputedStyle(canvas).height);
   console.log("🎨 Canvas computed style - display:", getComputedStyle(canvas).display, "visibility:", getComputedStyle(canvas).visibility);
   console.log("🎨 Canvas parent style - display:", getComputedStyle(canvas.parentElement).display, "overflow:", getComputedStyle(canvas.parentElement).overflow);
+  
+  // Najít všechny parent elementy a jejich display vlastnosti
+  let currentElement = canvas.parentElement;
+  let level = 1;
+  while (currentElement && level <= 5) {
+    const computedStyle = getComputedStyle(currentElement);
+    console.log(`🎨 Parent level ${level} (${currentElement.tagName}.${currentElement.className || 'no-class'}#${currentElement.id || 'no-id'}) - display:`, computedStyle.display, "visibility:", computedStyle.visibility);
+    currentElement = currentElement.parentElement;
+    level++;
+  }
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
