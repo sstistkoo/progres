@@ -156,6 +156,10 @@ function draw() {
   const ctx = canvas.getContext("2d");
 
   console.log("🎨 draw() START - canvas:", canvas.width, "x", canvas.height);
+  console.log("🎨 Canvas DOM - element:", !!canvas, "parentElement:", canvas.parentElement?.tagName);
+  console.log("🎨 Canvas style - width:", canvas.style.width, "height:", canvas.style.height, "display:", canvas.style.display);
+  console.log("🎨 Canvas computed style:", window.getComputedStyle(canvas).display, window.getComputedStyle(canvas).visibility, window.getComputedStyle(canvas).opacity);
+  console.log("🎨 Canvas position - offsetTop:", canvas.offsetTop, "offsetLeft:", canvas.offsetLeft, "zIndex:", window.getComputedStyle(canvas).zIndex);
   console.log("🎨 Canvas state - globalAlpha:", ctx.globalAlpha, "globalCompositeOperation:", ctx.globalCompositeOperation);
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -833,7 +837,7 @@ function drawGrid(ctx, canvas) {
   ctx.moveTo(0, 0);
   ctx.lineTo(canvas.width, canvas.height);
   ctx.stroke();
-  
+
   console.log("🔴 TEST: Červená čára nakreslena z 0,0 do", canvas.width, canvas.height);
 
   ctx.strokeStyle = "#666666";
