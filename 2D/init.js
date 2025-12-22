@@ -49,12 +49,12 @@ function initializeApp() {
   if (window.Soustruznik.state.zoom === undefined) window.Soustruznik.state.zoom = 2;
   if (window.Soustruznik.state.panX === undefined) window.Soustruznik.state.panX = canvas.width / 2;
   if (window.Soustruznik.state.panY === undefined) window.Soustruznik.state.panY = canvas.height / 2;
-  
+
   // Zpětná kompatibilita - také nastavit na window
   window.zoom = window.Soustruznik.state.zoom;
   window.panX = window.Soustruznik.state.panX;
   window.panY = window.Soustruznik.state.panY;
-  
+
   if (!window.shapes) window.shapes = [];
   if (!window.points) window.points = [];
   if (!window.selectedItems) window.selectedItems = [];

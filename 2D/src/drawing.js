@@ -376,7 +376,7 @@ function drawGrid(ctx, canvas) {
 
   const zoom = window.Soustruznik.state.zoom ?? window.zoom ?? 1;
   const gridSize = window.gridSize ?? 10;
-  
+
   const gridPixels = gridSize * zoom;
 
   let displayGrid = gridSize;
