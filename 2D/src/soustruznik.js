@@ -39,9 +39,9 @@ window.Soustruznik = {
     // Viewport & Zoom
     viewportX: 0,         // Pozice viewportu X
     viewportY: 0,         // Pozice viewportu Y
-    panX: undefined,      // Pan pozice X (pro rendering) - bude nastaveno v init.js
-    panY: undefined,      // Pan pozice Y (pro rendering) - bude nastaveno v init.js
-    zoom: undefined,      // Úroveň zoomu - bude nastaveno v init.js
+    panX: 0,              // Pan pozice X (pro rendering)
+    panY: 0,              // Pan pozice Y (pro rendering)
+    zoom: 1,              // Úroveň zoomu (default 1)
 
     // UI State
     panMode: false,       // Aktivní režim posunu
