@@ -3,23 +3,6 @@
  */
 
 /**
- * Toggle sekce kót
- */
-window.toggleCotasSection = function() {
-  const section = document.getElementById('cotasPanel');
-  const toggle = document.getElementById('cotasToggle');
-  if (section) {
-    if (section.style.display === 'none') {
-      section.style.display = 'block';
-      if (toggle) toggle.textContent = '▼';
-    } else {
-      section.style.display = 'none';
-      if (toggle) toggle.textContent = '▶';
-    }
-  }
-};
-
-/**
  * Zobrazí modal pro fixaci měření
  */
 function showMeasurementFixationModal() {
