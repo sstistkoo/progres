@@ -155,10 +155,15 @@ function draw() {
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
 
+  console.log("🎨 draw() START - canvas:", canvas.width, "x", canvas.height);
+  console.log("🎨 Canvas state - globalAlpha:", ctx.globalAlpha, "globalCompositeOperation:", ctx.globalCompositeOperation);
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const showGrid = document.getElementById("showGrid")?.checked;
   const showAxes = document.getElementById("showAxes")?.checked;
+
+  console.log("🎨 draw() checkboxes - showGrid:", showGrid, "showAxes:", showAxes);
 
   if (showGrid) {
     drawGrid(ctx, canvas);
@@ -821,6 +826,16 @@ function drawGrid(ctx, canvas) {
   }
 
   // Hlavní mřížka
+  // TEST: Nakreslit jasnou červenou čáru přes celý canvas
+  ctx.strokeStyle = "#FF0000";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(canvas.width, canvas.height);
+  ctx.stroke();
+  
+  console.log("🔴 TEST: Červená čára nakreslena z 0,0 do", canvas.width, canvas.height);
+
   ctx.strokeStyle = "#666666";
   ctx.lineWidth = 1;
 
