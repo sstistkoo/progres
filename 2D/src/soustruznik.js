@@ -54,6 +54,12 @@ window.Soustruznik = {
     dimensionLineColor: '#ffa500',    // Barva čar kót (oranžová)
     dimensionTextColor: '#ffff99',    // Barva textu kót (světlá žlutá)
     
+    // Controller Settings (CNC)
+    controllerMode: 'G90',            // CNC režim (G90 = absolutní, G91 = relativní)
+    controllerInputBuffer: '',        // Aktuální vstup do CNC controlleru
+    pendingDirection: null,           // Čekající směr z modálu
+    displayDecimals: 2,               // Počet zobrazených desetinných míst
+    
     // Animation
     animationFrameId: null            // ID requestAnimationFrame loop
   },

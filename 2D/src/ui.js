@@ -6,6 +6,20 @@
  * - Settings panels
  */
 
+// ============================================================
+// NAMESPACE MIGRATION - Mapper ke Soustruznik.methods
+// ============================================================
+// Tato část mapuje klíčové UI funkce na window.Soustruznik.methods
+// Zachovává zpětnou kompatibilitu skrze window.* funkce
+
+if (window.Soustruznik && window.Soustruznik.methods) {
+  // Settings management - bude mapováno po definici funkcí
+  // window.Soustruznik.methods.initializeDefaultSettings = window.initializeDefaultSettings;
+  // window.Soustruznik.methods.initializeDimensionSettings = window.initializeDimensionSettings;
+  // window.Soustruznik.methods.setDimensionLineColor = window.setDimensionLineColor;
+  // window.Soustruznik.methods.setDimensionTextColor = window.setDimensionTextColor;
+}
+
 // Globální proměnné jsou inicializovány v globals.js
 
 // ===== DEFAULT DRAWING SETTINGS =====
@@ -17,6 +31,12 @@ window.initializeDefaultSettings = function () {
 
   window.defaultDrawColor = savedColor;
   window.defaultDrawLineStyle = savedStyle;
+
+  // Sync s namespace
+  if (window.Soustruznik && window.Soustruznik.state) {
+    window.Soustruznik.state.defaultDrawColor = savedColor;
+    window.Soustruznik.state.defaultDrawLineStyle = savedStyle;
+  }
 
   // Nastavit selecty v HTML
   const colorSelect = document.getElementById("defaultColorSelect");
@@ -46,6 +66,12 @@ window.initializeDimensionSettings = function () {
   window.dimensionLineColor = savedLineColor;
   window.dimensionTextColor = savedTextColor;
 
+  // Sync s namespace
+  if (window.Soustruznik && window.Soustruznik.state) {
+    window.Soustruznik.state.dimensionLineColor = savedLineColor;
+    window.Soustruznik.state.dimensionTextColor = savedTextColor;
+  }
+
   // Nastavit selecty v HTML
   const lineColorSelect = document.getElementById("dimensionLineColorSelect");
   const textColorSelect = document.getElementById("dimensionTextColorSelect");
@@ -56,12 +82,18 @@ window.initializeDimensionSettings = function () {
 
 window.setDimensionLineColor = function (color) {
   window.dimensionLineColor = color;
+  if (window.Soustruznik && window.Soustruznik.state) {
+    window.Soustruznik.state.dimensionLineColor = color;
+  }
   localStorage.setItem("dimensionLineColor", color);
   if (window.draw) window.draw(); // Překreslit plátno
 };
 
 window.setDimensionTextColor = function (color) {
   window.dimensionTextColor = color;
+  if (window.Soustruznik && window.Soustruznik.state) {
+    window.Soustruznik.state.dimensionTextColor = color;
+  }
   localStorage.setItem("dimensionTextColor", color);
   if (window.draw) window.draw(); // Překreslit plátno
 };
@@ -1367,6 +1399,24 @@ window.closeQuickInputHelp = function () {
     helpModal.style.display = "none";
   }
 };
+
+// ============================================================
+// FÁZA 5 COMPLETION - Namespace method delegation
+// ============================================================
+// UI metody jsou nyní dostupné na window.Soustruznik.methods
+// a také stále na window.* pro zpětnou kompatibilitu
+
+// Přidat mapování po načtení funkcí
+if (window.Soustruznik && window.Soustruznik.methods) {
+  window.Soustruznik.methods.initializeDefaultSettings = window.initializeDefaultSettings;
+  window.Soustruznik.methods.initializeDimensionSettings = window.initializeDimensionSettings;
+  window.Soustruznik.methods.setDimensionLineColor = window.setDimensionLineColor;
+  window.Soustruznik.methods.setDimensionTextColor = window.setDimensionTextColor;
+}
+
+console.log('✅ FÁZA 5: ui.js - Namespace methods mapped');
+console.log('   window.Soustruznik.methods.setDimensionLineColor:', typeof window.Soustruznik?.methods?.setDimensionLineColor);
+console.log('   window.Soustruznik.methods.initializeDimensionSettings:', typeof window.Soustruznik?.methods?.initializeDimensionSettings);
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
