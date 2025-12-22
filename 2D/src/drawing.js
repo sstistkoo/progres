@@ -15,7 +15,9 @@
 
 if (!window.Soustruznik.methods.worldToScreen) {
   window.Soustruznik.methods.worldToScreen = function(point) {
-    const { zoom, panX, panY } = this.state;
+    const zoom = this.state.zoom ?? 1;
+    const panX = this.state.panX ?? 0;
+    const panY = this.state.panY ?? 0;
     return {
       x: point.x * zoom + panX,
       y: panY - point.y * zoom
@@ -25,7 +27,9 @@ if (!window.Soustruznik.methods.worldToScreen) {
 
 if (!window.Soustruznik.methods.screenToWorld) {
   window.Soustruznik.methods.screenToWorld = function(point) {
-    const { zoom, panX, panY } = this.state;
+    const zoom = this.state.zoom ?? 1;
+    const panX = this.state.panX ?? 0;
+    const panY = this.state.panY ?? 0;
     return {
       x: (point.x - panX) / zoom,
       y: (panY - point.y) / zoom
