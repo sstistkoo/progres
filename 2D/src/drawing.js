@@ -521,6 +521,7 @@ function draw() {
         // Modrý kruh pro vybraný bod
         ctx.strokeStyle = "#0088ff";
         ctx.lineWidth = 3;
+        ctx.globalAlpha = 1; // Resetuj alpha
         ctx.beginPath();
         ctx.arc(screenPos.x, screenPos.y, 12, 0, Math.PI * 2);
         ctx.stroke();
@@ -533,6 +534,7 @@ function draw() {
 
         // PÍSMENO (A, B, C...) - BEZ POZADÍ
         if (item.label) {
+          ctx.globalAlpha = 1; // Zajisti plnou opacity
           ctx.fillStyle = "#ffffff";
           ctx.font = "bold 14px Arial";
           ctx.textAlign = "center";
@@ -541,6 +543,7 @@ function draw() {
         }
       }
     });
+    ctx.globalAlpha = 1; // Resetuj alpha na konci
   }
 }
 
