@@ -822,42 +822,40 @@ function drawGrid(ctx, canvas) {
     displayGrid = gridSize * skipFactor;
   }
 
-  // Sekundární mřížka
-  if (skipFactor > 1 && gridPixels * 5 >= 3) {
-    ctx.strokeStyle = "#141414";
-    const fineGrid = gridSize * Math.min(5, skipFactor);
-    const sx = Math.floor(Math.min(tl.x, br.x) / fineGrid) * fineGrid;
-    const ex = Math.ceil(Math.max(tl.x, br.x) / fineGrid) * fineGrid;
-    const sy = Math.floor(Math.min(tl.y, br.y) / fineGrid) * fineGrid;
-    const ey = Math.ceil(Math.max(tl.y, br.y) / fineGrid) * fineGrid;
-
-    for (let x = sx; x <= ex; x += fineGrid) {
-      const p = window.worldToScreen(x, 0);
-      if (!p) continue;
-      ctx.beginPath();
-      ctx.moveTo(p.x, 0);
-      ctx.lineTo(p.x, canvas.height);
-      ctx.stroke();
-    }
-
-    for (let y = sy; y <= ey; y += fineGrid) {
-      const p = window.worldToScreen(0, y);
-      if (!p) continue;
-      ctx.beginPath();
-      ctx.moveTo(0, p.y);
-      ctx.lineTo(canvas.width, p.y);
-      ctx.stroke();
-    }
-  }
-
   // Hlavní mřížka
-  ctx.strokeStyle = "#1a1a1a";
+  ctx.strokeStyle = "#666666";
   ctx.lineWidth = 1;
 
   const sx = Math.floor(Math.min(tl.x, br.x) / displayGrid) * displayGrid;
   const ex = Math.ceil(Math.max(tl.x, br.x) / displayGrid) * displayGrid;
   const sy = Math.floor(Math.min(tl.y, br.y) / displayGrid) * displayGrid;
   const ey = Math.ceil(Math.max(tl.y, br.y) / displayGrid) * displayGrid;
+  
+  let lineCount = 0;
+  
+  // Vertical lines
+  for (let x = sx; x <= ex; x += displayGrid) {
+    const p = window.worldToScreen(x, 0);
+    if (!p) continue;
+    ctx.beginPath();
+    ctx.moveTo(p.x, 0);
+    ctx.lineTo(p.x, canvas.height);
+    ctx.stroke();
+    lineCount++;
+  }
+
+  // Horizontal lines
+  for (let y = sy; y <= ey; y += displayGrid) {
+    const p = window.worldToScreen(0, y);
+    if (!p) continue;
+    ctx.beginPath();
+    ctx.moveTo(0, p.y);
+    ctx.lineTo(canvas.width, p.y);
+    ctx.stroke();
+    lineCount++;
+  }
+  
+  console.log("🔳 drawGrid() END - narysovano " + lineCount + " čar, sx=" + sx + " ex=" + ex + " sy=" + sy + " ey=" + ey);
 
   for (let x = sx; x <= ex; x += displayGrid) {
     const p = window.worldToScreen(x, 0);
@@ -866,6 +864,7 @@ function drawGrid(ctx, canvas) {
     ctx.moveTo(p.x, 0);
     ctx.lineTo(p.x, canvas.height);
     ctx.stroke();
+    lineCount++;
   }
 
   for (let y = sy; y <= ey; y += displayGrid) {
@@ -875,17 +874,10 @@ function drawGrid(ctx, canvas) {
     ctx.moveTo(0, p.y);
     ctx.lineTo(canvas.width, p.y);
     ctx.stroke();
+    lineCount++;
   }
-
-  ctx.fillStyle = "#4a4a4a";
-  ctx.font = "11px Arial";
-  const gridLabel = gridSize >= 1 ? `${gridSize}mm` : `${gridSize.toFixed(2)}mm`;
-  const displayLabel =
-    skipFactor > 1
-      ? `Mřížka: ${gridLabel} (zobrazeno každý ${skipFactor}.)`
-      : `Mřížka: ${gridLabel}`;
-  ctx.fillText(displayLabel, 10, canvas.height - 40);
-  ctx.fillText(`Zoom: ${((zoom / 2) * 100).toFixed(0)}%`, 10, canvas.height - 25);
+  
+  console.log("🔳 drawGrid() END - narysovano " + lineCount + " čar, sx=" + sx + " ex=" + ex + " sy=" + sy + " ey=" + ey);
 }
 
 function drawAxes(ctx, canvas) {
