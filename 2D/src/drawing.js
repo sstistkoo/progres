@@ -45,13 +45,8 @@ function updateSnapPoints() {
       window.cachedSnapPoints.push({ x: s.x1, y: s.y1, type: "endpoint" });
       window.cachedSnapPoints.push({ x: s.x2, y: s.y2, type: "endpoint" });
       window.cachedSnapPoints.push({ x: s.cx, y: s.cy, type: "center" });
-    } else if (s.type === "rectangle") {
-      // Přidat všechny 4 rohy obdélníku
-      window.cachedSnapPoints.push({ x: s.x1, y: s.y1, type: "endpoint" });
-      window.cachedSnapPoints.push({ x: s.x2, y: s.y1, type: "endpoint" });
-      window.cachedSnapPoints.push({ x: s.x2, y: s.y2, type: "endpoint" });
-      window.cachedSnapPoints.push({ x: s.x1, y: s.y2, type: "endpoint" });
     }
+    // POZN: Obdélníky již nejsou - jsou konvertovány na 4 úseky hned od vytvoření
   });
 
   // 3. Průsečíky
@@ -234,17 +229,8 @@ function draw() {
           ctx.beginPath();
           ctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
           ctx.fill();
-        } else if (s.type === "rectangle") {
-          const p1 = window.worldToScreen(s.x1, s.y1);
-          const p2 = window.worldToScreen(s.x2, s.y2);
-
-          const x = Math.min(p1.x, p2.x);
-          const y = Math.min(p1.y, p2.y);
-          const width = Math.abs(p2.x - p1.x);
-          const height = Math.abs(p2.y - p1.y);
-
-          ctx.strokeRect(x, y, width, height);
         }
+        // POZN: Obdélníky již nejsou - jsou konvertovány na 4 úseky
 
         ctx.stroke();
 
@@ -979,37 +965,6 @@ function drawShape(ctx, s, canvas) {
       ctx.beginPath();
       ctx.arc(c.x, c.y, s.r * zoom, 0, Math.PI * 2);
       ctx.stroke();
-    }
-  }
-
-  if (s.type === "rectangle") {
-    const p1 = worldToScreen(s.x1, s.y1);
-    const p2 = worldToScreen(s.x2, s.y2);
-
-    if (p1 && p2) {
-      const x = Math.min(p1.x, p2.x);
-      const y = Math.min(p1.y, p2.y);
-      const width = Math.abs(p2.x - p1.x);
-      const height = Math.abs(p2.y - p1.y);
-
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
-      ctx.strokeRect(x, y, width, height);
-
-      // Kreslit všechny 4 rohy obdélníku
-      const corners = [
-        { x: x, y: y },                    // Horní levý roh
-        { x: x + width, y: y },            // Horní pravý roh
-        { x: x + width, y: y + height },   // Dolní pravý roh
-        { x: x, y: y + height }            // Dolní levý roh
-      ];
-
-      ctx.fillStyle = strokeColor;
-      corners.forEach((corner) => {
-        ctx.beginPath();
-        ctx.arc(corner.x, corner.y, 3, 0, Math.PI * 2);
-        ctx.fill();
-      });
     }
   }
 

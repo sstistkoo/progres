@@ -297,15 +297,21 @@ function onCanvasMouseUp(e) {
         }
       }
 
-      window.shapes.push({
-        type: "rectangle",
-        x1: window.startPt.x,
-        y1: window.startPt.y,
-        x2: x2,
-        y2: y2,
-        color: window.defaultDrawColor || "#4a9eff",
-        lineStyle: window.defaultDrawLineStyle || "solid",
-      });
+      // Konvertuj obdélník na 4 úseček hned od vytvoření
+      const minX = Math.min(window.startPt.x, x2);
+      const maxX = Math.max(window.startPt.x, x2);
+      const minY = Math.min(window.startPt.y, y2);
+      const maxY = Math.max(window.startPt.y, y2);
+
+      const color = window.defaultDrawColor || "#4a9eff";
+      const lineStyle = window.defaultDrawLineStyle || "solid";
+
+      // Čtyři strany obdélníku jako samostatné úseky
+      window.shapes.push({ type: "line", x1: minX, y1: minY, x2: maxX, y2: minY, color: color, lineStyle: lineStyle }); // horní
+      window.shapes.push({ type: "line", x1: minX, y1: maxY, x2: maxX, y2: maxY, color: color, lineStyle: lineStyle }); // dolní
+      window.shapes.push({ type: "line", x1: minX, y1: minY, x2: minX, y2: maxY, color: color, lineStyle: lineStyle }); // levá
+      window.shapes.push({ type: "line", x1: maxX, y1: minY, x2: maxX, y2: maxY, color: color, lineStyle: lineStyle }); // pravá
+
       if (window.updateSnapPoints) window.updateSnapPoints();
       if (window.saveState) window.saveState();
     }
@@ -876,25 +882,8 @@ function snapPointToGeometry(x, y) {
           snappedTo = `kružnice (${shape.cx.toFixed(0)},${shape.cy.toFixed(0)})`;
           minDist = Math.abs(dist - shape.r);
         }
-      } else if (shape.type === "rectangle") {
-        // Přichyť na hranu obdélníku
-        const edges = [
-          { x1: shape.x1, y1: shape.y1, x2: shape.x2, y2: shape.y1 }, // top
-          { x1: shape.x2, y1: shape.y1, x2: shape.x2, y2: shape.y2 }, // right
-          { x1: shape.x2, y1: shape.y2, x2: shape.x1, y2: shape.y2 }, // bottom
-          { x1: shape.x1, y1: shape.y2, x2: shape.x1, y2: shape.y1 }  // left
-        ];
-        edges.forEach((edge) => {
-          const closest = pointToLineClosestPoint(x, y, edge.x1, edge.y1, edge.x2, edge.y2);
-          const dist = Math.hypot(closest.x - x, closest.y - y);
-          if (dist < minDist) {
-            snappedX = closest.x;
-            snappedY = closest.y;
-            snappedTo = "obdélník";
-            minDist = dist;
-          }
-        });
-      } else if (shape.type === "arc") {
+      }
+      // POZN: Obdélníky již nejsou - jsou konvertovány na 4 linie hned od vytvoření else if (shape.type === "arc") {
         // Přichyť na oblouk
         const dx = x - shape.cx;
         const dy = y - shape.cy;
@@ -1549,25 +1538,8 @@ function handleDimensionMode(x, y) {
     } else if (s.type === "circle") {
       const dToCenter = Math.hypot(x - s.cx, y - s.cy);
       return Math.abs(dToCenter - s.r) < tolerance;
-    } else if (s.type === "rectangle") {
-      // Detekce kliknutí na strany obdélníku
-      const x1 = Math.min(s.x1, s.x2);
-      const x2 = Math.max(s.x1, s.x2);
-      const y1 = Math.min(s.y1, s.y2);
-      const y2 = Math.max(s.y1, s.y2);
-
-      // Vodorovné strany (top/bottom)
-      const dHorizontal = Math.abs(y - y1) < tolerance || Math.abs(y - y2) < tolerance;
-      if (dHorizontal && x >= x1 - tolerance && x <= x2 + tolerance) {
-        return true;
-      }
-
-      // Svislé strany (left/right)
-      const dVertical = Math.abs(x - x1) < tolerance || Math.abs(x - x2) < tolerance;
-      if (dVertical && y >= y1 - tolerance && y <= y2 + tolerance) {
-        return true;
-      }
     }
+    // POZN: Obdélníky již nejsou - jsou konvertovány na 4 linie hned od vytvoření
     return false;
   });
 
@@ -1617,45 +1589,8 @@ function handleDimensionMode(x, y) {
       cy: shape.cy,
       color: "#ffa500",
     });
-  } else if (shape.type === "rectangle") {
-    // Detekuj kterou stranu klikl
-    const x1 = Math.min(shape.x1, shape.x2);
-    const x2 = Math.max(shape.x1, shape.x2);
-    const y1 = Math.min(shape.y1, shape.y2);
-    const y2 = Math.max(shape.y1, shape.y2);
-
-    const tolerance2 = 15 / (window.zoom || 2);
-
-    if (Math.abs(y - y1) < tolerance2 || Math.abs(y - y2) < tolerance2) {
-      // Klikl na vodorovnou stranu - okótuj šířku
-      const w = Math.abs(shape.x2 - shape.x1);
-      window.shapes.push({
-        type: "dimension",
-        dimType: "rectWidth",
-        target: shape,
-        value: w,
-        x1: shape.x1,
-        y1: shape.y1,
-        x2: shape.x2,
-        y2: shape.y1,
-        color: "#ffa500",
-      });
-    } else {
-      // Klikl na svislou stranu - okótuj výšku
-      const h = Math.abs(shape.y2 - shape.y1);
-      window.shapes.push({
-        type: "dimension",
-        dimType: "rectHeight",
-        target: shape,
-        value: h,
-        x1: shape.x1,
-        y1: shape.y1,
-        x2: shape.x1,
-        y2: shape.y2,
-        color: "#ffa500",
-      });
-    }
   }
+  // POZN: Detekce obdélníků odebrana - obdélníky jsou nyní 4 linie
 
   if (window.saveState) window.saveState();
   if (window.draw) window.draw();
@@ -2047,7 +1982,7 @@ window.handleSelectMode = function(x, y, shiftKey) {
 
         found = {
           category: "shape",
-          type: (found_shape.type === "rectangle") ? "line" : found_shape.type, // Strany obdélníka jsou "line"
+          type: found_shape.type,
           ref: found_shape,
           clickX: clickPoint.x, // Bod kde uživatel klikl
           clickY: clickPoint.y,
