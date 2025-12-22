@@ -1986,7 +1986,7 @@ window.measurementItems = [];
 window.toggleMeasurementMode = function() {
   window.measurementMode = !window.measurementMode;
   window.measurementItems = [];
-  
+
   if (window.measurementMode) {
     window.mode = "select";  // Použij select mode pro výběr
     const btn = document.getElementById("btnMeasurement");
@@ -2000,7 +2000,7 @@ window.toggleMeasurementMode = function() {
     const btn = document.getElementById("btnMeasurement");
     if (btn) btn.classList.remove("active");
   }
-  
+
   if (window.draw) window.draw();
 };
 
@@ -2070,8 +2070,29 @@ window.handleSelectMode = function(x, y, shiftKey) {
         // Odebrat
         window.measurementItems.splice(index, 1);
       } else if (window.measurementItems.length < 2) {
-        // Přidat (max 2)
-        window.measurementItems.push(found);
+        // Type-aware: První objekt určuje typ měření
+        let canAdd = true;
+
+        if (window.measurementItems.length === 1) {
+          const firstItem = window.measurementItems[0];
+          const isFirstLine = firstItem.category === "shape" && firstItem.ref.type === "line";
+          const isFirstPoint = firstItem.category === "point";
+          const isFoundLine = found.category === "shape" && found.ref.type === "line";
+          const isFoundPoint = found.category === "point";
+
+          // Měření usečky: druhý musí být usečka
+          if (isFirstLine && !isFoundLine) {
+            canAdd = false; // Ignoruj - čekáme na druhou usečku
+          }
+          // Měření bodů: druhý musí být bod
+          else if (isFirstPoint && !isFoundPoint) {
+            canAdd = false; // Ignoruj - čekáme na druhý bod
+          }
+        }
+
+        if (canAdd) {
+          window.measurementItems.push(found);
+        }
       }
     }
 
