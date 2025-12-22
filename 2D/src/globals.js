@@ -204,13 +204,25 @@ window.animationFrameId = null;
 // Mapujeme funktionální delegáty na namespace methods
 Object.defineProperty(window, 'worldToScreen', {
   value: function(wx, wy) {
-    return window.Soustruznik.methods.worldToScreen.call(window.Soustruznik, {x: wx, y: wy});
+    const zoom = window.Soustruznik.state.zoom ?? 1;
+    const panX = window.Soustruznik.state.panX ?? 0;
+    const panY = window.Soustruznik.state.panY ?? 0;
+    return {
+      x: wx * zoom + panX,
+      y: panY - wy * zoom
+    };
   }
 });
 
 Object.defineProperty(window, 'screenToWorld', {
   value: function(sx, sy) {
-    return window.Soustruznik.methods.screenToWorld.call(window.Soustruznik, {x: sx, y: sy});
+    const zoom = window.Soustruznik.state.zoom ?? 1;
+    const panX = window.Soustruznik.state.panX ?? 0;
+    const panY = window.Soustruznik.state.panY ?? 0;
+    return {
+      x: (sx - panX) / zoom,
+      y: (panY - sy) / zoom
+    };
   }
 });
 
