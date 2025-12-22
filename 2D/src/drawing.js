@@ -456,7 +456,7 @@ function drawAxes(ctx, canvas) {
   ctx.lineWidth = 2;
 
   const ox = worldToScreen(0, 0);
-  
+
   // Fallback když worldToScreen vrací undefined
   if (!ox) return;
 
@@ -559,31 +559,37 @@ function drawShape(ctx, s, canvas) {
   if (s.type === "line") {
     const p1 = worldToScreen(s.x1, s.y1);
     const p2 = worldToScreen(s.x2, s.y2);
-    ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.stroke();
+    if (p1 && p2) {
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
   }
 
   if (s.type === "circle") {
     const c = worldToScreen(s.cx, s.cy);
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, s.r * zoom, 0, Math.PI * 2);
-    ctx.stroke();
+    if (c) {
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, s.r * zoom, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
   if (s.type === "rectangle") {
     const p1 = worldToScreen(s.x1, s.y1);
     const p2 = worldToScreen(s.x2, s.y2);
 
-    const x = Math.min(p1.x, p2.x);
-    const y = Math.min(p1.y, p2.y);
-    const width = Math.abs(p2.x - p1.x);
-    const height = Math.abs(p2.y - p1.y);
+    if (p1 && p2) {
+      const x = Math.min(p1.x, p2.x);
+      const y = Math.min(p1.y, p2.y);
+      const width = Math.abs(p2.x - p1.x);
+      const height = Math.abs(p2.y - p1.y);
 
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
-    ctx.strokeRect(x, y, width, height);
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
+      ctx.strokeRect(x, y, width, height);
+    }
   }
 
   if (s.type === "arc") {
@@ -591,38 +597,40 @@ function drawShape(ctx, s, canvas) {
     const p1 = worldToScreen(s.x1, s.y1);
     const p2 = worldToScreen(s.x2, s.y2);
 
-    const angle1 = Math.atan2(p1.y - c.y, p1.x - c.x);
-    const angle2 = Math.atan2(p2.y - c.y, p2.x - c.x);
+    if (c && p1 && p2) {
+      const angle1 = Math.atan2(p1.y - c.y, p1.x - c.x);
+      const angle2 = Math.atan2(p2.y - c.y, p2.x - c.x);
 
-    ctx.save();
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
+      ctx.save();
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
 
-    if (s.lineStyle === "dashed") {
-      ctx.setLineDash([8, 4]);
-    } else if (s.lineStyle === "dotted") {
-      ctx.setLineDash([2, 2]);
+      if (s.lineStyle === "dashed") {
+        ctx.setLineDash([8, 4]);
+      } else if (s.lineStyle === "dotted") {
+        ctx.setLineDash([2, 2]);
+      }
+
+      ctx.beginPath();
+      ctx.arc(
+        c.x,
+        c.y,
+        s.r * zoom,
+        angle1,
+        angle2,
+        s.angle > 180 ? true : false
+      );
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = strokeColor;
+      ctx.beginPath();
+      ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(p2.x, p2.y, 3, 0, Math.PI * 2);
+      ctx.fill();
     }
-
-    ctx.beginPath();
-    ctx.arc(
-      c.x,
-      c.y,
-      s.r * zoom,
-      angle1,
-      angle2,
-      s.angle > 180 ? true : false
-    );
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.fillStyle = strokeColor;
-    ctx.beginPath();
-    ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(p2.x, p2.y, 3, 0, Math.PI * 2);
-    ctx.fill();
   }
 
   // ===== KÓTY (DIMENSIONS) =====
@@ -635,6 +643,8 @@ function drawShape(ctx, s, canvas) {
     if (s.dimType === "linear") {
       const p1 = worldToScreen(s.x1, s.y1);
       const p2 = worldToScreen(s.x2, s.y2);
+
+      if (!p1 || !p2) return;
 
       const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
       const offsetDist = 25;
