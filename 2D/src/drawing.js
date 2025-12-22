@@ -369,6 +369,12 @@ function drawGrid(ctx, canvas) {
   const tl = screenToWorld(0, 0);
   const br = screenToWorld(canvas.width, canvas.height);
 
+  // Fallback na defaultní values když worldToScreen vrací undefined
+  if (!tl || !br) {
+    tl = tl || { x: -100, y: -100 };
+    br = br || { x: 100, y: 100 };
+  }
+
   const gridPixels = gridSize * zoom;
 
   let displayGrid = gridSize;
@@ -390,6 +396,7 @@ function drawGrid(ctx, canvas) {
 
     for (let x = sx; x <= ex; x += fineGrid) {
       const p = worldToScreen(x, 0);
+      if (!p) continue;
       ctx.beginPath();
       ctx.moveTo(p.x, 0);
       ctx.lineTo(p.x, canvas.height);
@@ -398,6 +405,7 @@ function drawGrid(ctx, canvas) {
 
     for (let y = sy; y <= ey; y += fineGrid) {
       const p = worldToScreen(0, y);
+      if (!p) continue;
       ctx.beginPath();
       ctx.moveTo(0, p.y);
       ctx.lineTo(canvas.width, p.y);
