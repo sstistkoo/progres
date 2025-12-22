@@ -71,6 +71,19 @@ function onCanvasMouseDown(e) {
   if (!worldPt) return;  // Guard: screenToWorld vracela undefined
   const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
 
+  // ===== VÝBĚR SNAP POINTU =====
+  // Pokud kliknutí je blízko snap pointu, označ ho jako "vybraný"
+  if (window.lastMouseX !== undefined && window.lastMouseY !== undefined) {
+    const snapResult = snapPointInternal(worldPt);
+    if (snapResult && snapResult.snapInfo) {
+      // Klik na snap point - označ ho jako vybraný
+      window.selectedSnapPoint = { x: snapResult.point.x, y: snapResult.point.y, type: snapResult.snapInfo.type };
+      console.log("[onCanvasMouseDown] Vybrán snap point:", window.selectedSnapPoint);
+      if (window.draw) window.draw();
+      return; // Nepokračuj dál - nebyl to běžný klik
+    }
+  }
+
   if (e.button === 2) {
     // Pravé tlačítko = zrušit
     window.clearMode();
@@ -446,7 +459,13 @@ function handlePointMode(x, y) {
 
 function handleLineMode(x, y) {
   if (!window.startPt) {
-    window.startPt = { x, y };
+    // Pokud je vybraný snap point, použij ho jako iniciální bod
+    if (window.selectedSnapPoint) {
+      window.startPt = { x: window.selectedSnapPoint.x, y: window.selectedSnapPoint.y };
+      console.log("[handleLineMode] Počáteční bod z vybraného snap pointu:", window.startPt);
+    } else {
+      window.startPt = { x, y };
+    }
   } else {
     if (!window.shapes) return;
 
@@ -492,7 +511,13 @@ function handleLineMode(x, y) {
 
 function handleCircleMode(x, y) {
   if (!window.startPt) {
-    window.startPt = { x, y };
+    // Pokud je vybraný snap point, použij ho jako střed
+    if (window.selectedSnapPoint) {
+      window.startPt = { x: window.selectedSnapPoint.x, y: window.selectedSnapPoint.y };
+      console.log("[handleCircleMode] Střed z vybraného snap pointu:", window.startPt);
+    } else {
+      window.startPt = { x, y };
+    }
   } else {
     if (!window.shapes) return;
 
@@ -529,7 +554,13 @@ function handleCircleMode(x, y) {
 
 function handleRectangleMode(x, y) {
   // Při kliknutí se začne kreslení tažením
-  window.startPt = { x, y };
+  // Pokud je vybraný snap point, použij ho jako počáteční bod
+  if (window.selectedSnapPoint && !window.startPt) {
+    window.startPt = { x: window.selectedSnapPoint.x, y: window.selectedSnapPoint.y };
+    console.log("[handleRectangleMode] Počáteční bod z vybraného snap pointu:", window.startPt);
+  } else {
+    window.startPt = { x, y };
+  }
   window.drawing = true;
 }
 

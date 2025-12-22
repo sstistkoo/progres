@@ -284,8 +284,16 @@ window.handleGlobalKeyDown = function(e) {
     }
   }
 
-  // ===== ESC = Clear mode =====
+  // ===== ESC = Clear mode & Deselect snap point =====
   if (e.key === "Escape") {
+    // Zrušit vybraný snap point
+    if (window.selectedSnapPoint) {
+      window.selectedSnapPoint = null;
+      console.log("[keyboard] Zrušen vybraný snap point");
+      if (window.draw) window.draw();
+      return;
+    }
+    // Pak zrušit mode
     if (window.clearMode) window.clearMode();
     return;
   }
