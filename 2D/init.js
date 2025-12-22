@@ -36,10 +36,19 @@ function initializeApp() {
 
   // Setup canvas resolution
   const dpr = window.devicePixelRatio || 1;
+  
+  // Use window dimensions instead of getBoundingClientRect
+  // to ensure canvas is properly sized even before CSS layout is complete
+  let canvasWidth = window.innerWidth;
+  let canvasHeight = window.innerHeight;
+  
+  // Fallback to getBoundingClientRect if available
   const rect = canvas.getBoundingClientRect();
+  if (rect.width > 0) canvasWidth = rect.width;
+  if (rect.height > 0) canvasHeight = rect.height;
 
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
+  canvas.width = canvasWidth * dpr;
+  canvas.height = canvasHeight * dpr;
 
   // Store canvas reference globally
   window.canvas = canvas;
@@ -212,10 +221,16 @@ function handleWindowResize() {
   if (!canvas) return;
 
   const dpr = window.devicePixelRatio || 1;
+  
+  let canvasWidth = window.innerWidth;
+  let canvasHeight = window.innerHeight;
+  
   const rect = canvas.getBoundingClientRect();
+  if (rect.width > 0) canvasWidth = rect.width;
+  if (rect.height > 0) canvasHeight = rect.height;
 
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
+  canvas.width = canvasWidth * dpr;
+  canvas.height = canvasHeight * dpr;
 
   if (window.draw) window.draw();
 }
@@ -226,7 +241,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Počkej na načtení CSS a renderování
   setTimeout(() => {
     initializeApp();
-  }, 100);
+  }, 500);
 });
 
 window.addEventListener("resize", handleWindowResize);
