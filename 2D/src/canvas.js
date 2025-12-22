@@ -73,6 +73,7 @@ function onCanvasMouseDown(e) {
   const screenY = e.clientY - rect.top;
 
   const worldPt = window.screenToWorld(screenX, screenY);
+  if (!worldPt) return;  // Guard: screenToWorld vracela undefined
   const snapped = window.snapPoint(worldPt.x, worldPt.y);
 
   if (e.button === 2) {
@@ -298,12 +299,14 @@ function onCanvasWheel(e) {
   e.preventDefault();
 
   const canvas = document.getElementById("canvas");
+  if (!canvas) return;
   const rect = canvas.getBoundingClientRect();
   const screenX = e.clientX - rect.left;
   const screenY = e.clientY - rect.top;
 
   // Získat světové souřadnice PŘED změnou zoom
   const worldPoint = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
+  if (!worldPoint) return;  // Guard: screenToWorld vracela undefined
 
   // Změnit zoom
   const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;

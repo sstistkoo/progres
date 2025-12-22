@@ -47,11 +47,23 @@ if (!window.Soustruznik.methods.screenToWorld) {
 // ===== COORDINATE CONVERSION =====
 
 function worldToScreen(wx, wy) {
-  return window.Soustruznik.methods.worldToScreen.call(window.Soustruznik, {x: wx, y: wy});
+  try {
+    const result = window.Soustruznik.methods.worldToScreen.call(window.Soustruznik, {x: wx, y: wy});
+    return result || { x: wx, y: wy };  // Fallback na vstupní hodnotu
+  } catch (e) {
+    console.warn("⚠️ worldToScreen error:", e);
+    return { x: wx, y: wy };  // Fallback na vstupní hodnotu
+  }
 }
 
 function screenToWorld(sx, sy) {
-  return window.Soustruznik.methods.screenToWorld.call(window.Soustruznik, {x: sx, y: sy});
+  try {
+    const result = window.Soustruznik.methods.screenToWorld.call(window.Soustruznik, {x: sx, y: sy});
+    return result || { x: sx, y: sy };  // Fallback na vstupní hodnotu
+  } catch (e) {
+    console.warn("⚠️ screenToWorld error:", e);
+    return { x: sx, y: sy };  // Fallback na vstupní hodnotu
+  }
 }
 
 // ===== SNAP POINTS & GEOMETRY =====
@@ -193,6 +205,7 @@ function draw() {
     window.cachedSnapPoints.forEach((p) => {
       if (p.type !== "point") {
         const sp = worldToScreen(p.x, p.y);
+        if (!sp) return;  // Guard: worldToScreen vracela undefined
         ctx.beginPath();
 
         if (p.type === "intersection") {
