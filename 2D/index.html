@@ -37,16 +37,16 @@
       }
     </script>
     <!-- GLOBALS + KEYBOARD MUSÍ BÝT PRVNÍ! -->
-    <script src="globals.js"></script>
-    <script src="keyboard.js"></script>
+    <script src="src/globals.js"></script>
+    <script src="src/keyboard.js"></script>
     <script>console.log("✅ index.html loaded");</script>
-    <script src="utils.js"></script>
-    <script src="drawing.js"></script>
-    <script src="canvas.js"></script>
-    <script src="ui.js"></script>
-    <script src="controller.js"></script>
-    <script src="ai.js"></script>
-    <script src="init.js"></script>
+    <script src="src/utils.js"></script>
+    <script src="src/drawing.js"></script>
+    <script src="src/canvas.js"></script>
+    <script src="src/ui.js"></script>
+    <script src="src/controller.js"></script>
+    <script src="src/ai.js"></script>
+    <script src="lib/init.js"></script>
   </head>
   <body>
     <div class="canvas-area">
@@ -1022,11 +1022,11 @@
             <button
               class="tool-btn"
               onclick="window.showColorPicker()"
-              title="Změnit barvu"
+              title="Změnit barvu a typ čáry"
               style="margin: 0"
             >
               <span style="font-size: 20px">🎨</span>
-              <div style="font-size: 10px; margin-top: 2px">Barva</div>
+              <div style="font-size: 10px; margin-top: 2px">Barva, typ</div>
             </button>
 
             <!-- Booleovské operace -->
@@ -1709,6 +1709,125 @@
     </div>
 
     <!-- CONSTRAINT MODAL -->
+    <!-- COLOR & STYLE MODAL -->
+    <div id="colorStyleModal" class="modal-overlay" style="display: none">
+      <div class="modal-window" style="max-width: 600px">
+        <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">🎨 Barva a Styl Čáry</h2>
+
+        <!-- BARVY -->
+        <div style="margin-bottom: 20px">
+          <h3 style="color: #888; font-size: 12px; margin-bottom: 10px; text-transform: uppercase">🎨 Barva</h3>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px">
+            <button onclick="window.selectColor('#FF0000', this)" id="colorBtn_FF0000" style="width: 40px; height: 40px; background: #FF0000; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Červená" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#00FF00', this)" id="colorBtn_00FF00" style="width: 40px; height: 40px; background: #00FF00; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Zelená" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#0000FF', this)" id="colorBtn_0000FF" style="width: 40px; height: 40px; background: #0000FF; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Modrá" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#FFFF00', this)" id="colorBtn_FFFF00" style="width: 40px; height: 40px; background: #FFFF00; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Žlutá" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#FF00FF', this)" id="colorBtn_FF00FF" style="width: 40px; height: 40px; background: #FF00FF; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Fialová" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#00FFFF', this)" id="colorBtn_00FFFF" style="width: 40px; height: 40px; background: #00FFFF; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Azurová" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#FFA500', this)" id="colorBtn_FFA500" style="width: 40px; height: 40px; background: #FFA500; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Oranžová" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#800080', this)" id="colorBtn_800080" style="width: 40px; height: 40px; background: #800080; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Purpura" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#FFFFFF', this)" id="colorBtn_FFFFFF" style="width: 40px; height: 40px; background: #FFFFFF; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Bílá" onmouseover="this.style.borderColor='#aaa'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#000000', this)" id="colorBtn_000000" style="width: 40px; height: 40px; background: #000000; border: 2px solid #aaa; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Černá" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#aaa'"></button>
+            <button onclick="window.selectColor('#808080', this)" id="colorBtn_808080" style="width: 40px; height: 40px; background: #808080; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Šedá" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#FF69B4', this)" id="colorBtn_FF69B4" style="width: 40px; height: 40px; background: #FF69B4; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Růžová" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+          </div>
+        </div>
+
+        <!-- STYL ČÁRY -->
+        <div style="margin-bottom: 20px">
+          <h3 style="color: #888; font-size: 12px; margin-bottom: 10px; text-transform: uppercase">📏 Styl Čáry</h3>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px">
+            <button onclick="window.selectLineStyle('solid', this)" id="styleBtn_solid" style="padding: 10px 16px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.background='#2a3a4a'; if(!this.classList.contains('selected'))this.style.color='#aaa'">━━ Klasická</button>
+            <button onclick="window.selectLineStyle('thick', this)" id="styleBtn_thick" style="padding: 10px 16px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.background='#2a3a4a'; if(!this.classList.contains('selected'))this.style.color='#aaa'">━━━ Tlustá</button>
+            <button onclick="window.selectLineStyle('thin', this)" id="styleBtn_thin" style="padding: 10px 16px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.background='#2a3a4a'; if(!this.classList.contains('selected'))this.style.color='#aaa'">─ Tenká</button>
+            <button onclick="window.selectLineStyle('dashed', this)" id="styleBtn_dashed" style="padding: 10px 16px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.background='#2a3a4a'; if(!this.classList.contains('selected'))this.style.color='#aaa'">╌ ╌ Čárkovaná</button>
+            <button onclick="window.selectLineStyle('dotted', this)" id="styleBtn_dotted" style="padding: 10px 16px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.background='#2a3a4a'; if(!this.classList.contains('selected'))this.style.color='#aaa'">· · Tečkovaná</button>
+          </div>
+        </div>
+
+        <!-- NASTAVENÍ VÝCHOZÍCH BAREV A STYLU -->
+        <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #555; margin-bottom: 20px">
+          <h3 style="color: #888; font-size: 12px; margin-bottom: 15px; text-transform: uppercase">⚙️ Nastavení Kreslení Nových Objektů</h3>
+          <p style="color: #666; font-size: 11px; margin-bottom: 15px">Vyberte výchozí barvu a styl pro nově kreslené objekty. Nastavení se uloží automaticky.</p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px">
+            <!-- Výchozí barva -->
+            <div>
+              <label style="display: block; color: #888; font-size: 11px; margin-bottom: 8px">🎨 Výchozí barva:</label>
+              <select id="defaultColorSelect" onchange="window.setDefaultColor(this.value)" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 12px">
+                <option value="#4a9eff" style="background: #1a1a1a; color: #e0e0e0">🔵 Modrá (výchozí)</option>
+                <option value="#FF0000" style="background: #1a1a1a; color: #e0e0e0">🔴 Červená</option>
+                <option value="#00FF00" style="background: #1a1a1a; color: #e0e0e0">🟢 Zelená</option>
+                <option value="#FFFF00" style="background: #1a1a1a; color: #e0e0e0">🟡 Žlutá</option>
+                <option value="#FF00FF" style="background: #1a1a1a; color: #e0e0e0">🟣 Fialová</option>
+                <option value="#00FFFF" style="background: #1a1a1a; color: #e0e0e0">⚪ Azurová</option>
+                <option value="#FFA500" style="background: #1a1a1a; color: #e0e0e0">🟠 Oranžová</option>
+                <option value="#800080" style="background: #1a1a1a; color: #e0e0e0">⬛ Purpura</option>
+                <option value="#FFFFFF" style="background: #1a1a1a; color: #e0e0e0">⚫ Bílá</option>
+                <option value="#000000" style="background: #1a1a1a; color: #e0e0e0">⬜ Černá</option>
+                <option value="#808080" style="background: #1a1a1a; color: #e0e0e0">◼️ Šedá</option>
+                <option value="#FF69B4" style="background: #1a1a1a; color: #e0e0e0">🩷 Růžová</option>
+              </select>
+            </div>
+
+            <!-- Výchozí styl čáry -->
+            <div>
+              <label style="display: block; color: #888; font-size: 11px; margin-bottom: 8px">📏 Výchozí styl čáry:</label>
+              <select id="defaultLineStyleSelect" onchange="window.setDefaultLineStyle(this.value)" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 12px">
+                <option value="solid" style="background: #1a1a1a; color: #e0e0e0">━━ Klasická</option>
+                <option value="thick" style="background: #1a1a1a; color: #e0e0e0">━━━ Tlustá</option>
+                <option value="thin" style="background: #1a1a1a; color: #e0e0e0">─ Tenká</option>
+                <option value="dashed" style="background: #1a1a1a; color: #e0e0e0">╌ ╌ Čárkovaná</option>
+                <option value="dotted" style="background: #1a1a1a; color: #e0e0e0">· · Tečkovaná</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- NASTAVENÍ BAREV KÓT -->
+        <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #555; margin-bottom: 20px">
+          <h3 style="color: #888; font-size: 12px; margin-bottom: 15px; text-transform: uppercase">📏 Nastavení Barev Kót</h3>
+          <p style="color: #666; font-size: 11px; margin-bottom: 15px">Vyberte barvy pro kóty a jejich hodnoty. Nastavení se uloží automaticky.</p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px">
+            <!-- Barva čar kót -->
+            <div>
+              <label style="display: block; color: #888; font-size: 11px; margin-bottom: 8px">📐 Barva čar kót:</label>
+              <select id="dimensionLineColorSelect" onchange="window.setDimensionLineColor(this.value)" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 12px">
+                <option value="#ffa500" style="background: #1a1a1a; color: #e0e0e0">🟠 Oranžová (výchozí)</option>
+                <option value="#FF0000" style="background: #1a1a1a; color: #e0e0e0">🔴 Červená</option>
+                <option value="#00FF00" style="background: #1a1a1a; color: #e0e0e0">🟢 Zelená</option>
+                <option value="#4a9eff" style="background: #1a1a1a; color: #e0e0e0">🔵 Modrá</option>
+                <option value="#FFFF00" style="background: #1a1a1a; color: #e0e0e0">🟡 Žlutá</option>
+                <option value="#FF00FF" style="background: #1a1a1a; color: #e0e0e0">🟣 Fialová</option>
+                <option value="#00FFFF" style="background: #1a1a1a; color: #e0e0e0">⚪ Azurová</option>
+                <option value="#FFFFFF" style="background: #1a1a1a; color: #e0e0e0">⚫ Bílá</option>
+                <option value="#000000" style="background: #1a1a1a; color: #e0e0e0">⬜ Černá</option>
+                <option value="#808080" style="background: #1a1a1a; color: #e0e0e0">◼️ Šedá</option>
+              </select>
+            </div>
+
+            <!-- Barva hodnot kót -->
+            <div>
+              <label style="display: block; color: #888; font-size: 11px; margin-bottom: 8px">🔤 Barva hodnot kót:</label>
+              <select id="dimensionTextColorSelect" onchange="window.setDimensionTextColor(this.value)" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 12px">
+                <option value="#ffff99" style="background: #1a1a1a; color: #e0e0e0">🟡 Světle žlutá (výchozí)</option>
+                <option value="#FFFFFF" style="background: #1a1a1a; color: #e0e0e0">⚫ Bílá</option>
+                <option value="#000000" style="background: #1a1a1a; color: #e0e0e0">⬜ Černá</option>
+                <option value="#FF0000" style="background: #1a1a1a; color: #e0e0e0">🔴 Červená</option>
+                <option value="#00FF00" style="background: #1a1a1a; color: #e0e0e0">🟢 Zelená</option>
+                <option value="#4a9eff" style="background: #1a1a1a; color: #e0e0e0">🔵 Modrá</option>
+                <option value="#FFA500" style="background: #1a1a1a; color: #e0e0e0">🟠 Oranžová</option>
+              </select>
+            </div>
+          </div>
+        </div>
+          <button onclick="window.closeColorStyleModal()" style="padding: 8px 16px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer">Zrušit</button>
+          <button onclick="window.confirmColorStyle()" style="padding: 8px 16px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold">Potvrdit</button>
+        </div>
+      </div>
+    </div>
+
     <div id="constraintModal" class="modal-overlay">
       <div class="modal-window">
         <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">🔒 Fixace - Aretování objektů</h2>
