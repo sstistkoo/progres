@@ -748,10 +748,10 @@ function handleSelectMode(x, y, shiftKey) {
   // NEJDŘÍV: Kontrola snap pointu (geometrické body - konce čar, rohy obdélníků, apod.)
   // Ty se detekují v onCanvasMouseDown a předávají se sem přes snapResult
   // Pokud jsme zde zavoláni ze snap pointu, měl bychom ho přidat přímo
-  
+
   // Hledat blízký bod (tolerance 5px)
   const tolerance = 5 / (window.zoom || 2);
-  
+
   // Nejdřív zkusit najít v window.points (manuálně vytvořené body)
   const found_point = window.points && window.points.find((p) => {
     return Math.hypot(p.x - x, p.y - y) < tolerance;
@@ -816,11 +816,124 @@ function handleSelectMode(x, y, shiftKey) {
       // Přidej label
       const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       const label = labels[window.selectedItems.length % labels.length];
-      window.selectedItems.push({ ...found, label });
+      const newItem = { ...found, label };
+      
+      // Pokud je to bod, automaticky ho přichyť ke všem objektům
+      if (newItem.category === "point") {
+        const snapped = snapPointToGeometry(newItem.x, newItem.y);
+        if (snapped) {
+          newItem.x = snapped.x;
+          newItem.y = snapped.y;
+          newItem.snappedTo = snapped.snappedTo;
+        }
+      }
+      
+      window.selectedItems.push(newItem);
     }
   }
 
   if (window.draw) window.draw();
+}
+
+/**
+ * Automaticky přichytí bod ke všem geometrickým prvkům
+ * Hledá nejbližší prvek a přichytí bod na něj
+ */
+function snapPointToGeometry(x, y) {
+  const tolerance = 10 / (window.zoom || 1); // Tolerance pro přichycení
+  let snappedTo = null;
+  let snappedX = x;
+  let snappedY = y;
+  let minDist = tolerance;
+
+  // Prohledej všechny tvary
+  if (window.shapes && window.shapes.length > 0) {
+    window.shapes.forEach((shape) => {
+      if (shape.type === "line") {
+        // Přichyť na nejbližší bod na čáře
+        const closest = pointToLineClosestPoint(x, y, shape.x1, shape.y1, shape.x2, shape.y2);
+        const dist = Math.hypot(closest.x - x, closest.y - y);
+        if (dist < minDist) {
+          snappedX = closest.x;
+          snappedY = closest.y;
+          snappedTo = `čára (${shape.x1.toFixed(0)},${shape.y1.toFixed(0)})`;
+          minDist = dist;
+        }
+      } else if (shape.type === "circle") {
+        // Přichyť na kružnici (bod na kružnici nejbližší ke vybranému bodu)
+        const dx = x - shape.cx;
+        const dy = y - shape.cy;
+        const dist = Math.hypot(dx, dy);
+        if (Math.abs(dist - shape.r) < minDist) {
+          const angle = Math.atan2(dy, dx);
+          const px = shape.cx + Math.cos(angle) * shape.r;
+          const py = shape.cy + Math.sin(angle) * shape.r;
+          snappedX = px;
+          snappedY = py;
+          snappedTo = `kružnice (${shape.cx.toFixed(0)},${shape.cy.toFixed(0)})`;
+          minDist = Math.abs(dist - shape.r);
+        }
+      } else if (shape.type === "rectangle") {
+        // Přichyť na hranu obdélníku
+        const edges = [
+          { x1: shape.x1, y1: shape.y1, x2: shape.x2, y2: shape.y1 }, // top
+          { x1: shape.x2, y1: shape.y1, x2: shape.x2, y2: shape.y2 }, // right
+          { x1: shape.x2, y1: shape.y2, x2: shape.x1, y2: shape.y2 }, // bottom
+          { x1: shape.x1, y1: shape.y2, x2: shape.x1, y2: shape.y1 }  // left
+        ];
+        edges.forEach((edge) => {
+          const closest = pointToLineClosestPoint(x, y, edge.x1, edge.y1, edge.x2, edge.y2);
+          const dist = Math.hypot(closest.x - x, closest.y - y);
+          if (dist < minDist) {
+            snappedX = closest.x;
+            snappedY = closest.y;
+            snappedTo = "obdélník";
+            minDist = dist;
+          }
+        });
+      } else if (shape.type === "arc") {
+        // Přichyť na oblouk
+        const dx = x - shape.cx;
+        const dy = y - shape.cy;
+        const dist = Math.hypot(dx, dy);
+        const angle = Math.atan2(dy, dx);
+        
+        // Kontrola zda je úhel v rozsahu oblouku
+        const startAngle = shape.startAngle || 0;
+        const endAngle = shape.endAngle || Math.PI * 2;
+        
+        if (Math.abs(dist - shape.r) < minDist && angle >= startAngle && angle <= endAngle) {
+          const px = shape.cx + Math.cos(angle) * shape.r;
+          const py = shape.cy + Math.sin(angle) * shape.r;
+          snappedX = px;
+          snappedY = py;
+          snappedTo = "oblouk";
+          minDist = Math.abs(dist - shape.r);
+        }
+      }
+    });
+  }
+
+  if (snappedTo) {
+    return { x: snappedX, y: snappedY, snappedTo };
+  }
+  return null;
+}
+
+/**
+ * Vrátí nejbližší bod na čáře k danému bodu
+ */
+function pointToLineClosestPoint(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return { x: x1, y: y1 };
+
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (len * len)));
+  return {
+    x: x1 + t * dx,
+    y: y1 + t * dy
+  };
 }
 
 function handleTangentMode(x, y) {
