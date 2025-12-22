@@ -205,125 +205,6 @@ function draw() {
     });
   }
 
-  // ===== KRESLENÍ VYBRANÝCH POLOŽEK =====
-  if (window.selectedItems && window.selectedItems.length > 0) {
-    window.selectedItems.forEach((item) => {
-      ctx.save();
-
-      if (item.category === "shape") {
-        const s = item.ref;
-
-        // Zvýraznění (magenta)
-        ctx.strokeStyle = "#ff66ff";
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-
-        if (s.type === "line") {
-          const p1 = window.worldToScreen(s.x1, s.y1);
-          const p2 = window.worldToScreen(s.x2, s.y2);
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-        } else if (s.type === "circle") {
-          const c = window.worldToScreen(s.cx, s.cy);
-          ctx.arc(c.x, c.y, s.r * window.zoom, 0, Math.PI * 2);
-
-          // Zobrazit střed kružnice
-          ctx.fillStyle = "#ffff00";
-          ctx.beginPath();
-          ctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        // POZN: Obdélníky již nejsou - jsou konvertovány na 4 úseky
-
-        ctx.stroke();
-
-        // Popisek s písmenem
-        if (item.label) {
-          const labelPos = s.type === "line"
-            ? window.worldToScreen((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2)
-            : window.worldToScreen(s.cx, s.cy);
-
-          // Pozadí (černé)
-          ctx.fillStyle = "#000000";
-          ctx.font = "bold 16px Arial";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          const textWidth = 20;
-          const textHeight = 20;
-          ctx.fillRect(labelPos.x - textWidth / 2, labelPos.y - 30 - textHeight / 2, textWidth, textHeight);
-
-          // Text (žlutý)
-          ctx.fillStyle = "#ffff00";
-          ctx.fillText(item.label, labelPos.x, labelPos.y - 30);
-        }
-      } else if (item.category === "point") {
-        const p = window.worldToScreen(item.x, item.y);
-
-        // Zvýraznění (magenta)
-        ctx.fillStyle = "#ff66ff";
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Popisek s písmenem
-        if (item.label) {
-          // Pozadí (černé)
-          ctx.fillStyle = "#000000";
-          ctx.font = "bold 16px Arial";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          const textWidth = 20;
-          const textHeight = 20;
-          ctx.fillRect(p.x - textWidth / 2, p.y - 30 - textHeight / 2, textWidth, textHeight);
-
-          // Text (žlutý)
-          ctx.fillStyle = "#ffff00";
-          ctx.fillText(item.label, p.x, p.y - 30);
-        }
-      }
-
-      ctx.restore();
-    });
-
-    // Zobrazení vzdálenosti mezi 2 vybranými body
-    if (window.selectedItems.length === 2) {
-      const item1 = window.selectedItems[0];
-      const item2 = window.selectedItems[1];
-
-      if (item1.category === "point" && item2.category === "point") {
-        const p1 = window.worldToScreen(item1.x, item1.y);
-        const p2 = window.worldToScreen(item2.x, item2.y);
-
-        // Linka mezi body
-        ctx.strokeStyle = "#00ffff";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Vzdálenost
-        const dist = Math.sqrt((item1.x - item2.x) ** 2 + (item1.y - item2.y) ** 2);
-        const midX = (p1.x + p2.x) / 2;
-        const midY = (p1.y + p2.y) / 2;
-
-        ctx.fillStyle = "#000000";
-        ctx.font = "bold 12px Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        const text = `${dist.toFixed(2)} mm`;
-        const textWidth = ctx.measureText(text).width + 8;
-        const textHeight = 16;
-        ctx.fillRect(midX - textWidth / 2, midY - 12 - textHeight / 2, textWidth, textHeight);
-
-        ctx.fillStyle = "#00ffff";
-        ctx.fillText(text, midX, midY - 12);
-      }
-    }
-  }
-
   // Nakreslit tempShape (náhled během kreslení)
   if (window.tempShape) {
     ctx.strokeStyle = "#4a9eff";
@@ -575,7 +456,7 @@ function draw() {
             if (item.label) {
               const midX = (p1.x + p2.x) / 2;
               const midY = (p1.y + p2.y) / 2;
-              
+
               ctx.globalAlpha = 1;
               ctx.font = "bold 16px Arial";
               ctx.textAlign = "center";
