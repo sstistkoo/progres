@@ -372,11 +372,16 @@ function draw() {
 }
 
 function drawGrid(ctx, canvas) {
+  console.log("📊 drawGrid() START");
   let tl = window.screenToWorld(0, 0);
   let br = window.screenToWorld(canvas.width, canvas.height);
 
+  console.log("  tl (top-left):", tl);
+  console.log("  br (bottom-right):", br);
+
   // Fallback na defaultní values když worldToScreen vrací undefined
   if (!tl || !br) {
+    console.log("  ⚠️ tl or br undefined, using fallback");
     tl = tl || { x: -100, y: -100 };
     br = br || { x: 100, y: 100 };
   }
@@ -461,16 +466,21 @@ function drawGrid(ctx, canvas) {
 }
 
 function drawAxes(ctx, canvas) {
+  console.log("📏 drawAxes() START");
   ctx.strokeStyle = "#3a3a3a";
   ctx.lineWidth = 2;
 
   const ox = window.worldToScreen(0, 0);
 
-  // Fallback když worldToScreen vrací undefined
-  if (!ox) return;
+  console.log("  ox (origin):", ox);
 
-  const axisMode = window.axisMode ?? "lathe";
-  const xMeasureMode = window.xMeasureMode ?? "radius";
+  // Fallback když worldToScreen vrací undefined
+  if (!ox) {
+    console.log("  ⚠️ ox undefined, returning early");
+    return;
+  }
+
+  console.log("  ✅ ox is valid, drawing axes");
 
   if (ox.y >= 0 && ox.y <= canvas.height) {
     ctx.setLineDash([15, 5, 3, 5]);
