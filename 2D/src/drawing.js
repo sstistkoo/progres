@@ -432,7 +432,16 @@ function draw() {
         const infoText = `✓ Vybraný: Z=${displayX} X=${displayY} [${typeStr}]`;
         snapInfoEl.textContent = infoText;
         snapInfoEl.classList.add("show");
+        // Nastavit inline styly aby bylo vidět
+        snapInfoEl.style.display = "block";
         snapInfoEl.style.backgroundColor = "rgba(0, 200, 0, 0.8)";
+        snapInfoEl.style.color = "#ffffff";
+        snapInfoEl.style.padding = "8px 12px";
+        snapInfoEl.style.borderRadius = "5px";
+        snapInfoEl.style.position = "absolute";
+        snapInfoEl.style.top = "45px";
+        snapInfoEl.style.left = "10px";
+        snapInfoEl.style.zIndex = "999";
         console.log("[draw] snapInfo nastavena:", infoText);
       } else {
         console.log("[draw] snapInfo element nenalezen!");
