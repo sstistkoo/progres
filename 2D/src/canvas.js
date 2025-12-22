@@ -2103,15 +2103,8 @@ window.handleSelectMode = function(x, y, shiftKey) {
           clickX: clickPoint.x, // Bod kde uživatel klikl
           clickY: clickPoint.y,
         };
-      } else {
-        // Vytvořit bod z snap pointu
-        found = {
-          category: "point",
-          x: x,
-          y: y,
-          ref: null,
-        };
       }
+      // Pokud nic není najito, nic se nepřidá (ne vytvářet nové body!)
     }
 
     if (found) {
