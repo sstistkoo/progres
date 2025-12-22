@@ -142,7 +142,6 @@ window.convertRectanglesToLines = function(shapes) {
 // window.panX a window.panY jsou nyní mapovány na Soustruznik.state! (viz výše)
 // window.zoom je nyní mapován na Soustruznik.state! (viz výše)
 window.gridSize = 10;
-window.minGridSpacingPx = 50; // Minimální rozestup mřížky v pixelech
 
 // ===== SETTINGS =====
 window.axisMode = "lathe"; // lathe nebo carousel
