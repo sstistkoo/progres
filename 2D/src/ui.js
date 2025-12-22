@@ -284,9 +284,11 @@ window.setMode = function (m) {
 
 window.showToolCategory = function (category) {
   console.log("🔧 showToolCategory called with:", category);
+  console.log("🔧 Function exists, arguments:", arguments.length);
   // ===== DEBOUNCE: Ochrana proti dvojímu volání =====
   const now = Date.now();
   if (now - lastCategoryChangeTime < CATEGORY_DEBOUNCE_MS) {
+    console.log("🔧 DEBOUNCED - too soon since last call");
     return;
   }
   lastCategoryChangeTime = now;
@@ -294,9 +296,11 @@ window.showToolCategory = function (category) {
   const menuId =
     "tools" + category.charAt(0).toUpperCase() + category.slice(1);
   const menuEl = document.getElementById(menuId);
+  console.log("🔧 Looking for menuId:", menuId, "element:", menuEl);
   const btnId =
     "btnCat" + category.charAt(0).toUpperCase() + category.slice(1);
   const btnEl = document.getElementById(btnId);
+  console.log("🔧 Looking for btnId:", btnId, "element:", btnEl);
 
   // Speciální handling pro AI - nevřít ho stejně jako ostatní panely
   if (category === "ai") {
