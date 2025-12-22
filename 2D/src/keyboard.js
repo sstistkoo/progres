@@ -362,6 +362,7 @@ console.log('✅ FÁZA 6: keyboard.js - Event handler namespace integration');
 console.log('   Keyboard handlers use setKeyboardState() for namespace sync');
 console.log('   Event listeners registered for DOMContentLoaded');
 
+if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", window.setupUnifiedKeyboard);
 }
 

@@ -4,7 +4,7 @@
  * - Shape management
  * - Intersection calculations
  * - Snap points
- * 
+ *
  * MIGRATION STATUS: FÁZE 3 - Postupně refaktorujeme do namespace
  */
 
@@ -416,6 +416,7 @@ function drawGrid(ctx, canvas) {
 
   for (let x = sx; x <= ex; x += displayGrid) {
     const p = worldToScreen(x, 0);
+    if (!p) continue;
     ctx.beginPath();
     ctx.moveTo(p.x, 0);
     ctx.lineTo(p.x, canvas.height);
@@ -424,6 +425,7 @@ function drawGrid(ctx, canvas) {
 
   for (let y = sy; y <= ey; y += displayGrid) {
     const p = worldToScreen(0, y);
+    if (!p) continue;
     ctx.beginPath();
     ctx.moveTo(0, p.y);
     ctx.lineTo(canvas.width, p.y);

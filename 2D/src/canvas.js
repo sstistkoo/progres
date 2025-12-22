@@ -191,7 +191,7 @@ function onCanvasMouseMove(e) {
   window.cursorPos = { x: screenX, y: screenY };
 
   const worldPt = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
-  const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
+  const snapped = (window.snapPoint && worldPt) ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
 
   // Update touch cursor
   const touchCursor = document.getElementById("touchCursor");
