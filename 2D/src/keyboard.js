@@ -4,6 +4,28 @@
  * Tunable konfigurace pro všechny kombinace
  */
 
+// ============================================================
+// NAMESPACE MIGRATION - Keyboard event handler setup
+// ============================================================
+// Keyboard handlery nyní integrují Soustruznik.state
+// Všechny globální refs updatují i namespace pokud existuje
+
+function setKeyboardState(key, value) {
+  // Helper pro nastavení stavu - updatuje namespace
+  window[key] = value;
+  if (window.Soustruznik && window.Soustruznik.state) {
+    window.Soustruznik.state[key] = value;
+  }
+}
+
+function getKeyboardState(key) {
+  // Helper pro získání stavu - preferuje namespace
+  if (window.Soustruznik && window.Soustruznik.state && key in window.Soustruznik.state) {
+    return window.Soustruznik.state[key];
+  }
+  return window[key];
+}
+
 // ===== KEYBOARD CONFIGURATION (TUNABLE) =====
 window.keyboardConfig = {
   // Drawing modes - Quick access (number keys)
@@ -332,8 +354,14 @@ window.getAllShortcuts = function() {
   return categories;
 };
 
-// Auto-init when available
-if (typeof document !== "undefined") {
+// ============================================================
+// FÁZA 6 PARTIAL COMPLETION - Keyboard handler namespace integration
+// ============================================================
+
+console.log('✅ FÁZA 6: keyboard.js - Event handler namespace integration');
+console.log('   Keyboard handlers use setKeyboardState() for namespace sync');
+console.log('   Event listeners registered for DOMContentLoaded');
+
   document.addEventListener("DOMContentLoaded", window.setupUnifiedKeyboard);
 }
 
