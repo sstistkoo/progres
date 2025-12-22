@@ -623,7 +623,7 @@ function draw() {
         midPoint = { x: (item.ref.x1 + item.ref.x2) / 2, y: (item.ref.y1 + item.ref.y2) / 2 };
         displayText = `Délka: ${length.toFixed(2)} mm`;
         measurement = length;
-        
+
         // Uložit pro fixaci
         window.measurementData = {
           type: 'single_line',
@@ -636,7 +636,7 @@ function draw() {
         midPoint = { x: item.ref.cx, y: item.ref.cy };
         displayText = `Poloměr: ${item.ref.r.toFixed(2)} mm`;
         measurement = item.ref.r;
-        
+
         // Uložit pro fixaci
         window.measurementData = {
           type: 'circle',
@@ -663,7 +663,7 @@ function draw() {
 
         const info = document.getElementById("modeInfo");
         if (info) {
-          info.innerHTML = `📏 <strong>${displayText}</strong><br/><small>Klikni na objekt pro měření</small>`;
+          info.innerHTML = `📏 <strong>${displayText}</strong><br/><small>Klikni na objekt pro měření</small><br/><button onclick="window.fixateMeasurement()" style="margin-top: 8px; padding: 6px 12px; background: #ff6600; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🔒 Fixovat</button>`;
         }
       }
     }
@@ -762,18 +762,18 @@ function draw() {
 
           ctx.fillRect(screenMid.x - textWidth / 2, screenMid.y - textHeight / 2, textWidth, textHeight);
           ctx.fillStyle = "#ff8800";
-          
+
           // Vykreslit text - měření pro 2 objekty se rozděluje na více řádků
           const lines = displayText.split('\n');
           if (lines.length > 1) {
             const lineHeight = 18;
             const totalHeight = lines.length * lineHeight + 10;
             const maxTextWidth = Math.max(...lines.map(l => ctx.measureText(l).width)) + 10;
-            
+
             // Překresli pozadí s správnou velikostí
             ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
             ctx.fillRect(screenMid.x - maxTextWidth / 2, screenMid.y - totalHeight / 2, maxTextWidth, totalHeight);
-            
+
             // Vykreslíme řádky
             ctx.fillStyle = "#ff8800";
             lines.forEach((line, idx) => {
@@ -787,7 +787,7 @@ function draw() {
         const info = document.getElementById("modeInfo");
         if (info) {
           const firstLine = displayText.split('\n')[0];
-          info.innerHTML = `📏 <strong>${firstLine}</strong><br/><small>Klikni na nový objekt pro nové měření</small>`;
+          info.innerHTML = `📏 <strong>${firstLine}</strong><br/><small>Klikni na nový objekt pro nové měření</small><br/><button onclick="window.fixateMeasurement()" style="margin-top: 8px; padding: 6px 12px; background: #ff6600; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🔒 Fixovat</button>`;
         }
       }
     }
