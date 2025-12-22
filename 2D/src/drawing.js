@@ -389,6 +389,30 @@ function draw() {
       ctx.arc(selectedSp.x, selectedSp.y, 12, 0, Math.PI * 2);
       ctx.fill();
 
+      // Vykreslit text/label pro vybraný bod (pokud existuje)
+      // Hledáme v window.points aby získali label
+      if (window.points) {
+        const matchingPoint = window.points.find(
+          (p) => Math.abs(p.x - window.selectedSnapPoint.x) < 0.01 && 
+                 Math.abs(p.y - window.selectedSnapPoint.y) < 0.01
+        );
+        
+        if (matchingPoint && matchingPoint.label) {
+          // Pozadí (černé)
+          ctx.fillStyle = "#000000";
+          ctx.font = "bold 16px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          const textWidth = 20;
+          const textHeight = 20;
+          ctx.fillRect(selectedSp.x - textWidth / 2, selectedSp.y - 30 - textHeight / 2, textWidth, textHeight);
+
+          // Text (bílý - aby byl vidět na zelené)
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(matchingPoint.label, selectedSp.x, selectedSp.y - 30);
+        }
+      }
+
       // Info o vybraném bodu
       const snapInfoEl = document.getElementById("snapInfo");
       if (snapInfoEl) {
