@@ -349,7 +349,7 @@ window.showToolCategory = function (category) {
   // Normální handling pro ostatní panely
   console.log("🔧 Current category:", window.currentCategory, "requested:", category);
   console.log("🔧 Panel display status:", menuEl ? menuEl.style.display : "menuEl is null");
-  
+
   if (window.currentCategory === category && menuEl && menuEl.style.display !== "none") {
     console.log("🔧 CLOSING panel - same category already open");
     menuEl.style.display = "none";
@@ -572,6 +572,14 @@ window.setGridSpacing = function(size) {
   const gridSpacingInput = document.getElementById("gridSpacing");
   if (gridSpacingInput) gridSpacingInput.value = size;
   if (window.draw) window.draw();
+};
+
+window.updateMinGridSpacing = function() {
+  const minGridSpacingInput = document.getElementById("minGridSpacingPx");
+  if (minGridSpacingInput) {
+    window.minGridSpacingPx = parseFloat(minGridSpacingInput.value) || 50;
+    if (window.draw) window.draw();
+  }
 };
 
 // ===== TOGGLE SECTIONS =====
