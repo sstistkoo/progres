@@ -3,11 +3,42 @@
  * Plná funkcionalita ze originálního AI_2D_full.html
  */
 
+// ============================================================
+// NAMESPACE MIGRATION - Mapper ke Soustruznik.methods
+// ============================================================
+// Tato část mapuje klíčové funkce na window.Soustruznik.methods
+// Zachovává zpětnou kompatibilitu skrze window.* funkce
+
+if (window.Soustruznik && window.Soustruznik.methods) {
+  // Controller mode management
+  window.Soustruznik.methods.setControllerMode = window.setControllerMode;
+  window.Soustruznik.methods.confirmControllerInput = window.confirmControllerInput;
+  window.Soustruznik.methods.parseGCode = window.parseGCode;
+  
+  // Modal functions
+  window.Soustruznik.methods.showControllerModal = window.showControllerModal;
+  window.Soustruznik.methods.closeControllerModal = window.closeControllerModal;
+  window.Soustruznik.methods.showDirectionModal = window.showDirectionModal;
+  window.Soustruznik.methods.closeDirectionModal = window.closeDirectionModal;
+  
+  // Measure input
+  window.Soustruznik.methods.toggleMeasureInput = window.toggleMeasureInput;
+  window.Soustruznik.methods.processMeasureInput = window.processMeasureInput;
+}
+
 // ===== GLOBÁLNÍ STÁTY =====
 window.controllerMode = "G90"; // G90 = absolutní, G91 = přírůstkové
 window.controllerInputBuffer = ""; // Aktuální vstup do controlleru
 window.pendingDirection = null; // Čekající směr z directionModal
 window.displayDecimals = 2; // Počet desetinných míst
+
+// Také do Soustruznik.state když je dostupný
+if (window.Soustruznik && window.Soustruznik.state) {
+  window.Soustruznik.state.controllerMode = window.controllerMode;
+  window.Soustruznik.state.controllerInputBuffer = window.controllerInputBuffer;
+  window.Soustruznik.state.pendingDirection = window.pendingDirection;
+  window.Soustruznik.state.displayDecimals = window.displayDecimals;
+}
 
 // ===== MODAL FUNKCE =====
 
@@ -46,6 +77,9 @@ window.closeControllerHelp = function () {
 
 window.setControllerMode = function (mode) {
   window.controllerMode = mode;
+  if (window.Soustruznik && window.Soustruznik.state) {
+    window.Soustruznik.state.controllerMode = mode;
+  }
 
   // Update button styles
   const btnG90 = document.getElementById("btnG90");
@@ -164,6 +198,9 @@ window.confirmControllerInput = function () {
   if (parsed) {
     // Reset
     window.controllerInputBuffer = "";
+    if (window.Soustruznik && window.Soustruznik.state) {
+      window.Soustruznik.state.controllerInputBuffer = "";
+    }
     window.pendingDirection = null;
     window.updateControllerInputDisplay();
     window.updateControllerLastPoint();
@@ -175,6 +212,9 @@ window.confirmControllerInput = function () {
         input
       );
       window.controllerInputBuffer = "";
+      if (window.Soustruznik && window.Soustruznik.state) {
+        window.Soustruznik.state.controllerInputBuffer = "";
+      }
       window.pendingDirection = null;
       window.updateControllerInputDisplay();
     } else {
@@ -637,3 +677,14 @@ window.processMeasureInput = function (measureData) {
 
 // ✅ Keyboard events nyní spravuje unified keyboard.js
 // Controller funkce jsou volány z keyboard.js
+
+// ============================================================
+// FÁZA 4 COMPLETION - Namespace method delegation
+// ============================================================
+// Všechny klíčové controller funkce jsou nyní dostupné
+// na window.Soustruznik.methods a také stále na window.*
+
+console.log('✅ FÁZA 4: controller.js - Namespace methods mapped');
+console.log('   window.Soustruznik.methods.setControllerMode:', typeof window.Soustruznik?.methods?.setControllerMode);
+console.log('   window.Soustruznik.methods.parseGCode:', typeof window.Soustruznik?.methods?.parseGCode);
+
