@@ -809,14 +809,15 @@ function drawGrid(ctx, canvas) {
 
   const zoom = window.Soustruznik.state.zoom ?? window.zoom ?? 1;
   const gridSize = window.gridSize ?? 10;
+  const minGridSpacingPx = window.minGridSpacingPx ?? 50;
 
   const gridPixels = gridSize * zoom;
 
   let displayGrid = gridSize;
   let skipFactor = 1;
 
-  if (gridPixels < 3) {
-    skipFactor = Math.ceil(3 / gridPixels);
+  if (gridPixels < minGridSpacingPx) {
+    skipFactor = Math.ceil(minGridSpacingPx / gridPixels);
     displayGrid = gridSize * skipFactor;
   }
 
