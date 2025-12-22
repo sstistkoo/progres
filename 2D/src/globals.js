@@ -1,23 +1,92 @@
 /**
- * GLOBALS.JS - Centralizované globální proměnné a konstanty
- * Musí se načíst PRVNÍ, aby ostatní moduly mohly používat
+ * GLOBALS.JS - Zpětná kompatibilita & State Mapping
+ * 
+ * Mapuje staré globální proměnné na nový Soustruznik namespace
+ * Zajišťuje, že starý kód stále funguje!
  */
+
+// ===== NAMESPACE KOMPATIBILITA =====
+// Mapujeme starý window.shapes na window.Soustruznik.state.shapes
+Object.defineProperty(window, 'shapes', {
+  get: () => window.Soustruznik.state.shapes,
+  set: (v) => { window.Soustruznik.state.shapes = v; }
+});
+
+Object.defineProperty(window, 'selectedIndex', {
+  get: () => window.Soustruznik.state.selectedIndex,
+  set: (v) => { window.Soustruznik.state.selectedIndex = v; }
+});
+
+Object.defineProperty(window, 'mode', {
+  get: () => window.Soustruznik.state.mode,
+  set: (v) => { window.Soustruznik.state.mode = v; }
+});
+
+Object.defineProperty(window, 'history', {
+  get: () => window.Soustruznik.state.history,
+  set: (v) => { window.Soustruznik.state.history = v; }
+});
+
+Object.defineProperty(window, 'canvas', {
+  get: () => window.Soustruznik.state.canvas,
+  set: (v) => { window.Soustruznik.state.canvas = v; }
+});
+
+Object.defineProperty(window, 'ctx', {
+  get: () => window.Soustruznik.state.ctx,
+  set: (v) => { window.Soustruznik.state.ctx = v; }
+});
+
+Object.defineProperty(window, 'viewportX', {
+  get: () => window.Soustruznik.state.viewportX,
+  set: (v) => { window.Soustruznik.state.viewportX = v; }
+});
+
+Object.defineProperty(window, 'viewportY', {
+  get: () => window.Soustruznik.state.viewportY,
+  set: (v) => { window.Soustruznik.state.viewportY = v; }
+});
+
+Object.defineProperty(window, 'zoom', {
+  get: () => window.Soustruznik.state.zoom,
+  set: (v) => { window.Soustruznik.state.zoom = v; }
+});
+
+Object.defineProperty(window, 'defaultDrawColor', {
+  get: () => window.Soustruznik.state.defaultDrawColor,
+  set: (v) => { window.Soustruznik.state.defaultDrawColor = v; }
+});
+
+Object.defineProperty(window, 'defaultDrawLineStyle', {
+  get: () => window.Soustruznik.state.defaultDrawLineStyle,
+  set: (v) => { window.Soustruznik.state.defaultDrawLineStyle = v; }
+});
+
+Object.defineProperty(window, 'dimensionLineColor', {
+  get: () => window.Soustruznik.state.dimensionLineColor,
+  set: (v) => { window.Soustruznik.state.dimensionLineColor = v; }
+});
+
+Object.defineProperty(window, 'dimensionTextColor', {
+  get: () => window.Soustruznik.state.dimensionTextColor,
+  set: (v) => { window.Soustruznik.state.dimensionTextColor = v; }
+});
 
 // ===== API KEYS & STORAGE =====
 window.API_STORAGE_KEY = "soustruznik_api_keys";
 // DEMO API KEY - rozdělený na 2 části (bezpečné pro GitHub)
 window.EMBEDDED_API_KEY = "AIzaSyCXuMvhO_senLS" + "oA_idEuBk_EwnMmIPIhg"; // Split for security
 
-// ===== CANVAS & DRAWING STATE =====
-window.shapes = [];
-window.points = [];
-window.cachedSnapPoints = [];
-window.selectedItems = [];
+// ===== CANVAS & DRAWING STATE (LEGACY - nyní mapováno na namespace) =====
+// window.shapes = [];        ← Nyní mapováno výše!
+// window.points = [];
+// window.cachedSnapPoints = [];
+// window.selectedItems = [];
 
 // ===== VIEWPORT & VIEW =====
 window.panX = 0;
 window.panY = 0;
-window.zoom = 2;
+// window.zoom = 2;           ← Nyní mapováno výše!
 window.gridSize = 10;
 
 // ===== SETTINGS =====
@@ -30,13 +99,13 @@ window.snapDistance = 15; // pixels
 window.orthoMode = true; // Ortogonální přichycení
 window.measureInputEnabled = false; // Míra - zadávání rozměrů
 
-// ===== DEFAULT DRAWING COLORS & STYLES =====
-window.defaultDrawColor = "#4a9eff"; // Výchozí barva nových objektů
-window.defaultDrawLineStyle = "solid"; // Výchozí styl čáry nových objektů
+// ===== DEFAULT DRAWING COLORS & STYLES (LEGACY - nyní mapováno na namespace) =====
+// window.defaultDrawColor = "#4a9eff";    ← Nyní mapováno výše!
+// window.defaultDrawLineStyle = "solid";  ← Nyní mapováno výše!
 
-// ===== DIMENSION COLORS & STYLES =====
-window.dimensionLineColor = "#ffa500"; // Barva čar kót
-window.dimensionTextColor = "#ffff99"; // Barva hodnot kót
+// ===== DIMENSION COLORS & STYLES (LEGACY - nyní mapováno na namespace) =====
+// window.dimensionLineColor = "#ffa500";  ← Nyní mapováno výše!
+// window.dimensionTextColor = "#ffff99";  ← Nyní mapováno výše!
 
 // ===== DRAWING MODE & STATE =====
 window.mode = "pan"; // pan, line, circle, point, etc.
