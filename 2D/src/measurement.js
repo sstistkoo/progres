@@ -34,7 +34,7 @@ function showMeasurementFixationModal() {
   const valueInput = document.getElementById('fixationValueInput');
 
   if (labelEl) labelEl.textContent = fixation.label;
-  
+
   if (hintEl) {
     if (fixation.label.includes('Úhel')) {
       hintEl.textContent = 'Původní hodnota: ' + fixation.originalValue.toFixed(1) + '°';
@@ -79,17 +79,17 @@ window.confirmMeasurementFixation = function() {
   if (!valueInput) return;
 
   const newValue = parseFloat(valueInput.value);
-  
+
   if (isNaN(newValue)) {
     alert('❌ Chybný formát čísla');
     return;
   }
 
   const fixation = window.pendingFixation;
-  
+
   // Vytvoř kótu
   createCota(fixation.label, newValue, fixation.data);
-  
+
   // Zavři modal
   window.closeMeasurementFixationModal();
 };
@@ -159,14 +159,93 @@ window.fixateMeasurement = function() {
 
   // Otevřít modal
   showMeasurementFixationModal();
+};
+
+/**
+ * Zobrazí modal pro fixaci měření
+ */
+window.showMeasurementFixationModal = function() {
+  if (!window.pendingFixation) return;
+
+  const modal = document.getElementById('fixationMeasurementModal');
+  if (!modal) return;
+
+  const label = document.getElementById('fixationLabel');
+  const input = document.getElementById('fixationValueInput');
+  const hint = document.getElementById('fixationHint');
+
+  if (label) label.textContent = window.pendingFixation.label;
+  if (input) input.value = window.pendingFixation.value.toFixed(2);
+  if (hint) hint.textContent = `(Původní hodnota: ${window.pendingFixation.originalValue.toFixed(2)})`;
+
+  modal.style.display = 'flex';
+};
+
+/**
+ * Zavře modal pro fixaci měření
+ */
+window.closeMeasurementFixationModal = function() {
+  const modal = document.getElementById('fixationMeasurementModal');
+  if (modal) modal.style.display = 'none';
+  window.pendingFixation = null;
+};
+
+/**
+ * Potvrdí fixaci měření s hodnotou z modalu
+ */
+window.confirmMeasurementFixation = function() {
+  if (!window.pendingFixation) return;
+
+  const input = document.getElementById('fixationValueInput');
+  if (!input) return;
+
+  const value = parseFloat(input.value);
+  if (isNaN(value)) {
+    alert('❌ Neplatná hodnota');
+    return;
+  }
+
+  const data = window.pendingFixation.data;
+  const label = window.pendingFixation.label;
+  let dimension = null;
+
+  // Vytvoř kótu na základě typu měření
+  if (data.type === 'single_line') {
+    dimension = {
+      type: 'dimension',
+      dimType: 'line_length',
+      value: value,
+      targets: [data.item],
+      fixedValue: true,
+      fixedLabel: label,
+      color: '#ff6600',
     };
-  } else if (measurementData.type === 'two_lines') {
-    // Pro usečky, vytvoř pomocný objekt
+  } else if (data.type === 'circle') {
+    dimension = {
+      type: 'dimension',
+      dimType: 'radius',
+      value: value,
+      targets: [data.item],
+      fixedValue: true,
+      fixedLabel: label,
+      color: '#ff6600',
+    };
+  } else if (data.type === 'two_points') {
+    dimension = {
+      type: 'dimension',
+      dimType: 'distance',
+      value: value,
+      targets: [data.item1, data.item2],
+      fixedValue: true,
+      fixedLabel: label,
+      color: '#ff6600',
+    };
+  } else if (data.type === 'two_lines') {
     dimension = {
       type: 'dimension',
       dimType: 'measurement',
       value: value,
-      targets: [measurementData.item1, measurementData.item2],
+      targets: [data.item1, data.item2],
       fixedValue: true,
       fixedLabel: label,
       color: '#ff6600',
@@ -186,6 +265,9 @@ window.fixateMeasurement = function() {
 
     alert(`✅ Kóta fixována: ${label} = ${value.toFixed(2)} mm`);
   }
+
+  // Zavři modal
+  window.closeMeasurementFixationModal();
 }
 
 /**
