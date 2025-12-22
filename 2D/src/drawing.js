@@ -429,9 +429,13 @@ function draw() {
         else if (typeStr === "center") typeStr = "střed";
         else if (typeStr === "intersection") typeStr = "průsečík";
         else if (typeStr === "grid") typeStr = "mřížka";
-        snapInfoEl.textContent = `✓ Vybraný: Z=${displayX} X=${displayY} [${typeStr}]`;
+        const infoText = `✓ Vybraný: Z=${displayX} X=${displayY} [${typeStr}]`;
+        snapInfoEl.textContent = infoText;
         snapInfoEl.classList.add("show");
         snapInfoEl.style.backgroundColor = "rgba(0, 200, 0, 0.8)";
+        console.log("[draw] snapInfo nastavena:", infoText);
+      } else {
+        console.log("[draw] snapInfo element nenalezen!");
       }
     }
   }
