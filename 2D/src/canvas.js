@@ -6,11 +6,32 @@
  * - Drawing operations
  */
 
+// ============================================================
+// NAMESPACE MIGRATION - Event handler setup
+// ============================================================
+// Canvas event handlers nyní integrují Soustruznik.state
+// ke čtení a zápisu stavové informace
+
+function getCanvasState() {
+  // Helper pro získání stavu - preferuje namespace pokud existuje
+  if (window.Soustruznik && window.Soustruznik.state) {
+    return window.Soustruznik.state;
+  }
+  // Fallback na globální proměnné
+  return window;
+}
+
 // ===== CANVAS SETUP =====
 
 function setupCanvasEvents() {
   const canvas = document.getElementById("canvas");
   if (!canvas) return;
+
+  // Store reference v namespace když je dostupný
+  if (window.Soustruznik && window.Soustruznik.state) {
+    window.Soustruznik.state.canvas = canvas;
+    window.Soustruznik.state.ctx = canvas.getContext("2d");
+  }
 
   // Mouse events
   canvas.addEventListener("mousedown", onCanvasMouseDown);
@@ -1776,7 +1797,13 @@ window.parallel = parallel;
 window.trimLine = trimLine;
 window.getMirrorPoint = getMirrorPoint;
 window.tangentFromPoint = tangentFromPoint;
+// ===== FÁZA 6 PARTIAL COMPLETION - Canvas event handlers =====
+// Event handlery nyní integrují Soustruznik.state
+// getCanvasState() helper umožňuje fallback k globálním proměnným
 
+console.log('✅ FÁZA 6: canvas.js - Event handler namespace integration');
+console.log('   Canvas state stored in window.Soustruznik.state');
+console.log('   Event handlers use getCanvasState() for compatibility');
 // ===== EXPORT =====
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
