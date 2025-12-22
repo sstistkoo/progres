@@ -156,11 +156,9 @@ function draw() {
   const ctx = canvas.getContext("2d");
 
   console.log("🎨 draw() START - canvas:", canvas.width, "x", canvas.height);
-  console.log("🎨 Canvas DOM - element:", !!canvas, "parentElement:", canvas.parentElement?.tagName);
-  console.log("🎨 Canvas style - width:", canvas.style.width, "height:", canvas.style.height, "display:", canvas.style.display);
-  console.log("🎨 Canvas computed style:", window.getComputedStyle(canvas).display, window.getComputedStyle(canvas).visibility, window.getComputedStyle(canvas).opacity);
-  console.log("🎨 Canvas position - offsetTop:", canvas.offsetTop, "offsetLeft:", canvas.offsetLeft, "zIndex:", window.getComputedStyle(canvas).zIndex);
-  console.log("🎨 Canvas state - globalAlpha:", ctx.globalAlpha, "globalCompositeOperation:", ctx.globalCompositeOperation);
+  console.log("🎨 Canvas position - offsetTop:", canvas.offsetTop, "offsetLeft:", canvas.offsetLeft);
+  console.log("🎨 Canvas getBoundingClientRect:", canvas.getBoundingClientRect());
+  console.log("🎨 Canvas parent getBoundingClientRect:", canvas.parentElement.getBoundingClientRect());
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -832,15 +830,24 @@ function drawGrid(ctx, canvas) {
   // Hlavní mřížka
   // TEST: Nakreslit jasnou červenou čáru přes celý canvas
   ctx.strokeStyle = "#FF0000";
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 20;
   ctx.beginPath();
   ctx.moveTo(0, 0);
   ctx.lineTo(canvas.width, canvas.height);
   ctx.stroke();
-
-  console.log("🔴 TEST: Červená čára nakreslena z 0,0 do", canvas.width, canvas.height);
-
-  ctx.strokeStyle = "#666666";
+  
+  // TEST: Nakreslit druhý kříž
+  ctx.beginPath();
+  ctx.moveTo(canvas.width, 0);
+  ctx.lineTo(0, canvas.height);
+  ctx.stroke();
+  
+  // TEST: Nakreslit žlutý obdélník kolem okrajů
+  ctx.strokeStyle = "#FFFF00";
+  ctx.lineWidth = 10;
+  ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+  
+  console.log("🔴 TEST: Červená čára + kříž + žlutý rámeček nakresleny, canvas:", canvas.width, "x", canvas.height);
   ctx.lineWidth = 1;
 
   const sx = Math.floor(Math.min(tl.x, br.x) / displayGrid) * displayGrid;
