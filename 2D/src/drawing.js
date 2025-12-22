@@ -573,7 +573,7 @@ function draw() {
 
   // ===== MĚŘENÍ - Režim Měření =====
   if (window.measurementMode && window.measurementItems && window.measurementItems.length >= 1) {
-    // Zobrazit vybrané objekty pro měření (modře se zvýrazněním)
+    // Zobrazit vybrané objekty pro měření (oranžově se zvýrazněním)
     window.measurementItems.forEach((item, idx) => {
       if (item.category === "point") {
         const screenPos = window.worldToScreen(item.x, item.y);
@@ -598,59 +598,156 @@ function draw() {
           ctx.textBaseline = "middle";
           ctx.fillText(idx + 1, screenPos.x, screenPos.y - 25);
         }
+      } else if (item.category === "shape") {
+        // Zvýraznit tvar (čáru, kružnici, apod.)
+        if (item.ref.type === "line") {
+          const p1 = window.worldToScreen(item.ref.x1, item.ref.y1);
+          const p2 = window.worldToScreen(item.ref.x2, item.ref.y2);
+          if (p1 && p2) {
+            ctx.strokeStyle = "#ff8800";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        } else if (item.ref.type === "circle") {
+          const center = window.worldToScreen(item.ref.cx, item.ref.cy);
+          if (center) {
+            ctx.strokeStyle = "#ff8800";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, item.ref.r * (window.zoom || 1), 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
       }
     });
 
-    // Pokud jsou 2 objekty, vypočítej a zobraz vzdálenost v UI
-    if (window.measurementItems.length === 2) {
-      const item1 = window.measurementItems[0];
-      const item2 = window.measurementItems[1];
-
-      let distance = null;
+    // ===== 1 OBJEKT =====
+    if (window.measurementItems.length === 1) {
+      const item = window.measurementItems[0];
+      let measurement = null;
+      let displayText = null;
       let midPoint = null;
 
-      // Bod + čára
-      if (item1.category === "point" && item2.category === "shape" && item2.ref.type === "line") {
-        const line = item2.ref;
-        const closest = pointToLineClosestPoint(item1.x, item1.y, line.x1, line.y1, line.x2, line.y2);
-        distance = Math.hypot(closest.x - item1.x, closest.y - item1.y);
-        midPoint = { x: (item1.x + closest.x) / 2, y: (item1.y + closest.y) / 2 };
-      } else if (item2.category === "point" && item1.category === "shape" && item1.ref.type === "line") {
-        const line = item1.ref;
-        const closest = pointToLineClosestPoint(item2.x, item2.y, line.x1, line.y1, line.x2, line.y2);
-        distance = Math.hypot(closest.x - item2.x, closest.y - item2.y);
-        midPoint = { x: (item2.x + closest.x) / 2, y: (item2.y + closest.y) / 2 };
+      // Měření délky čáry
+      if (item.category === "shape" && item.ref.type === "line") {
+        const length = Math.hypot(item.ref.x2 - item.ref.x1, item.ref.y2 - item.ref.y1);
+        midPoint = { x: (item.ref.x1 + item.ref.x2) / 2, y: (item.ref.y1 + item.ref.y2) / 2 };
+        displayText = `Délka: ${length.toFixed(2)} mm`;
+        measurement = length;
       }
-      // Bod + bod
-      else if (item1.category === "point" && item2.category === "point") {
-        distance = Math.hypot(item2.x - item1.x, item2.y - item1.y);
-        midPoint = { x: (item1.x + item2.x) / 2, y: (item1.y + item2.y) / 2 };
+      // Měření poloměru kružnice
+      else if (item.category === "shape" && item.ref.type === "circle") {
+        midPoint = { x: item.ref.cx, y: item.ref.cy };
+        displayText = `Poloměr: ${item.ref.r.toFixed(2)} mm`;
+        measurement = item.ref.r;
       }
 
-      // Zobrazit vzdálenost na plátně
-      if (distance !== null && midPoint) {
+      // Zobrazit měření
+      if (measurement !== null && midPoint) {
         const screenMid = window.worldToScreen(midPoint.x, midPoint.y);
         if (screenMid) {
           ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
           ctx.font = "bold 14px Arial";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          const text = `${distance.toFixed(2)} mm`;
-          const textWidth = ctx.measureText(text).width + 10;
+          const textWidth = ctx.measureText(displayText).width + 10;
           const textHeight = 20;
 
-          // Černý box
           ctx.fillRect(screenMid.x - textWidth / 2, screenMid.y - textHeight / 2, textWidth, textHeight);
-
-          // Oranžový text
           ctx.fillStyle = "#ff8800";
-          ctx.fillText(text, screenMid.x, screenMid.y);
+          ctx.fillText(displayText, screenMid.x, screenMid.y);
         }
 
-        // Zobrazit také v UI info
         const info = document.getElementById("modeInfo");
         if (info) {
-          info.innerHTML = `📏 <strong>VZDÁLENOST:</strong> <span style="color: #ff8800; font-size: 16px"><strong>${distance.toFixed(2)} mm</strong></span><br/><small>Klikni na nový objekt pro nové měření</small>`;
+          info.innerHTML = `📏 <strong>${displayText}</strong><br/><small>Klikni na objekt pro měření</small>`;
+        }
+      }
+    }
+
+    // ===== 2 OBJEKTY =====
+    if (window.measurementItems.length === 2) {
+      const item1 = window.measurementItems[0];
+      const item2 = window.measurementItems[1];
+
+      let measurement = null;
+      let displayText = null;
+      let midPoint = null;
+
+      // 2 USEČKY → Úhel mezi nimi
+      if (item1.category === "shape" && item1.ref.type === "line" && 
+          item2.category === "shape" && item2.ref.type === "line") {
+        
+        const dx1 = item1.ref.x2 - item1.ref.x1;
+        const dy1 = item1.ref.y2 - item1.ref.y1;
+        const dx2 = item2.ref.x2 - item2.ref.x1;
+        const dy2 = item2.ref.y2 - item2.ref.y1;
+
+        const angle1 = Math.atan2(dy1, dx1);
+        const angle2 = Math.atan2(dy2, dx2);
+        let angleDiff = Math.abs(angle1 - angle2);
+        
+        // Převeď na stupně a normalizuj na 0-180
+        angleDiff = (angleDiff * 180) / Math.PI;
+        if (angleDiff > 180) angleDiff = 360 - angleDiff;
+        
+        midPoint = {
+          x: ((item1.ref.x1 + item1.ref.x2) / 2 + (item2.ref.x1 + item2.ref.x2) / 2) / 2,
+          y: ((item1.ref.y1 + item1.ref.y2) / 2 + (item2.ref.y1 + item2.ref.y2) / 2) / 2
+        };
+        displayText = `Úhel: ${angleDiff.toFixed(1)}°`;
+        measurement = angleDiff;
+      }
+      // BOD + ČÁRA → Vzdálenost
+      else if ((item1.category === "point" && item2.category === "shape" && item2.ref.type === "line") ||
+               (item2.category === "point" && item1.category === "shape" && item1.ref.type === "line")) {
+        const point = item1.category === "point" ? item1 : item2;
+        const line = item1.category === "shape" ? item1.ref : item2.ref;
+        
+        const closest = pointToLineClosestPoint(point.x, point.y, line.x1, line.y1, line.x2, line.y2);
+        const distance = Math.hypot(closest.x - point.x, closest.y - point.y);
+        midPoint = { x: (point.x + closest.x) / 2, y: (point.y + closest.y) / 2 };
+        displayText = `Vzdálenost: ${distance.toFixed(2)} mm`;
+        measurement = distance;
+      }
+      // BOD + BOD → Vzdálenost
+      else if (item1.category === "point" && item2.category === "point") {
+        const distance = Math.hypot(item2.x - item1.x, item2.y - item1.y);
+        midPoint = { x: (item1.x + item2.x) / 2, y: (item1.y + item2.y) / 2 };
+        displayText = `Vzdálenost: ${distance.toFixed(2)} mm`;
+        measurement = distance;
+      }
+      // KRUŽNICE + KRUŽNICE → Vzdálenost mezi středy
+      else if (item1.category === "shape" && item1.ref.type === "circle" &&
+               item2.category === "shape" && item2.ref.type === "circle") {
+        const distance = Math.hypot(item2.ref.cx - item1.ref.cx, item2.ref.cy - item1.ref.cy);
+        midPoint = { x: (item1.ref.cx + item2.ref.cx) / 2, y: (item1.ref.cy + item2.ref.cy) / 2 };
+        displayText = `Vzdálenost středů: ${distance.toFixed(2)} mm`;
+        measurement = distance;
+      }
+
+      // Zobrazit měření
+      if (measurement !== null && midPoint) {
+        const screenMid = window.worldToScreen(midPoint.x, midPoint.y);
+        if (screenMid) {
+          ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+          ctx.font = "bold 14px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          const textWidth = ctx.measureText(displayText).width + 10;
+          const textHeight = 20;
+
+          ctx.fillRect(screenMid.x - textWidth / 2, screenMid.y - textHeight / 2, textWidth, textHeight);
+          ctx.fillStyle = "#ff8800";
+          ctx.fillText(displayText, screenMid.x, screenMid.y);
+        }
+
+        const info = document.getElementById("modeInfo");
+        if (info) {
+          info.innerHTML = `📏 <strong>${displayText}</strong><br/><small>Klikni na nový objekt pro nové měření</small>`;
         }
       }
     }
