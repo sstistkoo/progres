@@ -157,11 +157,18 @@ function draw() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Debug: Check checkboxes
+  const showGridCheckbox = document.getElementById("showGrid");
+  const showAxesCheckbox = document.getElementById("showAxes");
+  console.log("🎨 draw() called - showGrid:", showGridCheckbox?.checked, "showAxes:", showAxesCheckbox?.checked);
+
   if (document.getElementById("showGrid")?.checked) {
+    console.log("📊 Drawing grid...");
     drawGrid(ctx, canvas);
   }
 
   if (document.getElementById("showAxes")?.checked) {
+    console.log("📏 Drawing axes...");
     drawAxes(ctx, canvas);
   }
 

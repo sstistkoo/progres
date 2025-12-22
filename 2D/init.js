@@ -54,7 +54,7 @@ function initializeApp() {
     panX: window.Soustruznik.state.panX,
     panY: window.Soustruznik.state.panY
   });
-  
+
   if (window.Soustruznik.state.zoom === undefined) {
     window.Soustruznik.state.zoom = 2;
     console.log("✅ Set zoom to 2");
@@ -82,6 +82,13 @@ function initializeApp() {
   if (!window.shapes) window.shapes = [];
   if (!window.points) window.points = [];
   if (!window.selectedItems) window.selectedItems = [];
+
+  // ✅ Automaticky zapnout mřížku a osy
+  const showGridCheckbox = document.getElementById("showGrid");
+  const showAxesCheckbox = document.getElementById("showAxes");
+  if (showGridCheckbox) showGridCheckbox.checked = true;
+  if (showAxesCheckbox) showAxesCheckbox.checked = true;
+  console.log("✅ Grid and axes checkboxes enabled");
 
   // Initialize drawing state
   if (window.updateSnapPoints) window.updateSnapPoints();
