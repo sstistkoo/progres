@@ -374,6 +374,9 @@ function drawGrid(ctx, canvas) {
     br = br || { x: 100, y: 100 };
   }
 
+  const zoom = window.Soustruznik.state.zoom ?? window.zoom ?? 1;
+  const gridSize = window.gridSize ?? 10;
+  
   const gridPixels = gridSize * zoom;
 
   let displayGrid = gridSize;
@@ -458,6 +461,9 @@ function drawAxes(ctx, canvas) {
 
   // Fallback když worldToScreen vrací undefined
   if (!ox) return;
+
+  const axisMode = window.axisMode ?? "lathe";
+  const xMeasureMode = window.xMeasureMode ?? "radius";
 
   if (ox.y >= 0 && ox.y <= canvas.height) {
     ctx.setLineDash([15, 5, 3, 5]);
