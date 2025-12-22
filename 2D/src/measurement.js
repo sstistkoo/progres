@@ -20,6 +20,83 @@ window.toggleCotasSection = function() {
 };
 
 /**
+ * Zobrazí modal pro fixaci měření
+ */
+function showMeasurementFixationModal() {
+  const modal = document.getElementById('fixationMeasurementModal');
+  if (!modal || !window.pendingFixation) return;
+
+  const fixation = window.pendingFixation;
+
+  // Vyplnit label a hint
+  const labelEl = document.getElementById('fixationLabel');
+  const hintEl = document.getElementById('fixationHint');
+  const valueInput = document.getElementById('fixationValueInput');
+
+  if (labelEl) labelEl.textContent = fixation.label;
+  
+  if (hintEl) {
+    if (fixation.label.includes('Úhel')) {
+      hintEl.textContent = 'Původní hodnota: ' + fixation.originalValue.toFixed(1) + '°';
+    } else {
+      hintEl.textContent = 'Původní hodnota: ' + fixation.originalValue.toFixed(2) + ' mm';
+    }
+  }
+
+  if (valueInput) {
+    if (fixation.label.includes('Úhel')) {
+      valueInput.value = fixation.value.toFixed(1);
+      valueInput.step = '0.1';
+    } else {
+      valueInput.value = fixation.value.toFixed(2);
+      valueInput.step = '0.01';
+    }
+    valueInput.focus();
+    valueInput.select();
+  }
+
+  modal.style.display = 'flex';
+}
+
+/**
+ * Zavře modal pro fixaci měření
+ */
+window.closeMeasurementFixationModal = function() {
+  const modal = document.getElementById('fixationMeasurementModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  window.pendingFixation = null;
+};
+
+/**
+ * Potvrdí fixaci a vytvoří kótu
+ */
+window.confirmMeasurementFixation = function() {
+  if (!window.pendingFixation) return;
+
+  const valueInput = document.getElementById('fixationValueInput');
+  if (!valueInput) return;
+
+  const newValue = parseFloat(valueInput.value);
+  
+  if (isNaN(newValue)) {
+    alert('❌ Chybný formát čísla');
+    return;
+  }
+
+  const fixation = window.pendingFixation;
+  
+  // Vytvoř kótu
+  createCota(fixation.label, newValue, fixation.data);
+  
+  // Zavři modal
+  window.closeMeasurementFixationModal();
+};
+
+
+
+/**
  * Vytvoří dialog pro fixaci měřené hodnoty
  * Uloží ji jako kótu do "upravy/kota"
  */
@@ -47,20 +124,20 @@ window.fixateMeasurement = function() {
     // Pro 2 usečky zobraz dialog s výběrem který rozměr fixovat
     const measurements = data.measurements;
     const options = measurements.map((m, i) => `${i + 1}. ${m.label}: ${m.value.toFixed(m.label.includes('Úhel') ? 1 : 2)} ${m.unit}`).join('\n');
-    
+
     const choice = prompt(
       `Vyber kterou kótu chceš fixovat:\n${options}\n\nZadej číslo (1-${measurements.length}):`,
       '1'
     );
-    
+
     if (choice === null) return;
-    
+
     const idx = parseInt(choice) - 1;
     if (idx < 0 || idx >= measurements.length) {
       alert('❌ Chybná volba');
       return;
     }
-    
+
     const selectedMeasurement = measurements[idx];
     value = selectedMeasurement.value;
     label = selectedMeasurement.label;
@@ -71,75 +148,17 @@ window.fixateMeasurement = function() {
     return;
   }
 
-  // Dialog pro zadání nové hodnoty
-  const newValue = prompt(
-    `Fixace: ${label}\n\nAktuální hodnota: ${value.toFixed(2)}\n\nZadej novou hodnotu (nebo Enter pro zachování):`,
-    value.toFixed(2)
-  );
+  // Uložit do window pro modal
+  window.pendingFixation = {
+    type: data.type,
+    data: data,
+    value: value,
+    label: label,
+    originalValue: value
+  };
 
-  if (newValue === null) return; // Zrušit
-
-  const finalValue = newValue === '' ? value : parseFloat(newValue);
-  
-  if (isNaN(finalValue)) {
-    alert('❌ Chybný formát čísla');
-    return;
-  }
-
-  // Vytvoř kótu v "upravy/kota" sekci
-  createCota(label, finalValue, data);
-};
-
-/**
- * Vytvoří kótu a uloží ji do sekce upravy/kota
- */
-function createCota(label, value, measurementData) {
-  if (!window.shapes) window.shapes = [];
-
-  // Vytvoř dimension objekt
-  let dimension = null;
-  
-  if (measurementData.type === 'single_line') {
-    dimension = {
-      type: 'dimension',
-      dimType: 'linear',
-      target: measurementData.item,
-      value: value,
-      x1: measurementData.item.x1,
-      y1: measurementData.item.y1,
-      x2: measurementData.item.x2,
-      y2: measurementData.item.y2,
-      fixedValue: true,
-      fixedLabel: label,
-      color: '#ff6600', // Oranžová pro fixované
-    };
-  } else if (measurementData.type === 'circle') {
-    dimension = {
-      type: 'dimension',
-      dimType: 'radius',
-      target: measurementData.item,
-      value: value,
-      cx: measurementData.item.cx,
-      cy: measurementData.item.cy,
-      r: measurementData.item.r,
-      fixedValue: true,
-      fixedLabel: label,
-      color: '#ff6600', // Oranžová pro fixované
-      label: 'R',
-    };
-  } else if (measurementData.type === 'two_points') {
-    // Pro body, vytvoř pomocný objekt
-    dimension = {
-      type: 'dimension',
-      dimType: 'distance',
-      value: value,
-      x1: measurementData.item1.x,
-      y1: measurementData.item1.y,
-      x2: measurementData.item2.x,
-      y2: measurementData.item2.y,
-      fixedValue: true,
-      fixedLabel: label,
-      color: '#ff6600',
+  // Otevřít modal
+  showMeasurementFixationModal();
     };
   } else if (measurementData.type === 'two_lines') {
     // Pro usečky, vytvoř pomocný objekt
@@ -156,15 +175,15 @@ function createCota(label, value, measurementData) {
 
   if (dimension) {
     window.shapes.push(dimension);
-    
+
     // Ulož stav
     if (window.saveState) window.saveState();
     if (window.updateSnapPoints) window.updateSnapPoints();
     if (window.draw) window.draw();
-    
+
     // Aktualizuj panel kót
     window.displayFixedCotasPanel();
-    
+
     alert(`✅ Kóta fixována: ${label} = ${value.toFixed(2)} mm`);
   }
 }
@@ -190,7 +209,7 @@ window.displayFixedCotasPanel = function() {
     const label = dim.fixedLabel || dim.dimType || 'Kóta';
     const value = dim.value.toFixed(dim.fixedLabel?.includes('Úhel') ? 1 : 2);
     const unit = dim.fixedLabel?.includes('Úhel') ? '°' : 'mm';
-    
+
     html += `
       <div style="
         padding: 6px 8px;
@@ -230,7 +249,7 @@ window.deleteCota = function(index) {
   if (!window.shapes) return;
 
   const fixedDimensions = window.shapes.filter(s => s.type === 'dimension' && s.fixedValue);
-  
+
   if (index < 0 || index >= fixedDimensions.length) return;
 
   const dimensionToDelete = fixedDimensions[index];
@@ -239,7 +258,7 @@ window.deleteCota = function(index) {
   if (window.saveState) window.saveState();
   if (window.updateSnapPoints) window.updateSnapPoints();
   if (window.draw) window.draw();
-  
+
   window.displayFixedCotasPanel();
 };
 
