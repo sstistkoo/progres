@@ -36,12 +36,12 @@ function initializeApp() {
 
   // Setup canvas resolution
   const dpr = window.devicePixelRatio || 1;
-  
+
   // Use window dimensions instead of getBoundingClientRect
   // to ensure canvas is properly sized even before CSS layout is complete
   let canvasWidth = window.innerWidth;
   let canvasHeight = window.innerHeight;
-  
+
   // Fallback to getBoundingClientRect if available
   const rect = canvas.getBoundingClientRect();
   if (rect.width > 0) canvasWidth = rect.width;
@@ -49,6 +49,18 @@ function initializeApp() {
 
   canvas.width = canvasWidth * dpr;
   canvas.height = canvasHeight * dpr;
+
+  console.log("📐 Canvas dimensions:", {
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+    rectWidth: rect.width,
+    rectHeight: rect.height,
+    canvasWidth: canvasWidth,
+    canvasHeight: canvasHeight,
+    dpr: dpr,
+    finalWidth: canvas.width,
+    finalHeight: canvas.height
+  });
 
   // Store canvas reference globally
   window.canvas = canvas;
@@ -72,7 +84,9 @@ function initializeApp() {
 
   console.log("✅ Inicializace hotova:", {
     canvas: { width: canvas.width, height: canvas.height },
-    state: { zoom: window.zoom, panX: window.panX, panY: window.panY }
+    state: { zoom: window.zoom, panX: window.panX, panY: window.panY },
+    screenToWorld: window.screenToWorld ? "✅ OK" : "❌ MISSING",
+    worldToScreen: window.worldToScreen ? "✅ OK" : "❌ MISSING"
   });
 
   if (!window.shapes) window.shapes = [];
@@ -221,10 +235,10 @@ function handleWindowResize() {
   if (!canvas) return;
 
   const dpr = window.devicePixelRatio || 1;
-  
+
   let canvasWidth = window.innerWidth;
   let canvasHeight = window.innerHeight;
-  
+
   const rect = canvas.getBoundingClientRect();
   if (rect.width > 0) canvasWidth = rect.width;
   if (rect.height > 0) canvasHeight = rect.height;
