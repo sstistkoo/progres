@@ -36,19 +36,17 @@
         }
       }
     </script>
-    <!-- NAMESPACE MUSÍ BÝT PRVNÍ! -->
-    <script src="src/soustruznik.js"></script>
-    <!-- GLOBALS + KEYBOARD MUSÍ BÝT DRUHÉ! -->
+    <!-- GLOBALS + KEYBOARD MUSÍ BÝT PRVNÍ! -->
     <script src="src/globals.js"></script>
     <script src="src/keyboard.js"></script>
+    <script>console.log("✅ index.html loaded");</script>
     <script src="src/utils.js"></script>
     <script src="src/drawing.js"></script>
     <script src="src/canvas.js"></script>
-    <script src="src/measurement.js"></script>
     <script src="src/ui.js"></script>
     <script src="src/controller.js"></script>
     <script src="src/ai.js"></script>
-    <script src="init.js"></script>
+    <script src="lib/init.js"></script>
   </head>
   <body>
     <div class="canvas-area">
@@ -98,18 +96,7 @@
           <span>👆</span>
           <div>Výběr</div>
         </button>
-        <button
-          class="canvas-btn"
-          onclick="window.toggleMeasurementMode()"
-          id="btnMeasurement"
-          title="Režim Měření - Klikni na 2 objekty"
-        >
-          <span>📏</span>
-          <div>Měření</div>
-        </button>
       </div>
-
-      <canvas id="canvas"></canvas>
 
       <!-- AI PANEL -->
       <div
@@ -604,7 +591,7 @@
               </div>
 
               <button
-                onclick="if(window.callGemini) { window.callGemini(); }"
+                onclick="if(!window.processingAI && window.callGemini) { window.callGemini(); } else { alert('AI už zpracovává request nebo test běží!'); }"
                 id="btnGenerate"
                 style="
                   padding: 10px;
@@ -689,6 +676,14 @@
 
       <!-- Kreslení panel -->
       <div class="tool-submenu" id="toolsDrawing" style="display: none">
+        <!-- Přichycení panel -->
+        <div class="tool-submenu" id="toolsSnap" style="margin-bottom: 18px; background: rgba(26,26,26,0.95); padding: 12px; border-radius: 8px; border: 1px solid #444; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+          <h3 style="color: #facc15; font-size: 13px; margin-bottom: 8px;">Ortogonální (↔↕) přichycení</h3>
+          <label style="font-size: 12px; color: #ccc;">Polární krok (°):
+            <input type="number" id="polarSnapStep" min="1" max="90" value="90" style="width: 60px; margin-left: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 4px;">
+          </label>
+          <div style="font-size: 11px; color: #888; margin-top: 6px;">Přichycení funguje automaticky pro vodorovné/svislé (0°, 90°, 180°, 270°) a další zvolené úhly. Tolerance: ±3°.</div>
+        </div>
         <div
           style="
             background: rgba(26, 26, 26, 0.95);
@@ -1074,7 +1069,6 @@
         </div>
       </div>
 
-      <!-- Fixované Kóty panel -->
       <!-- Souřadnice panel -->
       <div
         class="tool-submenu coords-panel"
@@ -1403,24 +1397,24 @@
               <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #333">
                 <label style="font-size: 12px; color: #888; display: block; margin-bottom: 6px">Rozestup mřížky (mm):</label>
                 <input type="number" id="gridSpacing" value="10" min="0.01" max="100" step="0.01" onchange="window.updateGridSpacing()" style="width: 100%; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px; font-size: 14px; margin-bottom: 6px" />
-                <div style="display: flex; gap: 6px; margin-bottom: 12px">
+                <div style="display: flex; gap: 6px">
                   <button onclick="window.setGridSpacing(0.1)" style="flex: 1; padding: 6px; background: #3a3a3a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px">0.1mm</button>
                   <button onclick="window.setGridSpacing(1)" style="flex: 1; padding: 6px; background: #3a3a3a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px">1mm</button>
                   <button onclick="window.setGridSpacing(5)" style="flex: 1; padding: 6px; background: #3a3a3a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px">5mm</button>
                   <button onclick="window.setGridSpacing(10)" style="flex: 1; padding: 6px; background: #3a3a3a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px">10mm</button>
                 </div>
-                <div style="font-size: 11px; color: #666; margin-top: 4px">Mřížka se automaticky prořídí, pokud je rozestup menší než tato hodnota</div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      <canvas id="canvas"></canvas>
+
       <!-- Touch cursor -->
       <div class="touch-cursor" id="touchCursor">
         <div class="touch-cursor-center"></div>
       </div>
-    </div>
 
       <div class="coords" id="coords">Z: 0.00 | X: 0.00 mm</div>
       <div class="snap-info" id="snapInfo"></div>
@@ -1467,7 +1461,7 @@
       </button>
       <button
         class="tool-btn"
-        onclick="console.log('🔧 BUTTON CLICK: Ostatní'); window.showToolCategory('other'); console.log('🔧 AFTER showToolCategory call');"
+        onclick="window.showToolCategory('other')"
         id="btnCatOther"
         title="Ostatní"
       >
@@ -1838,51 +1832,6 @@
         </div>
           <button onclick="window.closeColorStyleModal()" style="padding: 8px 16px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer">Zrušit</button>
           <button onclick="window.confirmColorStyle()" style="padding: 8px 16px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold">Potvrdit</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal pro Fixaci Měření -->
-    <div id="fixationMeasurementModal" class="modal-overlay" style="display: none;">
-      <div class="modal-window" style="max-width: 500px;">
-        <h2 style="margin-bottom: 15px; color: #ff8800; font-size: 18px">🔒 Fixace Měření</h2>
-        <p style="color: #aaa; font-size: 12px; margin-bottom: 15px" id="fixationLabel"></p>
-
-        <div style="background: #1a1a1a; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
-          <label style="display: block; color: #fff; font-size: 12px; margin-bottom: 6px;">
-            📏 Hodnota:
-          </label>
-          <input
-            type="number"
-            id="fixationValueInput"
-            style="
-              width: 100%;
-              padding: 8px;
-              background: #2a2a2a;
-              color: #fff;
-              border: 1px solid #ff8800;
-              border-radius: 4px;
-              font-size: 13px;
-              box-sizing: border-box;
-            "
-            step="0.01"
-          />
-          <small style="color: #888; display: block; margin-top: 4px;" id="fixationHint"></small>
-        </div>
-
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
-          <button
-            onclick="window.closeMeasurementFixationModal()"
-            style="padding: 8px 16px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer"
-          >
-            Zrušit
-          </button>
-          <button
-            onclick="window.confirmMeasurementFixation()"
-            style="padding: 8px 16px; background: #ff8800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;"
-          >
-            ✅ Fixovat
-          </button>
         </div>
       </div>
     </div>

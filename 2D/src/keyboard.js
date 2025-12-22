@@ -4,28 +4,6 @@
  * Tunable konfigurace pro všechny kombinace
  */
 
-// ============================================================
-// NAMESPACE MIGRATION - Keyboard event handler setup
-// ============================================================
-// Keyboard handlery nyní integrují Soustruznik.state
-// Všechny globální refs updatují i namespace pokud existuje
-
-function setKeyboardState(key, value) {
-  // Helper pro nastavení stavu - updatuje namespace
-  window[key] = value;
-  if (window.Soustruznik && window.Soustruznik.state) {
-    window.Soustruznik.state[key] = value;
-  }
-}
-
-function getKeyboardState(key) {
-  // Helper pro získání stavu - preferuje namespace
-  if (window.Soustruznik && window.Soustruznik.state && key in window.Soustruznik.state) {
-    return window.Soustruznik.state[key];
-  }
-  return window[key];
-}
-
 // ===== KEYBOARD CONFIGURATION (TUNABLE) =====
 window.keyboardConfig = {
   // Drawing modes - Quick access (number keys)
@@ -284,16 +262,8 @@ window.handleGlobalKeyDown = function(e) {
     }
   }
 
-  // ===== ESC = Clear mode & Deselect snap point =====
+  // ===== ESC = Clear mode =====
   if (e.key === "Escape") {
-    // Zrušit vybraný snap point
-    if (window.selectedSnapPoint) {
-      window.selectedSnapPoint = null;
-      console.log("[keyboard] Zrušen vybraný snap point");
-      if (window.draw) window.draw();
-      return;
-    }
-    // Pak zrušit mode
     if (window.clearMode) window.clearMode();
     return;
   }
@@ -362,12 +332,7 @@ window.getAllShortcuts = function() {
   return categories;
 };
 
-// ============================================================
-// FÁZA 6 PARTIAL COMPLETION - Keyboard handler namespace integration
-// ============================================================
-
-
-
+// Auto-init when available
 if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", window.setupUnifiedKeyboard);
 }
