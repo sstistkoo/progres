@@ -817,7 +817,7 @@ function handleSelectMode(x, y, shiftKey) {
       const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       const label = labels[window.selectedItems.length % labels.length];
       const newItem = { ...found, label };
-      
+
       // Pokud je to bod, automaticky ho přichyť ke všem objektům
       if (newItem.category === "point") {
         const snapped = snapPointToGeometry(newItem.x, newItem.y);
@@ -827,8 +827,11 @@ function handleSelectMode(x, y, shiftKey) {
           newItem.snappedTo = snapped.snappedTo;
         }
       }
-      
+
       window.selectedItems.push(newItem);
+      
+      // Zruš selectedSnapPoint, aby se nepřekrývaly renderování
+      window.selectedSnapPoint = null;
     }
   }
 
@@ -897,11 +900,11 @@ function snapPointToGeometry(x, y) {
         const dy = y - shape.cy;
         const dist = Math.hypot(dx, dy);
         const angle = Math.atan2(dy, dx);
-        
+
         // Kontrola zda je úhel v rozsahu oblouku
         const startAngle = shape.startAngle || 0;
         const endAngle = shape.endAngle || Math.PI * 2;
-        
+
         if (Math.abs(dist - shape.r) < minDist && angle >= startAngle && angle <= endAngle) {
           const px = shape.cx + Math.cos(angle) * shape.r;
           const py = shape.cy + Math.sin(angle) * shape.r;
