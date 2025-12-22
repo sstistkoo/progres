@@ -1298,7 +1298,7 @@ const MAX_HISTORY = 10;
 
 function saveState() {
   const state = {
-    shapes: JSON.parse(JSON.stringify(window.shapes)),
+    shapes: JSON.parse(JSON.stringify(window.convertRectanglesToLines ? window.convertRectanglesToLines(window.shapes) : window.shapes)),
     points: JSON.parse(JSON.stringify(window.points)),
   };
 
@@ -1334,7 +1334,8 @@ function undo() {
 
   const prevState = window.undoStack.pop();
   window.shapes.length = 0;
-  window.shapes.push(...JSON.parse(JSON.stringify(prevState.shapes)));
+  const convertedShapes = window.convertRectanglesToLines ? window.convertRectanglesToLines(JSON.parse(JSON.stringify(prevState.shapes))) : JSON.parse(JSON.stringify(prevState.shapes));
+  window.shapes.push(...convertedShapes);
   window.points.length = 0;
   window.points.push(...JSON.parse(JSON.stringify(prevState.points)));
 
@@ -1372,7 +1373,8 @@ function redo() {
 
   const nextState = window.redoStack.pop();
   window.shapes.length = 0;
-  window.shapes.push(...JSON.parse(JSON.stringify(nextState.shapes)));
+  const convertedShapes = window.convertRectanglesToLines ? window.convertRectanglesToLines(JSON.parse(JSON.stringify(nextState.shapes))) : JSON.parse(JSON.stringify(nextState.shapes));
+  window.shapes.push(...convertedShapes);
   window.points.length = 0;
   window.points.push(...JSON.parse(JSON.stringify(nextState.points)));
 
