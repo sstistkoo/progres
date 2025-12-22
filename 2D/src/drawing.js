@@ -795,17 +795,23 @@ function draw() {
 }
 
 function drawGrid(ctx, canvas) {
+  console.log("🔧 drawGrid volána");
   let tl = window.screenToWorld(0, 0);
   let br = window.screenToWorld(canvas.width, canvas.height);
+  
+  console.log("🔧 tl:", tl, "br:", br);
 
   // Fallback na defaultní values když worldToScreen vrací undefined
   if (!tl || !br) {
+    console.log("⚠️ Fallback na defaultní values");
     tl = tl || { x: -100, y: -100 };
     br = br || { x: 100, y: 100 };
   }
 
   const zoom = window.Soustruznik.state.zoom ?? window.zoom ?? 1;
   const gridSize = window.gridSize ?? 10;
+  
+  console.log("🔧 zoom:", zoom, "gridSize:", gridSize);
 
   const gridPixels = gridSize * zoom;
 
