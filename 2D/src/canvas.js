@@ -770,7 +770,7 @@ function handleSelectMode(x, y, shiftKey) {
           };
           break;
         }
-        
+
         // Kontrola koncového bodu 2
         const dist2 = Math.hypot(x - s.x2, y - s.y2);
         if (dist2 < endpointTolerance) {
@@ -792,7 +792,7 @@ function handleSelectMode(x, y, shiftKey) {
     const foundIntersection = window.intersectionPoints.find((p) => {
       return Math.hypot(p.x - x, p.y - y) < endpointTolerance;
     });
-    
+
     if (foundIntersection) {
       found = {
         category: "intersection",
@@ -852,7 +852,7 @@ function handleSelectMode(x, y, shiftKey) {
   if (found) {
     // Hledat, zda je už vybraný
     const index = window.selectedItems.findIndex((i) => {
-      if ((found.category === "point" || found.category === "intersection") && 
+      if ((found.category === "point" || found.category === "intersection") &&
           (i.category === "point" || i.category === "intersection")) {
         return Math.abs(i.x - found.x) < 0.0001 && Math.abs(i.y - found.y) < 0.0001;
       } else if (found.category === "shape" && i.category === "shape") {
