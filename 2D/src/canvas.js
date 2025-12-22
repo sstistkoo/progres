@@ -2034,6 +2034,23 @@ window.handleSelectMode = function(x, y, shiftKey) {
           return d < tolerance;
         } else if (s.type === "circle") {
           return Math.abs(Math.hypot(x - s.cx, y - s.cy) - s.r) < tolerance;
+        } else if (s.type === "rectangle") {
+          // Detekovat kliknutí na stranu obdélníka
+          const minX = Math.min(s.x1, s.x2);
+          const maxX = Math.max(s.x1, s.x2);
+          const minY = Math.min(s.y1, s.y2);
+          const maxY = Math.max(s.y1, s.y2);
+
+          // Horní strana
+          if (Math.abs(y - minY) < tolerance && x > minX - tolerance && x < maxX + tolerance) return true;
+          // Dolní strana
+          if (Math.abs(y - maxY) < tolerance && x > minX - tolerance && x < maxX + tolerance) return true;
+          // Levá strana
+          if (Math.abs(x - minX) < tolerance && y > minY - tolerance && y < maxY + tolerance) return true;
+          // Pravá strana
+          if (Math.abs(x - maxX) < tolerance && y > minY - tolerance && y < maxY + tolerance) return true;
+
+          return false;
         }
         return false;
       });
@@ -2041,14 +2058,48 @@ window.handleSelectMode = function(x, y, shiftKey) {
       if (found_shape) {
         // Pokud je to usečka, spočítej nejbližší bod na usečce (kde uživatel klikl)
         let clickPoint = { x: x, y: y };
+        let lineRef = found_shape;
+
         if (found_shape.type === "line") {
           clickPoint = pointToLineClosestPoint(x, y, found_shape.x1, found_shape.y1, found_shape.x2, found_shape.y2);
+        } else if (found_shape.type === "rectangle") {
+          // Zjistit kterou stranu obdélníka klikl a vytvořit virtuální usečku
+          const minX = Math.min(found_shape.x1, found_shape.x2);
+          const maxX = Math.max(found_shape.x1, found_shape.x2);
+          const minY = Math.min(found_shape.y1, found_shape.y2);
+          const maxY = Math.max(found_shape.y1, found_shape.y2);
+
+          // Zjisti kterou stranu klikl a vytvoř virtuální usečku
+          const distTop = Math.abs(y - minY);
+          const distBottom = Math.abs(y - maxY);
+          const distLeft = Math.abs(x - minX);
+          const distRight = Math.abs(x - maxX);
+
+          const minDist = Math.min(distTop, distBottom, distLeft, distRight);
+
+          if (minDist === distTop) {
+            // Horní strana
+            lineRef = { x1: minX, y1: minY, x2: maxX, y2: minY, type: "rect-side", parent: found_shape };
+            clickPoint = { x: Math.max(minX, Math.min(x, maxX)), y: minY };
+          } else if (minDist === distBottom) {
+            // Dolní strana
+            lineRef = { x1: minX, y1: maxY, x2: maxX, y2: maxY, type: "rect-side", parent: found_shape };
+            clickPoint = { x: Math.max(minX, Math.min(x, maxX)), y: maxY };
+          } else if (minDist === distLeft) {
+            // Levá strana
+            lineRef = { x1: minX, y1: minY, x2: minX, y2: maxY, type: "rect-side", parent: found_shape };
+            clickPoint = { x: minX, y: Math.max(minY, Math.min(y, maxY)) };
+          } else {
+            // Pravá strana
+            lineRef = { x1: maxX, y1: minY, x2: maxX, y2: maxY, type: "rect-side", parent: found_shape };
+            clickPoint = { x: maxX, y: Math.max(minY, Math.min(y, maxY)) };
+          }
         }
 
         found = {
           category: "shape",
           type: found_shape.type,
-          ref: found_shape,
+          ref: lineRef,
           clickX: clickPoint.x, // Bod kde uživatel klikl
           clickY: clickPoint.y,
         };
