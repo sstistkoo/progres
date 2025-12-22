@@ -391,12 +391,13 @@ function draw() {
 
       // Vykreslit text/label pro vybraný bod (pokud existuje)
       // Hledáme v window.points aby získali label
-      if (window.points) {
+      if (window.points && window.points.length > 0) {
+        const tolerance = 1; // Větší tolerance pro hledání
         const matchingPoint = window.points.find(
-          (p) => Math.abs(p.x - window.selectedSnapPoint.x) < 0.01 && 
-                 Math.abs(p.y - window.selectedSnapPoint.y) < 0.01
+          (p) => Math.abs(p.x - window.selectedSnapPoint.x) < tolerance &&
+                 Math.abs(p.y - window.selectedSnapPoint.y) < tolerance
         );
-        
+
         if (matchingPoint && matchingPoint.label) {
           // Pozadí (černé)
           ctx.fillStyle = "#000000";
@@ -410,6 +411,10 @@ function draw() {
           // Text (bílý - aby byl vidět na zelené)
           ctx.fillStyle = "#ffffff";
           ctx.fillText(matchingPoint.label, selectedSp.x, selectedSp.y - 30);
+        } else if (window.selectedSnapPoint.type === "point") {
+          // DEBUG: Pokud je to označen jako "point" ale nemá label, vypis debug
+          console.log("[selectedSnapPoint] Point type ale nemá label. Vybrán bod:", window.selectedSnapPoint);
+          console.log("[selectedSnapPoint] window.points:", window.points);
         }
       }
 
