@@ -366,8 +366,8 @@ function draw() {
 }
 
 function drawGrid(ctx, canvas) {
-  const tl = screenToWorld(0, 0);
-  const br = screenToWorld(canvas.width, canvas.height);
+  let tl = screenToWorld(0, 0);
+  let br = screenToWorld(canvas.width, canvas.height);
 
   // Fallback na defaultní values když worldToScreen vrací undefined
   if (!tl || !br) {
