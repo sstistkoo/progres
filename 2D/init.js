@@ -9,14 +9,11 @@
 let animationFrameId = null;
 
 function initializeApp() {
-  console.log("🚀 initializeApp() called");
   const canvas = document.getElementById("canvas");
   if (!canvas) {
     console.error("❌ Canvas element not found!");
     return;
   }
-
-  console.log("📐 Canvas found:", canvas.id);
 
   // Prevent pinch-to-zoom on mobile (which would break the UI)
   document.addEventListener('touchmove', function(e) {
@@ -49,30 +46,15 @@ function initializeApp() {
 
   // Initialize defaults if not already set
   // ✅ Sync s namespace - zoom, panX, panY se mají čtít z window.Soustruznik.state
-  console.log("🔍 Before init - zoom/panX/panY:", {
-    zoom: window.Soustruznik.state.zoom,
-    panX: window.Soustruznik.state.panX,
-    panY: window.Soustruznik.state.panY
-  });
-
   if (window.Soustruznik.state.zoom === undefined) {
     window.Soustruznik.state.zoom = 2;
-    console.log("✅ Set zoom to 2");
   }
   if (window.Soustruznik.state.panX === undefined) {
     window.Soustruznik.state.panX = canvas.width / 2;
-    console.log("✅ Set panX to", canvas.width / 2);
   }
   if (window.Soustruznik.state.panY === undefined) {
     window.Soustruznik.state.panY = canvas.height / 2;
-    console.log("✅ Set panY to", canvas.height / 2);
   }
-
-  console.log("✅ After init - zoom/panX/panY:", {
-    zoom: window.Soustruznik.state.zoom,
-    panX: window.Soustruznik.state.panX,
-    panY: window.Soustruznik.state.panY
-  });
 
   // Zpětná kompatibilita - také nastavit na window
   window.zoom = window.Soustruznik.state.zoom;
@@ -88,7 +70,6 @@ function initializeApp() {
   const showAxesCheckbox = document.getElementById("showAxes");
   if (showGridCheckbox) showGridCheckbox.checked = true;
   if (showAxesCheckbox) showAxesCheckbox.checked = true;
-  console.log("✅ Grid and axes checkboxes enabled");
 
   // Initialize drawing state
   if (window.updateSnapPoints) window.updateSnapPoints();
