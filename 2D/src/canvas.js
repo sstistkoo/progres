@@ -77,11 +77,26 @@ function onCanvasMouseDown(e) {
   if (window.lastMouseX !== undefined && window.lastMouseY !== undefined) {
     const snapResult = snapPointInternal(worldPt);
     if (snapResult && snapResult.snapInfo) {
-      // Klik na snap point - označ ho jako vybraný
-      window.selectedSnapPoint = { x: snapResult.point.x, y: snapResult.point.y, type: snapResult.snapInfo.type };
-      console.log("[onCanvasMouseDown] Vybrán snap point:", window.selectedSnapPoint);
-      if (window.draw) window.draw();
-      return; // Nepokračuj dál - nebyl to běžný klik
+      // Pokud je zapnutý režim "select", přidej bod do selectedItems s písmenem
+      if (window.mode === "select") {
+        // Vytvoř point objekt
+        const pointToSelect = {
+          category: "point",
+          x: snapResult.point.x,
+          y: snapResult.point.y,
+          label: snapResult.snapInfo.label // TODO: Bude přepsáno níže
+        };
+        
+        // Zavolej handleSelectMode místo abychom dělali vlastní logiku
+        handleSelectMode(snapResult.point.x, snapResult.point.y, e.shiftKey);
+        return; // Nepokračuj dál
+      } else {
+        // Jinak jen označ bod jako vybraný (pro ostatní režimy)
+        window.selectedSnapPoint = { x: snapResult.point.x, y: snapResult.point.y, type: snapResult.snapInfo.type };
+        console.log("[onCanvasMouseDown] Vybrán snap point:", window.selectedSnapPoint);
+        if (window.draw) window.draw();
+        return; // Nepokračuj dál - nebyl to běžný klik
+      }
     }
   }
 
