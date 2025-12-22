@@ -521,20 +521,23 @@ function draw() {
   // ===== VYKRESLENÍ VYBRANÝCH BODŮ (selectedItems s písmeny) =====
   if (window.selectedItems && window.selectedItems.length > 0) {
     window.selectedItems.forEach((item) => {
-      if (item.category === "point") {
+      if (item.category === "point" || item.category === "intersection") {
         const screenPos = window.worldToScreen(item.x, item.y);
         if (!screenPos) return;
 
-        // Modrý kruh pro vybraný bod
-        ctx.strokeStyle = "#0088ff";
+        // Barva podle typu - průsečík má jinou barvu
+        const color = item.category === "intersection" ? "#ff0088" : "#0088ff";
+
+        // Kruh pro vybraný bod/průsečík
+        ctx.strokeStyle = color;
         ctx.lineWidth = 3;
         ctx.globalAlpha = 1; // Resetuj alpha
         ctx.beginPath();
         ctx.arc(screenPos.x, screenPos.y, 12, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Vyplnění středu (průhledně modrá)
-        ctx.fillStyle = "rgba(0, 136, 255, 0.2)";
+        // Vyplnění středu (průhledně)
+        ctx.fillStyle = item.category === "intersection" ? "rgba(255, 0, 136, 0.2)" : "rgba(0, 136, 255, 0.2)";
         ctx.beginPath();
         ctx.arc(screenPos.x, screenPos.y, 10, 0, Math.PI * 2);
         ctx.fill();
@@ -554,6 +557,67 @@ function draw() {
           // Bily text pres outline
           ctx.fillStyle = "#ffffff";
           ctx.fillText(item.label, screenPos.x, screenPos.y - 25);
+        }
+      } else if (item.category === "shape") {
+        // Zvýraznit vybraný tvar
+        if (item.ref.type === "line") {
+          const p1 = window.worldToScreen(item.ref.x1, item.ref.y1);
+          const p2 = window.worldToScreen(item.ref.x2, item.ref.y2);
+          if (p1 && p2) {
+            ctx.strokeStyle = "#00ff88";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+
+            // Písmeno uprostřed usečky
+            if (item.label) {
+              const midX = (p1.x + p2.x) / 2;
+              const midY = (p1.y + p2.y) / 2;
+              
+              ctx.globalAlpha = 1;
+              ctx.font = "bold 16px Arial";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+
+              // Cerny outline
+              ctx.strokeStyle = "#000000";
+              ctx.lineWidth = 4;
+              ctx.strokeText(item.label, midX, midY - 20);
+
+              // Bily text
+              ctx.fillStyle = "#ffffff";
+              ctx.fillText(item.label, midX, midY - 20);
+            }
+          }
+        } else if (item.ref.type === "circle") {
+          const c = window.worldToScreen(item.ref.cx, item.ref.cy);
+          if (c) {
+            const r = item.ref.r * (window.zoom || 1);
+            ctx.strokeStyle = "#00ff88";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Písmeno u středu kružnice
+            if (item.label) {
+              ctx.globalAlpha = 1;
+              ctx.font = "bold 16px Arial";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+
+              // Cerny outline
+              ctx.strokeStyle = "#000000";
+              ctx.lineWidth = 4;
+              ctx.strokeText(item.label, c.x, c.y - r - 20);
+
+              // Bily text
+              ctx.fillStyle = "#ffffff";
+              ctx.fillText(item.label, c.x, c.y - r - 20);
+            }
+          }
         }
       }
     });

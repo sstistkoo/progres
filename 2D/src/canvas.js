@@ -751,27 +751,78 @@ function handleSelectMode(x, y, shiftKey) {
 
   let found = null;
 
-  // NEJDŘÍV: Kontrola snap pointu (geometrické body - konce čar, rohy obdélníků, apod.)
-  // Ty se detekují v onCanvasMouseDown a předávají se sem přes snapResult
-  // Pokud jsme zde zavoláni ze snap pointu, měl bychom ho přidat přímo
-
-  // Hledat blízký bod (tolerance 5px)
   const tolerance = 5 / (window.zoom || 2);
+  const endpointTolerance = 7 / (window.zoom || 2); // Větší tolerance pro koncové body
 
-  // Nejdřív zkusit najít v window.points (manuálně vytvořené body)
-  const found_point = window.points && window.points.find((p) => {
-    return Math.hypot(p.x - x, p.y - y) < tolerance;
-  });
+  // PRIORITA 1: Zkontrolovat koncové body usečky (endpoint má přednost před tělem usečky)
+  if (window.shapes) {
+    for (let s of window.shapes) {
+      if (s.type === "line") {
+        // Kontrola koncového bodu 1
+        const dist1 = Math.hypot(x - s.x1, y - s.y1);
+        if (dist1 < endpointTolerance) {
+          found = {
+            category: "point",
+            x: s.x1,
+            y: s.y1,
+            ref: null,
+            label: null
+          };
+          break;
+        }
+        
+        // Kontrola koncového bodu 2
+        const dist2 = Math.hypot(x - s.x2, y - s.y2);
+        if (dist2 < endpointTolerance) {
+          found = {
+            category: "point",
+            x: s.x2,
+            y: s.y2,
+            ref: null,
+            label: null
+          };
+          break;
+        }
+      }
+    }
+  }
 
-  if (found_point) {
-    found = {
-      category: "point",
-      x: found_point.x,
-      y: found_point.y,
-      ref: found_point,
-    };
-  } else {
-    // Hledat blízký tvar
+  // PRIORITA 2: Zkontrolovat průsečíky (intersection points)
+  if (!found && window.intersectionPoints && window.intersectionPoints.length > 0) {
+    const foundIntersection = window.intersectionPoints.find((p) => {
+      return Math.hypot(p.x - x, p.y - y) < endpointTolerance;
+    });
+    
+    if (foundIntersection) {
+      found = {
+        category: "intersection",
+        x: foundIntersection.x,
+        y: foundIntersection.y,
+        ref: foundIntersection,
+        label: null
+      };
+    }
+  }
+
+  // PRIORITA 3: Zkontrolovat manuálně vytvořené body (window.points)
+  if (!found) {
+    const found_point = window.points && window.points.find((p) => {
+      return Math.hypot(p.x - x, p.y - y) < tolerance;
+    });
+
+    if (found_point) {
+      found = {
+        category: "point",
+        x: found_point.x,
+        y: found_point.y,
+        ref: found_point,
+        label: null
+      };
+    }
+  }
+
+  // PRIORITA 4: Zkontrolovat tvary (shapes) - usečky, kružnice
+  if (!found) {
     const found_shape = window.shapes && window.shapes.find((s) => {
       if (s.type === "dimension") return false; // Přeskočit kóty
       if (s.type === "line") {
@@ -788,18 +839,12 @@ function handleSelectMode(x, y, shiftKey) {
         category: "shape",
         type: found_shape.type,
         ref: found_shape,
-      };
-    } else {
-      // POSLEDNÍ MOŽNOST: Pokud se nikde nenašel, vytvořit bod z snap pointu
-      // (toto se používá pro geometrické body jako konce čar, rohy obdélníků, apod.)
-      found = {
-        category: "point",
-        x: x,
-        y: y,
-        ref: null, // Žádný odkaz - je to jen geometrický bod
+        label: null
       };
     }
   }
+
+  // POKUD НИЧЕГО NENAJDE - NETVOŘIT BOD, prostě nedelat nic
 
   // V režimu select se vždycky přidávají položky, ne aby se čistily
   // (jen pokud není explicitně smazáno)
@@ -807,7 +852,8 @@ function handleSelectMode(x, y, shiftKey) {
   if (found) {
     // Hledat, zda je už vybraný
     const index = window.selectedItems.findIndex((i) => {
-      if (found.category === "point" && i.category === "point") {
+      if ((found.category === "point" || found.category === "intersection") && 
+          (i.category === "point" || i.category === "intersection")) {
         return Math.abs(i.x - found.x) < 0.0001 && Math.abs(i.y - found.y) < 0.0001;
       } else if (found.category === "shape" && i.category === "shape") {
         return i.ref === found.ref;
@@ -822,19 +868,9 @@ function handleSelectMode(x, y, shiftKey) {
       // Přidej label
       const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       const label = labels[window.selectedItems.length % labels.length];
-      const newItem = { ...found, label };
+      found.label = label;
 
-      // Pokud je to bod, automaticky ho přichyť ke všem objektům
-      if (newItem.category === "point") {
-        const snapped = snapPointToGeometry(newItem.x, newItem.y);
-        if (snapped) {
-          newItem.x = snapped.x;
-          newItem.y = snapped.y;
-          newItem.snappedTo = snapped.snappedTo;
-        }
-      }
-
-      window.selectedItems.push(newItem);
+      window.selectedItems.push(found);
 
       // Zruš selectedSnapPoint, aby se nepřekrývaly renderování
       window.selectedSnapPoint = null;
