@@ -45,6 +45,7 @@
     <script src="src/utils.js"></script>
     <script src="src/drawing.js"></script>
     <script src="src/canvas.js"></script>
+    <script src="src/measurement.js"></script>
     <script src="src/ui.js"></script>
     <script src="src/controller.js"></script>
     <script src="src/ai.js"></script>
@@ -1078,6 +1079,76 @@
         id="toolsCoords"
         style="display: none"
       >
+
+      <!-- Fixované Kóty panel -->
+      <div class="tool-submenu" id="toolsCotasPanel" style="display: none">
+        <div
+          style="
+            background: rgba(26, 26, 26, 0.95);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #ff6600;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+          "
+        >
+          <div style="margin-bottom: 8px">
+            <div
+              onclick="window.toggleCotasSection()"
+              style="
+                cursor: pointer;
+                padding: 10px;
+                background: #2a2a2a;
+                border-radius: 6px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <strong style="color: #ff8800; font-size: 13px">📐 Fixované Kóty</strong>
+              <span id="cotasToggle" style="color: #888">▼</span>
+            </div>
+            <div
+              id="cotasPanel"
+              style="
+                display: block;
+                padding: 10px;
+                background: #1a1a1a;
+                border-radius: 6px;
+                margin-top: 4px;
+                max-height: 300px;
+                overflow-y: auto;
+              "
+            >
+              <div style="padding: 8px; color: #888; text-align: center; font-size: 12px;">Žádné fixované kóty</div>
+            </div>
+          </div>
+          <button
+            class="tool-btn"
+            onclick="window.fixateMeasurement()"
+            style="
+              width: 100%;
+              margin-top: 8px;
+              padding: 8px;
+              background: #ff6600;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-weight: bold;
+            "
+          >
+            🔒 Fixovat Měření
+          </button>
+        </div>
+      </div>
+
+      <!-- Souřadnice panel -->
+      <div
+        class="tool-submenu coords-panel"
+        id="toolsCoords"
+        style="display: none"
+      >
         <div
           style="
             background: rgba(26, 26, 26, 0.95);
@@ -1452,6 +1523,15 @@
       >
         <span style="font-size: 24px">🔧</span>
         <div style="font-size: 11px; margin-top: 4px">Úpravy</div>
+      </button>
+      <button
+        class="tool-btn"
+        onclick="window.showToolCategory('cotas')"
+        id="btnCatCotas"
+        title="Fixované Kóty"
+      >
+        <span style="font-size: 24px">📐</span>
+        <div style="font-size: 11px; margin-top: 4px">Kóty</div>
       </button>
       <button
         class="tool-btn"

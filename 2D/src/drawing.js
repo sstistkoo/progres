@@ -623,12 +623,26 @@ function draw() {
         midPoint = { x: (item.ref.x1 + item.ref.x2) / 2, y: (item.ref.y1 + item.ref.y2) / 2 };
         displayText = `Délka: ${length.toFixed(2)} mm`;
         measurement = length;
+        
+        // Uložit pro fixaci
+        window.measurementData = {
+          type: 'single_line',
+          item: item.ref,
+          value: length
+        };
       }
       // Měření poloměru kružnice
       else if (item.category === "shape" && item.ref.type === "circle") {
         midPoint = { x: item.ref.cx, y: item.ref.cy };
         displayText = `Poloměr: ${item.ref.r.toFixed(2)} mm`;
         measurement = item.ref.r;
+        
+        // Uložit pro fixaci
+        window.measurementData = {
+          type: 'circle',
+          item: item.ref,
+          value: measurement
+        };
       }
 
       // Zobrazit měření
@@ -697,16 +711,24 @@ function draw() {
           (item2.clickY || item2.ref.y1) - (item1.clickY || item1.ref.y1)
         );
 
-        measurements.push(`Usečka 1: ${len1.toFixed(2)} mm`);
-        measurements.push(`Usečka 2: ${len2.toFixed(2)} mm`);
-        measurements.push(`Úhel: ${angleDiff.toFixed(1)}°`);
-        measurements.push(`Vzdálenost bodů: ${clickDist.toFixed(2)} mm`);
+        measurements.push({ label: `Usečka 1`, value: len1, unit: 'mm' });
+        measurements.push({ label: `Usečka 2`, value: len2, unit: 'mm' });
+        measurements.push({ label: `Úhel`, value: angleDiff, unit: '°' });
+        measurements.push({ label: `Vzdálenost bodů`, value: clickDist, unit: 'mm' });
+
+        // Uložit do window.measurementData pro možnost fixace
+        window.measurementData = {
+          type: 'two_lines',
+          item1: item1.ref,
+          item2: item2.ref,
+          measurements: measurements
+        };
 
         midPoint = {
           x: ((item1.ref.x1 + item1.ref.x2) / 2 + (item2.ref.x1 + item2.ref.x2) / 2) / 2,
           y: ((item1.ref.y1 + item1.ref.y2) / 2 + (item2.ref.y1 + item2.ref.y2) / 2) / 2
         };
-        displayText = measurements.join(" | ");
+        displayText = measurements.map(m => `${m.label}: ${m.value.toFixed(m.label.includes('Úhel') ? 1 : 2)} ${m.unit}`).join('\n');
       }
 
       // ===== MĚŘENÍ BODŮ (první objekt = bod) =====
@@ -740,12 +762,32 @@ function draw() {
 
           ctx.fillRect(screenMid.x - textWidth / 2, screenMid.y - textHeight / 2, textWidth, textHeight);
           ctx.fillStyle = "#ff8800";
-          ctx.fillText(displayText, screenMid.x, screenMid.y);
+          
+          // Vykreslit text - měření pro 2 objekty se rozděluje na více řádků
+          const lines = displayText.split('\n');
+          if (lines.length > 1) {
+            const lineHeight = 18;
+            const totalHeight = lines.length * lineHeight + 10;
+            const maxTextWidth = Math.max(...lines.map(l => ctx.measureText(l).width)) + 10;
+            
+            // Překresli pozadí s správnou velikostí
+            ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+            ctx.fillRect(screenMid.x - maxTextWidth / 2, screenMid.y - totalHeight / 2, maxTextWidth, totalHeight);
+            
+            // Vykreslíme řádky
+            ctx.fillStyle = "#ff8800";
+            lines.forEach((line, idx) => {
+              ctx.fillText(line, screenMid.x, screenMid.y - totalHeight / 2 + 15 + idx * lineHeight);
+            });
+          } else {
+            ctx.fillText(displayText, screenMid.x, screenMid.y);
+          }
         }
 
         const info = document.getElementById("modeInfo");
         if (info) {
-          info.innerHTML = `📏 <strong>${displayText}</strong><br/><small>Klikni na nový objekt pro nové měření</small>`;
+          const firstLine = displayText.split('\n')[0];
+          info.innerHTML = `📏 <strong>${firstLine}</strong><br/><small>Klikni na nový objekt pro nové měření</small>`;
         }
       }
     }
