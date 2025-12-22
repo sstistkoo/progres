@@ -44,22 +44,22 @@ Větev: **refactor/global-state**
 ## 📋 DETAILNÍ VÝSLEDKY FÁZÍ
 
 ### FÁZA 1: Vytvořit Soustruznik Namespace ✅
-**Commit:** e1cfe92  
+**Commit:** e1cfe92
 **Soubor:** src/soustruznik.js (173 řádků)
 
 Vytvořena kompletní namespace struktura:
 ```javascript
 window.Soustruznik = {
-  state: { 
+  state: {
     // 25+ stavových vlastností
     shapes, selectedIndex, mode, history, viewport, zoom, colors, ...
   },
-  
+
   methods: {
     // 40+ function stubs
     draw, drawShape, addShape, deleteSelected, undo, redo, ...
   },
-  
+
   getters: {
     shapes, selectedIndex, mode, history, zoom, canvas, ctx
   }
@@ -75,7 +75,7 @@ window.Soustruznik = {
 ---
 
 ### FÁZA 2: Migrovat globals.js ✅
-**Commit:** 06f9a7f  
+**Commit:** 06f9a7f
 **Soubor:** src/globals.js (~80 řádků přidáno)
 
 Přidáno Object.defineProperty mapování pro 13 klíčových vlastností:
@@ -105,7 +105,7 @@ Object.defineProperty(window, 'shapes', {
 ---
 
 ### FÁZA 3: Aktualizovat drawing.js ✅
-**Commit:** a65c159  
+**Commit:** a65c159
 **Soubor:** src/drawing.js (~40 řádků přidáno)
 
 Mapovány klíčové rendering funkce:
@@ -122,7 +122,7 @@ Mapovány klíčové rendering funkce:
 ---
 
 ### FÁZA 4: Aktualizovat controller.js ✅
-**Commit:** 78aac78  
+**Commit:** 78aac78
 **Soubor:** src/controller.js (~30 řádků přidáno)
 
 Přidáno CNC controller state a funkce:
@@ -148,7 +148,7 @@ Aktualizovány funkce:
 ---
 
 ### FÁZA 5: Aktualizovat ui.js ✅
-**Commit:** 49d97c3  
+**Commit:** 49d97c3
 **Soubor:** src/ui.js (~40 řádků přidáno)
 
 Přidány UI funkce do namespace:
@@ -175,7 +175,7 @@ Aktualizovány pro namespace sync:
 ---
 
 ### FÁZA 6: Event Handlers - canvas.js & keyboard.js ✅
-**Commit:** d5cb3be  
+**Commit:** d5cb3be
 **Soubory:** src/canvas.js, src/keyboard.js (~50 řádků přidáno)
 
 #### canvas.js
@@ -407,7 +407,7 @@ Všechny 6 fází je kompletně implementováno a commitováno:
 
 ---
 
-**Autor:** GitHub Copilot  
-**Datum:** 2024-11  
+**Autor:** GitHub Copilot
+**Datum:** 2024-11
 **Status:** 🔄 POKRAČUJE (FÁZA 7)
 
