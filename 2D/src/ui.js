@@ -6,20 +6,6 @@
  * - Settings panels
  */
 
-// ============================================================
-// NAMESPACE MIGRATION - Mapper ke Soustruznik.methods
-// ============================================================
-// Tato část mapuje klíčové UI funkce na window.Soustruznik.methods
-// Zachovává zpětnou kompatibilitu skrze window.* funkce
-
-if (window.Soustruznik && window.Soustruznik.methods) {
-  // Settings management - bude mapováno po definici funkcí
-  // window.Soustruznik.methods.initializeDefaultSettings = window.initializeDefaultSettings;
-  // window.Soustruznik.methods.initializeDimensionSettings = window.initializeDimensionSettings;
-  // window.Soustruznik.methods.setDimensionLineColor = window.setDimensionLineColor;
-  // window.Soustruznik.methods.setDimensionTextColor = window.setDimensionTextColor;
-}
-
 // Globální proměnné jsou inicializovány v globals.js
 
 // ===== DEFAULT DRAWING SETTINGS =====
@@ -31,12 +17,6 @@ window.initializeDefaultSettings = function () {
 
   window.defaultDrawColor = savedColor;
   window.defaultDrawLineStyle = savedStyle;
-
-  // Sync s namespace
-  if (window.Soustruznik && window.Soustruznik.state) {
-    window.Soustruznik.state.defaultDrawColor = savedColor;
-    window.Soustruznik.state.defaultDrawLineStyle = savedStyle;
-  }
 
   // Nastavit selecty v HTML
   const colorSelect = document.getElementById("defaultColorSelect");
@@ -66,12 +46,6 @@ window.initializeDimensionSettings = function () {
   window.dimensionLineColor = savedLineColor;
   window.dimensionTextColor = savedTextColor;
 
-  // Sync s namespace
-  if (window.Soustruznik && window.Soustruznik.state) {
-    window.Soustruznik.state.dimensionLineColor = savedLineColor;
-    window.Soustruznik.state.dimensionTextColor = savedTextColor;
-  }
-
   // Nastavit selecty v HTML
   const lineColorSelect = document.getElementById("dimensionLineColorSelect");
   const textColorSelect = document.getElementById("dimensionTextColorSelect");
@@ -82,18 +56,12 @@ window.initializeDimensionSettings = function () {
 
 window.setDimensionLineColor = function (color) {
   window.dimensionLineColor = color;
-  if (window.Soustruznik && window.Soustruznik.state) {
-    window.Soustruznik.state.dimensionLineColor = color;
-  }
   localStorage.setItem("dimensionLineColor", color);
   if (window.draw) window.draw(); // Překreslit plátno
 };
 
 window.setDimensionTextColor = function (color) {
   window.dimensionTextColor = color;
-  if (window.Soustruznik && window.Soustruznik.state) {
-    window.Soustruznik.state.dimensionTextColor = color;
-  }
   localStorage.setItem("dimensionTextColor", color);
   if (window.draw) window.draw(); // Překreslit plátno
 };
@@ -283,12 +251,9 @@ window.setMode = function (m) {
 };
 
 window.showToolCategory = function (category) {
-  console.log("🔧 showToolCategory called with:", category);
-  console.log("🔧 Function exists, arguments:", arguments.length);
   // ===== DEBOUNCE: Ochrana proti dvojímu volání =====
   const now = Date.now();
   if (now - lastCategoryChangeTime < CATEGORY_DEBOUNCE_MS) {
-    console.log("🔧 DEBOUNCED - too soon since last call");
     return;
   }
   lastCategoryChangeTime = now;
@@ -296,11 +261,9 @@ window.showToolCategory = function (category) {
   const menuId =
     "tools" + category.charAt(0).toUpperCase() + category.slice(1);
   const menuEl = document.getElementById(menuId);
-  console.log("🔧 Looking for menuId:", menuId, "element:", menuEl);
   const btnId =
     "btnCat" + category.charAt(0).toUpperCase() + category.slice(1);
   const btnEl = document.getElementById(btnId);
-  console.log("🔧 Looking for btnId:", btnId, "element:", btnEl);
 
   // Speciální handling pro AI - nevřít ho stejně jako ostatní panely
   if (category === "ai") {
@@ -347,11 +310,7 @@ window.showToolCategory = function (category) {
   }
 
   // Normální handling pro ostatní panely
-  console.log("🔧 Current category:", window.currentCategory, "requested:", category);
-  console.log("🔧 Panel display status:", menuEl ? menuEl.style.display : "menuEl is null");
-
   if (window.currentCategory === category && menuEl && menuEl.style.display !== "none") {
-    console.log("🔧 CLOSING panel - same category already open");
     menuEl.style.display = "none";
     if (btnEl) btnEl.classList.remove("active");
     window.currentCategory = null;
@@ -361,7 +320,6 @@ window.showToolCategory = function (category) {
     return;
   }
 
-  console.log("🔧 OPENING panel - hiding all others first");
   document.querySelectorAll(".tool-submenu").forEach((menu) => {
     menu.style.display = "none";
   });
@@ -377,17 +335,9 @@ window.showToolCategory = function (category) {
   }
 
   if (menuEl) {
-    console.log("🔧 Setting panel display to flex");
     menuEl.style.display = "flex";
-    console.log("🔧 Panel display after setting:", menuEl.style.display);
-    if (btnEl) {
-      btnEl.classList.add("active");
-      console.log("🔧 Button activated");
-    }
+    if (btnEl) btnEl.classList.add("active");
     window.currentCategory = category;
-    console.log("🔧 Current category set to:", category);
-  } else {
-    console.log("🔧 ERROR: menuEl is null!");
   }
 };
 
@@ -948,10 +898,6 @@ window.loadProject = function (input) {
     try {
       const project = JSON.parse(e.target.result);
       window.shapes = project.shapes || [];
-
-      // Konvertuj obdélníky na 4 usečky (pro snadnější měření)
-      window.shapes = convertRectanglesToLines(window.shapes);
-
       if (project.settings) {
         window.gridSize = project.settings.gridSize || window.gridSize;
         window.axisMode = project.settings.axisMode || window.axisMode;
@@ -967,7 +913,27 @@ window.loadProject = function (input) {
 };
 
 // Stubní funkce - Snap
-window.updateSnap = function () {
+// Přichycení čar na polární úhly
+window.updateSnap = function (start, end) {
+  // start, end: {x, y} body čáry
+  const step = parseInt(document.getElementById("polarSnapStep")?.value || "90");
+  const tolerance = 3; // stupně
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  // Normalizace úhlu do [0,360)
+  let normAngle = ((angle % 360) + 360) % 360;
+  // Povolené úhly
+  let allowed = [];
+  for (let a = 0; a < 360; a += step) allowed.push(a);
+  // Najdi nejbližší povolený úhel
+  let snapAngle = allowed.find(a => Math.abs(normAngle - a) <= tolerance || Math.abs(normAngle - a + 360) <= tolerance);
+  if (snapAngle !== undefined) {
+    // Přichycení aktivní – změň barvu na žlutou
+    return { snapped: true, color: "#facc15", angle: snapAngle };
+  }
+  // Jinak běžná barva
+  return { snapped: false, color: window.defaultDrawColor || "#4a9eff", angle: normAngle };
 };
 
 // Stubní funkce pro transformace
@@ -1421,22 +1387,6 @@ window.closeQuickInputHelp = function () {
     helpModal.style.display = "none";
   }
 };
-
-// ============================================================
-// FÁZA 5 COMPLETION - Namespace method delegation
-// ============================================================
-// UI metody jsou nyní dostupné na window.Soustruznik.methods
-// a také stále na window.* pro zpětnou kompatibilitu
-
-// Přidat mapování po načtení funkcí
-if (window.Soustruznik && window.Soustruznik.methods) {
-  window.Soustruznik.methods.initializeDefaultSettings = window.initializeDefaultSettings;
-  window.Soustruznik.methods.initializeDimensionSettings = window.initializeDimensionSettings;
-  window.Soustruznik.methods.setDimensionLineColor = window.setDimensionLineColor;
-  window.Soustruznik.methods.setDimensionTextColor = window.setDimensionTextColor;
-}
-
-
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {

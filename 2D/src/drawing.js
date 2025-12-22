@@ -4,24 +4,26 @@
  * - Shape management
  * - Intersection calculations
  * - Snap points
- *
- * MIGRATION STATUS: FÁZE 3 - Postupně refaktorujeme do namespace
  */
-
-// ===== REFACTORED FUNCTIONS - Mapování na Soustruznik.methods =====
-
-// Mapujeme staré globální funkce na nový namespace
-// Zajišťujeme zpětnou kompatibilitu!
-
-// ===== LEGACY FUNCTIONS (Zachovány pro zpětnou kompatibilitu) =====
-// Tyto funkce teď volají nový namespace
-// Během migrace je budeme postupně mazat
 
 // Globální proměnné jsou inicializovány v globals.js
 // Pouze se zde odkažují!
 
 // ===== COORDINATE CONVERSION =====
-// window.worldToScreen a window.screenToWorld jsou mapovány v globals.js
+
+function worldToScreen(wx, wy) {
+  return {
+    x: wx * window.zoom + window.panX,
+    y: window.panY - wy * window.zoom,
+  };
+}
+
+function screenToWorld(sx, sy) {
+  return {
+    x: (sx - window.panX) / window.zoom,
+    y: (window.panY - sy) / window.zoom,
+  };
+}
 
 // ===== SNAP POINTS & GEOMETRY =====
 
@@ -40,13 +42,7 @@ function updateSnapPoints() {
       window.cachedSnapPoints.push({ x: s.x2, y: s.y2, type: "endpoint" });
     } else if (s.type === "circle") {
       window.cachedSnapPoints.push({ x: s.cx, y: s.cy, type: "center" });
-    } else if (s.type === "arc") {
-      // Arc endpoint
-      window.cachedSnapPoints.push({ x: s.x1, y: s.y1, type: "endpoint" });
-      window.cachedSnapPoints.push({ x: s.x2, y: s.y2, type: "endpoint" });
-      window.cachedSnapPoints.push({ x: s.cx, y: s.cy, type: "center" });
     }
-    // POZN: Obdélníky již nejsou - jsou konvertovány na 4 úseky hned od vytvoření
   });
 
   // 3. Průsečíky
@@ -81,8 +77,8 @@ function snapPointInternal(pt) {
   let bestDist = window.snapDistance; // Max vzdálenost
 
   for (let p of window.cachedSnapPoints) {
-    const screenP = window.worldToScreen(p.x, p.y);
-    const screenPt = window.worldToScreen(pt.x, pt.y);
+    const screenP = worldToScreen(p.x, p.y);
+    const screenPt = worldToScreen(pt.x, pt.y);
     const dist = Math.sqrt(
       (screenP.x - screenPt.x) ** 2 + (screenP.y - screenPt.y) ** 2
     );
@@ -98,8 +94,8 @@ function snapPointInternal(pt) {
   if (!snapInfo && window.snapToGrid) {
     const gx = Math.round(pt.x / window.gridSize) * window.gridSize;
     const gy = Math.round(pt.y / window.gridSize) * window.gridSize;
-    const screenG = window.worldToScreen(gx, gy);
-    const screenPt = window.worldToScreen(pt.x, pt.y);
+    const screenG = worldToScreen(gx, gy);
+    const screenPt = worldToScreen(pt.x, pt.y);
     const dist = Math.sqrt(
       (screenG.x - screenPt.x) ** 2 + (screenG.y - screenPt.y) ** 2
     );
@@ -114,24 +110,6 @@ function snapPointInternal(pt) {
   return { point: snapped, snapInfo };
 }
 
-// ===== HELPER FUNCTIONS =====
-
-/**
- * Vrátí nejbližší bod na čáře k danému bodu
- */
-function pointToLineClosestPoint(px, py, x1, y1, x2, y2) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len = Math.hypot(dx, dy);
-  if (len === 0) return { x: x1, y: y1 };
-
-  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (len * len)));
-  return {
-    x: x1 + t * dx,
-    y: y1 + t * dy
-  };
-}
-
 // Aktualizace nastavení snappingu z UI prvků
 function updateSnap() {
   window.snapToGrid = document.getElementById("snapGrid")?.checked || false;
@@ -144,27 +122,17 @@ function updateSnap() {
 
 // ===== RENDERING =====
 
-// Mapujeme na namespace
-if (!window.Soustruznik.methods.draw) {
-  window.Soustruznik.methods.draw = function() {
-    draw();  // Volá starou funkci (během migrace)
-  };
-}
-
 function draw() {
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const showGrid = document.getElementById("showGrid")?.checked;
-  const showAxes = document.getElementById("showAxes")?.checked;
-
-  if (showGrid) {
+  if (document.getElementById("showGrid")?.checked) {
     drawGrid(ctx, canvas);
   }
 
-  if (showAxes) {
+  if (document.getElementById("showAxes")?.checked) {
     drawAxes(ctx, canvas);
   }
 
@@ -175,8 +143,7 @@ function draw() {
   if (window.cachedSnapPoints && window.cachedSnapPoints.length > 0) {
     window.cachedSnapPoints.forEach((p) => {
       if (p.type === "point") {
-        const sp = window.worldToScreen(p.x, p.y);
-        if (!sp) return;
+        const sp = worldToScreen(p.x, p.y);
         ctx.beginPath();
         ctx.fillStyle = "#ff4444";
         ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
@@ -189,8 +156,7 @@ function draw() {
   if (document.getElementById("showPoints")?.checked) {
     window.cachedSnapPoints.forEach((p) => {
       if (p.type !== "point") {
-        const sp = window.worldToScreen(p.x, p.y);
-        if (!sp) return;  // Guard: window.worldToScreen vracela undefined
+        const sp = worldToScreen(p.x, p.y);
         ctx.beginPath();
 
         if (p.type === "intersection") {
@@ -205,88 +171,53 @@ function draw() {
     });
   }
 
-  // Nakreslit tempShape (náhled během kreslení)
-  if (window.tempShape) {
-    ctx.strokeStyle = "#4a9eff";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
+  // ===== KRESLENÍ VYBRANÝCH POLOŽEK =====
+  if (window.selectedItems && window.selectedItems.length > 0) {
+    window.selectedItems.forEach((item) => {
+      ctx.save();
 
-    if (window.tempShape.type === "line") {
-      const p1 = window.worldToScreen(window.tempShape.x1, window.tempShape.y1);
-      const p2 = window.worldToScreen(window.tempShape.x2, window.tempShape.y2);
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.stroke();
-    } else if (window.tempShape.type === "circle") {
-      const c = window.worldToScreen(window.tempShape.cx, window.tempShape.cy);
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, window.tempShape.r * window.zoom, 0, Math.PI * 2);
-      ctx.stroke();
-    } else if (window.tempShape.type === "rectangle") {
-      const p1 = window.worldToScreen(window.tempShape.x1, window.tempShape.y1);
-      const p2 = window.worldToScreen(window.tempShape.x2, window.tempShape.y2);
+      if (item.category === "shape") {
+        const s = item.ref;
 
-      const x = Math.min(p1.x, p2.x);
-      const y = Math.min(p1.y, p2.y);
-      const width = Math.abs(p2.x - p1.x);
-      const height = Math.abs(p2.y - p1.y);
-
-      ctx.strokeRect(x, y, width, height);
-
-      // Kreslit všechny 4 rohy obdélníku během náhledu
-      const corners = [
-        { x: x, y: y },                    // Horní levý roh
-        { x: x + width, y: y },            // Horní pravý roh
-        { x: x + width, y: y + height },   // Dolní pravý roh
-        { x: x, y: y + height }            // Dolní levý roh
-      ];
-
-      ctx.fillStyle = "#4a9eff";
-      corners.forEach((corner) => {
+        // Zvýraznění (magenta)
+        ctx.strokeStyle = "#ff66ff";
+        ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(corner.x, corner.y, 3, 0, Math.PI * 2);
-        ctx.fill();
-      });
-    }
 
-    ctx.setLineDash([]);
-  }
+        if (s.type === "line") {
+          const p1 = worldToScreen(s.x1, s.y1);
+          const p2 = worldToScreen(s.x2, s.y2);
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+        } else if (s.type === "circle") {
+          const c = worldToScreen(s.cx, s.cy);
+          ctx.arc(c.x, c.y, s.r * window.zoom, 0, Math.PI * 2);
 
-  // ===== VYKRESLENÍ VYBRANÉHO BODU (Persistent highlight) =====
-  if (window.selectedSnapPoint) {
-    const selectedSp = window.worldToScreen(window.selectedSnapPoint.x, window.selectedSnapPoint.y);
-    if (selectedSp) {
-      // VELKÝ ZVÝRAZNĚNÝ KRUH - ZELENÁ BARVA
-      ctx.strokeStyle = "#00ff00";
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(selectedSp.x, selectedSp.y, 15, 0, Math.PI * 2);
-      ctx.stroke();
+          // Zobrazit střed kružnice
+          ctx.fillStyle = "#ffff00";
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (s.type === "rectangle") {
+          const p1 = worldToScreen(s.x1, s.y1);
+          const p2 = worldToScreen(s.x2, s.y2);
 
-      // Vnitřní kruh (tmavě zelená)
-      ctx.strokeStyle = "#00aa00";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(selectedSp.x, selectedSp.y, 10, 0, Math.PI * 2);
-      ctx.stroke();
+          const x = Math.min(p1.x, p2.x);
+          const y = Math.min(p1.y, p2.y);
+          const width = Math.abs(p2.x - p1.x);
+          const height = Math.abs(p2.y - p1.y);
 
-      // Vyplnění středu (průhledně zelená)
-      ctx.fillStyle = "rgba(0, 255, 0, 0.1)";
-      ctx.beginPath();
-      ctx.arc(selectedSp.x, selectedSp.y, 12, 0, Math.PI * 2);
-      ctx.fill();
+          ctx.strokeRect(x, y, width, height);
+        }
 
-      // Vykreslit text/label pro vybraný bod (pokud existuje)
-      // Hledáme v window.points aby získali label
-      if (window.points && window.points.length > 0) {
-        const tolerance = 1; // Větší tolerance pro hledání
-        const matchingPoint = window.points.find(
-          (p) => Math.abs(p.x - window.selectedSnapPoint.x) < tolerance &&
-                 Math.abs(p.y - window.selectedSnapPoint.y) < tolerance
-        );
+        ctx.stroke();
 
-        if (matchingPoint && matchingPoint.label) {
+        // Popisek s písmenem
+        if (item.label) {
+          const labelPos = s.type === "line"
+            ? worldToScreen((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2)
+            : worldToScreen(s.cx, s.cy);
+
           // Pozadí (černé)
           ctx.fillStyle = "#000000";
           ctx.font = "bold 16px Arial";
@@ -294,471 +225,120 @@ function draw() {
           ctx.textBaseline = "middle";
           const textWidth = 20;
           const textHeight = 20;
-          ctx.fillRect(selectedSp.x - textWidth / 2, selectedSp.y - 30 - textHeight / 2, textWidth, textHeight);
+          ctx.fillRect(labelPos.x - textWidth / 2, labelPos.y - 30 - textHeight / 2, textWidth, textHeight);
 
-          // Text (bílý - aby byl vidět na zelené)
-          ctx.fillStyle = "#ffffff";
-          ctx.fillText(matchingPoint.label, selectedSp.x, selectedSp.y - 30);
-        } else if (window.selectedSnapPoint.type === "point") {
-          // DEBUG: Pokud je to označen jako "point" ale nemá label, vypis debug
-          console.log("[selectedSnapPoint] Point type ale nemá label. Vybrán bod:", window.selectedSnapPoint);
-          console.log("[selectedSnapPoint] window.points:", window.points);
+          // Text (žlutý)
+          ctx.fillStyle = "#ffff00";
+          ctx.fillText(item.label, labelPos.x, labelPos.y - 30);
         }
-      }
+      } else if (item.category === "point") {
+        const p = worldToScreen(item.x, item.y);
 
-      // Info o vybraném bodu
-      const snapInfoEl = document.getElementById("snapInfo");
-      if (snapInfoEl) {
-        const displayX = window.selectedSnapPoint.x.toFixed(2);
-        const displayY = window.selectedSnapPoint.y.toFixed(2);
-        let typeStr = window.selectedSnapPoint.type;
-        if (typeStr === "point") typeStr = "bod";
-        else if (typeStr === "endpoint") typeStr = "konec";
-        else if (typeStr === "center") typeStr = "střed";
-        else if (typeStr === "intersection") typeStr = "průsečík";
-        else if (typeStr === "grid") typeStr = "mřížka";
-        const infoText = `✓ Vybraný: Z=${displayX} X=${displayY} [${typeStr}]`;
-        snapInfoEl.textContent = infoText;
-        snapInfoEl.classList.add("show");
-        // Nastavit inline styly aby bylo vidět
-        snapInfoEl.style.display = "block";
-        snapInfoEl.style.backgroundColor = "rgba(0, 200, 0, 0.8)";
-        snapInfoEl.style.color = "#ffffff";
-        snapInfoEl.style.padding = "8px 12px";
-        snapInfoEl.style.borderRadius = "5px";
-        snapInfoEl.style.position = "absolute";
-        snapInfoEl.style.top = "45px";
-        snapInfoEl.style.left = "10px";
-        snapInfoEl.style.zIndex = "999";
-        console.log("[draw] snapInfo nastavena:", infoText);
-      } else {
-        console.log("[draw] snapInfo element nenalezen!");
-      }
-    }
-  }
-
-  // ===== ZVÝRAZNĚNÍ PŘICHYCENÉHO BODU =====
-  // Zobrazit cercích kolem bodu pod kurzorem + info panel
-  if (window.lastMouseX !== undefined && window.lastMouseY !== undefined) {
-    // Konvertuj obrazovkové souřadnice na světové
-    const worldPt = window.screenToWorld(window.lastMouseX, window.lastMouseY);
-    if (worldPt) {
-      const snapResult = snapPointInternal(worldPt);
-
-      if (snapResult.snapInfo) {
-        const sp = window.worldToScreen(snapResult.point.x, snapResult.point.y);
-
-        // Velký kroužek kolem přichyceného bodu (žlutá) - jen když není vybraný
-        if (!window.selectedSnapPoint || (window.selectedSnapPoint.x !== snapResult.point.x || window.selectedSnapPoint.y !== snapResult.point.y)) {
-          ctx.strokeStyle = "#ffff00";
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(sp.x, sp.y, 10, 0, Math.PI * 2);
-          ctx.stroke();
-
-          // Vnitřní menší kroužek (oranžová)
-          ctx.strokeStyle = "#ff8800";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(sp.x, sp.y, 6, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-
-        // Zobrazit info v snap-info panelu (pokud není vybraný bod)
-        if (!window.selectedSnapPoint) {
-          const snapInfoEl = document.getElementById("snapInfo");
-          if (snapInfoEl) {
-            const zoom = window.Soustruznik.state.zoom || window.zoom || 1;
-            const displayX = snapResult.point.x.toFixed(2);
-            const displayY = snapResult.point.y.toFixed(2);
-
-            let infoText = `Z=${displayX} X=${displayY}`;
-
-            // Přidat typ bodu
-            if (snapResult.snapInfo.type === "point") infoText += " (bod)";
-            else if (snapResult.snapInfo.type === "endpoint") infoText += " (konec)";
-            else if (snapResult.snapInfo.type === "center") infoText += " (střed)";
-            else if (snapResult.snapInfo.type === "intersection") infoText += " (průsečík)";
-            else if (snapResult.snapInfo.type === "grid") infoText += " (mřížka)";
-
-            infoText += " (klikni pro výběr)";
-            snapInfoEl.textContent = infoText;
-            snapInfoEl.classList.add("show");
-            snapInfoEl.style.backgroundColor = "rgba(255, 136, 0, 0.7)";
-          }
-        }
-      } else {
-        // Skrýt snapInfo, pokud není přichyceno na bod a není vybraný bod
-        if (!window.selectedSnapPoint) {
-          const snapInfoEl = document.getElementById("snapInfo");
-          if (snapInfoEl) {
-            snapInfoEl.classList.remove("show");
-          }
-        }
-      }
-    }
-  }
-
-  // ===== VYKRESLENÍ VYBRANÝCH BODŮ (selectedItems s písmeny) =====
-  if (window.selectedItems && window.selectedItems.length > 0) {
-    window.selectedItems.forEach((item) => {
-      if (item.category === "point" || item.category === "intersection") {
-        const screenPos = window.worldToScreen(item.x, item.y);
-        if (!screenPos) return;
-
-        // Barva podle typu - průsečík má jinou barvu
-        const color = item.category === "intersection" ? "#ff0088" : "#0088ff";
-
-        // Kruh pro vybraný bod/průsečík
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
-        ctx.globalAlpha = 1; // Resetuj alpha
+        // Zvýraznění (magenta)
+        ctx.fillStyle = "#ff66ff";
         ctx.beginPath();
-        ctx.arc(screenPos.x, screenPos.y, 12, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Vyplnění středu (průhledně)
-        ctx.fillStyle = item.category === "intersection" ? "rgba(255, 0, 136, 0.2)" : "rgba(0, 136, 255, 0.2)";
-        ctx.beginPath();
-        ctx.arc(screenPos.x, screenPos.y, 10, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
         ctx.fill();
 
-        // PÍSMENO (A, B, C...) - S CERNYM OUTLINENEM
+        // Popisek s písmenem
         if (item.label) {
-          ctx.globalAlpha = 1; // Zajisti plnou opacity
-          ctx.font = "bold 14px Arial";
+          // Pozadí (černé)
+          ctx.fillStyle = "#000000";
+          ctx.font = "bold 16px Arial";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
+          const textWidth = 20;
+          const textHeight = 20;
+          ctx.fillRect(p.x - textWidth / 2, p.y - 30 - textHeight / 2, textWidth, textHeight);
 
-          // Cerny outline
-          ctx.strokeStyle = "#000000";
-          ctx.lineWidth = 3;
-          ctx.strokeText(item.label, screenPos.x, screenPos.y - 25);
-
-          // Bily text pres outline
-          ctx.fillStyle = "#ffffff";
-          ctx.fillText(item.label, screenPos.x, screenPos.y - 25);
-        }
-      } else if (item.category === "shape") {
-        // Zvýraznit vybraný tvar
-        if (item.ref.type === "line") {
-          const p1 = window.worldToScreen(item.ref.x1, item.ref.y1);
-          const p2 = window.worldToScreen(item.ref.x2, item.ref.y2);
-          if (p1 && p2) {
-            ctx.strokeStyle = "#00ff88";
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-
-            // Písmeno uprostřed usečky
-            if (item.label) {
-              const midX = (p1.x + p2.x) / 2;
-              const midY = (p1.y + p2.y) / 2;
-
-              ctx.globalAlpha = 1;
-              ctx.font = "bold 16px Arial";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-
-              // Cerny outline
-              ctx.strokeStyle = "#000000";
-              ctx.lineWidth = 4;
-              ctx.strokeText(item.label, midX, midY - 20);
-
-              // Bily text
-              ctx.fillStyle = "#ffffff";
-              ctx.fillText(item.label, midX, midY - 20);
-            }
-          }
-        } else if (item.ref.type === "circle") {
-          const c = window.worldToScreen(item.ref.cx, item.ref.cy);
-          if (c) {
-            const r = item.ref.r * (window.zoom || 1);
-            ctx.strokeStyle = "#00ff88";
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // Písmeno u středu kružnice
-            if (item.label) {
-              ctx.globalAlpha = 1;
-              ctx.font = "bold 16px Arial";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-
-              // Cerny outline
-              ctx.strokeStyle = "#000000";
-              ctx.lineWidth = 4;
-              ctx.strokeText(item.label, c.x, c.y - r - 20);
-
-              // Bily text
-              ctx.fillStyle = "#ffffff";
-              ctx.fillText(item.label, c.x, c.y - r - 20);
-            }
-          }
+          // Text (žlutý)
+          ctx.fillStyle = "#ffff00";
+          ctx.fillText(item.label, p.x, p.y - 30);
         }
       }
+
+      ctx.restore();
     });
-    ctx.globalAlpha = 1; // Resetuj alpha na konci
+
+    // Zobrazení vzdálenosti mezi 2 vybranými body
+    if (window.selectedItems.length === 2) {
+      const item1 = window.selectedItems[0];
+      const item2 = window.selectedItems[1];
+
+      if (item1.category === "point" && item2.category === "point") {
+        const p1 = worldToScreen(item1.x, item1.y);
+        const p2 = worldToScreen(item2.x, item2.y);
+
+        // Linka mezi body
+        ctx.strokeStyle = "#00ffff";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Vzdálenost
+        const dist = Math.sqrt((item1.x - item2.x) ** 2 + (item1.y - item2.y) ** 2);
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+
+        ctx.fillStyle = "#000000";
+        ctx.font = "bold 12px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const text = `${dist.toFixed(2)} mm`;
+        const textWidth = ctx.measureText(text).width + 8;
+        const textHeight = 16;
+        ctx.fillRect(midX - textWidth / 2, midY - 12 - textHeight / 2, textWidth, textHeight);
+
+        ctx.fillStyle = "#00ffff";
+        ctx.fillText(text, midX, midY - 12);
+      }
+    }
   }
 
-  // ===== MĚŘENÍ - Režim Měření =====
-  if (window.measurementMode && window.measurementItems && window.measurementItems.length >= 1) {
-    // Zobrazit vybrané objekty pro měření (oranžově se zvýrazněním)
-    window.measurementItems.forEach((item, idx) => {
-      if (item.category === "point") {
-        const screenPos = window.worldToScreen(item.x, item.y);
-        if (screenPos) {
-          ctx.strokeStyle = "#ff8800"; // Oranžová pro měřní
-          ctx.lineWidth = 3;
-          ctx.globalAlpha = 1;
-          ctx.beginPath();
-          ctx.arc(screenPos.x, screenPos.y, 14, 0, Math.PI * 2);
-          ctx.stroke();
+  // Nakreslit tempShape (náhled během kreslení)
+  if (window.tempShape) {
+    ctx.strokeStyle = "#4a9eff";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
 
-          // Vyplnění
-          ctx.fillStyle = "rgba(255, 136, 0, 0.2)";
-          ctx.beginPath();
-          ctx.arc(screenPos.x, screenPos.y, 12, 0, Math.PI * 2);
-          ctx.fill();
+    if (window.tempShape.type === "line") {
+      const p1 = worldToScreen(window.tempShape.x1, window.tempShape.y1);
+      const p2 = worldToScreen(window.tempShape.x2, window.tempShape.y2);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    } else if (window.tempShape.type === "circle") {
+      const c = worldToScreen(window.tempShape.cx, window.tempShape.cy);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, window.tempShape.r * window.zoom, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (window.tempShape.type === "rectangle") {
+      const p1 = worldToScreen(window.tempShape.x1, window.tempShape.y1);
+      const p2 = worldToScreen(window.tempShape.x2, window.tempShape.y2);
 
-          // Číslo (1, 2)
-          ctx.fillStyle = "#ff8800";
-          ctx.font = "bold 14px Arial";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(idx + 1, screenPos.x, screenPos.y - 25);
-        }
-      } else if (item.category === "shape") {
-        // Zvýraznit tvar (čáru, kružnici, apod.)
-        if (item.ref.type === "line") {
-          const p1 = window.worldToScreen(item.ref.x1, item.ref.y1);
-          const p2 = window.worldToScreen(item.ref.x2, item.ref.y2);
-          if (p1 && p2) {
-            ctx.strokeStyle = "#ff8800";
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-          }
-        } else if (item.ref.type === "circle") {
-          const center = window.worldToScreen(item.ref.cx, item.ref.cy);
-          if (center) {
-            ctx.strokeStyle = "#ff8800";
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.arc(center.x, center.y, item.ref.r * (window.zoom || 1), 0, Math.PI * 2);
-            ctx.stroke();
-          }
-        }
-      }
-    });
+      const x = Math.min(p1.x, p2.x);
+      const y = Math.min(p1.y, p2.y);
+      const width = Math.abs(p2.x - p1.x);
+      const height = Math.abs(p2.y - p1.y);
 
-    // ===== 1 OBJEKT =====
-    if (window.measurementItems.length === 1) {
-      const item = window.measurementItems[0];
-      let measurement = null;
-      let displayText = null;
-      let midPoint = null;
-
-      // Měření délky čáry
-      if (item.category === "shape" && item.ref.type === "line") {
-        const length = Math.hypot(item.ref.x2 - item.ref.x1, item.ref.y2 - item.ref.y1);
-        midPoint = { x: (item.ref.x1 + item.ref.x2) / 2, y: (item.ref.y1 + item.ref.y2) / 2 };
-        displayText = `Délka: ${length.toFixed(2)} mm`;
-        measurement = length;
-
-        // Uložit pro fixaci
-        window.measurementData = {
-          type: 'single_line',
-          item: item.ref,
-          value: length
-        };
-      }
-      // Měření poloměru kružnice
-      else if (item.category === "shape" && item.ref.type === "circle") {
-        midPoint = { x: item.ref.cx, y: item.ref.cy };
-        displayText = `Poloměr: ${item.ref.r.toFixed(2)} mm`;
-        measurement = item.ref.r;
-
-        // Uložit pro fixaci
-        window.measurementData = {
-          type: 'circle',
-          item: item.ref,
-          value: measurement
-        };
-      }
-
-      // Zobrazit měření
-      if (measurement !== null && midPoint) {
-        const screenMid = window.worldToScreen(midPoint.x, midPoint.y);
-        if (screenMid) {
-          ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-          ctx.font = "bold 14px Arial";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          const textWidth = ctx.measureText(displayText).width + 10;
-          const textHeight = 20;
-
-          ctx.fillRect(screenMid.x - textWidth / 2, screenMid.y - textHeight / 2, textWidth, textHeight);
-          ctx.fillStyle = "#ff8800";
-          ctx.fillText(displayText, screenMid.x, screenMid.y);
-        }
-
-        const info = document.getElementById("modeInfo");
-        if (info) {
-          info.innerHTML = `📏 <strong>${displayText}</strong><br/><small>Klikni na objekt pro měření</small><br/><button onclick="window.fixateMeasurement()" style="margin-top: 8px; padding: 6px 12px; background: #ff6600; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🔒 Fixovat</button>`;
-        }
-      }
+      ctx.strokeRect(x, y, width, height);
     }
 
-    // ===== 2 OBJEKTY =====
-    if (window.measurementItems.length === 2) {
-      const item1 = window.measurementItems[0];
-      const item2 = window.measurementItems[1];
-
-      let measurements = []; // Pole všech měření
-      let displayText = null;
-      let midPoint = null;
-
-      // Typ měření určuje PRVNÍ vybraný objekt
-      const isFirstLine = item1.category === "shape" && item1.ref.type === "line";
-      const isFirstPoint = item1.category === "point";
-      const isSecondLine = item2.category === "shape" && item2.ref.type === "line";
-      const isSecondPoint = item2.category === "point";
-
-      // ===== MĚŘENÍ USEČKY (první objekt = usečka) =====
-      if (isFirstLine && isSecondLine) {
-        // Obě jsou usečky - zobrazit délky obou + úhel + vzdálenost mezi kliknutými body
-        const len1 = Math.hypot(item1.ref.x2 - item1.ref.x1, item1.ref.y2 - item1.ref.y1);
-        const len2 = Math.hypot(item2.ref.x2 - item2.ref.x1, item2.ref.y2 - item2.ref.y1);
-
-        const dx1 = item1.ref.x2 - item1.ref.x1;
-        const dy1 = item1.ref.y2 - item1.ref.y1;
-        const dx2 = item2.ref.x2 - item2.ref.x1;
-        const dy2 = item2.ref.y2 - item2.ref.y1;
-
-        const angle1 = Math.atan2(dy1, dx1);
-        const angle2 = Math.atan2(dy2, dx2);
-        let angleDiff = Math.abs(angle1 - angle2);
-        angleDiff = (angleDiff * 180) / Math.PI;
-        if (angleDiff > 180) angleDiff = 360 - angleDiff;
-
-        // Když jsou to strany obdélníka (rect-side), jsou automaticky 90°
-        if (item1.ref.type === "rect-side" && item2.ref.type === "rect-side" && item1.ref.parent === item2.ref.parent) {
-          angleDiff = 90; // Strany obdélníka jsou vždy 90°
-        }
-
-        // Vzdálenost mezi kliknutými body na usečkách
-        const clickDist = Math.hypot(
-          (item2.clickX || item2.ref.x1) - (item1.clickX || item1.ref.x1),
-          (item2.clickY || item2.ref.y1) - (item1.clickY || item1.ref.y1)
-        );
-
-        measurements.push({ label: `Usečka 1`, value: len1, unit: 'mm' });
-        measurements.push({ label: `Usečka 2`, value: len2, unit: 'mm' });
-        measurements.push({ label: `Úhel`, value: angleDiff, unit: '°' });
-        measurements.push({ label: `Vzdálenost bodů`, value: clickDist, unit: 'mm' });
-
-        // Uložit do window.measurementData pro možnost fixace
-        window.measurementData = {
-          type: 'two_lines',
-          item1: item1.ref,
-          item2: item2.ref,
-          measurements: measurements
-        };
-
-        midPoint = {
-          x: ((item1.ref.x1 + item1.ref.x2) / 2 + (item2.ref.x1 + item2.ref.x2) / 2) / 2,
-          y: ((item1.ref.y1 + item1.ref.y2) / 2 + (item2.ref.y1 + item2.ref.y2) / 2) / 2
-        };
-        displayText = measurements.map(m => `${m.label}: ${m.value.toFixed(m.label.includes('Úhel') ? 1 : 2)} ${m.unit}`).join('\n');
-      }
-
-      // ===== MĚŘENÍ BODŮ (první objekt = bod) =====
-      else if (isFirstPoint && isSecondPoint) {
-        // Oba jsou body - zobrazit vzdálenost
-        const distance = Math.hypot(item2.x - item1.x, item2.y - item1.y);
-        midPoint = { x: (item1.x + item2.x) / 2, y: (item1.y + item2.y) / 2 };
-        displayText = `Vzdálenost: ${distance.toFixed(2)} mm`;
-      }
-
-      // Pokud typ druhého objektu neodpovídá typу prvního, ignoruj
-      else if (isFirstLine && !isSecondLine) {
-        // Čekáme na druhou usečku, ignoruj ostatní objekty
-        displayText = null;
-      }
-      else if (isFirstPoint && !isSecondPoint) {
-        // Čekáme na druhý bod, ignoruj ostatní objekty
-        displayText = null;
-      }
-
-      // Zobrazit měření
-      if (displayText) {
-        const screenMid = window.worldToScreen(midPoint.x, midPoint.y);
-        if (screenMid) {
-          ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-          ctx.font = "bold 14px Arial";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          const textWidth = ctx.measureText(displayText).width + 10;
-          const textHeight = 20;
-
-          ctx.fillRect(screenMid.x - textWidth / 2, screenMid.y - textHeight / 2, textWidth, textHeight);
-          ctx.fillStyle = "#ff8800";
-
-          // Vykreslit text - měření pro 2 objekty se rozděluje na více řádků
-          const lines = displayText.split('\n');
-          if (lines.length > 1) {
-            const lineHeight = 18;
-            const totalHeight = lines.length * lineHeight + 10;
-            const maxTextWidth = Math.max(...lines.map(l => ctx.measureText(l).width)) + 10;
-
-            // Překresli pozadí s správnou velikostí
-            ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-            ctx.fillRect(screenMid.x - maxTextWidth / 2, screenMid.y - totalHeight / 2, maxTextWidth, totalHeight);
-
-            // Vykreslíme řádky
-            ctx.fillStyle = "#ff8800";
-            lines.forEach((line, idx) => {
-              ctx.fillText(line, screenMid.x, screenMid.y - totalHeight / 2 + 15 + idx * lineHeight);
-            });
-          } else {
-            ctx.fillText(displayText, screenMid.x, screenMid.y);
-          }
-        }
-
-        const info = document.getElementById("modeInfo");
-        if (info) {
-          const firstLine = displayText.split('\n')[0];
-          info.innerHTML = `📏 <strong>${firstLine}</strong><br/><small>Klikni na nový objekt pro nové měření</small><br/><button onclick="window.fixateMeasurement()" style="margin-top: 8px; padding: 6px 12px; background: #ff6600; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🔒 Fixovat</button>`;
-        }
-      }
-    }
+    ctx.setLineDash([]);
   }
 }
 
 function drawGrid(ctx, canvas) {
-  let tl = window.screenToWorld(0, 0);
-  let br = window.screenToWorld(canvas.width, canvas.height);
+  const tl = screenToWorld(0, 0);
+  const br = screenToWorld(canvas.width, canvas.height);
 
-  // Fallback na defaultní values když worldToScreen vrací undefined
-  if (!tl || !br) {
-    tl = tl || { x: -100, y: -100 };
-    br = br || { x: 100, y: 100 };
-  }
-
-  const zoom = window.Soustruznik.state.zoom ?? window.zoom ?? 1;
-  const gridSize = window.gridSize ?? 10;
-
-  // Vypočítat kolik pixelů na obrazovce zabírá jeden dílek mřížky
   const gridPixels = gridSize * zoom;
 
-  // Pokud je mřížka příliš hustá (< 3px na čáru), zvětšit rozestup
   let displayGrid = gridSize;
   let skipFactor = 1;
 
@@ -767,7 +347,7 @@ function drawGrid(ctx, canvas) {
     displayGrid = gridSize * skipFactor;
   }
 
-  // Sekundární jemnější mřížka (světlejší), pokud je skipFactor > 1
+  // Sekundární mřížka
   if (skipFactor > 1 && gridPixels * 5 >= 3) {
     ctx.strokeStyle = "#141414";
     const fineGrid = gridSize * Math.min(5, skipFactor);
@@ -777,8 +357,7 @@ function drawGrid(ctx, canvas) {
     const ey = Math.ceil(Math.max(tl.y, br.y) / fineGrid) * fineGrid;
 
     for (let x = sx; x <= ex; x += fineGrid) {
-      const p = window.worldToScreen(x, 0);
-      if (!p) continue;
+      const p = worldToScreen(x, 0);
       ctx.beginPath();
       ctx.moveTo(p.x, 0);
       ctx.lineTo(p.x, canvas.height);
@@ -786,8 +365,7 @@ function drawGrid(ctx, canvas) {
     }
 
     for (let y = sy; y <= ey; y += fineGrid) {
-      const p = window.worldToScreen(0, y);
-      if (!p) continue;
+      const p = worldToScreen(0, y);
       ctx.beginPath();
       ctx.moveTo(0, p.y);
       ctx.lineTo(canvas.width, p.y);
@@ -804,36 +382,38 @@ function drawGrid(ctx, canvas) {
   const sy = Math.floor(Math.min(tl.y, br.y) / displayGrid) * displayGrid;
   const ey = Math.ceil(Math.max(tl.y, br.y) / displayGrid) * displayGrid;
 
-  // Vertical lines
   for (let x = sx; x <= ex; x += displayGrid) {
-    const p = window.worldToScreen(x, 0);
-    if (!p) continue;
+    const p = worldToScreen(x, 0);
     ctx.beginPath();
     ctx.moveTo(p.x, 0);
     ctx.lineTo(p.x, canvas.height);
     ctx.stroke();
   }
 
-  // Horizontal lines
   for (let y = sy; y <= ey; y += displayGrid) {
-    const p = window.worldToScreen(0, y);
-    if (!p) continue;
+    const p = worldToScreen(0, y);
     ctx.beginPath();
     ctx.moveTo(0, p.y);
     ctx.lineTo(canvas.width, p.y);
     ctx.stroke();
   }
+
+  ctx.fillStyle = "#4a4a4a";
+  ctx.font = "11px Arial";
+  const gridLabel = gridSize >= 1 ? `${gridSize}mm` : `${gridSize.toFixed(2)}mm`;
+  const displayLabel =
+    skipFactor > 1
+      ? `Mřížka: ${gridLabel} (zobrazeno každý ${skipFactor}.)`
+      : `Mřížka: ${gridLabel}`;
+  ctx.fillText(displayLabel, 10, canvas.height - 40);
+  ctx.fillText(`Zoom: ${((zoom / 2) * 100).toFixed(0)}%`, 10, canvas.height - 25);
 }
 
 function drawAxes(ctx, canvas) {
-  const ox = window.worldToScreen(0, 0);
-
-  if (!ox) {
-    return;
-  }
-
   ctx.strokeStyle = "#3a3a3a";
   ctx.lineWidth = 2;
+
+  const ox = worldToScreen(0, 0);
 
   if (ox.y >= 0 && ox.y <= canvas.height) {
     ctx.setLineDash([15, 5, 3, 5]);
@@ -912,8 +492,72 @@ function drawAxes(ctx, canvas) {
   }
 }
 
+// 🔍 Helper: Find lines adjacent to a circle (potential tangent lines for fillet)
+function findAdjacentLines(circle, shapes) {
+  const tolerance = circle.r * 1.5; // Lines within 1.5x radius are considered adjacent
+  const adjacentLines = [];
+
+  shapes.forEach(s => {
+    if (s.type === "line") {
+      // Check if line is near the circle
+      const dist1 = Math.sqrt((s.x1 - circle.cx) ** 2 + (s.y1 - circle.cy) ** 2);
+      const dist2 = Math.sqrt((s.x2 - circle.cx) ** 2 + (s.y2 - circle.cy) ** 2);
+
+      if (dist1 < tolerance || dist2 < tolerance) {
+        adjacentLines.push(s);
+      }
+    }
+  });
+
+  return adjacentLines;
+}
+
+// 📐 Helper: Calculate tangent angles for arc between two lines
+function calculateTangentAngles(circle, line1, line2) {
+  // Find the angles where circle touches each line
+  const angles = [];
+
+  [line1, line2].forEach(line => {
+    // Calculate perpendicular from circle center to line
+    const dx = line.x2 - line.x1;
+    const dy = line.y2 - line.y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+
+    if (len === 0) return;
+
+    // Unit vector along line
+    const ux = dx / len;
+    const uy = dy / len;
+
+    // Vector from line start to circle center
+    const px = circle.cx - line.x1;
+    const py = circle.cy - line.y1;
+
+    // Project onto line
+    const proj = px * ux + py * uy;
+    const closestX = line.x1 + proj * ux;
+    const closestY = line.y1 + proj * uy;
+
+    // Angle from circle center to closest point on line
+    const angle = Math.atan2(closestY - circle.cy, closestX - circle.cx);
+    angles.push(angle);
+  });
+
+  if (angles.length === 2) {
+    return { start: angles[0], end: angles[1] };
+  }
+
+  return null;
+}
+
 function drawShape(ctx, s, canvas) {
   let strokeColor = s.color || "#4a9eff";
+
+  // Zvýraznění při přichycení na polární úhel
+  if (s.type === "line" && window.updateSnap) {
+    const snap = window.updateSnap(s, { x: s.x2, y: s.y2 });
+    if (snap.snapped) strokeColor = snap.color;
+  }
 
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = 2;
@@ -934,62 +578,114 @@ function drawShape(ctx, s, canvas) {
   if (s.type === "line") {
     const p1 = worldToScreen(s.x1, s.y1);
     const p2 = worldToScreen(s.x2, s.y2);
-    if (p1 && p2) {
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.stroke();
-    }
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.stroke();
   }
 
   if (s.type === "circle") {
     const c = worldToScreen(s.cx, s.cy);
-    if (c) {
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, s.r * zoom, 0, Math.PI * 2);
-      ctx.stroke();
+
+    // 🔍 Auto-detect tangential fillet: check if circle is between two lines
+    const adjacentLines = findAdjacentLines(s, window.shapes);
+
+    if (adjacentLines.length === 2) {
+      // Draw only the arc portion that connects the two lines
+      const angles = calculateTangentAngles(s, adjacentLines[0], adjacentLines[1]);
+      if (angles) {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, s.r * zoom, angles.start, angles.end, false);
+        ctx.stroke();
+        return; // Don't draw full circle
+      }
     }
+
+    // Default: draw full circle
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, s.r * zoom, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  if (s.type === "rectangle") {
+    const p1 = worldToScreen(s.x1, s.y1);
+    const p2 = worldToScreen(s.x2, s.y2);
+
+    const x = Math.min(p1.x, p2.x);
+    const y = Math.min(p1.y, p2.y);
+    const width = Math.abs(p2.x - p1.x);
+    const height = Math.abs(p2.y - p1.y);
+
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
+    ctx.strokeRect(x, y, width, height);
   }
 
   if (s.type === "arc") {
     const c = worldToScreen(s.cx, s.cy);
-    const p1 = worldToScreen(s.x1, s.y1);
-    const p2 = worldToScreen(s.x2, s.y2);
 
-    if (c && p1 && p2) {
-      const angle1 = Math.atan2(p1.y - c.y, p1.x - c.x);
-      const angle2 = Math.atan2(p2.y - c.y, p2.x - c.x);
+    let angle1, angle2, counterclockwise;
+    let p1, p2; // Declare outside to avoid "not defined" errors
 
-      ctx.save();
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
+    // Support two arc formats:
+    // 1. AI-generated: {cx, cy, r, startAngle, endAngle, counterclockwise}
+    // 2. User-drawn: {x1, y1, x2, y2, cx, cy, r, angle}
 
-      if (s.lineStyle === "dashed") {
-        ctx.setLineDash([8, 4]);
-      } else if (s.lineStyle === "dotted") {
-        ctx.setLineDash([2, 2]);
-      }
+    if (typeof s.startAngle === "number" && typeof s.endAngle === "number") {
+      // Format 1: Direct angles (in degrees from AI)
+      angle1 = (s.startAngle * Math.PI) / 180; // Convert to radians
+      angle2 = (s.endAngle * Math.PI) / 180;
+      counterclockwise = s.counterclockwise || false;
 
-      ctx.beginPath();
-      ctx.arc(
-        c.x,
-        c.y,
-        s.r * zoom,
-        angle1,
-        angle2,
-        s.angle > 180 ? true : false
-      );
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.fillStyle = strokeColor;
-      ctx.beginPath();
-      ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(p2.x, p2.y, 3, 0, Math.PI * 2);
-      ctx.fill();
+      // Calculate endpoint positions for drawing dots
+      p1 = {
+        x: c.x + s.r * zoom * Math.cos(angle1),
+        y: c.y + s.r * zoom * Math.sin(angle1)
+      };
+      p2 = {
+        x: c.x + s.r * zoom * Math.cos(angle2),
+        y: c.y + s.r * zoom * Math.sin(angle2)
+      };
+    } else if (s.x1 !== undefined && s.y1 !== undefined) {
+      // Format 2: Calculate from endpoints
+      p1 = worldToScreen(s.x1, s.y1);
+      p2 = worldToScreen(s.x2, s.y2);
+      angle1 = Math.atan2(p1.y - c.y, p1.x - c.x);
+      angle2 = Math.atan2(p2.y - c.y, p2.x - c.x);
+      counterclockwise = s.angle > 180 ? true : false;
+    } else {
+      return; // Invalid arc
     }
+
+    ctx.save();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
+
+    if (s.lineStyle === "dashed") {
+      ctx.setLineDash([8, 4]);
+    } else if (s.lineStyle === "dotted") {
+      ctx.setLineDash([2, 2]);
+    }
+
+    ctx.beginPath();
+    ctx.arc(
+      c.x,
+      c.y,
+      s.r * zoom,
+      angle1,
+      angle2,
+      counterclockwise
+    );
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = strokeColor;
+    ctx.beginPath();
+    ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p2.x, p2.y, 3, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   // ===== KÓTY (DIMENSIONS) =====
@@ -1002,8 +698,6 @@ function drawShape(ctx, s, canvas) {
     if (s.dimType === "linear") {
       const p1 = worldToScreen(s.x1, s.y1);
       const p2 = worldToScreen(s.x2, s.y2);
-
-      if (!p1 || !p2) return;
 
       const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
       const offsetDist = 25;
@@ -1236,7 +930,7 @@ const MAX_HISTORY = 10;
 
 function saveState() {
   const state = {
-    shapes: JSON.parse(JSON.stringify(window.convertRectanglesToLines ? window.convertRectanglesToLines(window.shapes) : window.shapes)),
+    shapes: JSON.parse(JSON.stringify(window.shapes)),
     points: JSON.parse(JSON.stringify(window.points)),
   };
 
@@ -1272,8 +966,7 @@ function undo() {
 
   const prevState = window.undoStack.pop();
   window.shapes.length = 0;
-  const convertedShapes = window.convertRectanglesToLines ? window.convertRectanglesToLines(JSON.parse(JSON.stringify(prevState.shapes))) : JSON.parse(JSON.stringify(prevState.shapes));
-  window.shapes.push(...convertedShapes);
+  window.shapes.push(...JSON.parse(JSON.stringify(prevState.shapes)));
   window.points.length = 0;
   window.points.push(...JSON.parse(JSON.stringify(prevState.points)));
 
@@ -1311,8 +1004,7 @@ function redo() {
 
   const nextState = window.redoStack.pop();
   window.shapes.length = 0;
-  const convertedShapes = window.convertRectanglesToLines ? window.convertRectanglesToLines(JSON.parse(JSON.stringify(nextState.shapes))) : JSON.parse(JSON.stringify(nextState.shapes));
-  window.shapes.push(...convertedShapes);
+  window.shapes.push(...JSON.parse(JSON.stringify(nextState.shapes)));
   window.points.length = 0;
   window.points.push(...JSON.parse(JSON.stringify(nextState.points)));
 
@@ -1336,7 +1028,8 @@ window.aiRedo = redo;  // Alias for aiRedo
 window.saveState = saveState;
 window.updateSnap = updateSnap;
 window.updateSnapPoints = updateSnapPoints;
-// window.screenToWorld a window.worldToScreen jsou nyní mapovány v globals.js přes Object.defineProperty
+window.screenToWorld = screenToWorld;
+window.worldToScreen = worldToScreen;
 window.snapPoint = function(x, y) {
   const result = snapPointInternal({ x, y });
   return result.point;

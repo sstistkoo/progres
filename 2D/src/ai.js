@@ -588,9 +588,12 @@ window.toggleAiPanel = function (open) {
 
 // ===== RETRY WITH BACKOFF (Pro API chyby) =====
 window.retryWithBackoff = async function (apiCall, maxRetries = 3) {
+  console.log("🔄 [DEBUG] retryWithBackoff START - maxRetries:", maxRetries);
   for (let attempt = 0; attempt < maxRetries; attempt++) {
+    console.log(`🔁 [DEBUG] Pokus ${attempt + 1}/${maxRetries}`, new Date().toISOString());
     try {
       const result = await apiCall();
+      console.log("✅ [DEBUG] API call ÚSPĚCH!");
       return result;
     } catch (err) {
       const isRateLimit =
@@ -600,8 +603,20 @@ window.retryWithBackoff = async function (apiCall, maxRetries = 3) {
         err.message?.includes("RESOURCE_EXHAUSTED");
 
       if (isRateLimit && attempt < maxRetries - 1) {
-        // Exponenciální backoff bez viditelného čekání: 2s, 4s, 8s
-        const delayMs = Math.pow(2, attempt + 1) * 1000;
+        // Zkus najít přesný čas z Google error message: "Please retry in 53.955s"
+        const retryMatch = err.message?.match(/retry in ([\d.]+)s/i);
+        let delayMs;
+
+        if (retryMatch) {
+          // Google řekl přesně jak dlouho čekat
+          delayMs = Math.ceil(parseFloat(retryMatch[1]) * 1000);
+          console.log(`⏳ Kvóta vyčerpána, čekám ${Math.ceil(delayMs/1000)}s (dle Google API)...`);
+        } else {
+          // Exponenciální backoff: 2s, 4s, 8s, 16s
+          delayMs = Math.pow(2, attempt + 1) * 1000;
+          console.log(`⏳ Kvóta vyčerpána, čekám ${delayMs/1000}s před dalším pokusem...`);
+        }
+
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
@@ -662,6 +677,7 @@ window.recordAISuccess = function (prompt, shapes) {
 
 // ===== MAIN AI CALL =====
 window.callGemini = async function () {
+  console.log("🔵 [DEBUG] callGemini() SPUŠTĚNO", new Date().toISOString());
   const promptInput = document.getElementById("aiPrompt");
   if (!promptInput) return;
 
@@ -678,16 +694,19 @@ window.callGemini = async function () {
   if (btnGenerate) btnGenerate.style.display = "none";
 
   if (window.processingAI) {
+    console.warn("⚠️ [DEBUG] processingAI = true, ABORT!");
     alert("AI zpracovává předchozí příkaz. Čekej prosím.");
     return;
   }
 
+  console.log("🟢 [DEBUG] Volám callGeminiDirect()...");
   // Pošli přímo na AI
   window.callGeminiDirect();
 };
 
 // Volání AI - pošle request přímo na API
 window.callGeminiDirect = async function () {
+  console.log("🟡 [DEBUG] callGeminiDirect() SPUŠTĚNO", new Date().toISOString());
   const promptInput = document.getElementById("aiPrompt");
   const container = document.getElementById("aiChatHistory");
   if (!promptInput || !container) return;
@@ -695,6 +714,7 @@ window.callGeminiDirect = async function () {
   const prompt = promptInput.value.trim();
   if (!prompt) return;
 
+  console.log("🔒 [DEBUG] Nastavuji processingAI = true");
   window.processingAI = true;
   promptInput.disabled = true;
 
@@ -721,7 +741,7 @@ window.callGeminiDirect = async function () {
 
     // Build full system prompt with all critical instructions
     const modeIndicator = window.mode ? `Current mode: ${window.mode}` : "";
-    const xMeasureMode = window.xMeasureMode || "diameter";
+    const xMeasureMode = window.xMeasureMode || "radius";
 
     const learningContext = window.getAIMemoryContext ? window.getAIMemoryContext() : "";
 
@@ -817,6 +837,70 @@ Example: Points A(0,0), B(100,0), C(50,86.6)
 
 3. Return the circle as: {"type":"circle","cx":cx,"cy":cy,"r":r}
 
+🔄 TANGENTIAL FILLET / RADIUS (zaoblení s tangenciálním napojením):
+When user says "zaoblení R[value] v bodě Z[z] X[x] směrem [dolů/nahoru/vlevo/vpravo]":
+
+⚠️ CRITICAL: "R" means RADIUS, not diameter! Use value directly as radius.
+If user says "R5", return "r":5 (not 2.5, not 10)
+
+🤖 G-CODE SUPPORT (CNC terminology) - MANDATORY PARSING:
+User may specify arc direction using G-codes - YOU MUST PARSE THESE!
+- **G2** = clockwise arc → set counterclockwise: false
+- **G3** = counterclockwise arc → set counterclockwise: true
+- **CR[value]** or **R[value]** = corner radius value (CR5 = radius 5)
+
+⚠️ CRITICAL: When you see G2, G3, or CR in the prompt, you MUST create ARC shapes!
+DO NOT create points or ignore G-codes!
+
+CNC-style arc syntax (NO CENTER NEEDED - you calculate it):
+"G2 Z[end_z] X[end_x] CR[radius]" or "G3 Z[end_z] X[end_x] CR[radius]"
+- Start point = last point from previous shape (line endpoint)
+- End point = specified Z X coordinates
+- Radius = CR value
+- YOU MUST calculate the arc center automatically!
+
+REAL EXAMPLE from user prompt:
+Input: "čára Z0 X60 do Z40 X60, G2 Z45 X55 CR5, G3 Z50 X50 CR5, čára do Z80 X50"
+
+Expected output (4 shapes):
+1. {"type":"line","x1":0,"y1":60,"x2":40,"y2":60}  ← horizontal line
+2. {"type":"arc","cx":42.5,"cy":57.5,"r":5,"startAngle":180,"endAngle":225,"counterclockwise":false}  ← G2 clockwise
+3. {"type":"arc","cx":47.5,"cy":52.5,"r":5,"startAngle":225,"endAngle":270,"counterclockwise":true}  ← G3 counterclockwise
+4. {"type":"line","x1":50,"y1":50,"x2":80,"y2":50}  ← horizontal line
+
+Common patterns YOU MUST RECOGNIZE:
+- "G2 CR5" = clockwise arc with radius 5
+- "G3 CR5" = counterclockwise arc with radius 5
+- "G2 Z[x] X[y] CR[r]" = clockwise arc to endpoint with radius
+- "čára do Z[x] X[y]" = line from last point to new point
+
+✨ PREFERRED: Generate ARC (partial circle) for tangential fillet:
+{"type":"arc","cx":center_x,"cy":center_y,"r":radius,"startAngle":start_deg,"endAngle":end_deg,"counterclockwise":false}
+
+🎯 TANGENT ANGLE CALCULATION (CRITICAL for proper connection):
+- Angles are from ARC CENTER perspective (0°=right, 90°=up, 180°=left, 270°=down)
+- For tangent to HORIZONTAL line: arc must touch at 90° (top) or 270° (bottom)
+- For tangent to VERTICAL line: arc must touch at 0° (right) or 180° (left)
+- counterclockwise: false = G2 (clockwise), true = G3 (counterclockwise)
+
+Example: "zaoblení R5 v bodě Z40 X60 směrem dolů" (horizontal lines above/below):
+- Corner point: (40, 60) where top line ends
+- Center offset DOWN: cx=40, cy=60-5=55
+- Top line is HORIZONTAL → tangent point at TOP of circle → angle=90°
+- Bottom line is HORIZONTAL → tangent point at BOTTOM of circle → angle=270°
+- Clockwise from top to bottom: counterclockwise=false (G2)
+- Return: {"type":"arc","cx":40,"cy":55,"r":5,"startAngle":90,"endAngle":270,"counterclockwise":false}
+
+Example: "zaoblení R3 v bodě Z40 X60 směrem vpravo" (vertical lines):
+- Center offset RIGHT: cx=40+3=43, cy=60
+- Tangent angles: 90° (top) to 0° (right) or similar
+- Return: {"type":"arc","cx":43,"cy":60,"r":3,"startAngle":90,"endAngle":0,"counterclockwise":false}
+
+📦 FALLBACK: If uncertain about angles, use CIRCLE:
+{"type":"circle","cx":cx,"cy":cy,"r":radius}
+- System will auto-detect tangent lines and render only the arc portion
+- Offset center by radius in specified direction (same as above)
+
 ⚠️ CRITICAL RULES FOR LINES:
 1. ALWAYS calculate BOTH x2 AND y2 using the angle and length
 2. DO NOT provide only y2 without x2 - both must be present
@@ -847,40 +931,69 @@ Uživatel: ${prompt}`;
 
     // Call API with retry
     const startTime = performance.now();
-    const selectedModel = window.getCurrentModel();
-    const response = await window.retryWithBackoff(async () => {
-      const resp = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/" + selectedModel + ":generateContent?key=" + apiKey,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: fullPrompt }] }],
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 2048,
-            },
-          }),
+    let selectedModel = window.getCurrentModel();
+    let response = null;
+    let quotaError = false;
+    for (let modelSwitch = 0; modelSwitch < 2; modelSwitch++) {
+      console.log("📡 [DEBUG] Spouštím retryWithBackoff() pro model:", selectedModel);
+      try {
+        response = await window.retryWithBackoff(async () => {
+          console.log("🌐 [DEBUG] fetch() VOLÁ API...", new Date().toISOString());
+          const resp = await fetch(
+            "https://generativelanguage.googleapis.com/v1beta/models/" + selectedModel + ":generateContent?key=" + apiKey,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: fullPrompt }] }],
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 4096,
+                },
+              }),
+            }
+          );
+          if (!resp.ok) {
+            const error = await resp.json().catch(() => ({}));
+            throw new Error(error.error?.message || `HTTP ${resp.status}`);
+          }
+          return await resp.json();
+        }, 1);
+        quotaError = false;
+        break;
+      } catch (err) {
+        // Pokud je quota error a model je flash-lite, přepni na flash a zkus znovu
+        if (selectedModel.includes("flash-lite") && /quota|Quota exceeded|Too Many Requests|limit: 20|limit: 0/i.test(err.message)) {
+          console.warn("⚠️ [DEBUG] Quota vyčerpána pro flash-lite, přepínám na gemini-2.5-flash a opakuji dotaz!");
+          selectedModel = "gemini-2.5-flash";
+          quotaError = true;
+          continue;
+        } else {
+          throw err;
         }
-      );
-
-      if (!resp.ok) {
-        const error = await resp.json().catch(() => ({}));
-        throw new Error(error.error?.message || `HTTP ${resp.status}`);
       }
-
-      return await resp.json();
-    }, 5);
+    }
+    if (quotaError && !response) {
+      throw new Error("Vyčerpána kvóta pro oba modely (flash-lite i flash)!");
+    }
 
     const apiTime = performance.now() - startTime;
 
     if (container.contains(loadingDiv)) container.removeChild(loadingDiv);
 
     // Parse response
+    console.log("📦 [DEBUG] Parsování AI odpovědi...");
     let aiResponseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
     if (!aiResponseText) {
+      console.error("❌ [DEBUG] AI nevrátila text!");
       throw new Error("AI nevrátila text");
     }
+
+    // Ulož pro debugging - přístupné v konzoli jako window.lastRawAI
+    window.lastRawAI = aiResponseText;
+    console.log("📄 [DEBUG] AI raw response (CELÁ):");
+    console.log(aiResponseText);
+    console.log("📏 [DEBUG] Délka odpovědi:", aiResponseText.length, "znaků");
 
     // Aggressive JSON cleaning
     let cleanedJson = aiResponseText
@@ -917,18 +1030,70 @@ Uživatel: ${prompt}`;
     cleanedJson = cleanedJson.replace(/,\s*([}\]])/g, "$1");
 
     let result;
-    try {
-      result = JSON.parse(cleanedJson);
-    } catch (e) {
-      throw new Error("Nevalidní JSON odpověď");
+    let retryIncomplete = 0;
+    while (true) {
+      try {
+        console.log("🔍 [DEBUG] JSON.parse() cleanedJson:", cleanedJson.substring(0, 200));
+        result = JSON.parse(cleanedJson);
+        console.log("✅ [DEBUG] JSON parsed úspěšně!");
+        break;
+      } catch (e) {
+        if (retryIncomplete < 2) {
+          retryIncomplete++;
+          console.warn(`⚠️ [DEBUG] JSON parse error (retry #${retryIncomplete}):`, e.message);
+          await new Promise(res => setTimeout(res, 1000));
+          // Znovu zavolej API (použij stejný prompt)
+          const retryResponse = await window.retryWithBackoff(async () => {
+            console.log("🌐 [DEBUG] fetch() RETRY kvůli JSON parse error...", new Date().toISOString());
+            return await fetch(
+              "https://generativelanguage.googleapis.com/v1beta/models/" + selectedModel + ":generateContent?key=" + apiKey,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: fullPrompt }] }],
+                  generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 4096,
+                  },
+                }),
+              }
+            );
+          }, 1);
+          const retryJson = await retryResponse.json();
+          aiResponseText = retryJson.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          window.lastRawAI = aiResponseText;
+          cleanedJson = aiResponseText
+            .replace(/```json\s*/gi, "")
+            .replace(/```\s*/g, "");
+          continue;
+        } else {
+          console.error("❌ [DEBUG] JSON parse failed:", e.message);
+          throw new Error("Nevalidní JSON odpověď");
+        }
+      }
     }
 
     const replyText = result.response_text || "Hotovo.";
     const newShapes = result.shapes || [];
 
+    console.log("💾 [DEBUG] Ukládám do window.lastAIResponse, shapes count:", newShapes.length);
+    // Ulož AI odpověď pro případný report
+    if (window.lastAIResponse === undefined) {
+      window.lastAIResponse = {};
+    }
+    window.lastAIResponse = {
+      rawResponse: aiResponseText,
+      cleanedJson: cleanedJson,
+      parsedResult: result,
+      replyText: replyText,
+      shapes: newShapes,
+      timestamp: new Date().toISOString()
+    };
+
     // Add shapes to canvas
     if (Array.isArray(newShapes) && newShapes.length > 0) {
-      const xMeasureMode = window.xMeasureMode || "diameter";
+      const xMeasureMode = window.xMeasureMode || "radius";
 
       newShapes.forEach((s) => {
         try {
@@ -953,13 +1118,32 @@ Uživatel: ${prompt}`;
             typeof s.r === "number" &&
             s.r > 0
           ) {
-            // Konvertuj poloměr pokud je xMeasureMode = "diameter"
-            const convertedR = xMeasureMode === "diameter" ? s.r / 2 : s.r;
+            // ⚠️ AI vrací radius hodnoty přímo, NEkonvertuj diameter mode!
+            // Když AI řekne "r":5, znamená to radius 5, ne průměr
             window.shapes.push({
               type: "circle",
               cx: s.cx,
               cy: s.cy,
-              r: convertedR,
+              r: s.r, // Použij přímo hodnotu od AI bez konverze
+            });
+          } else if (
+            s.type === "arc" &&
+            typeof s.cx === "number" &&
+            typeof s.cy === "number" &&
+            typeof s.r === "number" &&
+            s.r > 0 &&
+            typeof s.startAngle === "number" &&
+            typeof s.endAngle === "number"
+          ) {
+            // Přidej ARC (oblouk) pro tangenciální zaoblení
+            window.shapes.push({
+              type: "arc",
+              cx: s.cx,
+              cy: s.cy,
+              r: s.r,
+              startAngle: s.startAngle,
+              endAngle: s.endAngle,
+              counterclockwise: s.counterclockwise !== undefined ? s.counterclockwise : false,
             });
           } else if (
             s.type === "point" &&
@@ -973,7 +1157,18 @@ Uživatel: ${prompt}`;
       });
 
       if (window.updateSnapPoints) window.updateSnapPoints();
-      if (window.draw) window.draw();
+
+      // Try to draw and catch any rendering errors
+      try {
+        if (window.draw) window.draw();
+      } catch (drawError) {
+        console.error("❌ Chyba při vykreslování:", drawError);
+        // Add drawing error to validation errors
+        if (testIndex !== undefined) {
+          validationErrors.push(`CHYBA PŘI VYKRESLOVÁNÍ: ${drawError.message}`);
+          hasErrors = true;
+        }
+      }
 
       // Learn from success
       window.recordAISuccess(prompt, newShapes);
@@ -1286,6 +1481,72 @@ window.buildDrawingContext = function () {
 
 // ===== AI TEST SUITE =====
 window.AI_TEST_PROMPTS = [
+  // ===== KOMPLEXNÍ TEST (VŠE V JEDNOM) =====
+  {
+    level: "KOMPLEXNÍ",
+    name: "🎯 KOMPLETNÍ TEST - Všechny hlavní funkce",
+    prompt: "bod Z50 X50, kružnice Z100 X100 R40, X200Z100R30, čára Z50 X50 do Z100 X100, kružnice Z150 X150 R50 pak čára od středu úhel 0° délka 100, čára Z300 X50 do Z400 X150",
+    expectedShapes: 7,
+    expectedType: ["point", "circle", "circle", "line", "circle", "line", "line"],
+    complexity: 10,
+    description: "Testuje: bod, kružnice (normální syntax), CNC syntax, jednoduchou čáru, polární čáru z centra kružnice, běžnou čáru"
+  },
+  // ===== PRAKTICKÉ PŘÍKLADY =====
+  {
+    level: "PRAKTICKÝ",
+    name: "🔧 Hřídel s kuželem (zjednodušená)",
+    prompt: "Nakresli hřídel: čára Z0 X0 do Z0 X60, čára Z0 X60 do Z40 X60, čára Z40 X60 do Z40 X50, čára Z40 X50 do Z80 X50, čára Z80 X50 do Z80 X40, čára Z80 X40 do Z120 X20, čára Z120 X20 do Z150 X20, čára Z150 X20 do Z150 X0, čára Z150 X0 do Z0 X0",
+    expectedShapes: 9,
+    expectedType: "line",
+    complexity: 8,
+    description: "Realistická hřídel s kuželem: dva průměry (⌀60 a ⌀50) a kužel přechod z ⌀40 na ⌀20"
+  },
+  {
+    level: "PRAKTICKÝ",
+    name: "🔧 Test tangenciálního radiusu",
+    prompt: "čára Z0 X60 do Z40 X60, G2 Z45 X55 CR5, G3 Z50 X50 CR5, čára do Z80 X50",
+    expectedShapes: 4,
+    expectedType: ["line", "arc", "arc", "line"],
+    complexity: 5,
+    description: "Test zaoblení CR5 mezi dvěma čárami s G2/G3 - CNC syntax"
+  },
+  // ===== KATEGORIZOVANÉ RYCHLÉ TESTY =====
+  {
+    level: "KATEGORIE",
+    name: "📍 Test bodů",
+    prompt: "bod Z50 X50, bod Z100 X100, bod Z150 X150",
+    expectedShapes: 3,
+    expectedType: "point",
+    complexity: 2,
+    description: "Test vytváření bodů"
+  },
+  {
+    level: "KATEGORIE",
+    name: "⭕ Test kružnic",
+    prompt: "kružnice Z100 X100 R30, kružnice Z200 X100 R40, X300Z100R50",
+    expectedShapes: 3,
+    expectedType: "circle",
+    complexity: 3,
+    description: "Test normální i CNC syntaxe kružnic"
+  },
+  {
+    level: "KATEGORIE",
+    name: "📏 Test čar",
+    prompt: "čára Z0 X0 do Z100 X100, čára Z100 X100 do Z200 X200, čára Z200 X200 do Z300 X300",
+    expectedShapes: 3,
+    expectedType: "line",
+    complexity: 2,
+    description: "Test jednoduchých čar"
+  },
+  {
+    level: "KATEGORIE",
+    name: "🎯 Test polárních čar",
+    prompt: "kružnice Z100 X100 R50, pak čára od středu úhel 0° délka 100, čára od středu úhel 90° délka 100",
+    expectedShapes: 3,
+    expectedType: ["circle", "line", "line"],
+    complexity: 5,
+    description: "Test čar z centra kružnice s úhlem"
+  },
   // ===== LEVEL 1: VELMI JEDNODUCHÉ =====
   {
     level: "VELMI JEDNODUCHÉ",
@@ -1484,17 +1745,21 @@ window.AI_TEST_PROMPTS = [
 ];
 
 window.runAITest = async function(testIndex = 0) {
+  const container = document.getElementById("aiChatHistory");
+
   if (testIndex >= window.AI_TEST_PROMPTS.length) {
-    alert("✅ Všechny testy hotovy!");
+    // Místo alertu zobraz souhrn v chatu
+    if (window.showTestSummary) {
+      window.showTestSummary();
+    }
     return;
   }
 
   const test = window.AI_TEST_PROMPTS[testIndex];
   const promptInput = document.getElementById("aiPrompt");
-  const container = document.getElementById("aiChatHistory");
 
   if (!promptInput || !container) {
-    alert("❌ AI panel nenalezen!");
+    console.error("❌ AI panel nenalezen!");
     return;
   }
 
@@ -1511,35 +1776,444 @@ window.runAITest = async function(testIndex = 0) {
   promptInput.value = test.prompt;
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  // Spusť AI
-  if (window.callGemini) {
-    await window.callGemini();
-  }
+  // Zapamatuj si počet tvarů před testem
+  const shapesBefore = (window.shapes || []).length;
+  const pointsBefore = (window.points || []).length;
 
-  // Čekat na výsledek (5 sekund)
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  // Spusť AI a čekej na dokončení (BEZ timeoutu - počká i na retry)
+  const success = window.callGemini ? await window.callGemini().then(() => {
+    return true;
+  }).catch(err => {
+    console.warn("⚠️ AI request failed:", err.message);
+    return false;
+  }) : true;
+
+  // Zastav processing flag
+  window.processingAI = false;
+
+  // Vyčisti loading indikátor (pokud tam ještě je)
+  const loadingDivs = container.querySelectorAll('.loading-dots');
+  loadingDivs.forEach(div => {
+    const parent = div.closest('div[style*="text-align: center"]');
+    if (parent && container.contains(parent)) {
+      container.removeChild(parent);
+    }
+  });
 
   // Ověř výsledky
-  const shapeCount = (window.shapes || []).length;
-  let testResult = `\n📊 Výsledek: ${shapeCount} tvarů`;
+  const shapesAfter = (window.shapes || []).length;
+  const pointsAfter = (window.points || []).length;
+  const newShapesCount = (shapesAfter - shapesBefore) + (pointsAfter - pointsBefore);
 
-  if (shapeCount >= test.expectedShapes) {
+  let testResult = `\n📊 Výsledek: ${newShapesCount} tvarů`;
+  let validationErrors = [];
+  let hasErrors = false;
+
+  // Kontrola počtu tvarů
+  if (newShapesCount >= test.expectedShapes) {
     testResult += ` ✅`;
   } else {
     testResult += ` ❌ (očekáváno ${test.expectedShapes})`;
+    validationErrors.push(`Očekávaný počet: ${test.expectedShapes}, získáno: ${newShapesCount}`);
+    hasErrors = true;
   }
+
+  // Detailní validace nově přidaných tvarů
+  const newShapes = window.shapes.slice(shapesBefore);
+  const newPoints = window.points.slice(pointsBefore);
+
+  // Analyzuj prompt pro identifikaci polárních čar
+  const polarLinePattern = /pak\s+čára\s+od\s+středu\s+úhel\s+(\d+)°?\s+délka\s+(\d+)/gi;
+  const polarLines = [];
+  let match;
+  while ((match = polarLinePattern.exec(test.prompt)) !== null) {
+    polarLines.push({
+      angle: parseInt(match[1]),
+      length: parseInt(match[2])
+    });
+  }
+
+  // Vytáhni všechny poloměry z promptu
+  const radiusPattern = /[RrＲｒ]\s*(\d+)/g;
+  const expectedRadii = [];
+  while ((match = radiusPattern.exec(test.prompt)) !== null) {
+    expectedRadii.push(parseInt(match[1]));
+  }
+
+  // Najdi poslední kružnici před polární čárou (pro určení středu)
+  let lastCircleBeforePolar = null;
+  let circleIndex = 0;
+
+  newShapes.forEach((shape, idx) => {
+    if (shape.type === "line") {
+      // Kontrola čáry - musí mít různé body
+      if (shape.x1 === shape.x2 && shape.y1 === shape.y2) {
+        validationErrors.push(`Čára ${idx+1}: nulová délka (x1=${shape.x1}, y1=${shape.y1}, x2=${shape.x2}, y2=${shape.y2})`);
+        hasErrors = true;
+      }
+      // Kontrola, že všechny souřadnice jsou čísla
+      if (typeof shape.x1 !== 'number' || typeof shape.y1 !== 'number' ||
+          typeof shape.x2 !== 'number' || typeof shape.y2 !== 'number') {
+        validationErrors.push(`Čára ${idx+1}: chybějící nebo neplatné souřadnice (x1=${shape.x1}, y1=${shape.y1}, x2=${shape.x2}, y2=${shape.y2})`);
+        hasErrors = true;
+      }
+
+      // Kontrola polárních čar - pouze pokud startují ze středu nějaké kružnice
+      if (polarLines.length > 0 && lastCircleBeforePolar) {
+        const isPolarLine = Math.abs(shape.x1 - lastCircleBeforePolar.cx) < 1 &&
+                           Math.abs(shape.y1 - lastCircleBeforePolar.cy) < 1;
+
+        if (isPolarLine && polarLines.length > 0) {
+          const polarInfo = polarLines.shift(); // Vezmi první polární definici
+          const angle = polarInfo.angle;
+          const length = polarInfo.length;
+
+          // Validuj podle úhlu
+          if (angle === 0) {
+            if (Math.abs(shape.y2 - shape.y1) > 1) {
+              validationErrors.push(`Čára ${idx+1} [POLÁRNÍ 0°]: y2 by mělo být ≈ y1 (y1=${shape.y1.toFixed(1)}, y2=${shape.y2.toFixed(1)})`);
+              hasErrors = true;
+            }
+            const expectedX2 = shape.x1 + length;
+            if (Math.abs(shape.x2 - expectedX2) > 2) {
+              validationErrors.push(`Čára ${idx+1} [POLÁRNÍ 0°]: při délce ${length} očekávám x2≈${expectedX2.toFixed(1)}, ale je ${shape.x2.toFixed(1)}`);
+              hasErrors = true;
+            }
+          } else if (angle === 90) {
+            if (Math.abs(shape.x2 - shape.x1) > 1) {
+              validationErrors.push(`Čára ${idx+1} [POLÁRNÍ 90°]: x2 by mělo být ≈ x1 (x1=${shape.x1.toFixed(1)}, x2=${shape.x2.toFixed(1)})`);
+              hasErrors = true;
+            }
+            const expectedY2 = shape.y1 + length;
+            if (Math.abs(shape.y2 - expectedY2) > 2) {
+              validationErrors.push(`Čára ${idx+1} [POLÁRNÍ 90°]: při délce ${length} očekávám y2≈${expectedY2.toFixed(1)}, ale je ${shape.y2.toFixed(1)}`);
+              hasErrors = true;
+            }
+          } else {
+            const angleRad = angle * Math.PI / 180;
+            const expectedX2 = shape.x1 + length * Math.cos(angleRad);
+            const expectedY2 = shape.y1 + length * Math.sin(angleRad);
+            const tolerance = 3;
+            if (Math.abs(shape.x2 - expectedX2) > tolerance || Math.abs(shape.y2 - expectedY2) > tolerance) {
+              validationErrors.push(`Čára ${idx+1} [POLÁRNÍ ${angle}°]: při délce ${length} očekávám x2≈${expectedX2.toFixed(1)}, y2≈${expectedY2.toFixed(1)}, ale je x2=${shape.x2.toFixed(1)}, y2=${shape.y2.toFixed(1)}`);
+              hasErrors = true;
+            }
+          }
+        }
+      }
+    } else if (shape.type === "circle") {
+      lastCircleBeforePolar = shape; // Zapamatuj si poslední kružnici
+
+      // Kontrola kružnice - radius musí být > 0
+      if (shape.r <= 0 || typeof shape.r !== 'number') {
+        validationErrors.push(`Kružnice ${idx+1}: neplatný poloměr r=${shape.r}`);
+        hasErrors = true;
+      }
+      // Kontrola středu
+      if (typeof shape.cx !== 'number' || typeof shape.cy !== 'number') {
+        validationErrors.push(`Kružnice ${idx+1}: neplatné souřadnice středu (cx=${shape.cx}, cy=${shape.cy})`);
+        hasErrors = true;
+      }
+
+      // Validace poloměru - použij odpovídající poloměr z pole
+      if (expectedRadii.length > circleIndex) {
+        const expectedRadiusFromPrompt = expectedRadii[circleIndex];
+        const tolerance = 2;
+
+        // ⚠️ AI vrací radius přímo, bez konverze diameter mode
+        // Když test očekává R5, AI vrátí r:5, tak to i validujeme
+        const expectedInternalRadius = expectedRadiusFromPrompt;
+
+        if (Math.abs(shape.r - expectedInternalRadius) > tolerance) {
+          validationErrors.push(`Kružnice ${idx+1}: očekávaný radius ${expectedInternalRadius.toFixed(1)}, ale je ${shape.r.toFixed(1)}`);
+          hasErrors = true;
+        }
+      }
+
+      circleIndex++;
+    } else if (shape.type === "arc") {
+      // Validace ARC (oblouku) - podobně jako kružnice, ale s úhly
+      if (shape.r <= 0 || typeof shape.r !== 'number') {
+        validationErrors.push(`Oblouk ${idx+1}: neplatný poloměr r=${shape.r}`);
+        hasErrors = true;
+      }
+      if (typeof shape.cx !== 'number' || typeof shape.cy !== 'number') {
+        validationErrors.push(`Oblouk ${idx+1}: neplatné souřadnice středu (cx=${shape.cx}, cy=${shape.cy})`);
+        hasErrors = true;
+      }
+      if (typeof shape.startAngle !== 'number' || typeof shape.endAngle !== 'number') {
+        validationErrors.push(`Oblouk ${idx+1}: chybí úhly (startAngle=${shape.startAngle}, endAngle=${shape.endAngle})`);
+        hasErrors = true;
+      }
+
+      // ARC počítáme jako kružnici pro validaci počtu
+      if (expectedRadii.length > circleIndex) {
+        const expectedRadiusFromPrompt = expectedRadii[circleIndex];
+        const tolerance = 2;
+        const expectedInternalRadius = expectedRadiusFromPrompt;
+
+        if (Math.abs(shape.r - expectedInternalRadius) > tolerance) {
+          validationErrors.push(`Oblouk ${idx+1}: očekávaný radius ${expectedInternalRadius.toFixed(1)}, ale je ${shape.r.toFixed(1)}`);
+          hasErrors = true;
+        }
+      }
+
+      circleIndex++; // ARC = kružnice pro počítání
+    }
+  });
+
+  newPoints.forEach((point, idx) => {
+    if (typeof point.x !== 'number' || typeof point.y !== 'number') {
+      validationErrors.push(`Bod ${idx+1}: neplatné souřadnice`);
+      hasErrors = true;
+    }
+  });
 
   // Zobraz výsledek
   const resultDiv = document.createElement("div");
   resultDiv.className = "chat-msg model";
-  resultDiv.style.color = shapeCount >= test.expectedShapes ? "#10b981" : "#ef4444";
+  resultDiv.style.color = !hasErrors ? "#10b981" : "#ef4444";
+  resultDiv.style.fontSize = "12px";
+  resultDiv.style.whiteSpace = "pre-wrap";
+
+  if (hasErrors && validationErrors.length > 0) {
+    testResult += "\n\n⚠️ CHYBY DETEKOVANÉ:\n" + validationErrors.map(e => "  • " + e).join("\n");
+  }
+
   resultDiv.textContent = testResult;
   container.appendChild(resultDiv);
   container.scrollTop = container.scrollHeight;
 
-  // Pokračuj další test za 3 sekundy
-  await new Promise(resolve => setTimeout(resolve, 3000));
-  window.runAITest(testIndex + 1);
+  // Ulož výsledky testu
+  if (!window.aiTestResults) {
+    window.aiTestResults = [];
+  }
+
+  // Připrav detailní informace o tvarech
+  const shapesDetails = newShapes.map((shape, idx) => {
+    if (shape.type === "line") {
+      return {
+        type: "line",
+        index: idx + 1,
+        data: { x1: shape.x1, y1: shape.y1, x2: shape.x2, y2: shape.y2 },
+        length: Math.sqrt(Math.pow(shape.x2 - shape.x1, 2) + Math.pow(shape.y2 - shape.y1, 2)).toFixed(2)
+      };
+    } else if (shape.type === "circle") {
+      return {
+        type: "circle",
+        index: idx + 1,
+        data: { cx: shape.cx, cy: shape.cy, r: shape.r }
+      };
+    } else if (shape.type === "arc") {
+      return {
+        type: "arc",
+        index: idx + 1,
+        data: {
+          cx: shape.cx,
+          cy: shape.cy,
+          r: shape.r,
+          startAngle: shape.startAngle,
+          endAngle: shape.endAngle
+        }
+      };
+    }
+    return { type: shape.type, index: idx + 1, data: shape };
+  });
+
+  const pointsDetails = newPoints.map((point, idx) => ({
+    type: "point",
+    index: idx + 1,
+    data: { x: point.x, y: point.y }
+  }));
+
+  window.aiTestResults.push({
+    testIndex: testIndex,
+    testName: test.name,
+    prompt: test.prompt,
+    expectedShapes: test.expectedShapes,
+    actualShapes: newShapesCount,
+    hasErrors: hasErrors,
+    errors: validationErrors,
+    shapesDetails: shapesDetails,
+    pointsDetails: pointsDetails,
+    aiResponse: window.lastAIResponse ? {
+      replyText: window.lastAIResponse.replyText,
+      rawShapes: window.lastAIResponse.shapes
+    } : null,
+    timestamp: new Date().toISOString()
+  });
+
+  // Pokračuj další test pouze pokud je nastavena flag pro batch run
+  if (window.aiTestBatchMode) {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Pokud je to poslední test, zobraz souhrn
+    if (testIndex + 1 >= window.AI_TEST_PROMPTS.length) {
+      window.aiTestBatchMode = false;
+      window.processingAI = false; // ✅ Zastav processing
+      window.showTestSummary();
+    } else {
+      window.runAITest(testIndex + 1);
+    }
+  } else {
+    // Jednorázový test - ZASTAV processing okamžitě
+    window.processingAI = false;
+
+    const summaryDiv = document.createElement("div");
+    summaryDiv.className = "chat-msg model";
+    summaryDiv.style.color = !hasErrors ? "#10b981" : "#6ab0ff";
+    summaryDiv.style.fontSize = "11px";
+    summaryDiv.style.background = "#1a1a1a";
+    summaryDiv.style.border = "1px solid " + (!hasErrors ? "#10b981" : "#444");
+    summaryDiv.style.padding = "10px";
+    summaryDiv.style.marginTop = "10px";
+
+    let summary = `✅ Test dokončen!\n`;
+    if (!hasErrors) {
+      summary += `\n🎉 Všechny kontroly prošly bez chyb!`;
+    } else {
+      summary += `\n⚠️ Test prošel s ${validationErrors.length} chyb(ou/ami).`;
+    }
+
+    summaryDiv.textContent = summary;
+    container.appendChild(summaryDiv);
+    container.scrollTop = container.scrollHeight;
+
+    // Zobraz tlačítko pro report
+    const reportBtn = document.createElement("button");
+    reportBtn.textContent = "📋 ZOBRAZIT DETAILNÍ REPORT";
+    reportBtn.style.cssText = "width: 100%; padding: 10px; margin-top: 10px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;";
+    reportBtn.onclick = () => window.showTestReport();
+    container.appendChild(reportBtn);
+    container.scrollTop = container.scrollHeight;
+  }
+};
+
+// Zobrazí detailní report testu s možností kopírování
+window.showTestReport = function() {
+  if (!window.aiTestResults || window.aiTestResults.length === 0) {
+    alert("Žádné výsledky testů k dispozici.");
+    return;
+  }
+
+  const container = document.getElementById("aiChatHistory");
+  if (!container) return;
+
+  const lastResult = window.aiTestResults[window.aiTestResults.length - 1];
+
+  let report = "";
+  report += "═══════════════════════════════════════════════════\n";
+  report += "         🔬 DETAILNÍ AI TEST REPORT\n";
+  report += "═══════════════════════════════════════════════════\n\n";
+
+  report += `📌 TEST: ${lastResult.testName}\n`;
+  report += `🕐 Čas: ${new Date(lastResult.timestamp).toLocaleString('cs-CZ')}\n`;
+  report += `\n`;
+
+  report += "─────────────────────────────────────────────────────\n";
+  report += "📝 VSTUPNÍ PROMPT:\n";
+  report += "─────────────────────────────────────────────────────\n";
+  report += `"${lastResult.prompt}"\n\n`;
+
+  report += "─────────────────────────────────────────────────────\n";
+  report += "🤖 AI ODPOVĚĎ:\n";
+  report += "─────────────────────────────────────────────────────\n";
+
+  if (lastResult.aiResponse) {
+    report += `Textová odpověď: "${lastResult.aiResponse.replyText}"\n\n`;
+
+    if (lastResult.aiResponse.rawShapes && lastResult.aiResponse.rawShapes.length > 0) {
+      report += "🔍 RAW JSON TVARY (co AI vrátila):\n";
+      lastResult.aiResponse.rawShapes.forEach((shape, idx) => {
+        report += `\n${idx + 1}. ${shape.type.toUpperCase()}:\n`;
+        report += `   ${JSON.stringify(shape, null, 2).split('\n').join('\n   ')}\n`;
+      });
+      report += "\n";
+    } else {
+      report += "⚠️ AI nevrátila žádné tvary (shapes: [])\n\n";
+    }
+  } else {
+    report += "❌ AI response nebyla zachycena (timeout nebo chyba)\n\n";
+  }
+
+  report += "─────────────────────────────────────────────────────\n";
+  report += "📊 VÝSLEDEK TESTU:\n";
+  report += "─────────────────────────────────────────────────────\n";
+  report += `Očekáváno tvarů: ${lastResult.expectedShapes}\n`;
+  report += `Získáno tvarů:   ${lastResult.actualShapes}\n`;
+  report += `Status:          ${lastResult.hasErrors ? '❌ CHYBY DETEKOVÁNY' : '✅ ÚSPĚCH'}\n\n`;
+
+  if (lastResult.shapesDetails && lastResult.shapesDetails.length > 0) {
+    report += "─────────────────────────────────────────────────────\n";
+    report += "📐 VYTVOŘENÉ TVARY (detail):\n";
+    report += "─────────────────────────────────────────────────────\n";
+    lastResult.shapesDetails.forEach(shape => {
+      report += `\n${shape.index}. ${shape.type.toUpperCase()}:\n`;
+      if (shape.type === "line") {
+        report += `   Start: Z=${shape.data.x1}, X=${shape.data.y1}\n`;
+        report += `   Konec: Z=${shape.data.x2}, X=${shape.data.y2}\n`;
+        report += `   Délka: ${shape.length}\n`;
+      } else if (shape.type === "circle") {
+        report += `   Střed: Z=${shape.data.cx}, X=${shape.data.cy}\n`;
+        report += `   Poloměr: ${shape.data.r}\n`;
+      } else if (shape.type === "arc") {
+        report += `   Střed: Z=${shape.data.cx}, X=${shape.data.cy}\n`;
+        report += `   Poloměr: ${shape.data.r}\n`;
+        if (shape.data.startAngle !== undefined && shape.data.endAngle !== undefined) {
+          report += `   Úhly: ${shape.data.startAngle}° až ${shape.data.endAngle}°\n`;
+        }
+      }
+    });
+    report += "\n";
+  }
+
+  if (lastResult.pointsDetails && lastResult.pointsDetails.length > 0) {
+    report += "─────────────────────────────────────────────────────\n";
+    report += "📍 VYTVOŘENÉ BODY:\n";
+    report += "─────────────────────────────────────────────────────\n";
+    lastResult.pointsDetails.forEach(point => {
+      report += `${point.index}. BOD: Z=${point.data.x}, X=${point.data.y}\n`;
+    });
+    report += "\n";
+  }
+
+  if (lastResult.errors && lastResult.errors.length > 0) {
+    report += "─────────────────────────────────────────────────────\n";
+    report += "⚠️  DETEKOVANÉ CHYBY:\n";
+    report += "─────────────────────────────────────────────────────\n";
+    lastResult.errors.forEach((error, idx) => {
+      report += `${idx + 1}. ${error}\n`;
+    });
+    report += "\n";
+  }
+
+  report += "═══════════════════════════════════════════════════\n";
+  report += "               KONEC REPORTU\n";
+  report += "═══════════════════════════════════════════════════\n";
+
+  // Zobraz report v modálním okně
+  const reportDiv = document.createElement("div");
+  reportDiv.className = "chat-msg model";
+  reportDiv.style.cssText = "background: #0a0a0a; border: 2px solid #2563eb; padding: 15px; margin-top: 15px; font-family: 'Courier New', monospace; font-size: 11px; white-space: pre-wrap; max-height: 1000px; overflow-y: auto;";
+  reportDiv.textContent = report;
+
+  const copyBtn = document.createElement("button");
+  copyBtn.textContent = "📋 ZKOPÍROVAT REPORT";
+  copyBtn.style.cssText = "width: 100%; padding: 10px; margin-top: 10px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;";
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(report).then(() => {
+      copyBtn.textContent = "✅ ZKOPÍROVÁNO!";
+      setTimeout(() => {
+        copyBtn.textContent = "📋 ZKOPÍROVAT REPORT";
+      }, 2000);
+    }).catch(err => {
+      alert("Chyba při kopírování: " + err);
+    });
+  };
+
+  container.appendChild(reportDiv);
+  container.appendChild(copyBtn);
+  container.scrollTop = container.scrollHeight;
 };
 
 window.closeAITestModal = function() {
@@ -1547,6 +2221,112 @@ window.closeAITestModal = function() {
   if (modal) {
     modal.style.display = "none";
   }
+};
+
+// Zobraz souhrn testů
+window.showTestSummary = function() {
+  if (!window.aiTestResults || window.aiTestResults.length === 0) {
+    alert("Žádné výsledky testů k dispozici.");
+    return;
+  }
+
+  const container = document.getElementById("aiChatHistory");
+  if (!container) return;
+
+  const total = window.aiTestResults.length;
+  const passed = window.aiTestResults.filter(r => !r.hasErrors).length;
+  const failed = total - passed;
+  const successRate = ((passed / total) * 100).toFixed(1);
+
+  // Souhrn chyb
+  const errorsByType = {};
+  window.aiTestResults.forEach(result => {
+    if (result.hasErrors) {
+      result.errors.forEach(error => {
+        const errorType = error.split(':')[0].trim();
+        errorsByType[errorType] = (errorsByType[errorType] || 0) + 1;
+      });
+    }
+  });
+
+  let summaryText = `\n\n📊 SOUHRN TESTŮ\n`;
+  summaryText += `${'='.repeat(50)}\n`;
+  summaryText += `Celkem testů: ${total}\n`;
+  summaryText += `✅ Úspěšné: ${passed} (${successRate}%)\n`;
+  summaryText += `❌ Neúspěšné: ${failed} (${(100 - successRate).toFixed(1)}%)\n`;
+
+  if (Object.keys(errorsByType).length > 0) {
+    summaryText += `\n🔍 NEJČASTĚJŠÍ CHYBY:\n`;
+    Object.entries(errorsByType)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([type, count]) => {
+        summaryText += `  • ${type}: ${count}x\n`;
+      });
+  }
+
+  // Seznam neúspěšných testů
+  const failedTests = window.aiTestResults.filter(r => r.hasErrors);
+  if (failedTests.length > 0) {
+    summaryText += `\n❌ NEÚSPĚŠNÉ TESTY:\n`;
+    failedTests.forEach(result => {
+      summaryText += `  ${result.testIndex + 1}. ${result.testName}\n`;
+      summaryText += `     Prompt: "${result.prompt}"\n`;
+      result.errors.forEach(err => {
+        summaryText += `     - ${err}\n`;
+      });
+    });
+  }
+
+  const summaryDiv = document.createElement("div");
+  summaryDiv.className = "chat-msg model";
+  summaryDiv.style.color = passed === total ? "#10b981" : "#ef4444";
+  summaryDiv.style.fontSize = "12px";
+  summaryDiv.style.whiteSpace = "pre-wrap";
+  summaryDiv.style.background = "#1a1a1a";
+  summaryDiv.style.border = "2px solid " + (passed === total ? "#10b981" : "#ef4444");
+  summaryDiv.style.padding = "15px";
+  summaryDiv.style.marginTop = "20px";
+  summaryDiv.textContent = summaryText;
+
+  container.appendChild(summaryDiv);
+  container.scrollTop = container.scrollHeight;
+
+  alert(`✅ Testy dokončeny!\n\nÚspěšnost: ${successRate}%\n(${passed}/${total} testů prošlo)`);
+};
+
+// Reset testovacích výsledků
+window.resetTestResults = function() {
+  window.aiTestResults = [];
+  console.log("🔄 Výsledky testů resetovány");
+};
+
+// Exportuj výsledky testů do JSON souboru
+window.exportTestResults = function() {
+  if (!window.aiTestResults || window.aiTestResults.length === 0) {
+    alert("Žádné výsledky testů k exportu.");
+    return;
+  }
+
+  const data = {
+    timestamp: new Date().toISOString(),
+    totalTests: window.aiTestResults.length,
+    passedTests: window.aiTestResults.filter(r => !r.hasErrors).length,
+    failedTests: window.aiTestResults.filter(r => r.hasErrors).length,
+    results: window.aiTestResults
+  };
+
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ai-test-results-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  alert(`✅ Výsledky testů exportovány do ${a.download}`);
 };
 
 // Formátuj CNC příkazy přidáním mezer (např. X80Z56R52 → X80 Z56 R52)
@@ -1748,54 +2528,104 @@ window.runSelectedTest = function(testIndex) {
 };
 
 // ===== Spustit všechny testy v queue =====
-window.runAllTests = function() {
+// Spustí komplexní test (první v poli - index 0)
+window.runComplexTest = function() {
   const modal = document.getElementById("aiTestModal");
-  const content = document.getElementById("aiTestContent");
+  if (modal) {
+    modal.style.display = "none";
+  }
 
-  if (!modal || !content) return;
+  // Reset výsledků před spuštěním
+  window.resetTestResults();
 
-  // UI - zobraz progress
-  content.innerHTML = `
-    <div style="background: #0a2a1a; padding: 15px; border-radius: 8px; border-left: 3px solid #22c55e">
-      <h3 style="color: #22c55e; margin: 0 0 10px 0">⚙️ Zařazuji testy...</h3>
-      <p style="color: #888; font-size: 12px; margin: 0">Všechny testy se postupně zařadí do queue a vykonají s ohledem na rate limit.</p>
-      <div id="allTestsProgress" style="margin-top: 12px; font-size: 11px; color: #aaa"></div>
-    </div>
-  `;
+  // Nastav batch mode na false - jde o jediný test
+  window.aiTestBatchMode = false;
 
-  const progressDiv = document.getElementById("allTestsProgress");
+  // Ujisti se, že AI panel je otevřený
+  if (window.toggleAiPanel) {
+    window.toggleAiPanel(true);
+  }
 
-  // Zařaď všechny testy do queue
-  let enqueued = 0;
-  window.AI_TEST_PROMPTS.forEach((test, idx) => {
-    setTimeout(() => {
-      const promptInput = document.getElementById("aiPrompt");
-      if (promptInput) {
-        promptInput.value = test.prompt;
-        if (window.callGemini) {
-          window.callGemini();
-          enqueued++;
+  // Vymaž chat historii
+  const chatContainer = document.getElementById("aiChatHistory");
+  if (chatContainer) {
+    chatContainer.innerHTML = "";
+  }
 
-          if (progressDiv) {
-            progressDiv.innerHTML = `
-              ✅ Zařazeno: <strong>${enqueued}/${window.AI_TEST_PROMPTS.length}</strong> testů<br>
-              📊 Queue: ${window.aiRequestQueue ? window.aiRequestQueue.length : 0} čekajících requestů
-            `;
-          }
-        }
-      }
-    }, idx * 100); // Rozestup 100ms mezi zařazením
-  });
-
-  // Zavři modal po chvíli
+  // Spusť komplexní test (index 0)
   setTimeout(() => {
-    if (progressDiv) {
-      progressDiv.innerHTML = `
-        <div style="color: #22c55e">✅ Všechny testy zařazeny do queue!</div>
-        <div style="color: #888; margin-top: 8px; font-size: 10px">Kontroluj console a UI status pro průběh...</div>
-      `;
+    if (window.runAITest) {
+      window.runAITest(0);
     }
-  }, window.AI_TEST_PROMPTS.length * 100 + 500);
+  }, 300);
+};
+
+// Spustí jednotlivý test
+window.runSingleTest = function(testIndex) {
+  const modal = document.getElementById("aiTestModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+
+  // Reset výsledků před spuštěním
+  window.resetTestResults();
+
+  // Nastav batch mode na false - jde o jediný test
+  window.aiTestBatchMode = false;
+
+  // Ujisti se, že AI panel je otevřený
+  if (window.toggleAiPanel) {
+    window.toggleAiPanel(true);
+  }
+
+  // Vymaž chat historii
+  const chatContainer = document.getElementById("aiChatHistory");
+  if (chatContainer) {
+    chatContainer.innerHTML = "";
+  }
+
+  // Spusť vybraný test
+  setTimeout(() => {
+    if (window.runAITest) {
+      window.runAITest(testIndex);
+    }
+  }, 300);
+};
+
+// Původní funkce pro spuštění všech testů (zachováno pro zpětnou kompatibilitu)
+window.runAllTests = function() {
+  if (!confirm("⚠️ Spuštění všech testů znamená 20+ API requestů!\n\nDoporučujeme použít 'KOMPLEXNÍ TEST' místo toho (jen 1 request).\n\nOpravdu chcete pokračovat?")) {
+    return;
+  }
+
+  const modal = document.getElementById("aiTestModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+
+  // Reset výsledků před spuštěním
+  window.resetTestResults();
+
+  // Nastav batch mode na true - spouštíme všechny testy
+  window.aiTestBatchMode = true;
+
+  // Ujisti se, že AI panel je otevřený
+  if (window.toggleAiPanel) {
+    window.toggleAiPanel(true);
+  }
+
+  // Vymaž chat historii
+  const chatContainer = document.getElementById("aiChatHistory");
+  if (chatContainer) {
+    chatContainer.innerHTML = "";
+  }
+
+  // Spusť všechny testy postupně od indexu 0
+  setTimeout(() => {
+    if (window.runAITest) {
+      window.runAITest(0);
+    }
+  }, 300);
 };
 
 window.showTestResponse = function(testIndex) {
@@ -1881,25 +2711,85 @@ window.showAITestPanel = function() {
         <p style="color: #90cdf4; margin: 0; font-size: 12px">
           Celkem: <strong>${window.AI_TEST_PROMPTS.length}</strong> testů
         </p>
-        <button onclick="window.runAllTests()" style="
-          padding: 6px 12px;
-          background: linear-gradient(135deg, #c084fc 0%, #ec4899 100%);
-          border: none;
-          border-radius: 4px;
-          color: white;
-          cursor: pointer;
-          font-weight: bold;
-          font-size: 11px;
-          transition: all 0.2s
-        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-          ▶️ VŠECHNY TESTY
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button onclick="window.runComplexTest()" style="
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3)
+          " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Komplexní test všech funkcí v jednom promptu">
+            🎯 KOMPLEXNÍ TEST
+          </button>
+          <button onclick="window.exportTestResults()" style="
+            padding: 6px 12px;
+            background: #2563eb;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 11px;
+            transition: all 0.2s
+          " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Exportovat výsledky testů do JSON">
+            📊 EXPORT
+          </button>
+          <button onclick="window.resetTestResults(); alert('✅ Výsledky testů resetovány');" style="
+            padding: 6px 12px;
+            background: #dc2626;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 11px;
+            transition: all 0.2s
+          " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Resetovat výsledky testů">
+            🔄 RESET
+          </button>
+        </div>
       </div>
       <p style="color: #888; margin: 0; font-size: 11px">
-        Klikni na test pro jednotlivé možnosti, nebo spusť všechny najednou
+        🎯 <strong>Komplexní test</strong> = 1 request, testuje všechny hlavní funkce | Nebo klikni na jednotlivé testy níže
       </p>
+      <div style="margin-top: 18px; padding: 10px; background: #1a1a1a; border-radius: 6px; border: 1px solid #333;">
+        <div style="font-size: 12px; color: #6ab0ff; margin-bottom: 6px;">Vlastní test podle zadání:</div>
+        <textarea id="customTestPrompt" rows="2" style="width: 100%; background: #111; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 6px; font-size: 13px; resize: vertical; margin-bottom: 6px;"></textarea>
+        <button onclick="window.runCustomTest()" style="padding: 7px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">▶️ Spustit vlastní test</button>
+      </div>
     </div>
   `;
+// Spuštění vlastního testu podle uživatelského zadání
+window.runCustomTest = function() {
+  const prompt = document.getElementById("customTestPrompt").value.trim();
+  if (!prompt) {
+    alert("Zadejte prompt pro vlastní test.");
+    return;
+  }
+  // Vytvoř dočasný test objekt
+  const customTest = {
+    name: "📝 Vlastní test uživatele",
+    prompt: prompt,
+    expectedShapes: 0,
+    expectedType: [],
+    complexity: 1,
+    description: "Uživatelský test zadání"
+  };
+  // Přidej dočasně na konec pole a spusť
+  window.AI_TEST_PROMPTS.push(customTest);
+  window.runAITest(window.AI_TEST_PROMPTS.length - 1);
+  // Po dokončení testu odeber z pole, aby se neukládal do historie
+  setTimeout(() => {
+    window.AI_TEST_PROMPTS.pop();
+  }, 2000);
+  // Zavři modal
+  document.getElementById("aiTestModal").style.display = "none";
+};
 
   // Zobraz testy seřazené podle levelu
   Object.keys(grouped).forEach(level => {
@@ -1908,7 +2798,7 @@ window.showAITestPanel = function() {
 
     grouped[level].forEach(t => {
       html += `
-        <button onclick="window.showTestOptions(${t.actualIndex})" style="
+        <button onclick="window.runSingleTest(${t.actualIndex})" style="
           padding: 10px 12px;
           background: #1a1a1a;
           border: 1px solid #333;
@@ -1918,7 +2808,7 @@ window.showAITestPanel = function() {
           text-align: left;
           transition: all 0.2s;
           font-size: 12px
-        " onmouseover="this.style.borderColor='#6ab0ff'; this.style.background='#222'" onmouseout="this.style.borderColor='#333'; this.style.background='#1a1a1a'">
+        " onmouseover="this.style.borderColor='#6ab0ff'; this.style.background='#222'" onmouseout="this.style.borderColor='#333'; this.style.background='#1a1a1a'" title="Klikni pro spuštění tohoto testu">
           <div style="font-weight: bold; color: #6ab0ff">${t.index}. ${t.name}</div>
           <div style="font-size: 11px; color: #888; margin-top: 4px">
             Prompt: "${window.formatCNCCommand(t.prompt).substring(0, 40)}${window.formatCNCCommand(t.prompt).length > 40 ? '...' : ''}" | Tvary: ${t.expectedShapes}
