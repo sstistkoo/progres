@@ -829,7 +829,7 @@ function handleSelectMode(x, y, shiftKey) {
       }
 
       window.selectedItems.push(newItem);
-      
+
       // Zruš selectedSnapPoint, aby se nepřekrývaly renderování
       window.selectedSnapPoint = null;
     }
@@ -1978,6 +1978,109 @@ window.tangentFromPoint = tangentFromPoint;
 // ===== FÁZA 6 PARTIAL COMPLETION - Canvas event handlers =====
 // Event handlery nyní integrují Soustruznik.state
 // getCanvasState() helper umožňuje fallback k globálním proměnným
+
+// ===== REŽIM MĚŘENÍ =====
+window.measurementMode = false;
+window.measurementItems = [];
+
+window.toggleMeasurementMode = function() {
+  window.measurementMode = !window.measurementMode;
+  window.measurementItems = [];
+  
+  if (window.measurementMode) {
+    window.mode = "select";  // Použij select mode pro výběr
+    const btn = document.getElementById("btnMeasurement");
+    if (btn) btn.classList.add("active");
+    const info = document.getElementById("modeInfo");
+    if (info) {
+      info.innerHTML = `📏 <strong>MĚŘENÍ</strong>: Klikni na 2 objekty pro měření vzdálenosti<br/><small>(Bod-Bod, Bod-Čára, apod.)</small>`;
+    }
+  } else {
+    window.measurementItems = [];
+    const btn = document.getElementById("btnMeasurement");
+    if (btn) btn.classList.remove("active");
+  }
+  
+  if (window.draw) window.draw();
+};
+
+// Přepsaní handleSelectMode když je měření aktivní
+const originalHandleSelectMode = window.handleSelectMode || handleSelectMode;
+
+window.handleSelectMode = function(x, y, shiftKey) {
+  if (window.measurementMode) {
+    // V režimu měření sbíraj maximálně 2 objekty
+    const tolerance = 5 / (window.zoom || 2);
+    let found = null;
+
+    // Hledat bod
+    const found_point = window.points && window.points.find((p) => {
+      return Math.hypot(p.x - x, p.y - y) < tolerance;
+    });
+
+    if (found_point) {
+      found = {
+        category: "point",
+        x: found_point.x,
+        y: found_point.y,
+        ref: found_point,
+      };
+    } else {
+      // Hledat tvar
+      const found_shape = window.shapes && window.shapes.find((s) => {
+        if (s.type === "dimension") return false;
+        if (s.type === "line") {
+          const d = pointToLineDistance(x, y, s.x1, s.y1, s.x2, s.y2);
+          return d < tolerance;
+        } else if (s.type === "circle") {
+          return Math.abs(Math.hypot(x - s.cx, y - s.cy) - s.r) < tolerance;
+        }
+        return false;
+      });
+
+      if (found_shape) {
+        found = {
+          category: "shape",
+          type: found_shape.type,
+          ref: found_shape,
+        };
+      } else {
+        // Vytvořit bod z snap pointu
+        found = {
+          category: "point",
+          x: x,
+          y: y,
+          ref: null,
+        };
+      }
+    }
+
+    if (found) {
+      // Zjisti jestli je už vybraný
+      const index = window.measurementItems.findIndex((i) => {
+        if (found.category === "point" && i.category === "point") {
+          return Math.abs(i.x - found.x) < 0.0001 && Math.abs(i.y - found.y) < 0.0001;
+        } else if (found.category === "shape" && i.category === "shape") {
+          return i.ref === found.ref;
+        }
+        return false;
+      });
+
+      if (index > -1) {
+        // Odebrat
+        window.measurementItems.splice(index, 1);
+      } else if (window.measurementItems.length < 2) {
+        // Přidat (max 2)
+        window.measurementItems.push(found);
+      }
+    }
+
+    if (window.draw) window.draw();
+  } else {
+    // Normální select mode
+    originalHandleSelectMode.call(window, x, y, shiftKey);
+  }
+};
 
 console.log('✅ FÁZA 6: canvas.js - Event handler namespace integration');
 console.log('   Canvas state stored in window.Soustruznik.state');
