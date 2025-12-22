@@ -9,11 +9,14 @@
 let animationFrameId = null;
 
 function initializeApp() {
+  console.log("🚀 initializeApp() called");
   const canvas = document.getElementById("canvas");
   if (!canvas) {
     console.error("❌ Canvas element not found!");
     return;
   }
+
+  console.log("📐 Canvas found:", canvas.id);
 
   // Prevent pinch-to-zoom on mobile (which would break the UI)
   document.addEventListener('touchmove', function(e) {
@@ -49,6 +52,12 @@ function initializeApp() {
   if (window.Soustruznik.state.zoom === undefined) window.Soustruznik.state.zoom = 2;
   if (window.Soustruznik.state.panX === undefined) window.Soustruznik.state.panX = canvas.width / 2;
   if (window.Soustruznik.state.panY === undefined) window.Soustruznik.state.panY = canvas.height / 2;
+
+  console.log("✅ initializeApp set zoom/panX/panY:", {
+    zoom: window.Soustruznik.state.zoom,
+    panX: window.Soustruznik.state.panX,
+    panY: window.Soustruznik.state.panY
+  });
 
   // Zpětná kompatibilita - také nastavit na window
   window.zoom = window.Soustruznik.state.zoom;
