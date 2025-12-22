@@ -353,6 +353,57 @@ function draw() {
 
     ctx.setLineDash([]);
   }
+
+  // ===== ZVÝRAZNĚNÍ PŘICHYCENÉHO BODU =====
+  // Zobrazit cercích kolem bodu pod kurzorem + info panel
+  const cursorPos = { x: window.lastMouseX, y: window.lastMouseY };
+  if (cursorPos.x !== undefined && cursorPos.y !== undefined) {
+    const snapResult = snapPointInternal(cursorPos);
+    
+    if (snapResult.snapInfo) {
+      const sp = window.worldToScreen(snapResult.point.x, snapResult.point.y);
+      
+      // Velký kroužek kolem přichyceného bodu (žlutá)
+      ctx.strokeStyle = "#ffff00";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(sp.x, sp.y, 10, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Vnitřní menší kroužek (oranžová)
+      ctx.strokeStyle = "#ff8800";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sp.x, sp.y, 6, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Zobrazit info v snap-info panelu
+      const snapInfoEl = document.getElementById("snapInfo");
+      if (snapInfoEl) {
+        const zoom = window.Soustruznik.state.zoom || window.zoom || 1;
+        const displayX = snapResult.point.x.toFixed(2);
+        const displayY = snapResult.point.y.toFixed(2);
+
+        let infoText = `Z=${displayX} X=${displayY}`;
+        
+        // Přidat typ bodu
+        if (snapResult.snapInfo.type === "point") infoText += " (bod)";
+        else if (snapResult.snapInfo.type === "endpoint") infoText += " (konec)";
+        else if (snapResult.snapInfo.type === "center") infoText += " (střed)";
+        else if (snapResult.snapInfo.type === "intersection") infoText += " (průsečík)";
+        else if (snapResult.snapInfo.type === "grid") infoText += " (mřížka)";
+
+        snapInfoEl.textContent = infoText;
+        snapInfoEl.classList.add("show");
+      }
+    } else {
+      // Skrýt snapInfo, pokud není přichyceno na bod
+      const snapInfoEl = document.getElementById("snapInfo");
+      if (snapInfoEl) {
+        snapInfoEl.classList.remove("show");
+      }
+    }
+  }
 }
 
 function drawGrid(ctx, canvas) {
