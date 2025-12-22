@@ -199,3 +199,17 @@ window.aiMetrics = {
 
 // ===== ANIMATION =====
 window.animationFrameId = null;
+
+// ===== COORDINATE CONVERSION FUNCTIONS =====
+// Mapujeme funktionální delegáty na namespace methods
+Object.defineProperty(window, 'worldToScreen', {
+  value: function(wx, wy) {
+    return window.Soustruznik.methods.worldToScreen.call(window.Soustruznik, {x: wx, y: wy});
+  }
+});
+
+Object.defineProperty(window, 'screenToWorld', {
+  value: function(sx, sy) {
+    return window.Soustruznik.methods.screenToWorld.call(window.Soustruznik, {x: sx, y: sy});
+  }
+});
