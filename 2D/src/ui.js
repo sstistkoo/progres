@@ -574,14 +574,6 @@ window.setGridSpacing = function(size) {
   if (window.draw) window.draw();
 };
 
-window.updateMinGridSpacing = function() {
-  const minGridSpacingInput = document.getElementById("minGridSpacingPx");
-  if (minGridSpacingInput) {
-    window.minGridSpacingPx = parseFloat(minGridSpacingInput.value) || 50;
-    if (window.draw) window.draw();
-  }
-};
-
 // ===== TOGGLE SECTIONS =====
 
 window.toggleSection = function(sectionId) {

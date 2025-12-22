@@ -809,20 +809,49 @@ function drawGrid(ctx, canvas) {
 
   const zoom = window.Soustruznik.state.zoom ?? window.zoom ?? 1;
   const gridSize = window.gridSize ?? 10;
-  const minGridSpacingPx = window.minGridSpacingPx ?? 50;
 
+  // Vypočítat kolik pixelů na obrazovce zabírá jeden dílek mřížky
   const gridPixels = gridSize * zoom;
 
+  // Pokud je mřížka příliš hustá (< 3px na čáru), zvětšit rozestup
   let displayGrid = gridSize;
   let skipFactor = 1;
 
-  if (gridPixels < minGridSpacingPx) {
-    skipFactor = Math.ceil(minGridSpacingPx / gridPixels);
+  if (gridPixels < 3) {
+    skipFactor = Math.ceil(3 / gridPixels);
     displayGrid = gridSize * skipFactor;
   }
 
+  // Sekundární jemnější mřížka (světlejší), pokud je skipFactor > 1
+  if (skipFactor > 1 && gridPixels * 5 >= 3) {
+    ctx.strokeStyle = "#141414";
+    const fineGrid = gridSize * Math.min(5, skipFactor);
+    const sx = Math.floor(Math.min(tl.x, br.x) / fineGrid) * fineGrid;
+    const ex = Math.ceil(Math.max(tl.x, br.x) / fineGrid) * fineGrid;
+    const sy = Math.floor(Math.min(tl.y, br.y) / fineGrid) * fineGrid;
+    const ey = Math.ceil(Math.max(tl.y, br.y) / fineGrid) * fineGrid;
+
+    for (let x = sx; x <= ex; x += fineGrid) {
+      const p = window.worldToScreen(x, 0);
+      if (!p) continue;
+      ctx.beginPath();
+      ctx.moveTo(p.x, 0);
+      ctx.lineTo(p.x, canvas.height);
+      ctx.stroke();
+    }
+
+    for (let y = sy; y <= ey; y += fineGrid) {
+      const p = window.worldToScreen(0, y);
+      if (!p) continue;
+      ctx.beginPath();
+      ctx.moveTo(0, p.y);
+      ctx.lineTo(canvas.width, p.y);
+      ctx.stroke();
+    }
+  }
+
   // Hlavní mřížka
-  ctx.strokeStyle = "#666666";
+  ctx.strokeStyle = "#1a1a1a";
   ctx.lineWidth = 1;
 
   const sx = Math.floor(Math.min(tl.x, br.x) / displayGrid) * displayGrid;
