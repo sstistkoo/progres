@@ -45,27 +45,7 @@ if (!window.Soustruznik.methods.screenToWorld) {
 // Pouze se zde odkažují!
 
 // ===== COORDINATE CONVERSION =====
-// Vytváříme lokální proměnné - globální verze budou dostupné přes Object.defineProperty v globals.js
-
-const worldToScreen = (wx, wy) => {
-  try {
-    const result = window.Soustruznik.methods.worldToScreen.call(window.Soustruznik, {x: wx, y: wy});
-    return result || { x: wx, y: wy };  // Fallback na vstupní hodnotu
-  } catch (e) {
-    console.warn("⚠️ worldToScreen error:", e);
-    return { x: wx, y: wy };  // Fallback na vstupní hodnotu
-  }
-};
-
-const screenToWorld = (sx, sy) => {
-  try {
-    const result = window.Soustruznik.methods.screenToWorld.call(window.Soustruznik, {x: sx, y: sy});
-    return result || { x: sx, y: sy };  // Fallback na vstupní hodnotu
-  } catch (e) {
-    console.warn("⚠️ screenToWorld error:", e);
-    return { x: sx, y: sy };  // Fallback na vstupní hodnotu
-  }
-};
+// window.worldToScreen a window.screenToWorld jsou mapovány v globals.js
 
 // ===== SNAP POINTS & GEOMETRY =====
 
@@ -119,8 +99,8 @@ function snapPointInternal(pt) {
   let bestDist = window.snapDistance; // Max vzdálenost
 
   for (let p of window.cachedSnapPoints) {
-    const screenP = worldToScreen(p.x, p.y);
-    const screenPt = worldToScreen(pt.x, pt.y);
+    const screenP = _worldToScreen(p.x, p.y);
+    const screenPt = _worldToScreen(pt.x, pt.y);
     const dist = Math.sqrt(
       (screenP.x - screenPt.x) ** 2 + (screenP.y - screenPt.y) ** 2
     );
@@ -205,8 +185,8 @@ function draw() {
   if (document.getElementById("showPoints")?.checked) {
     window.cachedSnapPoints.forEach((p) => {
       if (p.type !== "point") {
-        const sp = worldToScreen(p.x, p.y);
-        if (!sp) return;  // Guard: worldToScreen vracela undefined
+        const sp = _worldToScreen(p.x, p.y);
+        if (!sp) return;  // Guard: _worldToScreen vracela undefined
         ctx.beginPath();
 
         if (p.type === "intersection") {
