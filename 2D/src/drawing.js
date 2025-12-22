@@ -4,7 +4,38 @@
  * - Shape management
  * - Intersection calculations
  * - Snap points
+ * 
+ * MIGRATION STATUS: FÁZE 3 - Postupně refaktorujeme do namespace
  */
+
+// ===== REFACTORED FUNCTIONS - Mapování na Soustruznik.methods =====
+
+// Mapujeme staré globální funkce na nový namespace
+// Zajišťujeme zpětnou kompatibilitu!
+
+if (!window.Soustruznik.methods.worldToScreen) {
+  window.Soustruznik.methods.worldToScreen = function(point) {
+    const { zoom, panX, panY } = this.state;
+    return {
+      x: point.x * zoom + panX,
+      y: panY - point.y * zoom
+    };
+  };
+}
+
+if (!window.Soustruznik.methods.screenToWorld) {
+  window.Soustruznik.methods.screenToWorld = function(point) {
+    const { zoom, panX, panY } = this.state;
+    return {
+      x: (point.x - panX) / zoom,
+      y: (panY - point.y) / zoom
+    };
+  };
+}
+
+// ===== LEGACY FUNCTIONS (Zachovány pro zpětnou kompatibilitu) =====
+// Tyto funkce teď volají nový namespace
+// Během migrace je budeme postupně mazat
 
 // Globální proměnné jsou inicializovány v globals.js
 // Pouze se zde odkažují!
@@ -12,17 +43,11 @@
 // ===== COORDINATE CONVERSION =====
 
 function worldToScreen(wx, wy) {
-  return {
-    x: wx * window.zoom + window.panX,
-    y: window.panY - wy * window.zoom,
-  };
+  return window.Soustruznik.methods.worldToScreen.call(window.Soustruznik, {x: wx, y: wy});
 }
 
 function screenToWorld(sx, sy) {
-  return {
-    x: (sx - window.panX) / window.zoom,
-    y: (window.panY - sy) / window.zoom,
-  };
+  return window.Soustruznik.methods.screenToWorld.call(window.Soustruznik, {x: sx, y: sy});
 }
 
 // ===== SNAP POINTS & GEOMETRY =====
@@ -121,6 +146,13 @@ function updateSnap() {
 }
 
 // ===== RENDERING =====
+
+// Mapujeme na namespace
+if (!window.Soustruznik.methods.draw) {
+  window.Soustruznik.methods.draw = function() {
+    draw();  // Volá starou funkci (během migrace)
+  };
+}
 
 function draw() {
   const canvas = document.getElementById("canvas");
