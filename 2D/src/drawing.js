@@ -556,12 +556,12 @@ function draw() {
           ctx.font = "bold 14px Arial";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          
+
           // Cerny outline
           ctx.strokeStyle = "#000000";
           ctx.lineWidth = 3;
           ctx.strokeText(item.label, screenPos.x, screenPos.y - 25);
-          
+
           // Bily text pres outline
           ctx.fillStyle = "#ffffff";
           ctx.fillText(item.label, screenPos.x, screenPos.y - 25);
@@ -569,16 +569,16 @@ function draw() {
       }
     });
     ctx.globalAlpha = 1; // Resetuj alpha na konci
-    
+
     // ===== MěŘENÍ VZDALENOSTI =====
     // Pokud jsou vybrány bod a čára (nebo druhé prvky), vypocitej a zobraz vzdalenost
     if (window.selectedItems && window.selectedItems.length >= 2) {
       const item1 = window.selectedItems[0];
       const item2 = window.selectedItems[1];
-      
+
       let distance = null;
       let midPoint = null;
-      
+
       // Bod + čára
       if (item1.category === "point" && item2.category === "shape" && item2.ref.type === "line") {
         const line = item2.ref;
@@ -596,7 +596,7 @@ function draw() {
         distance = Math.hypot(item2.x - item1.x, item2.y - item1.y);
         midPoint = { x: (item1.x + item2.x) / 2, y: (item1.y + item2.y) / 2 };
       }
-      
+
       // Vypis vzdalenost
       if (distance !== null && midPoint) {
         const screenMid = window.worldToScreen(midPoint.x, midPoint.y);
@@ -608,16 +608,17 @@ function draw() {
           const text = `${distance.toFixed(2)} mm`;
           const textWidth = ctx.measureText(text).width + 8;
           const textHeight = 16;
-          
+
           // Cerny box
           ctx.fillRect(screenMid.x - textWidth / 2, screenMid.y - textHeight / 2, textWidth, textHeight);
-          
+
           // Vzdy viditelna barva (cyan nebo zluta)
           ctx.fillStyle = "#00ffff";
           ctx.fillText(text, screenMid.x, screenMid.y);
         }
       }
     }
+  }
 }
 
 function drawGrid(ctx, canvas) {
