@@ -812,6 +812,8 @@ function drawGrid(ctx, canvas) {
 
   const gridPixels = gridSize * zoom;
 
+  console.log("🔳 drawGrid() START - canvas:", canvas.width, "x", canvas.height, "zoom:", zoom, "gridPixels:", gridPixels);
+
   let displayGrid = gridSize;
   let skipFactor = 1;
 
@@ -889,8 +891,11 @@ function drawGrid(ctx, canvas) {
 function drawAxes(ctx, canvas) {
   const ox = window.worldToScreen(0, 0);
 
+  console.log("🔴 drawAxes() START - canvas:", canvas.width, "x", canvas.height, "ox:", ox);
+
   // Fallback když worldToScreen vrací undefined
   if (!ox) {
+    console.log("🔴 drawAxes() - ox is undefined, returning");
     return;
   }
 

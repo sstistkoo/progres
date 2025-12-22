@@ -50,17 +50,12 @@ function initializeApp() {
   canvas.width = canvasWidth * dpr;
   canvas.height = canvasHeight * dpr;
 
-  console.log("📐 Canvas dimensions:", {
-    innerWidth: window.innerWidth,
-    innerHeight: window.innerHeight,
-    rectWidth: rect.width,
-    rectHeight: rect.height,
-    canvasWidth: canvasWidth,
-    canvasHeight: canvasHeight,
-    dpr: dpr,
-    finalWidth: canvas.width,
-    finalHeight: canvas.height
-  });
+  console.log("📐 Canvas BEFORE:", { width: canvas.width, height: canvas.height });
+  console.log("📐 Canvas CHECK - innerWidth:", window.innerWidth, "innerHeight:", window.innerHeight, "dpr:", dpr);
+  
+  // Force canvas display size
+  canvas.style.width = canvasWidth + "px";
+  canvas.style.height = canvasHeight + "px";
 
   // Store canvas reference globally
   window.canvas = canvas;
