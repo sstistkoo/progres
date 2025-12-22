@@ -98,6 +98,46 @@ window.EMBEDDED_API_KEY = "AIzaSyCXuMvhO_senLS" + "oA_idEuBk_EwnMmIPIhg"; // Spl
 // window.cachedSnapPoints = [];
 // window.selectedItems = [];
 
+// ===== HELPER FUNCTIONS =====
+/**
+ * Konvertuj obdélníky na 4 usečky (pro snadnější měření)
+ * Obdélníky jsou nahrazeny jejich 4 stranami jako oddělenými usečkami
+ */
+window.convertRectanglesToLines = function(shapes) {
+  if (!shapes) return [];
+  
+  const result = [];
+  const rectangles = [];
+  
+  // Oddělej obdélníky od ostatních tvarů
+  shapes.forEach(shape => {
+    if (shape.type === "rectangle") {
+      rectangles.push(shape);
+    } else {
+      result.push(shape);
+    }
+  });
+  
+  // Konvertuj obdélníky na 4 usečky
+  rectangles.forEach(rect => {
+    const minX = Math.min(rect.x1, rect.x2);
+    const maxX = Math.max(rect.x1, rect.x2);
+    const minY = Math.min(rect.y1, rect.y2);
+    const maxY = Math.max(rect.y1, rect.y2);
+    
+    // Horní strana
+    result.push({ type: "line", x1: minX, y1: minY, x2: maxX, y2: minY });
+    // Dolní strana
+    result.push({ type: "line", x1: minX, y1: maxY, x2: maxX, y2: maxY });
+    // Levá strana
+    result.push({ type: "line", x1: minX, y1: minY, x2: minX, y2: maxY });
+    // Pravá strana
+    result.push({ type: "line", x1: maxX, y1: minY, x2: maxX, y2: maxY });
+  });
+  
+  return result;
+};
+
 // ===== VIEWPORT & VIEW =====
 // window.panX a window.panY jsou nyní mapovány na Soustruznik.state! (viz výše)
 // window.zoom je nyní mapován na Soustruznik.state! (viz výše)
