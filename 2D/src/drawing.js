@@ -155,31 +155,10 @@ function draw() {
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
 
-  console.log("🎨 draw() START - canvas:", canvas.width, "x", canvas.height);
-  console.log("🎨 Canvas position - offsetTop:", canvas.offsetTop, "offsetLeft:", canvas.offsetLeft);
-  console.log("🎨 Canvas getBoundingClientRect:", canvas.getBoundingClientRect());
-  console.log("🎨 Canvas parent getBoundingClientRect:", canvas.parentElement.getBoundingClientRect());
-  console.log("🎨 Canvas style - width:", canvas.style.width, "height:", canvas.style.height);
-  console.log("🎨 Canvas computed style - width:", getComputedStyle(canvas).width, "height:", getComputedStyle(canvas).height);
-  console.log("🎨 Canvas computed style - display:", getComputedStyle(canvas).display, "visibility:", getComputedStyle(canvas).visibility);
-  console.log("🎨 Canvas parent style - display:", getComputedStyle(canvas.parentElement).display, "overflow:", getComputedStyle(canvas.parentElement).overflow);
-  
-  // Najít všechny parent elementy a jejich display vlastnosti
-  let currentElement = canvas.parentElement;
-  let level = 1;
-  while (currentElement && level <= 5) {
-    const computedStyle = getComputedStyle(currentElement);
-    console.log(`🎨 Parent level ${level} (${currentElement.tagName}.${currentElement.className || 'no-class'}#${currentElement.id || 'no-id'}) - display:`, computedStyle.display, "visibility:", computedStyle.visibility);
-    currentElement = currentElement.parentElement;
-    level++;
-  }
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const showGrid = document.getElementById("showGrid")?.checked;
   const showAxes = document.getElementById("showAxes")?.checked;
-
-  console.log("🎨 draw() checkboxes - showGrid:", showGrid, "showAxes:", showAxes);
 
   if (showGrid) {
     drawGrid(ctx, canvas);
@@ -842,26 +821,7 @@ function drawGrid(ctx, canvas) {
   }
 
   // Hlavní mřížka
-  // TEST: Nakreslit jasnou červenou čáru přes celý canvas
-  ctx.strokeStyle = "#FF0000";
-  ctx.lineWidth = 20;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(canvas.width, canvas.height);
-  ctx.stroke();
-
-  // TEST: Nakreslit druhý kříž
-  ctx.beginPath();
-  ctx.moveTo(canvas.width, 0);
-  ctx.lineTo(0, canvas.height);
-  ctx.stroke();
-
-  // TEST: Nakreslit žlutý obdélník kolem okrajů
-  ctx.strokeStyle = "#FFFF00";
-  ctx.lineWidth = 10;
-  ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-
-  console.log("🔴 TEST: Červená čára + kříž + žlutý rámeček nakresleny, canvas:", canvas.width, "x", canvas.height);
+  ctx.strokeStyle = "#666666";
   ctx.lineWidth = 1;
 
   const sx = Math.floor(Math.min(tl.x, br.x) / displayGrid) * displayGrid;
