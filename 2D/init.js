@@ -50,9 +50,6 @@ function initializeApp() {
   canvas.width = canvasWidth * dpr;
   canvas.height = canvasHeight * dpr;
 
-  console.log("📐 Canvas BEFORE:", { width: canvas.width, height: canvas.height });
-  console.log("📐 Canvas CHECK - innerWidth:", window.innerWidth, "innerHeight:", window.innerHeight, "dpr:", dpr);
-  
   // Force canvas display size
   canvas.style.width = canvasWidth + "px";
   canvas.style.height = canvasHeight + "px";
@@ -76,13 +73,6 @@ function initializeApp() {
   window.zoom = window.Soustruznik.state.zoom;
   window.panX = window.Soustruznik.state.panX;
   window.panY = window.Soustruznik.state.panY;
-
-  console.log("✅ Inicializace hotova:", {
-    canvas: { width: canvas.width, height: canvas.height },
-    state: { zoom: window.zoom, panX: window.panX, panY: window.panY },
-    screenToWorld: window.screenToWorld ? "✅ OK" : "❌ MISSING",
-    worldToScreen: window.worldToScreen ? "✅ OK" : "❌ MISSING"
-  });
 
   if (!window.shapes) window.shapes = [];
   if (!window.points) window.points = [];

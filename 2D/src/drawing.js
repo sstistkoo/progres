@@ -812,8 +812,6 @@ function drawGrid(ctx, canvas) {
 
   const gridPixels = gridSize * zoom;
 
-  console.log("🔳 drawGrid() START - canvas:", canvas.width, "x", canvas.height, "zoom:", zoom, "gridPixels:", gridPixels);
-
   let displayGrid = gridSize;
   let skipFactor = 1;
 
@@ -830,9 +828,7 @@ function drawGrid(ctx, canvas) {
   const ex = Math.ceil(Math.max(tl.x, br.x) / displayGrid) * displayGrid;
   const sy = Math.floor(Math.min(tl.y, br.y) / displayGrid) * displayGrid;
   const ey = Math.ceil(Math.max(tl.y, br.y) / displayGrid) * displayGrid;
-  
-  let lineCount = 0;
-  
+
   // Vertical lines
   for (let x = sx; x <= ex; x += displayGrid) {
     const p = window.worldToScreen(x, 0);
@@ -841,7 +837,6 @@ function drawGrid(ctx, canvas) {
     ctx.moveTo(p.x, 0);
     ctx.lineTo(p.x, canvas.height);
     ctx.stroke();
-    lineCount++;
   }
 
   // Horizontal lines
@@ -852,42 +847,13 @@ function drawGrid(ctx, canvas) {
     ctx.moveTo(0, p.y);
     ctx.lineTo(canvas.width, p.y);
     ctx.stroke();
-    lineCount++;
   }
-  
-  console.log("🔳 drawGrid() END - narysovano " + lineCount + " čar, sx=" + sx + " ex=" + ex + " sy=" + sy + " ey=" + ey);
-
-  for (let x = sx; x <= ex; x += displayGrid) {
-    const p = window.worldToScreen(x, 0);
-    if (!p) continue;
-    ctx.beginPath();
-    ctx.moveTo(p.x, 0);
-    ctx.lineTo(p.x, canvas.height);
-    ctx.stroke();
-    lineCount++;
-  }
-
-  for (let y = sy; y <= ey; y += displayGrid) {
-    const p = window.worldToScreen(0, y);
-    if (!p) continue;
-    ctx.beginPath();
-    ctx.moveTo(0, p.y);
-    ctx.lineTo(canvas.width, p.y);
-    ctx.stroke();
-    lineCount++;
-  }
-  
-  console.log("🔳 drawGrid() END - narysovano " + lineCount + " čar, sx=" + sx + " ex=" + ex + " sy=" + sy + " ey=" + ey);
 }
 
 function drawAxes(ctx, canvas) {
   const ox = window.worldToScreen(0, 0);
 
-  console.log("🔴 drawAxes() START - canvas:", canvas.width, "x", canvas.height, "ox:", ox);
-
-  // Fallback když worldToScreen vrací undefined
   if (!ox) {
-    console.log("🔴 drawAxes() - ox is undefined, returning");
     return;
   }
 
