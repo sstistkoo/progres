@@ -58,6 +58,16 @@ function initializeApp() {
   // Setup canvas event handlers (mousedown, mousemove, etc.)
   if (window.setupCanvasEvents) window.setupCanvasEvents();
 
+  // Initialize default drawing settings (barvy a styly)
+  if (window.initializeDefaultSettings) {
+    window.initializeDefaultSettings();
+  }
+
+  // Initialize dimension color settings (barvy kót)
+  if (window.initializeDimensionSettings) {
+    window.initializeDimensionSettings();
+  }
+
   // Start animation loop
   startAnimationLoop();
 

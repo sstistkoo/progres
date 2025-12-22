@@ -30,6 +30,14 @@ window.snapDistance = 15; // pixels
 window.orthoMode = true; // Ortogonální přichycení
 window.measureInputEnabled = false; // Míra - zadávání rozměrů
 
+// ===== DEFAULT DRAWING COLORS & STYLES =====
+window.defaultDrawColor = "#4a9eff"; // Výchozí barva nových objektů
+window.defaultDrawLineStyle = "solid"; // Výchozí styl čáry nových objektů
+
+// ===== DIMENSION COLORS & STYLES =====
+window.dimensionLineColor = "#ffa500"; // Barva čar kót
+window.dimensionTextColor = "#ffff99"; // Barva hodnot kót
+
 // ===== DRAWING MODE & STATE =====
 window.mode = "pan"; // pan, line, circle, point, etc.
 window.currentCategory = null;

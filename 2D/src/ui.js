@@ -8,6 +8,111 @@
 
 // Globální proměnné jsou inicializovány v globals.js
 
+// ===== DEFAULT DRAWING SETTINGS =====
+
+window.initializeDefaultSettings = function () {
+  // Načíst uložené nastavení z localStorage
+  const savedColor = localStorage.getItem("defaultDrawColor") || "#4a9eff";
+  const savedStyle = localStorage.getItem("defaultDrawLineStyle") || "solid";
+
+  window.defaultDrawColor = savedColor;
+  window.defaultDrawLineStyle = savedStyle;
+
+  // Nastavit selecty v HTML
+  const colorSelect = document.getElementById("defaultColorSelect");
+  const styleSelect = document.getElementById("defaultLineStyleSelect");
+
+  if (colorSelect) colorSelect.value = savedColor;
+  if (styleSelect) styleSelect.value = savedStyle;
+};
+
+window.setDefaultColor = function (color) {
+  window.defaultDrawColor = color;
+  localStorage.setItem("defaultDrawColor", color);
+};
+
+window.setDefaultLineStyle = function (style) {
+  window.defaultDrawLineStyle = style;
+  localStorage.setItem("defaultDrawLineStyle", style);
+};
+
+// ===== DIMENSION COLOR SETTINGS =====
+
+window.initializeDimensionSettings = function () {
+  // Načíst uložené barvy kót z localStorage
+  const savedLineColor = localStorage.getItem("dimensionLineColor") || "#ffa500";
+  const savedTextColor = localStorage.getItem("dimensionTextColor") || "#ffff99";
+
+  window.dimensionLineColor = savedLineColor;
+  window.dimensionTextColor = savedTextColor;
+
+  // Nastavit selecty v HTML
+  const lineColorSelect = document.getElementById("dimensionLineColorSelect");
+  const textColorSelect = document.getElementById("dimensionTextColorSelect");
+
+  if (lineColorSelect) lineColorSelect.value = savedLineColor;
+  if (textColorSelect) textColorSelect.value = savedTextColor;
+};
+
+window.setDimensionLineColor = function (color) {
+  window.dimensionLineColor = color;
+  localStorage.setItem("dimensionLineColor", color);
+  if (window.draw) window.draw(); // Překreslit plátno
+};
+
+window.setDimensionTextColor = function (color) {
+  window.dimensionTextColor = color;
+  localStorage.setItem("dimensionTextColor", color);
+  if (window.draw) window.draw(); // Překreslit plátno
+};
+
+// ===== INFO NOTIFICATIONS =====
+
+window.showInfoNotification = function (message, duration = 3000) {
+  // Vytvoření notifikačního elementu
+  const notification = document.createElement("div");
+  notification.id = "infoNotification";
+  notification.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(26, 26, 26, 0.95);
+    color: #6ab0ff;
+    padding: 20px 40px;
+    border-radius: 8px;
+    border: 2px solid #6ab0ff;
+    font-size: 16px;
+    font-weight: bold;
+    z-index: 9999;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+    animation: fadeInOut ${duration}ms ease-in-out;
+  `;
+  notification.textContent = message;
+
+  document.body.appendChild(notification);
+
+  // Přidat CSS animaci
+  if (!document.getElementById("notificationStyles")) {
+    const style = document.createElement("style");
+    style.id = "notificationStyles";
+    style.textContent = `
+      @keyframes fadeInOut {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+        10% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        90% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Odstranit element po skončení animace
+  setTimeout(() => {
+    notification.remove();
+  }, duration);
+};
+
 // ===== DEBOUNCE PRO CATEGORY SWITCHING =====
 let lastCategoryChangeTime = 0;
 const CATEGORY_DEBOUNCE_MS = 500; // Ochrana proti dvojímu volání
@@ -729,7 +834,7 @@ window.addLineByCoords = function () {
     return;
   }
 
-  window.shapes.push({ type: "line", z1, x1, z2, x2 });
+  window.shapes.push({ type: "line", z1, x1, z2, x2, color: window.defaultDrawColor || "#4a9eff", lineStyle: window.defaultDrawLineStyle || "solid" });
   window.saveState();
   window.draw();
   document.getElementById("lineZ1").value = "";
@@ -749,7 +854,7 @@ window.quickAddCircle = function () {
     return;
   }
 
-  window.shapes.push({ type: "circle", z, x, r });
+  window.shapes.push({ type: "circle", z, x, r, color: window.defaultDrawColor || "#4a9eff", lineStyle: window.defaultDrawLineStyle || "solid" });
   window.saveState();
   window.draw();
   document.getElementById("quickCircleZ").value = "";
@@ -813,15 +918,283 @@ window.updateSnap = function () {
 
 // Stubní funkce pro transformace
 window.showColorPicker = function () {
+  // Resetovat výběr
+  window.colorStyleSelected = {
+    color: null,
+    lineStyle: null,
+  };
+
+  // Pokud něco vybrané je, použít to
+  if (window.selectedItems && window.selectedItems.length > 0) {
+    const modal = document.getElementById("colorStyleModal");
+    if (modal) {
+      modal.style.display = "flex";
+    }
+    return;
+  }
+
+  // Pokud nic není vybrané, otevřít modal pro nastavení barev a stylu
+  // Ale nejdřív bez výběru - prosí o výběr v confirmColorStyle
+  window.colorPickerMode = "waitingForColor"; // Speciální režim
+  const modal = document.getElementById("colorStyleModal");
+  if (modal) {
+    modal.style.display = "flex";
+  }
+};
+
+window.closeColorStyleModal = function () {
+  const modal = document.getElementById("colorStyleModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+
+  // Resetovat výběr UI
+  document.querySelectorAll("#colorStyleModal button.selected").forEach((btn) => {
+    btn.classList.remove("selected");
+    if (btn.id.startsWith("colorBtn_")) {
+      btn.style.borderWidth = "2px";
+    } else {
+      btn.style.borderWidth = "1px";
+    }
+  });
+
+  // Zrušit výběr objektů aby se viděly změny
+  if (window.selectedItems) {
+    window.selectedItems = [];
+  }
+  if (window.draw) window.draw();
+};
+
+window.selectColor = function (color, btn) {
+  // Odebrat selected třídu z ostatních barev
+  document.querySelectorAll("#colorStyleModal [id^='colorBtn_']").forEach((btn) => {
+    btn.classList.remove("selected");
+    btn.style.borderWidth = "2px";
+  });
+
+  // Přidat selected třídu na aktuální
+  btn.classList.add("selected");
+  btn.style.borderWidth = "4px";
+
+  window.colorStyleSelected = window.colorStyleSelected || {};
+  window.colorStyleSelected.color = color;
+};
+
+window.selectLineStyle = function (style, btn) {
+  // Odebrat selected třídu z ostatních stylů
+  document.querySelectorAll("#colorStyleModal [id^='styleBtn_']").forEach((btn) => {
+    btn.classList.remove("selected");
+    btn.style.borderWidth = "1px";
+    btn.style.background = "#2a3a4a";
+    btn.style.color = "#aaa";
+  });
+
+  // Přidat selected třídu na aktuální
+  btn.classList.add("selected");
+  btn.style.borderWidth = "2px";
+  btn.style.background = "#3a7bc8";
+  btn.style.color = "#fff";
+
+  window.colorStyleSelected = window.colorStyleSelected || {};
+  window.colorStyleSelected.lineStyle = style;
+};
+
+window.confirmColorStyle = function () {
+  // Pokud čekáme na výběr barvy (bez vybraných objektů), přejít do režimu výběru
+  if (
+    window.colorPickerMode === "waitingForColor" &&
+    (!window.selectedItems || window.selectedItems.length === 0)
+  ) {
+    if (
+      !window.colorStyleSelected.color &&
+      !window.colorStyleSelected.lineStyle
+    ) {
+      alert("⚠️ Vyberte barvu nebo styl čáry!");
+      return;
+    }
+
+    // Nastavit režim výběru PŘED zavřením modalu
+    window.colorPickerMode = true;
+    window.mode = "colorPicker";
+
+    // Zavřít modal ručně aby se neměnily stavové proměnné
+    const modal = document.getElementById("colorStyleModal");
+    if (modal) {
+      modal.style.display = "none";
+    }
+
+    // Resetovat vizuální stav tlačítek
+    document.querySelectorAll("#colorStyleModal button.selected").forEach((btn) => {
+      btn.classList.remove("selected");
+      if (btn.id.startsWith("colorBtn_")) {
+        btn.style.borderWidth = "2px";
+      } else {
+        btn.style.borderWidth = "1px";
+      }
+    });
+
+    // Zavolat draw ale bez resetování selectedItems na tomto místě
+    if (window.draw) window.draw();
+
+    window.showInfoNotification("Vyberte čáru k úpravě", 1000);
+    return;
+  }
+
+  // Standardní režim - aplikovat na vybrané objekty
+  if (!window.selectedItems || window.selectedItems.length === 0) {
+    alert("❌ Žádné objekty nejsou vybrány!");
+    return;
+  }
+
+  if (
+    !window.colorStyleSelected.color &&
+    !window.colorStyleSelected.lineStyle
+  ) {
+    alert("⚠️ Vyberte barvu nebo styl čáry!");
+    return;
+  }
+
+  if (window.saveState) window.saveState();
+
+  // Aplikovat změny
+  for (let item of window.selectedItems) {
+    if (item && item.ref) {
+      if (window.colorStyleSelected.color) {
+        item.ref.color = window.colorStyleSelected.color;
+      }
+      if (window.colorStyleSelected.lineStyle) {
+        item.ref.lineStyle = window.colorStyleSelected.lineStyle;
+      }
+    }
+  }
+
+  // Zavřít modal a zrušit výběr
+  window.closeColorStyleModal();
+};
+
+window.setObjectColor = function (color) {
+  if (!window.selectedItems || window.selectedItems.length === 0) {
+    return;
+  }
+
+  if (window.saveState) window.saveState();
+
+  for (let item of window.selectedItems) {
+    if (item && item.ref) {
+      item.ref.color = color;
+    }
+  }
+
+  if (window.draw) window.draw();
+};
+
+window.setLineStyle = function (style) {
+  if (!window.selectedItems || window.selectedItems.length === 0) {
+    return;
+  }
+
+  if (window.saveState) window.saveState();
+
+  for (let item of window.selectedItems) {
+    if (item && item.ref) {
+      item.ref.lineStyle = style;
+    }
+  }
+
+  if (window.draw) window.draw();
 };
 
 window.booleanUnion = function () {
+  if (!window.selectedItems || window.selectedItems.length < 2) {
+    alert("❌ Vyberte minimálně 2 objekty pro sjednocení!");
+    return;
+  }
+
+  const selected = window.selectedItems.filter((item) => item.ref);
+  if (selected.length < 2) {
+    alert("❌ Vybrané objekty nejsou validní!");
+    return;
+  }
+
+  if (window.saveState) window.saveState();
+
+  window.shapes = window.shapes.filter(
+    (s) => !selected.some((item) => item.ref === s)
+  );
+
+  window.shapes.push({
+    type: "union",
+    color: "#4fc3f7",
+    timestamp: Date.now(),
+    data: selected.map((item) => item.ref),
+  });
+
+  window.selectedItems = [];
+  if (window.updateSnapPoints) window.updateSnapPoints();
+  if (window.draw) window.draw();
 };
 
 window.booleanIntersect = function () {
+  if (!window.selectedItems || window.selectedItems.length < 2) {
+    alert("❌ Vyberte minimálně 2 objekty pro průnik!");
+    return;
+  }
+
+  const selected = window.selectedItems.filter((item) => item.ref);
+  if (selected.length < 2) {
+    alert("❌ Vybrané objekty nejsou validní!");
+    return;
+  }
+
+  if (window.saveState) window.saveState();
+
+  window.shapes = window.shapes.filter(
+    (s) => !selected.some((item) => item.ref === s)
+  );
+
+  window.shapes.push({
+    type: "intersection",
+    color: "#81c784",
+    timestamp: Date.now(),
+    data: selected.map((item) => item.ref),
+  });
+
+  window.selectedItems = [];
+  if (window.updateSnapPoints) window.updateSnapPoints();
+  if (window.draw) window.draw();
 };
 
 window.booleanDifference = function () {
+  if (!window.selectedItems || window.selectedItems.length < 2) {
+    alert("❌ Vyberte minimálně 2 objekty pro rozdíl!");
+    return;
+  }
+
+  const selected = window.selectedItems.filter((item) => item.ref);
+  if (selected.length < 2) {
+    alert("❌ Vybrané objekty nejsou validní!");
+    return;
+  }
+
+  if (window.saveState) window.saveState();
+
+  const baseShape = selected[0].ref;
+
+  window.shapes = window.shapes.filter(
+    (s) => !selected.some((item) => item.ref === s)
+  );
+
+  window.shapes.push({
+    type: "difference",
+    ...baseShape,
+    color: "#ff9800",
+    timestamp: Date.now(),
+    subtractData: selected.slice(1).map((item) => item.ref),
+  });
+
+  window.selectedItems = [];
+  if (window.updateSnapPoints) window.updateSnapPoints();
+  if (window.draw) window.draw();
 };
 
 // ===== COORDINATE SETUP FUNCTIONS =====
@@ -864,7 +1237,7 @@ window.addLineByCoords = function () {
   const x2 = parseFloat(document.getElementById("coordLineX2")?.value) || 0;
   const y2 = parseFloat(document.getElementById("coordLineY2")?.value) || 0;
   if (!window.shapes) window.shapes = [];
-  window.shapes.push({ type: "line", x1, y1, x2, y2, color: window.currentColor || "#fff" });
+  window.shapes.push({ type: "line", x1, y1, x2, y2, color: window.defaultDrawColor || "#4a9eff", lineStyle: window.defaultDrawLineStyle || "solid" });
   window.saveState();
   window.draw();
 };
@@ -878,7 +1251,7 @@ window.quickAddCircle = function () {
   const cy = parseFloat(document.getElementById("coordCircleCY")?.value) || 0;
   const r = parseFloat(document.getElementById("coordCircleR")?.value) || 1;
   if (!window.shapes) window.shapes = [];
-  window.shapes.push({ type: "circle", cx, cy, r, color: window.currentColor || "#fff" });
+  window.shapes.push({ type: "circle", cx, cy, r, color: window.defaultDrawColor || "#4a9eff", lineStyle: window.defaultDrawLineStyle || "solid" });
   window.saveState();
   window.draw();
 };
@@ -907,15 +1280,51 @@ window.closeConstraintModal = function () {
 };
 
 window.applyConstraint = function (type) {
-  // TODO: Implementovat různé typy fixací (distance, radius, horizontal, vertical, atd.)
+  if (!window.selectedItems || window.selectedItems.length === 0) {
+    alert("❌ Vyberte objekty pro aplikaci fixace!");
+    return;
+  }
+
+  const selected = window.selectedItems.filter((item) => item.ref);
+  if (selected.length === 0) return;
+
+  if (window.saveState) window.saveState();
+
+  for (let item of selected) {
+    if (!item.ref.constraints) {
+      item.ref.constraints = [];
+    }
+    item.ref.constraints.push({
+      type: type,
+      timestamp: Date.now(),
+    });
+  }
+
+  alert(`✅ Fixace typu "${type}" aplikována na ${selected.length} objektů!`);
+  window.closeConstraintModal();
+  if (window.draw) window.draw();
 };
 
 window.removeConstraint = function (which) {
-  // TODO: Implementovat
+  if (!window.selectedItems || window.selectedItems.length === 0) {
+    return;
+  }
+
+  if (window.saveState) window.saveState();
+
+  for (let item of window.selectedItems) {
+    if (item && item.ref && item.ref.constraints) {
+      item.ref.constraints = item.ref.constraints.filter(
+        (c) => c.type !== which
+      );
+    }
+  }
+
+  if (window.draw) window.draw();
 };
 
 window.cancelConstraintValue = function () {
-  // TODO: Implementovat
+  window.closeConstraintModal();
 };
 
 window.confirmConstraintPoint = function () {

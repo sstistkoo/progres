@@ -44,6 +44,8 @@ function onCanvasMouseDown(e) {
     window.mode = "pan";
   }
 
+  console.log("[onCanvasMouseDown] mode =", window.mode, "colorPickerMode =", window.colorPickerMode);
+
   const canvas = e.target;
   const rect = canvas.getBoundingClientRect();
   const screenX = e.clientX - rect.left;
@@ -137,6 +139,10 @@ function onCanvasMouseDown(e) {
 
     case "dimension":
       handleDimensionMode(snapped.x, snapped.y);
+      break;
+
+    case "colorPicker":
+      handleColorPickerMode(snapped.x, snapped.y);
       break;
   }
 
@@ -249,7 +255,8 @@ function onCanvasMouseUp(e) {
         y1: window.startPt.y,
         x2: x2,
         y2: y2,
-        color: window.currentColor || "#4a9eff",
+        color: window.defaultDrawColor || "#4a9eff",
+        lineStyle: window.defaultDrawLineStyle || "solid",
       });
       if (window.updateSnapPoints) window.updateSnapPoints();
       if (window.saveState) window.saveState();
@@ -274,19 +281,29 @@ function onCanvasWheel(e) {
   const screenX = e.clientX - rect.left;
   const screenY = e.clientY - rect.top;
 
-  const worldBefore = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
+  // Získat světové souřadnice PŘED změnou zoom
+  const worldPoint = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
 
+  // Změnit zoom
   const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
   if (window.zoom !== undefined) {
     window.zoom *= zoomFactor;
     window.zoom = Math.max(0.1, Math.min(window.zoom, 100));
   }
 
-  const worldAfter = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
+  // Vypočítat kde by měl být screen bod, aby zůstal na stejném světovém bodě
+  // screenX = worldPoint.x * newZoom + newPanX
+  // worldPoint.y = (newPanY - screenY) / newZoom
+  // Z toho plyne:
+  // newPanX = screenX - worldPoint.x * newZoom
+  // newPanY = worldPoint.y * newZoom + screenY
 
-  // Správná kompenzace - bez násobení zoomem
-  if (window.panX !== undefined) window.panX += worldBefore.x - worldAfter.x;
-  if (window.panY !== undefined) window.panY += worldBefore.y - worldAfter.y;
+  if (window.panX !== undefined) {
+    window.panX = screenX - worldPoint.x * window.zoom;
+  }
+  if (window.panY !== undefined) {
+    window.panY = worldPoint.y * window.zoom + screenY;
+  }
 
   if (window.draw) window.draw();
 }
@@ -442,7 +459,8 @@ function handleLineMode(x, y) {
       y1: window.startPt.y,
       x2: finalX,
       y2: finalY,
-      color: window.currentColor || "#ff0000",
+      color: window.defaultDrawColor || "#4a9eff",
+      lineStyle: window.defaultDrawLineStyle || "solid",
     });
     window.startPt = null;
     window.tempShape = null;
@@ -478,7 +496,8 @@ function handleCircleMode(x, y) {
       cx: window.startPt.x,
       cy: window.startPt.y,
       r: radius,
-      color: window.currentColor || "#00ff00",
+      color: window.defaultDrawColor || "#4a9eff",
+      lineStyle: window.defaultDrawLineStyle || "solid",
     });
     window.startPt = null;
     window.tempShape = null;
@@ -534,7 +553,8 @@ function handleCircumcircleMode(x, y) {
         cx: ux,
         cy: uy,
         r: r,
-        color: window.currentColor || "#00ff00",
+        color: window.defaultDrawColor || "#4a9eff",
+        lineStyle: window.defaultDrawLineStyle || "solid",
       });
 
       window.selectedItems = []; // Vymaž výběr
@@ -586,7 +606,8 @@ function handleCircumcircleMode(x, y) {
       cx: ux,
       cy: uy,
       r: r,
-      color: window.currentColor || "#00ff00",
+      color: window.defaultDrawColor || "#4a9eff",
+      lineStyle: window.defaultDrawLineStyle || "solid",
     });
 
     window.circumcirclePoints = [];
@@ -641,7 +662,8 @@ window.createCircumcircleFromSelectedPoints = function() {
     cx: ux,
     cy: uy,
     r: r,
-    color: window.currentColor || "#00ff00",
+    color: window.defaultDrawColor || "#4a9eff",
+    lineStyle: window.defaultDrawLineStyle || "solid",
   });
 
   window.selectedItems = []; // Vymaž výběr
@@ -1631,6 +1653,116 @@ function getMirrorPoint(px, py, lx1, ly1, lx2, ly2) {
     x: px + k * A,
     y: py + k * B,
   };
+}
+
+// ===== COLOR PICKER MODE =====
+
+function handleColorPickerMode(x, y) {
+  console.log("[handleColorPickerMode] START - colorPickerMode =", window.colorPickerMode);
+
+  // Kontrola colorPickerMode
+  if (!window.colorPickerMode) {
+    console.log("[handleColorPickerMode] colorPickerMode je false, vracím se");
+    return;
+  }
+
+  // Najít objekt pod kurzorem
+  const clickPoint = { x, y };
+  let foundItem = null;
+
+  console.log("[handleColorPickerMode] hledám tvary, máme", window.shapes ? window.shapes.length : 0, "tvarů");
+
+  // Hledat v tvary
+  for (let s of window.shapes) {
+    if (isPointNearShape(clickPoint, s)) {
+      console.log("[handleColorPickerMode] Našel jsem tvar:", s.type);
+      foundItem = { ref: s, category: "shape", label: null };
+      break;
+    }
+  }
+
+  if (foundItem) {
+    console.log("[handleColorPickerMode] Aplikuji barvu a styl");
+
+    // Aplikovat vybranou barvu a styl na objekt
+    if (window.colorStyleSelected && window.colorStyleSelected.color) {
+      console.log("[handleColorPickerMode] Nastavuji barvu na", window.colorStyleSelected.color);
+      foundItem.ref.color = window.colorStyleSelected.color;
+    }
+    if (window.colorStyleSelected && window.colorStyleSelected.lineStyle) {
+      console.log("[handleColorPickerMode] Nastavuji styl na", window.colorStyleSelected.lineStyle);
+      foundItem.ref.lineStyle = window.colorStyleSelected.lineStyle;
+    }
+
+    // Ukončit colorPicker režim
+    window.colorPickerMode = false;
+    window.mode = "pan";
+
+    if (window.saveState) window.saveState();
+    window.showInfoNotification("✅ Změna aplikována!", 1000);
+  } else {
+    console.log("[handleColorPickerMode] Nic nenalezeno pod kurzorem");
+    window.showInfoNotification("Klikli jste mimo objekt. Zkuste znovu.", 1000);
+  }
+
+  if (window.draw) window.draw();
+}
+
+function distancePointToLine(point, line) {
+  // Vzdálenost bodu od úsečky (line.x1, line.y1) - (line.x2, line.y2)
+  const x1 = line.x1;
+  const y1 = line.y1;
+  const x2 = line.x2;
+  const y2 = line.y2;
+  const px = point.x;
+  const py = point.y;
+
+  const num = Math.abs((y2 - y1) * px - (x2 - x1) * py + x2 * y1 - y2 * x1);
+  const den = Math.sqrt((y2 - y1) ** 2 + (x2 - x1) ** 2);
+
+  return den === 0 ? 0 : num / den;
+}
+
+function isPointNearShape(point, shape) {
+  const tolerance = 10 / window.zoom; // 10 pixelů
+
+  if (shape.type === "line") {
+    const dist = distancePointToLine(point, shape);
+    return dist < tolerance;
+  } else if (shape.type === "circle") {
+    const dist = Math.sqrt(
+      (point.x - shape.cx) ** 2 + (point.y - shape.cy) ** 2
+    );
+    return Math.abs(dist - shape.r) < tolerance;
+  } else if (shape.type === "rectangle") {
+    const minX = Math.min(shape.x1, shape.x2);
+    const maxX = Math.max(shape.x1, shape.x2);
+    const minY = Math.min(shape.y1, shape.y2);
+    const maxY = Math.max(shape.y1, shape.y2);
+
+    const onLine =
+      (point.x >= minX - tolerance &&
+        point.x <= maxX + tolerance &&
+        Math.abs(point.y - minY) < tolerance) ||
+      (point.x >= minX - tolerance &&
+        point.x <= maxX + tolerance &&
+        Math.abs(point.y - maxY) < tolerance) ||
+      (point.y >= minY - tolerance &&
+        point.y <= maxY + tolerance &&
+        Math.abs(point.x - minX) < tolerance) ||
+      (point.y >= minY - tolerance &&
+        point.y <= maxY + tolerance &&
+        Math.abs(point.x - maxX) < tolerance);
+
+    return onLine;
+  } else if (shape.type === "arc") {
+    const dist = Math.sqrt(
+      (point.x - shape.cx) ** 2 + (point.y - shape.cy) ** 2
+    );
+    return Math.abs(dist - shape.r) < tolerance;
+  }
+
+  return false;
 }
 
 // ===== INITIALIZATION =====

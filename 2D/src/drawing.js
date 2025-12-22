@@ -493,10 +493,23 @@ function drawAxes(ctx, canvas) {
 }
 
 function drawShape(ctx, s, canvas) {
-  let strokeColor = "#4a9eff";
+  let strokeColor = s.color || "#4a9eff";
 
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = 2;
+
+  // Aplikovat styl čáry
+  if (s.lineStyle === "thick") {
+    ctx.lineWidth = 4;
+  } else if (s.lineStyle === "thin") {
+    ctx.lineWidth = 1;
+  } else if (s.lineStyle === "dashed") {
+    ctx.setLineDash([8, 4]);
+  } else if (s.lineStyle === "dotted") {
+    ctx.setLineDash([2, 2]);
+  } else {
+    ctx.setLineDash([]);
+  }
 
   if (s.type === "line") {
     const p1 = worldToScreen(s.x1, s.y1);
@@ -524,7 +537,7 @@ function drawShape(ctx, s, canvas) {
     const height = Math.abs(p2.y - p1.y);
 
     ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
     ctx.strokeRect(x, y, width, height);
   }
 
@@ -537,8 +550,15 @@ function drawShape(ctx, s, canvas) {
     const angle2 = Math.atan2(p2.y - c.y, p2.x - c.x);
 
     ctx.save();
-    ctx.strokeStyle = s.color || strokeColor;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
+
+    if (s.lineStyle === "dashed") {
+      ctx.setLineDash([8, 4]);
+    } else if (s.lineStyle === "dotted") {
+      ctx.setLineDash([2, 2]);
+    }
+
     ctx.beginPath();
     ctx.arc(
       c.x,
@@ -551,7 +571,7 @@ function drawShape(ctx, s, canvas) {
     ctx.stroke();
     ctx.restore();
 
-    ctx.fillStyle = s.color || strokeColor;
+    ctx.fillStyle = strokeColor;
     ctx.beginPath();
     ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
     ctx.fill();
@@ -562,9 +582,9 @@ function drawShape(ctx, s, canvas) {
 
   // ===== KÓTY (DIMENSIONS) =====
   if (s.type === "dimension") {
-    ctx.strokeStyle = "#ffa500";
-    ctx.fillStyle = "#ffff99";
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = window.dimensionLineColor || "#ffa500";
+    ctx.fillStyle = window.dimensionTextColor || "#ffff99";
+    ctx.lineWidth = 0.4;
     ctx.font = "bold 12px Arial";
 
     if (s.dimType === "linear") {
@@ -573,13 +593,18 @@ function drawShape(ctx, s, canvas) {
 
       const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
       const offsetDist = 25;
+      // Offset vždy nahoru (kolmo na čáru, v kladném Y směru)
       const offsetX = Math.cos(angle + Math.PI / 2) * offsetDist;
       const offsetY = Math.sin(angle + Math.PI / 2) * offsetDist;
 
-      const dp1x = p1.x + offsetX;
-      const dp1y = p1.y + offsetY;
-      const dp2x = p2.x + offsetX;
-      const dp2y = p2.y + offsetY;
+      // Pokud je offsetY kladný, flip - chceme aby kóta byla vždy nahoru
+      const finalOffsetX = offsetY < 0 ? offsetX : -offsetX;
+      const finalOffsetY = offsetY < 0 ? offsetY : -offsetY;
+
+      const dp1x = p1.x + finalOffsetX;
+      const dp1y = p1.y + finalOffsetY;
+      const dp2x = p2.x + finalOffsetX;
+      const dp2y = p2.y + finalOffsetY;
 
       // Svislé čáry (čárkované)
       ctx.setLineDash([2, 2]);
@@ -597,20 +622,49 @@ function drawShape(ctx, s, canvas) {
       ctx.lineTo(dp2x, dp2y);
       ctx.stroke();
 
-      // Šipky
-      drawArrow(ctx, dp1x, dp1y, angle, 8);
-      drawArrow(ctx, dp2x, dp2y, angle + Math.PI, 8);
+      // Šipky - na koncích kóty, s logickou přizpůsobením
+      const arrowLen = Math.hypot(dp2x - dp1x, dp2y - dp1y);
+      const minSpace = 60; // minimální prostor pro šipku + hodnotu
 
-      // Text
-      const textX = (dp1x + dp2x) / 2;
-      const textY = (dp1y + dp2y) / 2 - 10;
-      ctx.fillStyle = "#1a1a1a";
-      ctx.fillRect(textX - 25, textY - 12, 50, 16);
-      ctx.fillStyle = "#ffff99";
-      ctx.textAlign = "center";
-      if (s.value !== null && s.value !== undefined) {
-        ctx.fillText(`${s.value.toFixed(1)}`, textX, textY);
+      let arrow1x = dp1x, arrow1y = dp1y, arrow2x = dp2x, arrow2y = dp2y;
+
+      // Pokud je kóta příliš krátká, posunout šipky ven
+      if (arrowLen < minSpace) {
+        const arrowDist = 25; // vzdálenost šipek ven od koncových bodů
+        const arrowDirX = (dp2x - dp1x) / arrowLen;
+        const arrowDirY = (dp2y - dp1y) / arrowLen;
+
+        arrow1x = dp1x - arrowDirX * arrowDist;
+        arrow1y = dp1y - arrowDirY * arrowDist;
+        arrow2x = dp2x + arrowDirX * arrowDist;
+        arrow2y = dp2y + arrowDirY * arrowDist;
       }
+
+      drawArrow(ctx, arrow1x, arrow1y, angle + Math.PI, 8);
+      drawArrow(ctx, arrow2x, arrow2y, angle, 8);
+
+      // Text - nad úsečkou, rovnoběžně zarovnán
+      const textX = (dp1x + dp2x) / 2;
+      const textY = (dp1y + dp2y) / 2 - 15;
+
+      ctx.save();
+      ctx.translate(textX, textY);
+
+      // Opravit orientaci textu - pokud je úhel obrácený, natočit zpět
+      let textAngle = angle;
+      if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+        textAngle = angle + Math.PI;
+      }
+      ctx.rotate(textAngle);
+
+      ctx.fillStyle = window.dimensionTextColor || "#ffff99";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      if (s.value !== null && s.value !== undefined) {
+        ctx.fillText(`${s.value.toFixed(1)}`, 0, 0);
+      }
+
+      ctx.restore();
       ctx.textAlign = "start";
     } else if (s.dimType === "radius") {
       const c = worldToScreen(s.cx, s.cy);
@@ -628,7 +682,7 @@ function drawShape(ctx, s, canvas) {
 
       ctx.fillStyle = "#1a1a1a";
       ctx.fillRect(ex + 10, ey - 12, 60, 16);
-      ctx.fillStyle = "#ffff99";
+      ctx.fillStyle = window.dimensionTextColor || "#ffff99";
       if (s.value !== null && s.value !== undefined) {
         ctx.fillText(`${s.label}${s.value.toFixed(1)}`, ex + 15, ey);
       }
@@ -675,16 +729,21 @@ function drawShape(ctx, s, canvas) {
       drawArrow(ctx, dp1x, dp1y, 0, 8);
       drawArrow(ctx, dp2x, dp2y, Math.PI, 8);
 
-      // Text
+      // Text - nad úsečkou
       const textX = (dp1x + dp2x) / 2;
-      const textY = dp1y - 10;
-      ctx.fillStyle = "#1a1a1a";
-      ctx.fillRect(textX - 25, textY - 12, 50, 16);
-      ctx.fillStyle = "#ffff99";
+      const textY = dp1y - 15;
+
+      ctx.save();
+      ctx.translate(textX, textY);
+
+      ctx.fillStyle = window.dimensionTextColor || "#ffff99";
       ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
       if (s.value !== null && s.value !== undefined) {
-        ctx.fillText(`${s.value.toFixed(1)}`, textX, textY);
+        ctx.fillText(`${s.value.toFixed(1)}`, 0, 0);
       }
+
+      ctx.restore();
       ctx.textAlign = "start";
     } else if (s.dimType === "rectHeight") {
       const p1 = worldToScreen(s.x1, s.y1);
@@ -719,16 +778,22 @@ function drawShape(ctx, s, canvas) {
       drawArrow(ctx, dp1x, dp1y, Math.PI / 2, 8);
       drawArrow(ctx, dp2x, dp2y, -Math.PI / 2, 8);
 
-      // Text
+      // Text - nad úsečkou, rovnoběžně zarovnán
       const textX = dp1x - 15;
       const textY = (dp1y + dp2y) / 2;
-      ctx.fillStyle = "#1a1a1a";
-      ctx.fillRect(textX - 25, textY - 12, 50, 16);
-      ctx.fillStyle = "#ffff99";
+
+      ctx.save();
+      ctx.translate(textX, textY);
+      ctx.rotate(Math.PI / 2);
+
+      ctx.fillStyle = window.dimensionTextColor || "#ffff99";
       ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
       if (s.value !== null && s.value !== undefined) {
-        ctx.fillText(`${s.value.toFixed(1)}`, textX, textY);
+        ctx.fillText(`${s.value.toFixed(1)}`, 0, 0);
       }
+
+      ctx.restore();
       ctx.textAlign = "start";
     }
   }
@@ -975,29 +1040,8 @@ window.clearSelection = function () {
 };
 
 // ===== BOOLEAN OPERATIONS =====
-window.booleanUnion = function () {
-  if (!window.selectedItems || window.selectedItems.length < 2) {
-    alert("❌ Vyberte minimálně 2 objekty pro sjednocení!");
-    return;
-  }
-  alert("🔗 Sjednocení: Funkce bude implementována - zatím ve vývoji");
-};
-
-window.booleanIntersect = function () {
-  if (!window.selectedItems || window.selectedItems.length < 2) {
-    alert("❌ Vyberte minimálně 2 objekty pro průnik!");
-    return;
-  }
-  alert("🔗 Průnik: Funkce bude implementována - zatím ve vývoji");
-};
-
-window.booleanDifference = function () {
-  if (!window.selectedItems || window.selectedItems.length < 2) {
-    alert("❌ Vyberte minimálně 2 objekty pro rozdíl!");
-    return;
-  }
-  alert("🔗 Rozdíl: Funkce bude implementována - zatím ve vývoji");
-};
+// Implementováno v ui.js - tyto jsou jen záložky
+// Odkazují na ui.js verze s plnou funkcionalitou
 
 // ===== DIMENSION OPERATIONS =====
 window.deleteAllDimensions = function () {
@@ -1137,7 +1181,8 @@ window.createArc = function (x1, y1, x2, y2, angle) {
     x2: x2,
     y2: y2,
     angle: angle,
-    color: window.currentColor || "#ffffff",
+    color: window.defaultDrawColor || "#4a9eff",
+    lineStyle: window.defaultDrawLineStyle || "solid",
   };
 
   window.shapes.push(newArc);
@@ -1431,7 +1476,7 @@ window.addLinePolar = function() {
   const angle = (parseFloat(document.getElementById("polarAngle").value) * Math.PI) / 180;
   const z1 = z0 + dist * Math.cos(angle);
   const x1 = x0 + dist * Math.sin(angle);
-  window.shapes.push({ type: "line", x1: z0, y1: x0, x2: z1, y2: x1 });
+  window.shapes.push({ type: "line", x1: z0, y1: x0, x2: z1, y2: x1, color: window.defaultDrawColor || "#4a9eff", lineStyle: window.defaultDrawLineStyle || "solid" });
   let displayX1 = x1;
   if (window.xMeasureMode === "diameter") displayX1 *= 2;
   document.getElementById("polarStartZ").value = z1.toFixed(2);
@@ -1478,7 +1523,7 @@ window.addLineByCoords = function() {
   const z2 = parseFloat(document.getElementById("lineZ2").value);
   let x2 = parseFloat(document.getElementById("lineX2").value);
   if (window.xMeasureMode === "diameter") { x1 /= 2; x2 /= 2; }
-  window.shapes.push({ type: "line", x1: z1, y1: x1, x2: z2, y2: x2 });
+  window.shapes.push({ type: "line", x1: z1, y1: x1, x2: z2, y2: x2, color: window.defaultDrawColor || "#4a9eff", lineStyle: window.defaultDrawLineStyle || "solid" });
   window.updateSnapPoints();
   window.draw();
 };
