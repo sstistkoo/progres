@@ -384,7 +384,8 @@ function draw() {
         const displayX = window.selectedSnapPoint.x.toFixed(2);
         const displayY = window.selectedSnapPoint.y.toFixed(2);
         let typeStr = window.selectedSnapPoint.type;
-        if (typeStr === "endpoint") typeStr = "konec";
+        if (typeStr === "point") typeStr = "bod";
+        else if (typeStr === "endpoint") typeStr = "konec";
         else if (typeStr === "center") typeStr = "střed";
         else if (typeStr === "intersection") typeStr = "průsečík";
         else if (typeStr === "grid") typeStr = "mřížka";
