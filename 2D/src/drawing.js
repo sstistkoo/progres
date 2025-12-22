@@ -510,6 +510,50 @@ function draw() {
       }
     }
   }
+
+  // ===== VYKRESLENÍ VYBRANÝCH BODŮ (selectedItems s písmeny) =====
+  if (window.selectedItems && window.selectedItems.length > 0) {
+    window.selectedItems.forEach((item) => {
+      if (item.category === "point") {
+        const screenPos = window.worldToScreen(item.x, item.y);
+        if (!screenPos) return;
+
+        // Modrý kruh pro vybraný bod
+        ctx.strokeStyle = "#0088ff";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(screenPos.x, screenPos.y, 12, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Vyplnění středu (průhledně modrá)
+        ctx.fillStyle = "rgba(0, 136, 255, 0.2)";
+        ctx.beginPath();
+        ctx.arc(screenPos.x, screenPos.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        // PÍSMENO (A, B, C...)
+        if (item.label) {
+          // Pozadí (tmavě modré)
+          ctx.fillStyle = "#003399";
+          ctx.font = "bold 14px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          const labelWidth = 24;
+          const labelHeight = 24;
+          ctx.fillRect(
+            screenPos.x - labelWidth / 2,
+            screenPos.y - 25 - labelHeight / 2,
+            labelWidth,
+            labelHeight
+          );
+
+          // Bílé písmeno
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(item.label, screenPos.x, screenPos.y - 25);
+        }
+      }
+    });
+  }
 }
 
 function drawGrid(ctx, canvas) {
