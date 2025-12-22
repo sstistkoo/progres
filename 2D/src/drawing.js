@@ -334,6 +334,15 @@ function draw() {
       const height = Math.abs(p2.y - p1.y);
 
       ctx.strokeRect(x, y, width, height);
+
+      // Kreslit koncové body (rohy) během náhledu
+      ctx.fillStyle = "#4a9eff";
+      ctx.beginPath();
+      ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(p2.x, p2.y, 3, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     ctx.setLineDash([]);
@@ -569,6 +578,15 @@ function drawShape(ctx, s, canvas) {
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
       ctx.strokeRect(x, y, width, height);
+
+      // Kreslit koncové body (rohy)
+      ctx.fillStyle = strokeColor;
+      ctx.beginPath();
+      ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(p2.x, p2.y, 3, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
