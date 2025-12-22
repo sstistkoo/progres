@@ -68,6 +68,9 @@ function initializeApp() {
   // ✅ Automaticky zapnout mřížku a osy
   const showGridCheckbox = document.getElementById("showGrid");
   const showAxesCheckbox = document.getElementById("showAxes");
+  console.log("🔧 showGridCheckbox:", showGridCheckbox);
+  console.log("🔧 showAxesCheckbox:", showAxesCheckbox);
+  
   if (showGridCheckbox) showGridCheckbox.checked = true;
   if (showAxesCheckbox) showAxesCheckbox.checked = true;
 
@@ -75,7 +78,13 @@ function initializeApp() {
   if (window.updateSnapPoints) window.updateSnapPoints();
 
   // ✅ IHNED nakresli poprvé, aby se zobrazila mřížka
-  if (window.draw) window.draw();
+  console.log("🔧 window.draw:", window.draw);
+  if (window.draw) {
+    console.log("✅ Volám window.draw()");
+    window.draw();
+  } else {
+    console.error("❌ window.draw není dostupná!");
+  }
 
   // Setup canvas event handlers (mousedown, mousemove, etc.)
   if (window.setupCanvasEvents) window.setupCanvasEvents();
