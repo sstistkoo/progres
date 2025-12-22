@@ -2039,10 +2039,18 @@ window.handleSelectMode = function(x, y, shiftKey) {
       });
 
       if (found_shape) {
+        // Pokud je to usečka, spočítej nejbližší bod na usečce (kde uživatel klikl)
+        let clickPoint = { x: x, y: y };
+        if (found_shape.type === "line") {
+          clickPoint = pointToLineClosestPoint(x, y, found_shape.x1, found_shape.y1, found_shape.x2, found_shape.y2);
+        }
+
         found = {
           category: "shape",
           type: found_shape.type,
           ref: found_shape,
+          clickX: clickPoint.x, // Bod kde uživatel klikl
+          clickY: clickPoint.y,
         };
       } else {
         // Vytvořit bod z snap pointu

@@ -685,7 +685,7 @@ function draw() {
 
       // ===== MĚŘENÍ USEČKY (první objekt = usečka) =====
       if (isFirstLine && isSecondLine) {
-        // Obě jsou usečky - zobrazit délky obou + úhel
+        // Obě jsou usečky - zobrazit délky obou + úhel + vzdálenost mezi kliknutými body
         const len1 = Math.hypot(item1.ref.x2 - item1.ref.x1, item1.ref.y2 - item1.ref.y1);
         const len2 = Math.hypot(item2.ref.x2 - item2.ref.x1, item2.ref.y2 - item2.ref.y1);
 
@@ -700,9 +700,16 @@ function draw() {
         angleDiff = (angleDiff * 180) / Math.PI;
         if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
+        // Vzdálenost mezi kliknutými body na usečkách
+        const clickDist = Math.hypot(
+          (item2.clickX || item2.ref.x1) - (item1.clickX || item1.ref.x1),
+          (item2.clickY || item2.ref.y1) - (item1.clickY || item1.ref.y1)
+        );
+
         measurements.push(`Usečka 1: ${len1.toFixed(2)} mm`);
         measurements.push(`Usečka 2: ${len2.toFixed(2)} mm`);
         measurements.push(`Úhel: ${angleDiff.toFixed(1)}°`);
+        measurements.push(`Vzdálenost bodů: ${clickDist.toFixed(2)} mm`);
 
         midPoint = {
           x: ((item1.ref.x1 + item1.ref.x2) / 2 + (item2.ref.x1 + item2.ref.x2) / 2) / 2,
