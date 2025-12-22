@@ -1,6 +1,6 @@
 /**
  * GLOBALS.JS - Zpětná kompatibilita & State Mapping
- * 
+ *
  * Mapuje staré globální proměnné na nový Soustruznik namespace
  * Zajišťuje, že starý kód stále funguje!
  */
@@ -52,6 +52,16 @@ Object.defineProperty(window, 'zoom', {
   set: (v) => { window.Soustruznik.state.zoom = v; }
 });
 
+Object.defineProperty(window, 'panX', {
+  get: () => window.Soustruznik.state.panX,
+  set: (v) => { window.Soustruznik.state.panX = v; }
+});
+
+Object.defineProperty(window, 'panY', {
+  get: () => window.Soustruznik.state.panY,
+  set: (v) => { window.Soustruznik.state.panY = v; }
+});
+
 Object.defineProperty(window, 'defaultDrawColor', {
   get: () => window.Soustruznik.state.defaultDrawColor,
   set: (v) => { window.Soustruznik.state.defaultDrawColor = v; }
@@ -84,9 +94,8 @@ window.EMBEDDED_API_KEY = "AIzaSyCXuMvhO_senLS" + "oA_idEuBk_EwnMmIPIhg"; // Spl
 // window.selectedItems = [];
 
 // ===== VIEWPORT & VIEW =====
-window.panX = 0;
-window.panY = 0;
-// window.zoom = 2;           ← Nyní mapováno výše!
+// window.panX a window.panY jsou nyní mapovány na Soustruznik.state! (viz výše)
+// window.zoom je nyní mapován na Soustruznik.state! (viz výše)
 window.gridSize = 10;
 
 // ===== SETTINGS =====
