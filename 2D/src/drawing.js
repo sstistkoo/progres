@@ -160,13 +160,6 @@ function draw() {
   const showGrid = document.getElementById("showGrid")?.checked;
   const showAxes = document.getElementById("showAxes")?.checked;
 
-  // Loguj jen při inicializaci nebo změně
-  if (window.lastGridState !== showGrid || window.lastAxesState !== showAxes) {
-    console.log("✅ draw() volána:", { showGrid, showAxes, shapesCount: window.shapes?.length || 0 });
-    window.lastGridState = showGrid;
-    window.lastAxesState = showAxes;
-  }
-
   if (showGrid) {
     drawGrid(ctx, canvas);
   }
@@ -808,13 +801,10 @@ function drawGrid(ctx, canvas) {
   let tl = window.screenToWorld(0, 0);
   let br = window.screenToWorld(canvas.width, canvas.height);
 
-  console.log("🔳 drawGrid() - tl:", tl, "br:", br, "canvas:", canvas.width, "x", canvas.height);
-
   // Fallback na defaultní values když worldToScreen vrací undefined
   if (!tl || !br) {
     tl = tl || { x: -100, y: -100 };
     br = br || { x: 100, y: 100 };
-    console.log("🔳 drawGrid() - FALLBACK:", tl, br);
   }
 
   const zoom = window.Soustruznik.state.zoom ?? window.zoom ?? 1;
@@ -898,11 +888,9 @@ function drawGrid(ctx, canvas) {
 
 function drawAxes(ctx, canvas) {
   const ox = window.worldToScreen(0, 0);
-  console.log("🔴 drawAxes() - ox:", ox, "canvas:", canvas.width, "x", canvas.height);
 
   // Fallback když worldToScreen vrací undefined
   if (!ox) {
-    console.log("🔴 drawAxes() - ox je undefined, vrací se");
     return;
   }
 
