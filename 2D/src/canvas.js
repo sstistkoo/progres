@@ -2009,6 +2009,7 @@ const originalHandleSelectMode = window.handleSelectMode || handleSelectMode;
 
 window.handleSelectMode = function(x, y, shiftKey) {
   if (window.measurementMode) {
+    console.log(`🔍 MEASUREMENT: Klik na (${x.toFixed(1)}, ${y.toFixed(1)}), zoom=${window.zoom}, tolerance=${5 / (window.zoom || 2)}`);
     // V režimu měření sbíraj maximálně 2 objekty
     const tolerance = 5 / (window.zoom || 2);
     let found = null;
@@ -2019,6 +2020,7 @@ window.handleSelectMode = function(x, y, shiftKey) {
     });
 
     if (found_point) {
+      console.log('✅ Nalezen bod:', found_point);
       found = {
         category: "point",
         x: found_point.x,
@@ -2027,6 +2029,7 @@ window.handleSelectMode = function(x, y, shiftKey) {
       };
     } else {
       // Hledat tvar
+      console.log(`  Hledám tvary, máme ${window.shapes ? window.shapes.length : 0} tvarů`);
       const found_shape = window.shapes && window.shapes.find((s) => {
         if (s.type === "dimension") return false;
         if (s.type === "line") {
@@ -2103,11 +2106,15 @@ window.handleSelectMode = function(x, y, shiftKey) {
           clickX: clickPoint.x, // Bod kde uživatel klikl
           clickY: clickPoint.y,
         };
+        console.log('✅ Nalezen tvar:', found);
+      } else {
+        console.log('❌ Žádný objekt nenalezen');
       }
       // Pokud nic není najito, nic se nepřidá (ne vytvářet nové body!)
     }
 
     if (found) {
+      console.log('📌 Přidávám do measurementItems:', found);
       // Zjisti jestli je už vybraný
       const index = window.measurementItems.findIndex((i) => {
         if (found.category === "point" && i.category === "point") {
@@ -2144,8 +2151,13 @@ window.handleSelectMode = function(x, y, shiftKey) {
 
         if (canAdd) {
           window.measurementItems.push(found);
+          console.log('✅ Přidán do measurementItems. Celkem:', window.measurementItems.length);
+        } else {
+          console.log('⚠️ Ignorováno - špatný typ objektu');
         }
       }
+
+      console.log('📊 MeasurementItems:', window.measurementItems);
     }
 
     if (window.draw) window.draw();
