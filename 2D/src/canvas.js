@@ -86,7 +86,7 @@ function onCanvasMouseDown(e) {
           y: snapResult.point.y,
           label: snapResult.snapInfo.label // TODO: Bude přepsáno níže
         };
-        
+
         // Zavolej handleSelectMode místo abychom dělali vlastní logiku
         handleSelectMode(snapResult.point.x, snapResult.point.y, e.shiftKey);
         return; // Nepokračuj dál
@@ -745,8 +745,14 @@ function handleSelectMode(x, y, shiftKey) {
 
   let found = null;
 
+  // NEJDŘÍV: Kontrola snap pointu (geometrické body - konce čar, rohy obdélníků, apod.)
+  // Ty se detekují v onCanvasMouseDown a předávají se sem přes snapResult
+  // Pokud jsme zde zavoláni ze snap pointu, měl bychom ho přidat přímo
+  
   // Hledat blízký bod (tolerance 5px)
   const tolerance = 5 / (window.zoom || 2);
+  
+  // Nejdřív zkusit najít v window.points (manuálně vytvořené body)
   const found_point = window.points && window.points.find((p) => {
     return Math.hypot(p.x - x, p.y - y) < tolerance;
   });
@@ -776,6 +782,15 @@ function handleSelectMode(x, y, shiftKey) {
         category: "shape",
         type: found_shape.type,
         ref: found_shape,
+      };
+    } else {
+      // POSLEDNÍ MOŽNOST: Pokud se nikde nenašel, vytvořit bod z snap pointu
+      // (toto se používá pro geometrické body jako konce čar, rohy obdélníků, apod.)
+      found = {
+        category: "point",
+        x: x,
+        y: y,
+        ref: null, // Žádný odkaz - je to jen geometrický bod
       };
     }
   }
