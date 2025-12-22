@@ -43,6 +43,7 @@ function initializeApp() {
 
   // Store canvas reference globally
   window.canvas = canvas;
+  console.log("🔧 Canvas nastavené:", { width: canvas.width, height: canvas.height, dpr });
 
   // Initialize defaults if not already set
   // ✅ Sync s namespace - zoom, panX, panY se mají čtít z window.Soustruznik.state
@@ -60,6 +61,12 @@ function initializeApp() {
   window.zoom = window.Soustruznik.state.zoom;
   window.panX = window.Soustruznik.state.panX;
   window.panY = window.Soustruznik.state.panY;
+  
+  console.log("🔧 State nastaveno:", { zoom: window.zoom, panX: window.panX, panY: window.panY });
+  console.log("🔧 Test screenToWorld:", { 
+    p1: window.screenToWorld(0, 0), 
+    p2: window.screenToWorld(canvas.width, canvas.height) 
+  });
 
   if (!window.shapes) window.shapes = [];
   if (!window.points) window.points = [];
@@ -70,7 +77,7 @@ function initializeApp() {
   const showAxesCheckbox = document.getElementById("showAxes");
   console.log("🔧 showGridCheckbox:", showGridCheckbox);
   console.log("🔧 showAxesCheckbox:", showAxesCheckbox);
-  
+
   if (showGridCheckbox) showGridCheckbox.checked = true;
   if (showAxesCheckbox) showAxesCheckbox.checked = true;
 
