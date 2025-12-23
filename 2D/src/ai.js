@@ -23,6 +23,69 @@ document.addEventListener("DOMContentLoaded", () => {
   updateApiUsageUI();
 });
 
+// Enable dragging of AI panel
+window.enableAIDragging = function () {
+  const toolsAi = document.getElementById('toolsAi');
+  const panel = document.getElementById('aiPanel');
+  const header = document.getElementById('aiHeaderRow');
+  if (!panel || !header || !toolsAi) return;
+
+  // Restore saved position
+  try {
+    const saved = localStorage.getItem('aiPanelPosition');
+    if (saved) {
+      const pos = JSON.parse(saved);
+      if (pos.left) panel.style.left = pos.left;
+      if (pos.top) panel.style.top = pos.top;
+      panel.style.right = 'auto';
+    }
+  } catch (e) {}
+
+  let dragging = false;
+  let startX = 0, startY = 0, origX = 0, origY = 0;
+
+  const onStart = (clientX, clientY) => {
+    const rect = panel.getBoundingClientRect();
+    dragging = true;
+    startX = clientX;
+    startY = clientY;
+    origX = rect.left;
+    origY = rect.top;
+    document.body.style.userSelect = 'none';
+  };
+
+  const onMove = (clientX, clientY) => {
+    if (!dragging) return;
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+    panel.style.left = (origX + dx) + 'px';
+    panel.style.top = (origY + dy) + 'px';
+    panel.style.right = 'auto';
+  };
+
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+    try {
+      localStorage.setItem('aiPanelPosition', JSON.stringify({ left: panel.style.left, top: panel.style.top }));
+    } catch (e) {}
+  };
+
+  header.addEventListener('mousedown', (e) => { onStart(e.clientX, e.clientY); });
+  document.addEventListener('mousemove', (e) => { onMove(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', onEnd);
+
+  // Touch support
+  header.addEventListener('touchstart', (e) => { const t = e.touches[0]; onStart(t.clientX, t.clientY); }, { passive: true });
+  document.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) onMove(t.clientX, t.clientY); }, { passive: false });
+  document.addEventListener('touchend', onEnd);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  try { window.enableAIDragging(); } catch (e) { console.warn('enableAIDragging failed', e); }
+});
+
 // Inicializuj request timestamps
 window.requestTimestamps = (() => {
   try {
@@ -565,6 +628,14 @@ window.toggleAiPanel = function (open) {
 
   if (window.aiPanelOpen) {
     container.style.display = "flex";
+    // Ensure inner panel visible and draggable
+    const panelEl = document.getElementById('aiPanel');
+    if (panelEl) {
+      panelEl.style.display = 'block';
+      panelEl.style.zIndex = '1002';
+      panelEl.style.pointerEvents = 'auto';
+    }
+    try { if (window.enableAIDragging) window.enableAIDragging(); } catch(e){}
     const chatWindow = document.getElementById("chatWindow");
     if (chatWindow) {
       chatWindow.style.display = "block";
@@ -583,6 +654,9 @@ window.toggleAiPanel = function (open) {
     if (chatWindow) {
       chatWindow.style.display = "none";
     }
+    // hide inner panel as well
+    const panelEl = document.getElementById('aiPanel');
+    if (panelEl) panelEl.style.display = 'none';
   }
 };
 
@@ -994,6 +1068,39 @@ Uživatel: ${prompt}`;
     console.log("📄 [DEBUG] AI raw response (CELÁ):");
     console.log(aiResponseText);
     console.log("📏 [DEBUG] Délka odpovědi:", aiResponseText.length, "znaků");
+
+    // Determine AI type (cnc / chat)
+    const aiType = document.getElementById('aiTypeSelect')?.value || 'cnc';
+
+    // If Chat mode, treat AI response as plain text (no JSON parsing expected)
+    if (aiType === 'chat') {
+      const replyTextChat = aiResponseText;
+      // Ulož pro debugging
+      window.lastRawAI = aiResponseText;
+
+      // Append AI chat message to container
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'chat-msg model';
+      msgDiv.style.marginBottom = '10px';
+      msgDiv.innerHTML = `<strong>AI:</strong> ${escapeHtml(replyTextChat)}`;
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+
+      // Restore UI state
+      window.processingAI = false;
+      promptInput.disabled = false;
+      const btnCancel = document.getElementById('btnCancel');
+      const btnGenerate = document.getElementById('btnGenerate');
+      if (btnCancel) btnCancel.style.display = 'none';
+      if (btnGenerate) btnGenerate.style.display = 'inline-block';
+
+      // Update usage UI
+      apiUsageStats.totalCalls = (apiUsageStats.totalCalls || 0) + 1;
+      apiUsageStats.dailyCalls = (apiUsageStats.dailyCalls || 0) + 1;
+      saveApiStats();
+
+      return;
+    }
 
     // Aggressive JSON cleaning
     let cleanedJson = aiResponseText

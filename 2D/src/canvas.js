@@ -8,6 +8,8 @@
 
 // ===== CANVAS SETUP =====
 
+console.log("✅ src/canvas.js loaded");
+
 function setupCanvasEvents() {
   const canvas = document.getElementById("canvas");
   if (!canvas) return;
@@ -674,8 +676,10 @@ window.createCircumcircleFromSelectedPoints = function() {
 
 function handleSelectMode(x, y, shiftKey) {
   if (!window.selectedItems) window.selectedItems = [];
-
   let found = null;
+
+  // Debug info to help diagnose selection issues
+  console.log("[handleSelectMode] click:", { x, y, zoom: window.zoom, panX: window.panX, panY: window.panY });
 
   // Hledat blízký bod (tolerance 5px)
   const tolerance = 5 / (window.zoom || 2);
@@ -690,38 +694,136 @@ function handleSelectMode(x, y, shiftKey) {
       y: found_point.y,
       ref: found_point,
     };
+    console.log("[handleSelectMode] found manual point", found_point);
   } else {
-    // Hledat blízký tvar
-    const found_shape = window.shapes && window.shapes.find((s) => {
+    // Pokud cached snap points nejsou dostupné, pokus se je aktualizovat
+    if ((!window.cachedSnapPoints || window.cachedSnapPoints.length === 0) && window.updateSnapPoints) {
+      window.updateSnapPoints();
+    }
+
+    // Hledat nejbližší snap-point (endpoints, intersections, centers)
+    if (window.cachedSnapPoints && window.cachedSnapPoints.length > 0) {
+      let best = null;
+      let bestDist = Infinity;
+      for (let p of window.cachedSnapPoints) {
+        const dx = p.x - x;
+        const dy = p.y - y;
+        const d = Math.hypot(dx, dy);
+        if (d < tolerance && d < bestDist) {
+          bestDist = d;
+          best = p;
+        }
+      }
+      if (best) {
+        found = {
+          category: "point",
+          x: best.x,
+          y: best.y,
+          ref: best,
+        };
+        console.log("[handleSelectMode] found cached snap-point", best);
+      }
+    }
+    // Hledat blízký tvar (pokud jsme nenašli žádný bod)
+    if (!found) {
+      const found_shape = window.shapes && window.shapes.find((s) => {
       if (s.type === "dimension") return false; // Přeskočit kóty
       if (s.type === "line") {
         const d = pointToLineDistance(x, y, s.x1, s.y1, s.x2, s.y2);
         return d < tolerance;
       } else if (s.type === "circle") {
         return Math.abs(Math.hypot(x - s.cx, y - s.cy) - s.r) < tolerance;
+      } else if (s.type === "rectangle") {
+        // Zkontroluj každou stranu obdélníku jako úsečku
+        const x1 = s.x1;
+        const y1 = s.y1;
+        const x2 = s.x2;
+        const y2 = s.y2;
+
+        // Strany: top (x1,y1)-(x2,y1), right (x2,y1)-(x2,y2), bottom (x2,y2)-(x1,y2), left (x1,y2)-(x1,y1)
+        const dTop = pointToLineDistance(x, y, x1, y1, x2, y1);
+        const dRight = pointToLineDistance(x, y, x2, y1, x2, y2);
+        const dBottom = pointToLineDistance(x, y, x2, y2, x1, y2);
+        const dLeft = pointToLineDistance(x, y, x1, y2, x1, y1);
+
+        return dTop < tolerance || dRight < tolerance || dBottom < tolerance || dLeft < tolerance;
       }
       return false;
     });
 
-    if (found_shape) {
-      found = {
-        category: "shape",
-        type: found_shape.type,
-        ref: found_shape,
-      };
+      if (found_shape) {
+        if (found_shape.type === "rectangle") {
+          // Urči, která hrana byla kliknuta (top/right/bottom/left)
+          const rx1 = Math.min(found_shape.x1, found_shape.x2);
+          const rx2 = Math.max(found_shape.x1, found_shape.x2);
+          const ry1 = Math.min(found_shape.y1, found_shape.y2);
+          const ry2 = Math.max(found_shape.y1, found_shape.y2);
+
+          const dTop = pointToLineDistance(x, y, rx1, ry1, rx2, ry1);
+          const dRight = pointToLineDistance(x, y, rx2, ry1, rx2, ry2);
+          const dBottom = pointToLineDistance(x, y, rx2, ry2, rx1, ry2);
+          const dLeft = pointToLineDistance(x, y, rx1, ry2, rx1, ry1);
+
+          let edge = null;
+          let edgeCoords = null;
+          const minD = Math.min(dTop, dRight, dBottom, dLeft);
+          if (minD === dTop) {
+            edge = "top";
+            edgeCoords = { x1: rx1, y1: ry1, x2: rx2, y2: ry1 };
+          } else if (minD === dRight) {
+            edge = "right";
+            edgeCoords = { x1: rx2, y1: ry1, x2: rx2, y2: ry2 };
+          } else if (minD === dBottom) {
+            edge = "bottom";
+            edgeCoords = { x1: rx2, y1: ry2, x2: rx1, y2: ry2 };
+          } else {
+            edge = "left";
+            edgeCoords = { x1: rx1, y1: ry2, x2: rx1, y2: ry1 };
+          }
+
+          // Vytvořím syntetický line-ref s odkazem na parent rectangle
+          const syntheticLine = {
+            type: "line",
+            x1: edgeCoords.x1,
+            y1: edgeCoords.y1,
+            x2: edgeCoords.x2,
+            y2: edgeCoords.y2,
+            parentRect: found_shape,
+            parentEdge: edge,
+          };
+
+          found = {
+            category: "shape",
+            type: "line",
+            ref: syntheticLine,
+          };
+        } else {
+          found = {
+            category: "shape",
+            type: found_shape.type,
+            ref: found_shape,
+          };
+        }
+        console.log("[handleSelectMode] found shape", found.type, found.ref);
+      }
     }
-  }
 
   // V režimu select se vždycky přidávají položky, ne aby se čistily
   // (jen pokud není explicitně smazáno)
 
-  if (found) {
+    if (found) {
     // Hledat, zda je už vybraný
     const index = window.selectedItems.findIndex((i) => {
       if (found.category === "point" && i.category === "point") {
         return Math.abs(i.x - found.x) < 0.0001 && Math.abs(i.y - found.y) < 0.0001;
       } else if (found.category === "shape" && i.category === "shape") {
-        return i.ref === found.ref;
+        // Pokud jde o syntetickou hranu obdélníku, porovnej parentRect + parentEdge
+        const fRef = found.ref;
+        const iRef = i.ref;
+        if (fRef && fRef.parentRect && iRef && iRef.parentRect) {
+          return iRef.parentRect === fRef.parentRect && iRef.parentEdge === fRef.parentEdge;
+        }
+        return iRef === fRef;
       }
       return false;
     });
@@ -1765,6 +1867,50 @@ function isPointNearShape(point, shape) {
   return false;
 }
 
+// Rozštípne `rectangle` na 4 `line` tvary v `window.shapes` a vrátí nové linie
+function splitRectangle(rect) {
+  if (!rect || rect.type !== "rectangle") return null;
+  if (!window.shapes) window.shapes = [];
+
+  const idx = window.shapes.indexOf(rect);
+  if (idx === -1) return null;
+
+  const x1 = rect.x1;
+  const y1 = rect.y1;
+  const x2 = rect.x2;
+  const y2 = rect.y2;
+
+  const rx1 = Math.min(x1, x2);
+  const rx2 = Math.max(x1, x2);
+  const ry1 = Math.min(y1, y2);
+  const ry2 = Math.max(y1, y2);
+
+  const lines = [];
+
+  // top
+  lines.push({ type: "line", x1: rx1, y1: ry1, x2: rx2, y2: ry1, color: rect.color || window.defaultDrawColor, lineStyle: rect.lineStyle || window.defaultDrawLineStyle });
+  // right
+  lines.push({ type: "line", x1: rx2, y1: ry1, x2: rx2, y2: ry2, color: rect.color || window.defaultDrawColor, lineStyle: rect.lineStyle || window.defaultDrawLineStyle });
+  // bottom
+  lines.push({ type: "line", x1: rx2, y1: ry2, x2: rx1, y2: ry2, color: rect.color || window.defaultDrawColor, lineStyle: rect.lineStyle || window.defaultDrawLineStyle });
+  // left
+  lines.push({ type: "line", x1: rx1, y1: ry2, x2: rx1, y2: ry1, color: rect.color || window.defaultDrawColor, lineStyle: rect.lineStyle || window.defaultDrawLineStyle });
+
+  // Replace rectangle with lines
+  window.shapes.splice(idx, 1, ...lines);
+
+  if (window.updateSnapPoints) window.updateSnapPoints();
+  if (window.saveState) window.saveState();
+  if (window.draw) window.draw();
+
+  return lines;
+}
+
+// Export splitRectangle
+window.splitRectangle = splitRectangle;
+
+}
+
 // ===== INITIALIZATION =====
 
 // ✅ setupCanvasEvents je nyní volaná z init.js
@@ -1783,3 +1929,5 @@ if (typeof module !== "undefined" && module.exports) {
     setupCanvasEvents,
   };
 }
+
+// EOF - canvas.js
