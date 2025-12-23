@@ -8,7 +8,7 @@
 
 // ===== CANVAS SETUP =====
 
-console.log("✅ src/canvas.js loaded");
+window.logDebug && window.logDebug("✅ src/canvas.js loaded");
 
 function setupCanvasEvents() {
   const canvas = document.getElementById("canvas");
@@ -46,7 +46,7 @@ function onCanvasMouseDown(e) {
     window.mode = "pan";
   }
 
-  console.log("[onCanvasMouseDown] mode =", window.mode, "colorPickerMode =", window.colorPickerMode);
+  window.logDebug && window.logDebug("[onCanvasMouseDown] mode =", window.mode, "colorPickerMode =", window.colorPickerMode);
 
   const canvas = e.target;
   const rect = canvas.getBoundingClientRect();
@@ -72,7 +72,8 @@ function onCanvasMouseDown(e) {
   switch (window.mode) {
     case "pan":
       window.panStart = { x: screenX, y: screenY };
-      window.panning = true;
+      // Nezahajovat panning hned - zahájíme až po pohybu myši (prevent accidental clicks)
+      window.panning = false;
       break;
 
     case "point":
@@ -156,6 +157,16 @@ function onCanvasMouseMove(e) {
   const rect = canvas.getBoundingClientRect();
   const screenX = e.clientX - rect.left;
   const screenY = e.clientY - rect.top;
+
+  // Pokud máme připravený panStart ale panning ještě nebyl aktivován, aktivujeme
+  if (window.panStart && !window.panning) {
+    const dxTest = Math.abs(screenX - window.panStart.x);
+    const dyTest = Math.abs(screenY - window.panStart.y);
+    const threshold = 4; // px
+    if (dxTest > threshold || dyTest > threshold) {
+      window.panning = true;
+    }
+  }
 
   if (window.panning) {
     if (window.panStart) {
@@ -269,6 +280,47 @@ function onCanvasMouseUp(e) {
     window.drawing = false;
     if (window.draw) window.draw();
     return;
+  }
+
+  // Pokud jsme v režimu `pan` a uživatel pouze klikl (není aktivní panning),
+  // považuj to za výběr (krátký klik) — umožní to označit body i když je aktivní režim pan.
+  try {
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+    const worldPt = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
+    const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
+
+    if (window.mode === "pan" && window.panStart && !window.panning && e.button === 0) {
+      // Krátký klik - pokud klikáme přímo na snap-point (bod / průsečík), vyber ho
+      try {
+        if (window.cachedSnapPoints && window.cachedSnapPoints.length > 0) {
+          const tolerance = 5 / (window.zoom || 2);
+          let best = null;
+          let bestDist = Infinity;
+          for (let p of window.cachedSnapPoints) {
+            const dx = p.x - snapped.x;
+            const dy = p.y - snapped.y;
+            const d = Math.hypot(dx, dy);
+            if (d < tolerance && d < bestDist) {
+              bestDist = d;
+              best = p;
+            }
+          }
+
+          if (best && (best.type === "point" || best.type === "endpoint" || best.type === "intersection")) {
+            if (typeof handleSelectMode === "function") {
+              handleSelectMode(best.x, best.y, e.shiftKey);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("pan-click selection failed", err);
+      }
+    }
+  } catch (err) {
+    console.warn("onCanvasMouseUp selection in pan failed", err);
   }
 
   window.panning = false;
@@ -419,10 +471,12 @@ function handlePointMode(x, y) {
     console.error("[handlePointMode] ❌ window.points neexistuje!");
     return;
   }
-  window.points.push({ x, y, temp: false });
-  if (window.updateSnapPoints) {
-    window.updateSnapPoints();
-  }
+  const pt = { x, y, temp: false };
+  window.points.push(pt);
+  window.logDebug && window.logDebug('[handlePointMode] created point', pt);
+  if (window.updateSnapPoints) window.updateSnapPoints();
+  if (window.saveState) window.saveState();
+  if (window.draw) window.draw();
 }
 
 function handleLineMode(x, y) {
@@ -679,7 +733,7 @@ function handleSelectMode(x, y, shiftKey) {
   let found = null;
 
   // Debug info to help diagnose selection issues
-  console.log("[handleSelectMode] click:", { x, y, zoom: window.zoom, panX: window.panX, panY: window.panY });
+  window.logDebug && window.logDebug("[handleSelectMode] click:", { x, y, zoom: window.zoom, panX: window.panX, panY: window.panY });
 
   // Hledat blízký bod (tolerance 5px)
   const tolerance = 5 / (window.zoom || 2);
@@ -694,7 +748,30 @@ function handleSelectMode(x, y, shiftKey) {
       y: found_point.y,
       ref: found_point,
     };
-    console.log("[handleSelectMode] found manual point", found_point);
+    window.logDebug && window.logDebug("[handleSelectMode] found manual point", found_point);
+    try {
+      // Rychlý debug: okamžitě přiřadit výběr pro ověření renderu
+      window.selectedItems = [{ category: 'point', x: found_point.x, y: found_point.y, ref: found_point, highlightColor: '#facc15' }];
+      window._lastSelectionTime = Date.now();
+      window.logDebug && window.logDebug('[handleSelectMode] QUICK-ASSIGN selectedItems=', window.selectedItems, '_lastSelectionTime=', window._lastSelectionTime);
+      if (window.draw) window.draw();
+      // Ensure snapInfo shows for manual points immediately
+      try {
+        const infoEl = document.getElementById('snapInfo');
+        if (infoEl) {
+          const sx = (found_point.x).toFixed(2);
+          const sy = (found_point.y).toFixed(2);
+          infoEl.textContent = `📍 Bod (${sx}, ${sy}) • Bod`;
+          infoEl.style.display = 'block';
+          // Mark as persistent so it won't be auto-hidden by other quick timeouts
+          try { infoEl.dataset.persistent = 'true'; } catch (e) {}
+        }
+      } catch (e) {
+        window.logDebug && window.logDebug('[handleSelectMode] failed to set snapInfo for manual point', e);
+      }
+    } catch (e) {
+      console.error('[handleSelectMode] QUICK-ASSIGN failed', e);
+    }
   } else {
     // Pokud cached snap points nejsou dostupné, pokus se je aktualizovat
     if ((!window.cachedSnapPoints || window.cachedSnapPoints.length === 0) && window.updateSnapPoints) {
@@ -721,7 +798,29 @@ function handleSelectMode(x, y, shiftKey) {
           y: best.y,
           ref: best,
         };
-        console.log("[handleSelectMode] found cached snap-point", best);
+        window.logDebug && window.logDebug("[handleSelectMode] found cached snap-point", best);
+      }
+    }
+
+    // Pokud jsme nenašli cached snap-point, zkusit explicitně středy kružnic
+    if (!found && window.shapes && window.shapes.length > 0) {
+      for (let s of window.shapes) {
+        if (s.type === 'circle') {
+          const dx = s.cx - x;
+          const dy = s.cy - y;
+          const d = Math.hypot(dx, dy);
+          // použít stejnou toleranci jako výše
+          if (d < tolerance) {
+            found = {
+              category: 'point',
+              x: s.cx,
+              y: s.cy,
+              ref: { type: 'center', circle: s }
+            };
+            window.logDebug && window.logDebug('[handleSelectMode] found circle center by proximity', found);
+            break;
+          }
+        }
       }
     }
     // Hledat blízký tvar (pokud jsme nenašli žádný bod)
@@ -804,7 +903,7 @@ function handleSelectMode(x, y, shiftKey) {
             ref: found_shape,
           };
         }
-        console.log("[handleSelectMode] found shape", found.type, found.ref);
+        window.logDebug && window.logDebug("[handleSelectMode] found shape", found.type, found.ref);
       }
     }
 
@@ -812,6 +911,9 @@ function handleSelectMode(x, y, shiftKey) {
   // (jen pokud není explicitně smazáno)
 
     if (found) {
+      window.logDebug && window.logDebug('[handleSelectMode] BEFORE selection logic, window.selectedItems=', window.selectedItems);
+      try { if (window.debugMode) console.trace('[handleSelectMode] trace'); } catch (e) {}
+      window.logDebug && window.logDebug('[handleSelectMode] entering selection logic, found=', found);
     // Hledat, zda je už vybraný
     const index = window.selectedItems.findIndex((i) => {
       if (found.category === "point" && i.category === "point") {
@@ -828,18 +930,155 @@ function handleSelectMode(x, y, shiftKey) {
       return false;
     });
 
-    if (index > -1) {
-      // Už je vybraný - odeber ho když se klikne znovu
-      window.selectedItems.splice(index, 1);
+    // Pokud není aktivní persistentní režim výběru (mode !== 'select'),
+    // použijeme dočasný single-select bez písmen — překliknutím se předchozí zruší.
+    const persistentSelect = window.mode === "select" || window.colorPickerMode;
+    if (!persistentSelect) {
+      // dočasné označení: jediný item, bez labelu
+      try {
+        if (found.category === "point") {
+          found.highlightColor = "#facc15";
+        }
+        // Explicitně přiřadit pole (nikoli length=0 + push) - vyhnout se nechtěným referencím
+        window.selectedItems = [{ ...found }];
+        window._lastSelectionTime = Date.now();
+        window.logDebug && window.logDebug("[handleSelectMode] selectedItems (temp) ASSIGNED:", window.selectedItems, "_lastSelectionTime=", window._lastSelectionTime);
+      } catch (e) {
+        console.error("[handleSelectMode] failed to assign selectedItems:", e);
+      }
     } else {
-      // Přidej label
-      const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-      const label = labels[window.selectedItems.length % labels.length];
-      window.selectedItems.push({ ...found, label });
+      if (index > -1) {
+        // Už je vybraný - odeber ho když se klikne znovu
+        window.selectedItems.splice(index, 1);
+      } else {
+        // Přidej label
+        const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const label = labels[window.selectedItems.length % labels.length];
+        // Pokud je to bod, přidej highlightColor (žluté kolečko)
+        if (found.category === "point") {
+          found.highlightColor = "#facc15";
+        }
+        window.selectedItems.push({ ...found, label });
+      }
+      window.logDebug && window.logDebug("[handleSelectMode] selectedItems (persistent):", window.selectedItems);
     }
   }
 
-  if (window.draw) window.draw();
+  // Aktualizovat info-panel nahoře (souřadnice / typ)
+  try {
+    const infoEl = document.getElementById("snapInfo");
+    if (infoEl) {
+      // Překlad typů snap-pointů do češtiny
+      function translateSnapType(t) {
+        if (!t) return t;
+        const map = {
+          point: "Bod",
+          endpoint: "Koncový bod",
+          intersection: "Průsečík",
+          center: "Střed",
+          grid: "Mřížka",
+        };
+        return map[t] || t;
+      }
+
+      // Helper: bezpečně získat souřadnice z objektu (found nebo sel)
+      function coordsOf(o) {
+        const vx = o.x ?? o.ref?.x ?? o.ref?.cx ?? 0;
+        const vy = o.y ?? o.ref?.y ?? o.ref?.cy ?? 0;
+        const sx = typeof vx === 'number' && vx.toFixed ? vx.toFixed(2) : String(vx);
+        const sy = typeof vy === 'number' && vy.toFixed ? vy.toFixed(2) : String(vy);
+        return { sx, sy };
+      }
+
+      if (!found) {
+        // Nic nenalezeno; ukaž info pro první vybranou položku pokud existuje
+        if (window.selectedItems && window.selectedItems.length > 0) {
+          const sel = window.selectedItems[0];
+          let selMsg = "";
+          if (sel.category === "point" || (sel.type === 'point') || (sel.ref && sel.ref.type === 'point')) {
+            const c = coordsOf(sel);
+            selMsg = `📍 Bod (${c.sx}, ${c.sy})`;
+            const stype = sel.type || sel.ref?.type || 'point';
+            if (stype) selMsg += ` • ${translateSnapType(stype)}`;
+          } else if (sel.category === "shape") {
+            if (sel.type === "line" && sel.ref) {
+              if (sel.ref.parentRect) {
+                selMsg = `▭ Hrana: ${sel.ref.parentEdge} (obdélník)`;
+              } else {
+                const mx = ((sel.ref.x1 + sel.ref.x2) / 2).toFixed(2);
+                const my = ((sel.ref.y1 + sel.ref.y2) / 2).toFixed(2);
+                const len = Math.hypot(sel.ref.x2 - sel.ref.x1, sel.ref.y2 - sel.ref.y1).toFixed(2);
+                selMsg = `— Úsečka; střed (${mx}, ${my}); délka ${len}`;
+              }
+            } else if (sel.type === 'circle' || sel.ref?.type === 'circle') {
+              const ccenter = { x: sel.ref?.cx ?? (sel.x||0), y: sel.ref?.cy ?? (sel.y||0) };
+              selMsg = `⭕ Kružnice; střed (${(ccenter.x).toFixed(2)}, ${(ccenter.y).toFixed(2)})`;
+            }
+          }
+          infoEl.textContent = selMsg;
+          infoEl.style.display = "block";
+          window.logDebug && window.logDebug('[handleSelectMode] snapInfo (selected) =', selMsg);
+        } else {
+          infoEl.style.display = "none";
+        }
+      } else {
+        // Máme nalezený objekt z kliknutí
+        let msg = "";
+        if (found.category === "point" || found.type === 'point' || found.ref?.type === 'point') {
+          const c = coordsOf(found);
+          msg = `📍 Bod (${c.sx}, ${c.sy})`;
+          const ftype = found.type || found.ref?.type || 'point';
+          if (ftype) msg += ` • ${translateSnapType(ftype)}`;
+        } else if (found.category === "shape") {
+          if (found.type === "line" && found.ref) {
+            if (found.ref.parentRect) {
+              msg = `▭ Hrana: ${found.ref.parentEdge} (obdélník)`;
+            } else {
+              const mx = ((found.ref.x1 + found.ref.x2) / 2).toFixed(2);
+              const my = ((found.ref.y1 + found.ref.y2) / 2).toFixed(2);
+              const len = Math.hypot(found.ref.x2 - found.ref.x1, found.ref.y2 - found.ref.y1).toFixed(2);
+              msg = `— Úsečka; střed (${mx}, ${my}); délka ${len}`;
+            }
+          } else if ((found.type === "circle" || found.ref?.type === 'circle') && found.ref) {
+            msg = `⭕ Kružnice; střed (${found.ref.cx.toFixed(2)}, ${found.ref.cy.toFixed(2)}); r=${found.ref.r.toFixed(2)}`;
+          } else if (found.type === "rectangle" && found.ref) {
+            const cx = ((found.ref.x1 + found.ref.x2) / 2).toFixed(2);
+            const cy = ((found.ref.y1 + found.ref.y2) / 2).toFixed(2);
+            msg = `▭ Obdélník; střed (${cx}, ${cy})`;
+          } else {
+            // fallback: pokud má found.x/y
+            if (found.x !== undefined && found.y !== undefined) {
+              const c = coordsOf(found);
+              msg = `📍 Bod (${c.sx}, ${c.sy})`;
+              const ftype = found.type || found.ref?.type;
+              if (ftype) msg += ` • ${translateSnapType(ftype)}`;
+            } else {
+              msg = `${found.type || 'shape'}`;
+            }
+          }
+        }
+
+        infoEl.textContent = msg;
+        infoEl.style.display = "block";
+        window.logDebug && window.logDebug('[handleSelectMode] snapInfo (found) =', msg, 'found=', found);
+
+        if (!window.selectedItems || window.selectedItems.length === 0) {
+          setTimeout(() => {
+            try {
+              infoEl.style.display = "none";
+            } catch (e) {}
+          }, 2500);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("snapInfo update failed", e);
+  }
+
+  if (window.draw) {
+    window.logDebug && window.logDebug('[handleSelectMode] calling draw(), selectedItems.length=', (window.selectedItems||[]).length);
+    window.draw();
+  }
 }
 
 function handleTangentMode(x, y) {
@@ -1760,7 +1999,7 @@ function getMirrorPoint(px, py, lx1, ly1, lx2, ly2) {
 // ===== COLOR PICKER MODE =====
 
 function handleColorPickerMode(x, y) {
-  console.log("[handleColorPickerMode] START - colorPickerMode =", window.colorPickerMode);
+  window.logDebug && window.logDebug("[handleColorPickerMode] START - colorPickerMode =", window.colorPickerMode);
 
   // Kontrola colorPickerMode
   if (!window.colorPickerMode) {
@@ -1772,7 +2011,7 @@ function handleColorPickerMode(x, y) {
   const clickPoint = { x, y };
   let foundItem = null;
 
-  console.log("[handleColorPickerMode] hledám tvary, máme", window.shapes ? window.shapes.length : 0, "tvarů");
+  window.logDebug && window.logDebug("[handleColorPickerMode] hledám tvary, máme", window.shapes ? window.shapes.length : 0, "tvarů");
 
   // Hledat v tvary
   for (let s of window.shapes) {
@@ -1784,15 +2023,15 @@ function handleColorPickerMode(x, y) {
   }
 
   if (foundItem) {
-    console.log("[handleColorPickerMode] Aplikuji barvu a styl");
+  window.logDebug && window.logDebug("[handleColorPickerMode] Aplikuji barvu a styl");
 
     // Aplikovat vybranou barvu a styl na objekt
-    if (window.colorStyleSelected && window.colorStyleSelected.color) {
-      console.log("[handleColorPickerMode] Nastavuji barvu na", window.colorStyleSelected.color);
+      if (window.colorStyleSelected && window.colorStyleSelected.color) {
+      window.logDebug && window.logDebug("[handleColorPickerMode] Nastavuji barvu na", window.colorStyleSelected.color);
       foundItem.ref.color = window.colorStyleSelected.color;
     }
     if (window.colorStyleSelected && window.colorStyleSelected.lineStyle) {
-      console.log("[handleColorPickerMode] Nastavuji styl na", window.colorStyleSelected.lineStyle);
+      window.logDebug && window.logDebug("[handleColorPickerMode] Nastavuji styl na", window.colorStyleSelected.lineStyle);
       foundItem.ref.lineStyle = window.colorStyleSelected.lineStyle;
     }
 
@@ -1803,7 +2042,7 @@ function handleColorPickerMode(x, y) {
     if (window.saveState) window.saveState();
     window.showInfoNotification("✅ Změna aplikována!", 1000);
   } else {
-    console.log("[handleColorPickerMode] Nic nenalezeno pod kurzorem");
+    window.logDebug && window.logDebug("[handleColorPickerMode] Nic nenalezeno pod kurzorem");
     window.showInfoNotification("Klikli jste mimo objekt. Zkuste znovu.", 1000);
   }
 
