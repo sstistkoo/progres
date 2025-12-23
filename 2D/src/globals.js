@@ -121,3 +121,15 @@ window.aiMetrics = {
 
 // ===== ANIMATION =====
 window.animationFrameId = null;
+
+// DEBUG: kontrola množství logů; nastavte na true pro detailní debug
+window.debugMode = false;
+window.logDebug = function(...args) {
+  try {
+    if (window.debugMode) {
+      console.log(...args);
+    }
+  } catch (e) {
+    // swallow
+  }
+};

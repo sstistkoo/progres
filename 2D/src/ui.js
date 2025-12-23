@@ -516,7 +516,11 @@ window.clearMode = function () {
   if (snapInfo) {
     snapInfo.textContent = "✕ Mód zrušen";
     snapInfo.style.display = "block";
-    setTimeout(() => (snapInfo.style.display = "none"), 800);
+    setTimeout(() => {
+      try {
+        if (!snapInfo.dataset.persistent) snapInfo.style.display = "none";
+      } catch (e) {}
+    }, 800);
   }
 };
 

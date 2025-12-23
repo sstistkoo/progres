@@ -61,28 +61,61 @@ function updateSnapPoints() {
   });
 
   // 3. Průsečíky
+  // 3. Průsečíky - podporujeme i hrany obdélníků (převést rectangle -> 4 line segs)
+  function shapeToSegments(s) {
+    if (!s) return [];
+    if (s.type === "line") return [s];
+    if (s.type === "circle") return [s];
+    if (s.type === "rectangle") {
+      const x1 = s.x1;
+      const y1 = s.y1;
+      const x2 = s.x2;
+      const y2 = s.y2;
+      const rx1 = Math.min(x1, x2);
+      const rx2 = Math.max(x1, x2);
+      const ry1 = Math.min(y1, y2);
+      const ry2 = Math.max(y1, y2);
+
+      return [
+        { type: "line", x1: rx1, y1: ry1, x2: rx2, y2: ry1 }, // top
+        { type: "line", x1: rx2, y1: ry1, x2: rx2, y2: ry2 }, // right
+        { type: "line", x1: rx2, y1: ry2, x2: rx1, y2: ry2 }, // bottom
+        { type: "line", x1: rx1, y1: ry2, x2: rx1, y2: ry1 }, // left
+      ];
+    }
+    return [];
+  }
+
   for (let i = 0; i < window.shapes.length; i++) {
     for (let j = i + 1; j < window.shapes.length; j++) {
       const s1 = window.shapes[i];
       const s2 = window.shapes[j];
-      let intersects = [];
 
-      if (s1.type === "line" && s2.type === "line") {
-        const pt = lineIntersection(s1, s2);
-        if (pt) intersects.push(pt);
-      } else if (s1.type === "line" && s2.type === "circle") {
-        intersects = intersectLineCircle(s1, s2);
-      } else if (s1.type === "circle" && s2.type === "line") {
-        intersects = intersectLineCircle(s2, s1);
-      } else if (s1.type === "circle" && s2.type === "circle") {
-        intersects = intersectCircleCircle(s1, s2);
+      const segs1 = shapeToSegments(s1);
+      const segs2 = shapeToSegments(s2);
+
+      for (let a of segs1) {
+        for (let b of segs2) {
+          let intersects = [];
+          if (a.type === "line" && b.type === "line") {
+            const pt = lineIntersection(a, b);
+            if (pt) intersects.push(pt);
+          } else if (a.type === "line" && b.type === "circle") {
+            intersects = intersectLineCircle(a, b);
+          } else if (a.type === "circle" && b.type === "line") {
+            intersects = intersectLineCircle(b, a);
+          } else if (a.type === "circle" && b.type === "circle") {
+            intersects = intersectCircleCircle(a, b);
+          }
+
+          intersects.forEach((pt) => {
+            window.cachedSnapPoints.push({ x: pt.x, y: pt.y, type: "intersection" });
+          });
+        }
       }
-
-      intersects.forEach((pt) => {
-        window.cachedSnapPoints.push({ x: pt.x, y: pt.y, type: "intersection" });
-      });
     }
   }
+  window.logDebug && window.logDebug('[updateSnapPoints] cachedSnapPoints count =', window.cachedSnapPoints.length);
 }
 
 function snapPointInternal(pt) {
@@ -138,6 +171,11 @@ function updateSnapSettings() {
 // ===== RENDERING =====
 
 function draw() {
+  window.logDebug && window.logDebug('[draw] start, selectedItems.length=', (window.selectedItems||[]).length);
+  // Debug: expose last selection time for tracing
+  if (window._lastSelectionTime) {
+    window.logDebug && window.logDebug('[draw] _lastSelectionTime=', window._lastSelectionTime);
+  }
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
 
@@ -190,6 +228,8 @@ function draw() {
   if (window.selectedItems && window.selectedItems.length > 0) {
     window.selectedItems.forEach((item) => {
       ctx.save();
+
+      window.logDebug && window.logDebug('[draw] rendering selected item', item);
 
       if (item.category === "shape") {
         const s = item.ref;
@@ -249,8 +289,8 @@ function draw() {
       } else if (item.category === "point") {
         const p = worldToScreen(item.x, item.y);
 
-        // Zvýraznění (magenta)
-        ctx.fillStyle = "#ff66ff";
+        // Zvýraznění (výchozí magenta, ale pokud item.highlightColor existuje, použij ji)
+        ctx.fillStyle = item.highlightColor || "#ff66ff";
         ctx.beginPath();
         ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
         ctx.fill();
@@ -346,6 +386,17 @@ function draw() {
 
     ctx.setLineDash([]);
   }
+
+  // Pokud není nic vybráno, zruš perzistentní info (pokud bylo nastaveno)
+  try {
+    if (!window.selectedItems || window.selectedItems.length === 0) {
+      const infoEl = document.getElementById('snapInfo');
+      if (infoEl && infoEl.dataset && infoEl.dataset.persistent) {
+        try { delete infoEl.dataset.persistent; } catch (e) {}
+        try { infoEl.style.display = 'none'; } catch (e) {}
+      }
+    }
+  } catch (e) {}
 }
 
 function drawGrid(ctx, canvas) {
