@@ -42,6 +42,21 @@ function updateSnapPoints() {
       window.cachedSnapPoints.push({ x: s.x2, y: s.y2, type: "endpoint" });
     } else if (s.type === "circle") {
       window.cachedSnapPoints.push({ x: s.cx, y: s.cy, type: "center" });
+    } else if (s.type === "rectangle") {
+      // Přidej rohy obdélníku jako koncové body a také střed
+      const x1 = s.x1;
+      const y1 = s.y1;
+      const x2 = s.x2;
+      const y2 = s.y2;
+
+      window.cachedSnapPoints.push({ x: x1, y: y1, type: "endpoint" });
+      window.cachedSnapPoints.push({ x: x1, y: y2, type: "endpoint" });
+      window.cachedSnapPoints.push({ x: x2, y: y1, type: "endpoint" });
+      window.cachedSnapPoints.push({ x: x2, y: y2, type: "endpoint" });
+
+      const cx = (x1 + x2) / 2;
+      const cy = (y1 + y2) / 2;
+      window.cachedSnapPoints.push({ x: cx, y: cy, type: "center" });
     }
   });
 
@@ -111,7 +126,7 @@ function snapPointInternal(pt) {
 }
 
 // Aktualizace nastavení snappingu z UI prvků
-function updateSnap() {
+function updateSnapSettings() {
   window.snapToGrid = document.getElementById("snapGrid")?.checked || false;
   window.snapToPoints = document.getElementById("snapPoints")?.checked !== false;
   const orthoCheckbox = document.getElementById("orthoMode");
@@ -618,7 +633,19 @@ function drawShape(ctx, s, canvas) {
 
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
-    ctx.strokeRect(x, y, width, height);
+
+    // Kresli obdélník jako čtyři samostatné úsečky (aby bylo jasné, že jde o 4 segmenty)
+    ctx.beginPath();
+    const r1 = { x: p1.x, y: p1.y };
+    const r2 = { x: p2.x, y: p1.y };
+    const r3 = { x: p2.x, y: p2.y };
+    const r4 = { x: p1.x, y: p2.y };
+    ctx.moveTo(r1.x, r1.y);
+    ctx.lineTo(r2.x, r2.y);
+    ctx.lineTo(r3.x, r3.y);
+    ctx.lineTo(r4.x, r4.y);
+    ctx.closePath();
+    ctx.stroke();
   }
 
   if (s.type === "arc") {
@@ -1026,7 +1053,7 @@ window.redo = redo;
 window.aiUndo = undo;  // Alias for aiUndo
 window.aiRedo = redo;  // Alias for aiRedo
 window.saveState = saveState;
-window.updateSnap = updateSnap;
+window.updateSnapSettings = updateSnapSettings;
 window.updateSnapPoints = updateSnapPoints;
 window.screenToWorld = screenToWorld;
 window.worldToScreen = worldToScreen;
