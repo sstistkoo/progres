@@ -1,0 +1,2239 @@
+<!DOCTYPE html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="theme-color" content="#0a0a0a" />
+    <title>Soustružník - Parametrické kreslení + AI</title>
+
+    <!--
+    ✅ DEMO API KLÍČ JE PŘEDVYPLNĚNÝ!
+    Aplikace funguje okamžitě po otevření.
+
+    Klíč je rozdělený na 2 části (v ai.js):
+    API_KEY_PART1 + API_KEY_PART2 = kompletní klíč
+
+    Pro vlastní klíč:
+    - Klikněte na ✨ AI → ⚙️ Settings
+    - Přidejte svůj Gemini API klíč
+    - Získejte na: https://aistudio.google.com/app/apikey
+    -->
+
+    <link rel="stylesheet" href="styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/genai": "https://esm.sh/@google/genai@^1.33.0"
+        }
+      }
+    </script>
+    <!-- GLOBALS + KEYBOARD MUSÍ BÝT PRVNÍ! -->
+    <script src="src/globals.js"></script>
+    <script src="src/keyboard.js"></script>
+    <script>console.log("✅ index.html loaded");</script>
+    <script src="src/utils.js"></script>
+    <script src="src/drawing.js"></script>
+    <script src="src/canvas.js?v=4"></script>
+    <script src="src/ui.js"></script>
+    <script src="src/controller.js"></script>
+    <script src="src/ai.js"></script>
+    <script src="lib/init.js"></script>
+  </head>
+  <body>
+    <div class="canvas-area">
+      <!-- Ovládání plátna vpravo nahoře -->
+      <div class="canvas-controls">
+        <button
+          class="canvas-btn"
+          onclick="window.togglePan()"
+          id="btnPanCanvas"
+          title="Posun (Klikni pro zapnutí/vypnutí)"
+        >
+          <span>✋</span>
+          <div>Posun</div>
+        </button>
+        <button
+          class="canvas-btn"
+          onclick="window.resetView()"
+          title="Zobrazit všechny objekty (Fit All)"
+        >
+          <span>⌖</span>
+          <div>Fit All</div>
+        </button>
+        <button
+          class="canvas-btn"
+          onclick="window.undo()"
+          id="btnUndo"
+          title="Zpět - vrátit poslední akci (Ctrl+Z)"
+        >
+          <span>↶</span>
+          <div>Zpět</div>
+        </button>
+        <button
+          class="canvas-btn"
+          onclick="window.redo()"
+          id="btnRedo"
+          title="Vpřed - obnovit vrácenou akci (Ctrl+Y)"
+        >
+          <span>↷</span>
+          <div>Vpřed</div>
+        </button>
+        <button
+          class="canvas-btn"
+          onclick="window.toggleAiSelect()"
+          id="btnSelectCanvas"
+          title="Přepnout režim výběru"
+        >
+          <span>👆</span>
+          <div>Výběr</div>
+        </button>
+      </div>
+
+      <!-- AI PANEL -->
+      <div
+        class="tool-submenu"
+        id="toolsAi"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; z-index: 1000;"
+      >
+        <div
+          id="aiPanel"
+          style="
+            position: absolute; top: 80px; right: 20px; background: rgba(26, 26, 26, 0.95);
+            padding: 15px; border-radius: 12px; border: 1px solid #555; width: 95%; max-width: 500px;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.6); z-index: 1001; touch-action: none;
+          "
+        >
+          <!-- AI Header s nastavením -->
+          <div
+            id="aiHeaderRow"
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-bottom: 10px;
+              cursor: move;
+              -webkit-user-select: none; user-select: none;
+            "
+          >
+            <div style="display: flex; gap: 8px; align-items: center">
+              <!-- Model + AI Type (vertikálně) -->
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <select
+                  id="aiModelSelect"
+                  style="
+                    background: #111;
+                    color: #888;
+                    border: 1px solid #444;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    cursor: pointer;
+                    outline: none;
+                  "
+                >
+                  <option value="gemini-2.5-flash-lite" selected>
+                    ⚡ Gemini 2.5 Flash-Lite (Vyšší limit)
+                  </option>
+                  <option value="gemini-2.5-flash">
+                    ⚡ Gemini 2.5 Flash (Rychlý)
+                  </option>
+                  <option value="gemini-3-pro-preview">
+                    🧪 Gemini 3 Pro (Nejchytřejší)
+                  </option>
+                  <option value="gemini-2.0-flash-exp">
+                    ⚡ Gemini 2.0 Flash (Exp)
+                  </option>
+                </select>
+
+                <!-- AI Type (2D / CNC / Chat) -->
+                <select
+                  id="aiTypeSelect"
+                  style="
+                    background: #111;
+                    color: #888;
+                    border: 1px solid #444;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    cursor: pointer;
+                    outline: none;
+                  "
+                  title="Vyberte režim AI: 2D = kreslení, CNC = generování G-kódu/tvarů, Chat = běžný chat"
+                >
+                  <option value="2d" selected>✏️ 2D (kreslení)</option>
+                  <option value="cnc">🛠️ CNC (kódování)</option>
+                  <option value="chat">💬 Chat (pokec)</option>
+                </select>
+              </div>
+
+              <!-- AI Memory Button -->
+              <button
+                onclick="showAIMemory()"
+                title="AI Paměť - Co se AI naučila"
+                style="
+                  background: transparent;
+                  border: none;
+                  cursor: pointer;
+                  color: #888;
+                  transition: color 0.2s;
+                  padding: 4px;
+                "
+              >
+                <span style="font-size: 16px">🧠</span>
+              </button>
+
+              <!-- AI Preferences Button -->
+              <button
+                onclick="openAIPreferences()"
+                title="Nastavit preference AI (učí se)"
+                style="
+                  background: transparent;
+                  border: none;
+                  cursor: pointer;
+                  color: #888;
+                  transition: color 0.2s;
+                  padding: 4px;
+                "
+              >
+                <span style="font-size: 16px">🎓</span>
+              </button>
+
+              <!-- Debug Metrics Button -->
+              <button
+                onclick="showAIMetrics()"
+                title="Zobrazit AI statistiky"
+                style="
+                  background: transparent;
+                  border: none;
+                  cursor: pointer;
+                  color: #888;
+                  transition: color 0.2s;
+                  padding: 4px;
+                "
+              >
+                <span style="font-size: 16px">📊</span>
+              </button>
+
+              <!-- Settings Button -->
+              <button
+                onclick="openSettings()"
+                title="Nastavení API klíče"
+                style="
+                  background: transparent;
+                  border: none;
+                  cursor: pointer;
+                  color: #888;
+                  transition: color 0.2s;
+                  padding: 4px;
+                "
+              >
+                <span style="font-size: 18px">⚙️</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Chat história -->
+          <div id="aiChatHistory" class="chat-container">
+            <div
+              style="
+                color: #666;
+                font-size: 11px;
+                text-align: center;
+                margin-top: auto;
+              "
+            >
+              Začátek konverzace. Zeptejte se na cokoliv nebo popište tvar.
+            </div>
+
+            <!-- Info o povolení -->
+            <div
+              id="permissionInfo"
+              style="
+                margin: 15px auto;
+                padding: 10px;
+                background: #1a2332;
+                border: 1px solid #2563eb;
+                border-radius: 8px;
+                max-width: 90%;
+                font-size: 10px;
+                color: #93c5fd;
+              "
+            >
+              <div
+                style="
+                  margin-bottom: 6px;
+                  font-weight: bold;
+                  color: #60a5fa;
+                  font-size: 11px;
+                "
+              >
+                ℹ️ Pro plnou funkčnost na mobilu:
+              </div>
+              <div style="margin-bottom: 4px">
+                📷 <strong>Kamera</strong> - pro focení náčrtů
+              </div>
+              <div>🎤 <strong>Mikrofon</strong> - pro hlasové zadávání</div>
+              <div style="margin-top: 6px; font-size: 9px; opacity: 0.7">
+                Povolení se vyžádají při prvním použití.
+              </div>
+              <button
+                onclick="document.getElementById('permissionInfo').style.display='none'"
+                style="
+                  margin-top: 8px;
+                  padding: 4px 8px;
+                  background: #1e40af;
+                  border: none;
+                  border-radius: 4px;
+                  color: white;
+                  font-size: 10px;
+                  cursor: pointer;
+                "
+              >
+                Rozumím
+              </button>
+            </div>
+          </div>
+
+          <!-- Selection & Tools Toolbar -->
+          <div
+            style="
+              display: flex;
+              gap: 6px;
+              margin-bottom: 8px;
+              align-items: center;
+              flex-wrap: wrap;
+            "
+          >
+            <button
+              id="btnAiSelect"
+              onclick="window.toggleAiSelect(); document.getElementById('toolsAi').style.display='none'; document.getElementById('btnCatAi').classList.remove('active')"
+              style="
+                flex: 0 0 70px;
+                padding: 8px 4px;
+                background: #333;
+                border: 1px solid #444;
+                border-radius: 6px;
+                color: #ccc;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                font-size: 11px;
+                transition: all 0.2s;
+              "
+              title="Přepnout režim výběru"
+            >
+              <span style="font-size: 14px">👆</span> Výběr
+            </button>
+
+            <button
+              onclick="window.openQuickInput()"
+              style="
+                flex: 1;
+                padding: 8px 4px;
+                background: #333;
+                border: 1px solid #444;
+                border-radius: 6px;
+                color: white;
+                cursor: pointer;
+                font-size: 11px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                min-width: 90px;
+              "
+              title="Rychlé zadání (Klávesnice)"
+            >
+              <span style="font-size: 16px">⌨️</span> Klávesnice
+            </button>
+
+            <button
+              onclick="window.aiUndo()"
+              style="
+                flex: 0 0 36px;
+                padding: 8px 0;
+                background: #333;
+                border: 1px solid #444;
+                border-radius: 6px;
+                color: white;
+                cursor: pointer;
+                font-size: 16px;
+              "
+              title="Zpět (Undo)"
+            >
+              ↶
+            </button>
+
+            <button
+              onclick="window.aiRedo()"
+              style="
+                flex: 0 0 36px;
+                padding: 8px 0;
+                background: #333;
+                border: 1px solid #444;
+                border-radius: 6px;
+                color: white;
+                cursor: pointer;
+                font-size: 16px;
+              "
+              title="Vpřed (Redo)"
+            >
+              ↷
+            </button>
+
+            <!-- Camera Button -->
+            <button
+              onclick="document.getElementById('aiImageInput').click()"
+              title="Nahrát obrázek / Vyfotit"
+              style="
+                flex: 0 0 36px;
+                padding: 8px 0;
+                background: #333;
+                color: white;
+                border: 1px solid #444;
+                border-radius: 6px;
+                font-size: 16px;
+                cursor: pointer;
+              "
+            >
+              📷
+            </button>
+            <input
+              type="file"
+              id="aiImageInput"
+              accept="image/*"
+              capture="environment"
+              style="display: none"
+              onchange="window.handleImageSelect(this)"
+            />
+
+            <!-- Voice Button -->
+            <button
+              onclick="window.toggleVoice()"
+              id="btnVoice"
+              title="Hlasové zadání"
+              style="
+                flex: 0 0 36px;
+                padding: 8px 0;
+                background: #333;
+                color: white;
+                border: 1px solid #444;
+                border-radius: 6px;
+                font-size: 16px;
+                cursor: pointer;
+                transition: all 0.2s;
+              "
+            >
+              🎤
+            </button>
+
+            <button
+              onclick="window.clearSelection()"
+              id="btnClearSelection"
+              style="
+                flex: 0 0 36px;
+                padding: 8px 0;
+                background: #991b1b;
+                border: 1px solid #991b1b;
+                border-radius: 6px;
+                color: white;
+                cursor: pointer;
+                font-size: 14px;
+                display: none;
+              "
+              title="Zrušit výběr"
+            >
+              ✕
+            </button>
+          </div>
+
+          <!-- Selection List -->
+          <div
+            id="aiSelectionList"
+            class="selection-list"
+            style="display: none"
+          ></div>
+
+          <!-- Chat Window -->
+          <div
+            id="chatWindow"
+            style="
+              max-height: 200px;
+              overflow-y: auto;
+              margin-bottom: 10px;
+              background: #0a0a0a;
+              border: 1px solid #444;
+              border-radius: 6px;
+              padding: 10px;
+              display: none;
+            "
+          ></div>
+
+          <!-- Input zóna -->
+          <div id="aiInputZone">
+            <!-- Deep Think Checkbox -->
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 6px;
+              "
+            >
+              <label
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                  font-size: 11px;
+                  color: #a78bfa;
+                  cursor: pointer;
+                  user-select: none;
+                "
+              >
+                <input
+                  type="checkbox"
+                  id="useThinking"
+                  style="width: 14px; height: 14px; accent-color: #7c3aed"
+                />
+                <span
+                  >🧠 Deep Think
+                  <span style="opacity: 0.7">(Gemini 3 Pro)</span></span
+                >
+              </label>
+              <span
+                id="aiFileName"
+                style="
+                  font-size: 10px;
+                  color: #888;
+                  max-width: 120px;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                "
+              ></span>
+            </div>
+
+            <!-- Image Preview -->
+            <div
+              id="aiImagePreview"
+              style="
+                display: none;
+                margin-bottom: 6px;
+                position: relative;
+                background: #111;
+                padding: 4px;
+                border-radius: 4px;
+                width: fit-content;
+              "
+            >
+              <img
+                id="aiPreviewImg"
+                style="
+                  max-height: 60px;
+                  max-width: 100%;
+                  border-radius: 2px;
+                  display: block;
+                "
+              />
+              <button
+                onclick="window.clearImage()"
+                style="
+                  position: absolute;
+                  top: -5px;
+                  right: -5px;
+                  background: #ef4444;
+                  color: white;
+                  border: 1px solid #991b1b;
+                  border-radius: 50%;
+                  width: 18px;
+                  height: 18px;
+                  font-size: 10px;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: bold;
+                "
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: flex-end">
+              <div style="flex: 1; position: relative">
+                <textarea
+                  id="aiPrompt"
+                  rows="1"
+                  placeholder="Zpráva pro Gemini..."
+                  onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); if(window.callGemini) { window.callGemini(); } }"
+                  style="
+                    resize: none;
+                    width: 100%;
+                    padding: 10px;
+                    background: #0a0a0a;
+                    border: 1px solid #444;
+                    border-radius: 6px;
+                    color: #fff;
+                    font-family: inherit;
+                    font-size: 16px;
+                    max-height: 80px;
+                    overflow-y: auto;
+                  "
+                ></textarea>
+                <div id="cncInputError" style="
+                  display: none;
+                  position: absolute;
+                  top: 100%;
+                  left: 0;
+                  right: 0;
+                  margin-top: 4px;
+                  padding: 8px;
+                  background: #3a1a1a;
+                  border: 1px solid #ff6b6b;
+                  border-radius: 4px;
+                  color: #ff6b6b;
+                  font-size: 11px;
+                  z-index: 100;
+                  word-break: break-word;
+                "></div>
+              </div>
+
+              <button
+                onclick="if(!window.processingAI && window.callGemini) { window.callGemini(); } else { alert('AI už zpracovává request nebo test běží!'); }"
+                id="btnGenerate"
+                style="
+                  padding: 10px;
+                  background: #7c3aed;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  font-weight: bold;
+                  cursor: pointer;
+                "
+                title="Odeslat do AI"
+              >
+                ➤
+              </button>
+
+              <button
+                onclick="if(window.cancelAIRequest) { window.cancelAIRequest(); }"
+                id="btnCancel"
+                style="
+                  padding: 10px;
+                  background: #ef4444;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  font-weight: bold;
+                  cursor: pointer;
+                  display: none;
+                "
+                title="Zrušit požadavek"
+              >
+                ⊗
+              </button>
+
+              <!-- Test Button -->
+              <button
+                onclick="if(window.showAITestPanel) window.showAITestPanel()"
+                style="
+                  padding: 10px;
+                  background: #8b5cf6;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  font-weight: bold;
+                  cursor: pointer;
+                  font-size: 12px;
+                "
+                title="Spustit AI test suite"
+              >
+                🧪
+              </button>
+            </div>
+
+            <div
+              id="aiStatus"
+              style="
+                margin-top: 8px;
+                font-size: 10px;
+                color: #555;
+                text-align: center;
+                display: flex;
+                justify-content: space-between;
+                flex-direction: column;
+              "
+            >
+              <span id="keyIndicator" style="display: none;">API Klíč: Žádný</span>
+            </div>
+
+            <!-- API Usage Stats -->
+            <div id="apiUsageInfo" style="
+              margin-top: 12px;
+              color: #888;
+              font-size: 10px;
+              padding: 10px;
+              background: #1a1a1a;
+              border-radius: 6px;
+              border: 1px solid #333;
+              line-height: 1.6;
+            "></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kreslení panel -->
+      <div class="tool-submenu" id="toolsDrawing" style="display: none">
+        <div class="drawing-panel" style="background: rgba(26, 26, 26, 0.95); padding: 12px; border-radius: 8px; border: 1px solid #444; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); margin: 0 auto;">
+        <!-- Header: polar snap + grip -->
+        <div class="tool-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;padding:4px 0;background: transparent;border-radius:6px;max-width:100%;box-shadow:none;">
+          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+            <div style="display:flex;flex-direction:column;min-width:0;">
+              <label style="font-size: 12px; color: #ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Polární krok (°):
+                <input type="number" id="polarSnapStep" min="1" max="90" value="90" style="width: 70px; margin-left: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 4px;">
+              </label>
+              <div style="font-size: 11px; color: #888; margin-top: 6px;">Přichycení funguje automaticky pro vodorovné/svislé (0°, 90°, 180°, 270°) a další zvolené úhly. Tolerance: ±3°.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-left:8px;">
+            <div class="panel-grip" style="cursor: move; padding:8px 12px; text-align:center; color:#aaa; border:1px solid rgba(255,255,255,0.03); border-radius:6px; background: rgba(0,0,0,0.12);">≡</div>
+          </div>
+        </div>
+        <div class="tools-content">
+          <div
+            style="
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+              justify-content: center;
+            "
+          >
+            <!-- Základní nástroje -->
+            <button
+              class="tool-btn"
+              onclick="window.setMode('line')"
+              id="btnLine"
+              title="Nakreslit čáru"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">📏</span>
+              <div style="font-size: 10px; margin-top: 2px">Čára</div>
+            </button>
+
+            <!-- Kružnice - rozbalovací menu -->
+            <div style="position: relative; display: inline-block">
+              <button
+                class="tool-btn"
+                id="btnCircle"
+                onclick="document.getElementById('circleMenu').style.display = document.getElementById('circleMenu').style.display === 'none' ? 'flex' : 'none'"
+                title="Nakreslit kružnici"
+                style="margin: 0"
+              >
+                <span style="font-size: 20px">⭕</span>
+                <div style="font-size: 10px; margin-top: 2px">Kružnice ▼</div>
+              </button>
+              <div
+                id="circleMenu"
+                style="
+                  position: absolute;
+                  top: 100%;
+                  left: 0;
+                  background: rgba(26, 26, 26, 0.98);
+                  border: 1px solid #444;
+                  border-radius: 6px;
+                  display: none;
+                  flex-direction: column;
+                  gap: 4px;
+                  padding: 6px;
+                  min-width: 140px;
+                  z-index: 1000;
+                "
+              >
+                <button
+                  class="tool-btn"
+                  onclick="window.setMode('circle'); document.getElementById('circleMenu').style.display='none'"
+                  style="
+                    width: 100%;
+                    margin: 0;
+                    background: #333;
+                    border: 1px solid #444;
+                    padding: 8px;
+                    border-radius: 4px;
+                    color: #ccc;
+                    font-size: 11px;
+                    cursor: pointer;
+                    text-align: left;
+                  "
+                  title="Běžná kružnice (střed → obvod)"
+                >
+                  📍→⭕ Normální
+                </button>
+                <button
+                  class="tool-btn"
+                  onclick="window.setMode('circumcircle'); document.getElementById('circleMenu').style.display='none'"
+                  style="
+                    width: 100%;
+                    margin: 0;
+                    background: #333;
+                    border: 1px solid #444;
+                    padding: 8px;
+                    border-radius: 4px;
+                    color: #ccc;
+                    font-size: 11px;
+                    cursor: pointer;
+                    text-align: left;
+                  "
+                  title="Kružnice procházející 3 body"
+                >
+                  3️⃣ Skrze 3 body
+                </button>
+              </div>
+            </div>
+
+            <button
+              class="tool-btn"
+              onclick="window.setMode('arc')"
+              id="btnArc"
+              title="Nakreslit oblouk"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">🌙</span>
+              <div style="font-size: 10px; margin-top: 2px">Oblouk</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('point')"
+              id="btnPoint"
+              title="Vytvořit bod"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">📍</span>
+              <div style="font-size: 10px; margin-top: 2px">Bod</div>
+            </button>
+
+            <button
+              class="tool-btn"
+              onclick="window.setMode('rectangle')"
+              id="btnRectangle"
+              title="Nakreslit obdélník"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">▭</span>
+              <div style="font-size: 10px; margin-top: 2px">Obdélník</div>
+            </button>
+
+            <!-- Konstrukce -->
+            <button
+              class="tool-btn"
+              onclick="window.setMode('tangent')"
+              id="btnTangent"
+              title="Tečna ke kružnici"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">⟂</span>
+              <div style="font-size: 10px; margin-top: 2px">Tečna</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('perpendicular')"
+              id="btnPerpendicular"
+              title="Kolmice"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">┴</span>
+              <div style="font-size: 10px; margin-top: 2px">Kolmice</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('parallel')"
+              id="btnParallel"
+              title="Rovnoběžka"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">∥</span>
+              <div style="font-size: 10px; margin-top: 2px">Rovnoběžka</div>
+            </button>
+          </div>
+          <div
+            style="
+              margin-top: 12px;
+              padding-top: 8px;
+              border-top: 1px solid #444;
+            "
+          >
+            <label
+              style="
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #ccc;
+                font-size: 12px;
+                cursor: pointer;
+              "
+            >
+              <input
+                type="checkbox"
+                id="polarSnapCheckboxLegacy"
+                onchange="window.togglePolarSnapLegacy()"
+              />
+              Polární přichycení (15°, 30°, 45°...)
+            </label>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <!-- Úpravy panel -->
+      <div class="tool-submenu" id="toolsEdit" style="display: none">
+        <div
+          style="
+            background: rgba(26, 26, 26, 0.95);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+          "
+        >
+          <div
+            style="
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+              justify-content: center;
+            "
+          >
+            <!-- Editace -->
+            <button
+              class="tool-btn"
+              onclick="window.setMode('trim')"
+              id="btnTrim"
+              title="Ořezat čáru"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">✂️</span>
+              <div style="font-size: 10px; margin-top: 2px">Oříznutí</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('extend')"
+              id="btnExtend"
+              title="Protáhnout čáru"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">↔️</span>
+              <div style="font-size: 10px; margin-top: 2px">Protažení</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('offset')"
+              id="btnOffset"
+              title="Odsadit objekt"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">⇄</span>
+              <div style="font-size: 10px; margin-top: 2px">Odsazení</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('mirror')"
+              id="btnMirror"
+              title="Zrcadlit objekt"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">🪞</span>
+              <div style="font-size: 10px; margin-top: 2px">Zrcadlit</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('erase')"
+              id="btnErase"
+              title="Smazat objekt"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">🗑️</span>
+              <div style="font-size: 10px; margin-top: 2px">Guma</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="calculateIntersections()"
+              id="btnIntersect"
+              title="Spočítat průsečíky"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">⊗</span>
+              <div style="font-size: 10px; margin-top: 2px">Průsečíky</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('measure')"
+              id="btnMeasure"
+              title="Změřit rozměry"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">📏</span>
+              <div style="font-size: 10px; margin-top: 2px">Měření</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.showConstraintModal()"
+              id="btnConstraint"
+              title="Fixace - aretování"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">🔒</span>
+              <div style="font-size: 10px; margin-top: 2px">Fixace</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('dimension')"
+              id="btnDimension"
+              title="Kótovat objekt"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">📐</span>
+              <div style="font-size: 10px; margin-top: 2px">Kóta</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.deleteAllDimensions()"
+              id="btnDeleteDimensions"
+              title="Smazat všechny kóty"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">❌</span>
+              <div style="font-size: 10px; margin-top: 2px">Smazat kóty</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.dimensionAll()"
+              id="btnDimensionAll"
+              title="Okotovat všechny čáry a kružnice"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">📏✨</span>
+              <div style="font-size: 10px; margin-top: 2px">Okotovat vše</div>
+            </button>
+
+            <!-- Transformace -->
+            <button
+              class="tool-btn"
+              onclick="window.setMode('align')"
+              title="Zarovnat a posunout"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">⚖️</span>
+              <div style="font-size: 10px; margin-top: 2px">Zarovnání</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.setMode('rotate')"
+              title="Otočit objekty"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">🔁</span>
+              <div style="font-size: 10px; margin-top: 2px">Rotace</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.showColorPicker()"
+              title="Změnit barvu a typ čáry"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">🎨</span>
+              <div style="font-size: 10px; margin-top: 2px">Barva, typ</div>
+            </button>
+
+            <!-- Booleovské operace -->
+            <button
+              class="tool-btn"
+              onclick="window.booleanUnion()"
+              title="Sjednocení"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">∪</span>
+              <div style="font-size: 10px; margin-top: 2px">Sjednocení</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.booleanIntersect()"
+              title="Průnik"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">∩</span>
+              <div style="font-size: 10px; margin-top: 2px">Průnik</div>
+            </button>
+            <button
+              class="tool-btn"
+              onclick="window.booleanDifference()"
+              title="Rozdíl"
+              style="margin: 0"
+            >
+              <span style="font-size: 20px">−</span>
+              <div style="font-size: 10px; margin-top: 2px">Rozdíl</div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Souřadnice panel -->
+      <div
+        class="tool-submenu coords-panel"
+        id="toolsCoords"
+        style="display: none"
+      >
+        <div
+          style="
+            background: rgba(26, 26, 26, 0.95);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+          "
+        >
+          <!-- Bod -->
+          <div style="margin-bottom: 8px">
+            <div
+              onclick="window.toggleCoordSection('coordBod')"
+              style="
+                cursor: pointer;
+                padding: 10px;
+                background: #2a2a2a;
+                border-radius: 6px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <strong style="color: #6ab0ff; font-size: 13px">📍 Bod</strong>
+              <span id="coordBodToggle" style="color: #888">▼</span>
+            </div>
+            <div
+              id="coordBod"
+              style="
+                display: none;
+                padding: 10px;
+                background: #1a1a1a;
+                border-radius: 6px;
+                margin-top: 4px;
+              "
+            >
+              <div style="display: flex; gap: 8px; margin-bottom: 8px">
+                <input
+                  type="number"
+                  id="quickPointZ"
+                  placeholder="Z"
+                  step="0.01"
+                  style="
+                    flex: 1;
+                    padding: 8px;
+                    background: #0a0a0a;
+                    border: 1px solid #444;
+                    color: white;
+                    border-radius: 4px;
+                    font-size: 14px;
+                  "
+                />
+                <input
+                  type="number"
+                  id="quickPointX"
+                  placeholder="X"
+                  step="0.01"
+                  style="
+                    flex: 1;
+                    padding: 8px;
+                    background: #0a0a0a;
+                    border: 1px solid #444;
+                    color: white;
+                    border-radius: 4px;
+                    font-size: 14px;
+                  "
+                />
+              </div>
+              <div style="display: flex; gap: 8px">
+                <button
+                  onclick="window.setPointFromCursor()"
+                  style="
+                    padding: 10px;
+                    background: #4a4a4a;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    flex: 1;
+                  "
+                >
+                  📍 Z kurzoru
+                </button>
+                <button
+                  onclick="window.quickAddPoint()"
+                  style="
+                    padding: 10px;
+                    background: #3a7bc8;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    flex: 1;
+                  "
+                >
+                  + Přidat
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Čára -->
+          <div style="margin-bottom: 8px">
+            <div
+              onclick="window.toggleCoordSection('coordLine')"
+              style="
+                cursor: pointer;
+                padding: 10px;
+                background: #2a2a2a;
+                border-radius: 6px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <strong style="color: #6ab0ff; font-size: 13px">📏 Čára</strong>
+              <span id="coordLineToggle" style="color: #888">▼</span>
+            </div>
+            <div
+              id="coordLine"
+              style="
+                display: none;
+                padding: 10px;
+                background: #1a1a1a;
+                border-radius: 6px;
+                margin-top: 4px;
+              "
+            >
+              <div style="font-size: 12px; color: #888; margin-bottom: 4px">Bod 1:</div>
+              <div style="display: flex; gap: 8px; margin-bottom: 8px">
+                <input type="number" id="lineZ1" placeholder="Z1" step="0.01" style="flex: 1; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px; font-size: 12px" />
+                <input type="number" id="lineX1" placeholder="X1" step="0.01" style="flex: 1; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px; font-size: 12px" />
+              </div>
+              <div style="font-size: 12px; color: #888; margin-bottom: 4px">Bod 2:</div>
+              <div style="display: flex; gap: 8px; margin-bottom: 8px">
+                <input type="number" id="lineZ2" placeholder="Z2" step="0.01" style="flex: 1; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px; font-size: 12px" />
+                <input type="number" id="lineX2" placeholder="X2" step="0.01" style="flex: 1; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px; font-size: 12px" />
+              </div>
+              <button onclick="window.addLineByCoords()" style="padding: 10px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; width: 100%">+ Nakreslit</button>
+            </div>
+          </div>
+
+          <!-- Kružnice -->
+          <div style="margin-bottom: 8px">
+            <div
+              onclick="window.toggleCoordSection('coordCircle')"
+              style="
+                cursor: pointer;
+                padding: 10px;
+                background: #2a2a2a;
+                border-radius: 6px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <strong style="color: #6ab0ff; font-size: 13px">⭕ Kružnice</strong>
+              <span id="coordCircleToggle" style="color: #888">▼</span>
+            </div>
+            <div
+              id="coordCircle"
+              style="
+                display: none;
+                padding: 10px;
+                background: #1a1a1a;
+                border-radius: 6px;
+                margin-top: 4px;
+              "
+            >
+              <div style="font-size: 12px; color: #888; margin-bottom: 4px">Střed:</div>
+              <div style="display: flex; gap: 8px; margin-bottom: 8px">
+                <input type="number" id="quickCircleZ" placeholder="Z" step="0.01" style="flex: 1; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px" />
+                <input type="number" id="quickCircleX" placeholder="X" step="0.01" style="flex: 1; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px" />
+              </div>
+              <div style="font-size: 12px; color: #888; margin-bottom: 4px">Poloměr:</div>
+              <input type="number" id="quickCircleR" placeholder="R" step="0.01" style="width: 100%; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px; margin-bottom: 8px" />
+              <button onclick="window.quickAddCircle()" style="padding: 10px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; width: 100%">+ Nakreslit</button>
+            </div>
+          </div>
+
+          <!-- Polární souřadnice -->
+          <div style="margin-bottom: 8px">
+            <div onclick="window.toggleCoordSection('coordPolar')" style="cursor: pointer; padding: 10px; background: #2a2a2a; border-radius: 6px; display: flex; justify-content: space-between; align-items: center">
+              <strong style="color: #6ab0ff; font-size: 13px">📐 Polární</strong>
+              <span id="coordPolarToggle" style="color: #888">▼</span>
+            </div>
+            <div id="coordPolar" style="display: none; padding: 10px; background: #1a1a1a; border-radius: 6px; margin-top: 4px">
+              <div style="font-size: 12px; color: #888; margin-bottom: 4px">Počáteční bod:</div>
+              <div style="display: flex; gap: 8px; margin-bottom: 8px">
+                <input type="number" id="polarStartZ" placeholder="Z" step="0.01" style="flex: 1; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px" />
+                <input type="number" id="polarStartX" placeholder="X" step="0.01" style="flex: 1; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px" />
+              </div>
+              <div style="display: flex; gap: 8px; margin-bottom: 8px">
+                <div style="flex: 1">
+                  <div style="font-size: 12px; color: #888; margin-bottom: 2px">Vzdálenost:</div>
+                  <input type="number" id="polarDist" placeholder="mm" step="0.1" style="width: 100%; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px" />
+                </div>
+                <div style="flex: 1">
+                  <div style="font-size: 12px; color: #888; margin-bottom: 2px">Úhel:</div>
+                  <input type="number" id="polarAngle" placeholder="°" step="1" style="width: 100%; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px" />
+                </div>
+              </div>
+              <div style="font-size: 11px; color: #666; margin-bottom: 8px">0° = vpravo, 90° = nahoru</div>
+              <div style="display: flex; gap: 8px">
+                <button onclick="window.addLinePolar()" style="padding: 10px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; flex: 1">+ Čára</button>
+                <button onclick="window.addPointPolar()" style="padding: 10px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; flex: 1">+ Bod</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ostatní panel -->
+      <div class="tool-submenu" id="toolsOther" style="display: none">
+        <div
+          style="
+            background: rgba(26, 26, 26, 0.95);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            max-height: 70vh;
+            overflow-y: auto;
+          "
+        >
+          <!-- Akce -->
+          <div style="margin-bottom: 8px">
+            <div style="padding: 8px 10px; background: #2a2a2a; border-radius: 6px">
+              <strong style="color: #6ab0ff; font-size: 13px">⚡ Akce</strong>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap">
+              <button class="tool-btn" onclick="window.undo()" style="margin: 0; flex: 1; min-width: 80px" title="Zpět">
+                <span style="font-size: 24px">↶</span>
+                <div style="font-size: 11px; margin-top: 2px">Zpět</div>
+              </button>
+              <button class="tool-btn" onclick="window.clearAll()" style="margin: 0; flex: 1; min-width: 80px" title="Vymazat vše">
+                <span style="font-size: 24px">🗑️</span>
+                <div style="font-size: 11px; margin-top: 2px">Vymazat</div>
+              </button>
+              <button class="tool-btn" onclick="window.exportPNG()" style="margin: 0; flex: 1; min-width: 80px" title="Exportovat PNG">
+                <span style="font-size: 24px">💾</span>
+                <div style="font-size: 11px; margin-top: 2px">Export PNG</div>
+              </button>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap">
+              <button class="tool-btn" onclick="window.saveProject()" style="margin: 0; flex: 1; min-width: 100px" title="Uložit projekt">
+                <span style="font-size: 24px">💾</span>
+                <div style="font-size: 10px; margin-top: 2px">Uložit</div>
+              </button>
+              <button class="tool-btn" onclick="document.getElementById('loadProjectInput').click()" style="margin: 0; flex: 1; min-width: 100px" title="Načíst projekt">
+                <span style="font-size: 24px">📂</span>
+                <div style="font-size: 10px; margin-top: 2px">Načíst</div>
+              </button>
+              <button class="tool-btn" onclick="document.getElementById('importSimDxfInput').click()" style="margin: 0; flex: 1; min-width: 120px" title="Importovat z SimDxf JSON">
+                <span style="font-size: 24px">📥</span>
+                <div style="font-size: 10px; margin-top: 2px">Import SimDxf</div>
+              </button>
+              <input type="file" id="loadProjectInput" accept=".json" style="display: none" onchange="window.loadProject(this)" />
+              <input type="file" id="importSimDxfInput" accept=".json" style="display: none" onchange="window.importSimDxfProject(this)" />
+            </div>
+          </div>
+
+          <!-- Přichycení -->
+          <div style="margin-bottom: 8px">
+            <div
+              onclick="window.toggleCoordSection('otherHelpers')"
+              style="cursor: pointer; padding: 10px; background: #2a2a2a; border-radius: 6px; display: flex; justify-content: space-between; align-items: center"
+            >
+              <strong style="color: #6ab0ff; font-size: 13px">📍 Přichycení</strong>
+              <span id="otherHelpersToggle" style="color: #888">▼</span>
+            </div>
+            <div id="otherHelpers" style="display: none; padding: 10px; background: #1a1a1a; border-radius: 6px; margin-top: 4px">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; margin-bottom: 8px">
+                <input type="checkbox" id="snapGrid" onchange="window.updateSnapSettings()" style="width: 16px; height: 16px" />
+                <span>Přichycení k mřížce</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; margin-bottom: 8px">
+                <input type="checkbox" id="snapPoints" checked onchange="window.updateSnapSettings()" style="width: 16px; height: 16px" />
+                <span>Přichycení k bodům</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px">
+                <input type="checkbox" id="orthoMode" checked onchange="window.updateSnapSettings()" style="width: 16px; height: 16px" />
+                <span>Ortogonální (↔↕)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Zobrazení -->
+          <div style="margin-bottom: 8px">
+            <div
+              onclick="window.toggleCoordSection('otherDisplay')"
+              style="cursor: pointer; padding: 10px; background: #2a2a2a; border-radius: 6px; display: flex; justify-content: space-between; align-items: center"
+            >
+              <strong style="color: #6ab0ff; font-size: 13px">🎨 Zobrazení</strong>
+              <span id="otherDisplayToggle" style="color: #888">▼</span>
+            </div>
+            <div id="otherDisplay" style="display: none; padding: 10px; background: #1a1a1a; border-radius: 6px; margin-top: 4px">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; margin-bottom: 8px">
+                <input type="checkbox" id="showGrid" checked onchange="window.draw()" style="width: 16px; height: 16px" />
+                <span>Mřížka</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; margin-bottom: 8px">
+                <input type="checkbox" id="showAxes" checked onchange="window.draw()" style="width: 16px; height: 16px" />
+                <span>Osy (X, Z)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; margin-bottom: 8px">
+                <input type="checkbox" id="showPoints" checked onchange="window.draw()" style="width: 16px; height: 16px" />
+                <span>Body</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; margin-bottom: 8px">
+                <input type="checkbox" id="enableMeasureInput" onchange="window.toggleMeasureInput()" style="width: 16px; height: 16px" />
+                <span>Míra - zadání rozměrů</span>
+              </label>
+              <!-- Mřížka -->
+              <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #333">
+                <label style="font-size: 12px; color: #888; display: block; margin-bottom: 6px">Rozestup mřížky (mm):</label>
+                <input type="number" id="gridSpacing" value="10" min="0.01" max="100" step="0.01" onchange="window.updateGridSpacing()" style="width: 100%; padding: 8px; background: #0a0a0a; border: 1px solid #444; color: white; border-radius: 4px; font-size: 14px; margin-bottom: 6px" />
+                <div style="display: flex; gap: 6px">
+                  <button onclick="window.setGridSpacing(0.1)" style="flex: 1; padding: 6px; background: #3a3a3a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px">0.1mm</button>
+                  <button onclick="window.setGridSpacing(1)" style="flex: 1; padding: 6px; background: #3a3a3a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px">1mm</button>
+                  <button onclick="window.setGridSpacing(5)" style="flex: 1; padding: 6px; background: #3a3a3a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px">5mm</button>
+                  <button onclick="window.setGridSpacing(10)" style="flex: 1; padding: 6px; background: #3a3a3a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px">10mm</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <canvas id="canvas"></canvas>
+
+      <!-- Touch cursor -->
+      <div class="touch-cursor" id="touchCursor">
+        <div class="touch-cursor-center"></div>
+      </div>
+
+      <div class="coords" id="coords">Z: 0.00 | X: 0.00 mm</div>
+      <div class="snap-info" id="snapInfo"></div>
+      <div class="mode-info" id="modeInfo"></div>
+    </div>
+
+    <!-- Toolbar dole -->
+    <div class="toolbar">
+      <button
+        class="tool-btn"
+        onclick="window.showControllerModal()"
+        id="btnController"
+        title="Ovladač pro kreslení"
+      >
+        <span style="font-size: 24px">🎮</span>
+        <div style="font-size: 11px; margin-top: 4px">Ovladač</div>
+      </button>
+      <button
+        class="tool-btn"
+        onclick="window.showToolCategory('drawing')"
+        id="btnCatDrawing"
+        title="Kreslení"
+      >
+        <span style="font-size: 24px">✏️</span>
+        <div style="font-size: 11px; margin-top: 4px">Kreslení</div>
+      </button>
+      <button
+        class="tool-btn"
+        onclick="window.showToolCategory('edit')"
+        id="btnCatEdit"
+        title="Úpravy"
+      >
+        <span style="font-size: 24px">🔧</span>
+        <div style="font-size: 11px; margin-top: 4px">Úpravy</div>
+      </button>
+      <button
+        class="tool-btn"
+        onclick="window.showToolCategory('coords')"
+        id="btnCatCoords"
+        title="Souřadnice"
+      >
+        <span style="font-size: 24px">📐</span>
+        <div style="font-size: 11px; margin-top: 4px">Souřadnice</div>
+      </button>
+      <button
+        class="tool-btn"
+        onclick="window.showToolCategory('other')"
+        id="btnCatOther"
+        title="Ostatní"
+      >
+        <span style="font-size: 24px">⚙️</span>
+        <div style="font-size: 11px; margin-top: 4px">Ostatní</div>
+      </button>
+
+      <div
+        style="width: 1px; height: 40px; background: #333; margin: 0 5px"
+      ></div>
+
+      <button
+        class="tool-btn ai-btn"
+        onclick="window.showToolCategory('ai')"
+        id="btnCatAi"
+        title="AI Asistent"
+      >
+        <span style="font-size: 24px">✨</span>
+        <div style="font-size: 11px; margin-top: 4px">AI</div>
+      </button>
+    </div>
+    <div id="settingsModal" class="modal-overlay">
+      <div class="modal-window">
+        <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">
+          ⚙️ Nastavení API Klíčů
+        </h2>
+
+        <p style="font-size: 13px; color: #aaa; margin-bottom: 10px">
+          Pro použití AI funkcí (Gemini) vložte API klíč. Klíče jsou uloženy
+          pouze ve vašem prohlížeči.
+          <a
+            href="https://aistudio.google.com/app/apikey"
+            target="_blank"
+            style="color: #6ab0ff"
+            >Získat klíč zde</a
+          >.
+        </p>
+
+        <div style="font-size: 12px; color: #888">Uložené klíče:</div>
+        <div id="keyList" class="key-list">
+          <div
+            style="
+              padding: 10px;
+              color: #555;
+              font-style: italic;
+              text-align: center;
+            "
+          >
+            Žádné klíče
+          </div>
+        </div>
+
+        <div
+          style="
+            background: #222;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 15px;
+          "
+        >
+          <div style="margin-bottom: 8px">
+            <label style="font-size: 11px; display: block; margin-bottom: 2px"
+              >Název:</label
+            >
+            <input
+              type="text"
+              id="newKeyName"
+              placeholder="Můj klíč"
+              style="
+                width: 100%;
+                background: #111;
+                border: 1px solid #444;
+                color: white;
+                padding: 6px;
+                border-radius: 4px;
+              "
+            />
+          </div>
+          <div style="margin-bottom: 8px">
+            <label style="font-size: 11px; display: block; margin-bottom: 2px"
+              >API Key:</label
+            >
+            <input
+              type="password"
+              id="newKeyValue"
+              placeholder="AIza..."
+              style="
+                width: 100%;
+                background: #111;
+                border: 1px solid #444;
+                color: white;
+                padding: 6px;
+                border-radius: 4px;
+              "
+            />
+          </div>
+          <button
+            onclick="addApiKey()"
+            style="
+              width: 100%;
+              padding: 8px;
+              background: #3a7bc8;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 13px;
+            "
+          >
+            + Přidat a použít
+          </button>
+        </div>
+
+        <div style="margin-top: 15px; text-align: right">
+          <button
+            onclick="closeSettings()"
+            style="
+              padding: 8px 16px;
+              background: #444;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+            "
+          >
+            Zavřít
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI PREFERENCES MODAL -->
+    <div id="aiPreferencesModal" class="modal-overlay" style="display: none">
+      <div class="modal-window">
+        <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">
+          🎓 AI Preference
+        </h2>
+
+        <p style="font-size: 12px; color: #aaa; margin-bottom: 15px">
+          Nastavte své preference a AI se naučí je respektovat.
+        </p>
+
+        <div
+          style="
+            background: #222;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+          "
+        >
+          <h3 style="color: #6ab0ff; font-size: 14px; margin-bottom: 10px">
+            📝 Preference:
+          </h3>
+          <div id="preferencesList" style="font-size: 12px; color: #ccc">
+            <div style="padding: 10px; color: #555; text-align: center">
+              Žádné preference
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #222; padding: 12px; border-radius: 6px">
+          <h3 style="color: #6ab0ff; font-size: 14px; margin-bottom: 10px">
+            ➕ Přidat preferenci:
+          </h3>
+          <div style="margin-bottom: 8px">
+            <label style="font-size: 11px; display: block; margin-bottom: 2px"
+              >Klíč:</label
+            >
+            <input
+              type="text"
+              id="newPrefKey"
+              placeholder="např. material"
+              style="
+                width: 100%;
+                background: #111;
+                border: 1px solid #444;
+                color: white;
+                padding: 6px;
+                border-radius: 4px;
+              "
+            />
+          </div>
+          <div style="margin-bottom: 8px">
+            <label style="font-size: 11px; display: block; margin-bottom: 2px"
+              >Hodnota:</label
+            >
+            <input
+              type="text"
+              id="newPrefValue"
+              placeholder="např. ocel"
+              style="
+                width: 100%;
+                background: #111;
+                border: 1px solid #444;
+                color: white;
+                padding: 6px;
+                border-radius: 4px;
+              "
+            />
+          </div>
+          <button
+            onclick="addAIPreference()"
+            style="
+              width: 100%;
+              padding: 8px;
+              background: #3a7bc8;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 13px;
+            "
+          >
+            + Přidat
+          </button>
+        </div>
+
+        <div style="margin-top: 15px; text-align: right">
+          <button
+            onclick="closeAIPreferences()"
+            style="
+              padding: 8px 16px;
+              background: #444;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+            "
+          >
+            Zavřít
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CIRCLE MODAL -->
+    <div id="circleModal" class="modal-overlay">
+      <div class="modal-window">
+        <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">⭕ Zadání kružnice</h2>
+        <div class="circle-input-row">
+          <label>Poloměr (R):</label>
+          <input type="number" id="circleInputR" step="0.01" oninput="window.updateCircleInputs('R')" onkeydown="if(event.key==='Enter') window.confirmCircle()" />
+        </div>
+        <div class="circle-input-row">
+          <label>Průměr (D):</label>
+          <input type="number" id="circleInputD" step="0.01" oninput="window.updateCircleInputs('D')" onkeydown="if(event.key==='Enter') window.confirmCircle()" />
+        </div>
+        <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end">
+          <button onclick="window.closeCircleModal()" style="padding: 8px 16px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer">Zrušit</button>
+          <button onclick="window.confirmCircle()" style="padding: 8px 16px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold">Vytvořit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSTRAINT MODAL -->
+    <!-- COLOR & STYLE MODAL -->
+    <div id="colorStyleModal" class="modal-overlay" style="display: none">
+      <div class="modal-window" style="max-width: 600px">
+        <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">🎨 Barva a Styl Čáry</h2>
+
+        <!-- BARVY -->
+        <div style="margin-bottom: 20px">
+          <h3 style="color: #888; font-size: 12px; margin-bottom: 10px; text-transform: uppercase">🎨 Barva</h3>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px">
+            <button onclick="window.selectColor('#FF0000', this)" id="colorBtn_FF0000" style="width: 40px; height: 40px; background: #FF0000; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Červená" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#00FF00', this)" id="colorBtn_00FF00" style="width: 40px; height: 40px; background: #00FF00; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Zelená" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#0000FF', this)" id="colorBtn_0000FF" style="width: 40px; height: 40px; background: #0000FF; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Modrá" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#FFFF00', this)" id="colorBtn_FFFF00" style="width: 40px; height: 40px; background: #FFFF00; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Žlutá" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#FF00FF', this)" id="colorBtn_FF00FF" style="width: 40px; height: 40px; background: #FF00FF; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Fialová" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#00FFFF', this)" id="colorBtn_00FFFF" style="width: 40px; height: 40px; background: #00FFFF; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Azurová" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#FFA500', this)" id="colorBtn_FFA500" style="width: 40px; height: 40px; background: #FFA500; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Oranžová" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#800080', this)" id="colorBtn_800080" style="width: 40px; height: 40px; background: #800080; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Purpura" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#FFFFFF', this)" id="colorBtn_FFFFFF" style="width: 40px; height: 40px; background: #FFFFFF; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Bílá" onmouseover="this.style.borderColor='#aaa'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#000000', this)" id="colorBtn_000000" style="width: 40px; height: 40px; background: #000000; border: 2px solid #aaa; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Černá" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#aaa'"></button>
+            <button onclick="window.selectColor('#808080', this)" id="colorBtn_808080" style="width: 40px; height: 40px; background: #808080; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Šedá" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+            <button onclick="window.selectColor('#FF69B4', this)" id="colorBtn_FF69B4" style="width: 40px; height: 40px; background: #FF69B4; border: 2px solid #555; border-radius: 6px; cursor: pointer; transition: all 0.2s" title="Růžová" onmouseover="this.style.borderColor='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#555'"></button>
+          </div>
+        </div>
+
+        <!-- STYL ČÁRY -->
+        <div style="margin-bottom: 20px">
+          <h3 style="color: #888; font-size: 12px; margin-bottom: 10px; text-transform: uppercase">📏 Styl Čáry</h3>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px">
+            <button onclick="window.selectLineStyle('solid', this)" id="styleBtn_solid" style="padding: 10px 16px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.background='#2a3a4a'; if(!this.classList.contains('selected'))this.style.color='#aaa'">━━ Klasická</button>
+            <button onclick="window.selectLineStyle('thick', this)" id="styleBtn_thick" style="padding: 10px 16px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.background='#2a3a4a'; if(!this.classList.contains('selected'))this.style.color='#aaa'">━━━ Tlustá</button>
+            <button onclick="window.selectLineStyle('thin', this)" id="styleBtn_thin" style="padding: 10px 16px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.background='#2a3a4a'; if(!this.classList.contains('selected'))this.style.color='#aaa'">─ Tenká</button>
+            <button onclick="window.selectLineStyle('dashed', this)" id="styleBtn_dashed" style="padding: 10px 16px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.background='#2a3a4a'; if(!this.classList.contains('selected'))this.style.color='#aaa'">╌ ╌ Čárkovaná</button>
+            <button onclick="window.selectLineStyle('dotted', this)" id="styleBtn_dotted" style="padding: 10px 16px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="if(!this.classList.contains('selected'))this.style.background='#2a3a4a'; if(!this.classList.contains('selected'))this.style.color='#aaa'">· · Tečkovaná</button>
+          </div>
+        </div>
+
+        <!-- NASTAVENÍ VÝCHOZÍCH BAREV A STYLU -->
+        <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #555; margin-bottom: 20px">
+          <h3 style="color: #888; font-size: 12px; margin-bottom: 15px; text-transform: uppercase">⚙️ Nastavení Kreslení Nových Objektů</h3>
+          <p style="color: #666; font-size: 11px; margin-bottom: 15px">Vyberte výchozí barvu a styl pro nově kreslené objekty. Nastavení se uloží automaticky.</p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px">
+            <!-- Výchozí barva -->
+            <div>
+              <label style="display: block; color: #888; font-size: 11px; margin-bottom: 8px">🎨 Výchozí barva:</label>
+              <select id="defaultColorSelect" onchange="window.setDefaultColor(this.value)" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 12px">
+                <option value="#4a9eff" style="background: #1a1a1a; color: #e0e0e0">🔵 Modrá (výchozí)</option>
+                <option value="#FF0000" style="background: #1a1a1a; color: #e0e0e0">🔴 Červená</option>
+                <option value="#00FF00" style="background: #1a1a1a; color: #e0e0e0">🟢 Zelená</option>
+                <option value="#FFFF00" style="background: #1a1a1a; color: #e0e0e0">🟡 Žlutá</option>
+                <option value="#FF00FF" style="background: #1a1a1a; color: #e0e0e0">🟣 Fialová</option>
+                <option value="#00FFFF" style="background: #1a1a1a; color: #e0e0e0">⚪ Azurová</option>
+                <option value="#FFA500" style="background: #1a1a1a; color: #e0e0e0">🟠 Oranžová</option>
+                <option value="#800080" style="background: #1a1a1a; color: #e0e0e0">⬛ Purpura</option>
+                <option value="#FFFFFF" style="background: #1a1a1a; color: #e0e0e0">⚫ Bílá</option>
+                <option value="#000000" style="background: #1a1a1a; color: #e0e0e0">⬜ Černá</option>
+                <option value="#808080" style="background: #1a1a1a; color: #e0e0e0">◼️ Šedá</option>
+                <option value="#FF69B4" style="background: #1a1a1a; color: #e0e0e0">🩷 Růžová</option>
+              </select>
+            </div>
+
+            <!-- Výchozí styl čáry -->
+            <div>
+              <label style="display: block; color: #888; font-size: 11px; margin-bottom: 8px">📏 Výchozí styl čáry:</label>
+              <select id="defaultLineStyleSelect" onchange="window.setDefaultLineStyle(this.value)" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 12px">
+                <option value="solid" style="background: #1a1a1a; color: #e0e0e0">━━ Klasická</option>
+                <option value="thick" style="background: #1a1a1a; color: #e0e0e0">━━━ Tlustá</option>
+                <option value="thin" style="background: #1a1a1a; color: #e0e0e0">─ Tenká</option>
+                <option value="dashed" style="background: #1a1a1a; color: #e0e0e0">╌ ╌ Čárkovaná</option>
+                <option value="dotted" style="background: #1a1a1a; color: #e0e0e0">· · Tečkovaná</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- NASTAVENÍ BAREV KÓT -->
+        <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #555; margin-bottom: 20px">
+          <h3 style="color: #888; font-size: 12px; margin-bottom: 15px; text-transform: uppercase">📏 Nastavení Barev Kót</h3>
+          <p style="color: #666; font-size: 11px; margin-bottom: 15px">Vyberte barvy pro kóty a jejich hodnoty. Nastavení se uloží automaticky.</p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px">
+            <!-- Barva čar kót -->
+            <div>
+              <label style="display: block; color: #888; font-size: 11px; margin-bottom: 8px">📐 Barva čar kót:</label>
+              <select id="dimensionLineColorSelect" onchange="window.setDimensionLineColor(this.value)" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 12px">
+                <option value="#ffa500" style="background: #1a1a1a; color: #e0e0e0">🟠 Oranžová (výchozí)</option>
+                <option value="#FF0000" style="background: #1a1a1a; color: #e0e0e0">🔴 Červená</option>
+                <option value="#00FF00" style="background: #1a1a1a; color: #e0e0e0">🟢 Zelená</option>
+                <option value="#4a9eff" style="background: #1a1a1a; color: #e0e0e0">🔵 Modrá</option>
+                <option value="#FFFF00" style="background: #1a1a1a; color: #e0e0e0">🟡 Žlutá</option>
+                <option value="#FF00FF" style="background: #1a1a1a; color: #e0e0e0">🟣 Fialová</option>
+                <option value="#00FFFF" style="background: #1a1a1a; color: #e0e0e0">⚪ Azurová</option>
+                <option value="#FFFFFF" style="background: #1a1a1a; color: #e0e0e0">⚫ Bílá</option>
+                <option value="#000000" style="background: #1a1a1a; color: #e0e0e0">⬜ Černá</option>
+                <option value="#808080" style="background: #1a1a1a; color: #e0e0e0">◼️ Šedá</option>
+              </select>
+            </div>
+
+            <!-- Barva hodnot kót -->
+            <div>
+              <label style="display: block; color: #888; font-size: 11px; margin-bottom: 8px">🔤 Barva hodnot kót:</label>
+              <select id="dimensionTextColorSelect" onchange="window.setDimensionTextColor(this.value)" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 12px">
+                <option value="#ffff99" style="background: #1a1a1a; color: #e0e0e0">🟡 Světle žlutá (výchozí)</option>
+                <option value="#FFFFFF" style="background: #1a1a1a; color: #e0e0e0">⚫ Bílá</option>
+                <option value="#000000" style="background: #1a1a1a; color: #e0e0e0">⬜ Černá</option>
+                <option value="#FF0000" style="background: #1a1a1a; color: #e0e0e0">🔴 Červená</option>
+                <option value="#00FF00" style="background: #1a1a1a; color: #e0e0e0">🟢 Zelená</option>
+                <option value="#4a9eff" style="background: #1a1a1a; color: #e0e0e0">🔵 Modrá</option>
+                <option value="#FFA500" style="background: #1a1a1a; color: #e0e0e0">🟠 Oranžová</option>
+              </select>
+            </div>
+          </div>
+        </div>
+          <button onclick="window.closeColorStyleModal()" style="padding: 8px 16px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer">Zrušit</button>
+          <button onclick="window.confirmColorStyle()" style="padding: 8px 16px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold">Potvrdit</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="constraintModal" class="modal-overlay">
+      <div class="modal-window">
+        <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">🔒 Fixace - Aretování objektů</h2>
+        <p style="color: #aaa; font-size: 12px; margin-bottom: 15px; text-align: center">Vyberte typ fixace pro aretování vybraných objektů</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 15px">
+          <button onclick="window.applyConstraint('point')" style="padding: 10px 12px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px; min-width: 70px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="this.style.background='#2a3a4a'; this.style.color='#aaa'">📍 Bod</button>
+          <button onclick="window.applyConstraint('distance')" style="padding: 10px 12px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px; min-width: 70px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="this.style.background='#2a3a4a'; this.style.color='#aaa'">📏 Vzdálenost</button>
+          <button onclick="window.applyConstraint('radius')" style="padding: 10px 12px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px; min-width: 70px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="this.style.background='#2a3a4a'; this.style.color='#aaa'">⭕ Radius</button>
+          <button onclick="window.applyConstraint('polarAngle')" style="padding: 10px 12px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px; min-width: 70px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="this.style.background='#2a3a4a'; this.style.color='#aaa'">⟲ Pol. Úhel</button>
+          <button onclick="window.applyConstraint('horizontal')" style="padding: 10px 12px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px; min-width: 70px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="this.style.background='#2a3a4a'; this.style.color='#aaa'">➡️ Vodorovně</button>
+          <button onclick="window.applyConstraint('vertical')" style="padding: 10px 12px; background: #2a3a4a; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px; min-width: 70px; transition: all 0.2s" onmouseover="this.style.background='#3a5a7a'; this.style.color='#fff'" onmouseout="this.style.background='#2a3a4a'; this.style.color='#aaa'">⬆️ Svisle</button>
+          <button onclick="window.removeConstraint('all')" style="padding: 10px 12px; background: #3a2a2a; color: #ff6b6b; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px; min-width: 70px; transition: all 0.2s" onmouseover="this.style.background='#5a3a3a'; this.style.color='#ff8888'" onmouseout="this.style.background='#3a2a2a'; this.style.color='#ff6b6b'">❌ Smazat</button>
+        </div>
+        <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end">
+          <button onclick="window.closeConstraintModal()" style="padding: 8px 16px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer">Zavřít</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSTRAINT POINT MODAL -->
+    <div id="constraintPointModal" class="modal-overlay">
+      <div class="modal-window">
+        <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">📍 Fixace Bodu - Zadání Souřadnic</h2>
+        <div class="circle-input-row">
+          <label>Z (Horizontálně):</label>
+          <input type="number" id="constraintPointZ" step="0.01" value="0" />
+        </div>
+        <div class="circle-input-row">
+          <label>X (Vertikálně):</label>
+          <input type="number" id="constraintPointX" step="0.01" value="0" />
+        </div>
+        <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end">
+          <button onclick="window.cancelConstraintValue()" style="padding: 8px 16px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer">Zrušit</button>
+          <button onclick="window.confirmConstraintPoint()" style="padding: 8px 16px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold">Potvrdit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSTRAINT DISTANCE MODAL -->
+    <div id="constraintDistanceModal" class="modal-overlay">
+      <div class="modal-window">
+        <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">📏 Fixace Vzdálenosti</h2>
+        <div class="circle-input-row">
+          <label>Vzdálenost:</label>
+          <input type="number" id="constraintDistanceValue" step="0.01" value="10" />
+        </div>
+        <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end">
+          <button onclick="window.cancelConstraintValue()" style="padding: 8px 16px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer">Zrušit</button>
+          <button onclick="window.confirmConstraintDistance()" style="padding: 8px 16px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold">Potvrdit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSTRAINT RADIUS MODAL -->
+    <div id="constraintRadiusModal" class="modal-overlay">
+      <div class="modal-window">
+        <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">⭕ Fixace Radiusu</h2>
+        <div class="circle-input-row">
+          <label>Radius:</label>
+          <input type="number" id="constraintRadiusValue" step="0.01" value="5" />
+        </div>
+        <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end">
+          <button onclick="window.cancelConstraintValue()" style="padding: 8px 16px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer">Zrušit</button>
+          <button onclick="window.confirmConstraintRadius()" style="padding: 8px 16px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold">Potvrdit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSTRAINT POLAR ANGLE MODAL -->
+    <div id="constraintPolarAngleModal" class="modal-overlay">
+      <div class="modal-window">
+        <h2 style="margin-bottom: 15px; color: #6ab0ff; font-size: 18px">⟲ Fixace Polárního Úhlu</h2>
+        <div class="circle-input-row">
+          <label>Polární Úhel (°):</label>
+          <input type="number" id="constraintPolarAngleValue" step="0.1" value="0" min="0" max="360" />
+        </div>
+        <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end">
+          <button onclick="window.cancelConstraintValue()" style="padding: 8px 16px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer">Zrušit</button>
+          <button onclick="window.confirmConstraintPolarAngle()" style="padding: 8px 16px; background: #3a7bc8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold">Potvrdit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODALS PLACEHOLDER - Ostatní modály se načítají z external souborů -->
+    <div id="quickInputHelpModal" class="modal-overlay"></div>
+    <div id="controllerModal" class="modal-overlay" style="display: none; bottom: 0; top: auto; align-items: flex-end; justify-content: center; background: transparent">
+      <div class="modal-window" style="max-width: 700px; border-radius: 10px 10px 0 0; margin: 0">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px">
+          <h2 style="color: #6ab0ff; font-size: 18px; margin: 0">🎮 Ovladač - Rychlé kreslení úseček</h2>
+          <button onclick="window.closeControllerModal()" style="background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer">&times;</button>
+        </div>
+
+        <!-- Input Display & Mode Selector -->
+        <div style="margin-bottom: 12px">
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px">
+            <button id="btnG90" onclick="window.setControllerMode('G90')" style="padding: 8px 12px; background: #3a7bc8; border: 1px solid #5a9be8; border-radius: 6px; color: white; cursor: pointer; font-size: 12px; font-weight: bold">
+              G90<br /><span style="font-size: 9px">Absolutní</span>
+            </button>
+            <button id="btnG91" onclick="window.setControllerMode('G91')" style="padding: 8px 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #888; cursor: pointer; font-size: 12px">
+              G91<br /><span style="font-size: 9px">Přírůstkové</span>
+            </button>
+            <input type="text" id="controllerInput" readonly placeholder="Zadání..." style="flex: 1; padding: 10px; background: #000; border: 1px solid #444; border-radius: 6px; color: #0f0; font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold" />
+          </div>
+          <div style="display: flex; gap: 10px; font-size: 11px; color: #888">
+            <div><strong style="color: #6ab0ff">Režim:</strong> <span id="controllerModeDisplay">G90 (Absolutní)</span></div>
+            <div><strong style="color: #6ab0ff">Poslední bod:</strong> <span id="controllerLastPointInline">—</span></div>
+          </div>
+        </div>
+
+        <!-- Controller Layout - KLÁVESNICE -->
+        <div style="background: #1a1a1a; padding: 12px; border-radius: 10px; border: 1px solid #444">
+          <h4 style="color: #90cdf4; margin: 0 0 8px 0; text-align: center; font-size: 12px">⌨️ CNC Zadání</h4>
+
+          <!-- G-Codes Row -->
+          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-bottom: 3px">
+            <button onclick="window.insertControllerToken('G90 ')" style="padding: 4px; background: #1e3a5f; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">G90<span style="font-size: 7px; display: block">Abs</span></button>
+            <button onclick="window.insertControllerToken('G91 ')" style="padding: 4px; background: #1e3a5f; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">G91<span style="font-size: 7px; display: block">Přír</span></button>
+            <button onclick="window.insertControllerToken('G0 ')" style="padding: 4px; background: #1e3a5f; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">G0<span style="font-size: 7px; display: block">Bod</span></button>
+            <button onclick="window.insertControllerToken('G1 ')" style="padding: 4px; background: #1e3a5f; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">G1<span style="font-size: 7px; display: block">Čára</span></button>
+            <button onclick="window.insertControllerToken('G2 ')" style="padding: 4px; background: #1e3a5f; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">G2<span style="font-size: 7px; display: block">CW</span></button>
+            <button onclick="window.insertControllerToken('G3 ')" style="padding: 4px; background: #1e3a5f; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">G3<span style="font-size: 7px; display: block">CCW</span></button>
+          </div>
+
+          <!-- Row 1: X, Z, 7, 8, 9, ; -->
+          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-bottom: 3px">
+            <button onclick="window.insertControllerToken('X')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">X<span style="font-size: 7px; display: block">Osa</span></button>
+            <button onclick="window.insertControllerToken('Z')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">Z<span style="font-size: 7px; display: block">Osa</span></button>
+            <button onclick="window.insertControllerToken('7')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">7</button>
+            <button onclick="window.insertControllerToken('8')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">8</button>
+            <button onclick="window.insertControllerToken('9')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">9</button>
+            <button onclick="window.insertControllerToken(';')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">;<span style="font-size: 7px; display: block">Odd</span></button>
+          </div>
+
+          <!-- Row 2: R, CR, 4, 5, 6, Space -->
+          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-bottom: 3px">
+            <button onclick="window.insertControllerToken('R')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">R<span style="font-size: 7px; display: block">Rad</span></button>
+            <button onclick="window.insertControllerToken('CR')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">CR<span style="font-size: 7px; display: block">Min</span></button>
+            <button onclick="window.insertControllerToken('4')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">4</button>
+            <button onclick="window.insertControllerToken('5')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">5</button>
+            <button onclick="window.insertControllerToken('6')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">6</button>
+            <button onclick="window.insertControllerToken(' ')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">␣<span style="font-size: 7px; display: block">Mezera</span></button>
+          </div>
+
+          <!-- Row 3: L, A, 1, 2, 3, Backspace -->
+          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-bottom: 3px">
+            <button onclick="window.insertControllerToken('L')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">L<span style="font-size: 7px; display: block">Dél</span></button>
+            <button onclick="window.insertControllerToken('A')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">A<span style="font-size: 7px; display: block">Úhel</span></button>
+            <button onclick="window.insertControllerToken('1')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">1</button>
+            <button onclick="window.insertControllerToken('2')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">2</button>
+            <button onclick="window.insertControllerToken('3')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">3</button>
+            <button onclick="window.backspaceControllerToken()" style="padding: 4px; background: #8b2a2a; border: 1px solid #5a4444; border-radius: 4px; color: #ff6b6b; cursor: pointer; font-size: 11px">⌫</button>
+          </div>
+
+          <!-- Row 4: RP, AP, -, 0, . -->
+          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-bottom: 6px">
+            <button onclick="window.insertControllerToken('RP')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">RP<span style="font-size: 7px; display: block">Pol</span></button>
+            <button onclick="window.insertControllerToken('AP')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">AP<span style="font-size: 7px; display: block">Úhel</span></button>
+            <button onclick="window.insertControllerToken('-')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">-</button>
+            <button onclick="window.insertControllerToken('0')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">0</button>
+            <button onclick="window.insertControllerToken('.')" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 11px">.</button>
+            <button onclick="window.clearControllerInput()" style="padding: 4px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">C<span style="font-size: 7px; display: block">Clear</span></button>
+          </div>
+
+          <!-- Row 5: Směry, Sražení, Zaoblení -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-bottom: 6px">
+            <button onclick="window.showControllerDirectionModal()" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px; font-weight: bold">🧭<span style="font-size: 7px; display: block">Směry</span></button>
+            <button onclick="window.showControllerLengthModal()" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px; font-weight: bold">📏<span style="font-size: 7px; display: block">Délka</span></button>
+            <button onclick="window.insertControllerToken('Zaob ')" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px; font-weight: bold">◯<span style="font-size: 7px; display: block">Zaob</span></button>
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="margin-top: 6px">
+            <button onclick="window.confirmControllerInput()" style="width: 100%; padding: 10px; background: #22c55e; border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 14px; font-weight: bold">✓ Potvrdit</button>
+          </div>
+        </div>
+
+        <!-- Help Text -->
+        <div style="margin-top: 12px; padding: 10px; background: #1a1a1a; border-radius: 6px; border-left: 3px solid #6ab0ff; font-size: 11px; color: #aaa">
+          <strong style="color: #6ab0ff">💡 Tip:</strong> Použij <strong>G-kódy</strong>: <code style="color: #90ee90">G0 X50 Z100</code> (bod), <code style="color: #90ee90">G1 X100</code> (čára), <code style="color: #90ee90">G2 R20</code> (oblouk)
+        </div>
+      </div>
+    </div>
+    <div id="directionModal" class="modal-overlay" style="display: none">
+      <div class="modal-window" style="max-width: 350px">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px">
+          <h2 style="color: #6ab0ff; font-size: 18px; margin: 0">🧭 Směrové kreslení</h2>
+          <button onclick="window.closeDirectionModal()" style="background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer">&times;</button>
+        </div>
+
+        <p style="color: #aaa; font-size: 12px; margin-bottom: 15px">Klikni na šipku, automaticky se vloží příkaz do zadání:</p>
+
+        <!-- Direction Pad (8-way) -->
+        <div style="display: grid; grid-template-columns: repeat(3, 80px); grid-template-rows: repeat(3, 80px); gap: 5px; justify-content: center">
+          <!-- Row 1: ↖ ↑ ↗ -->
+          <button onclick="window.insertDirectionCommand('NW')" title="Šikmo vlevo nahoru (↖)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↖</button>
+          <button onclick="window.insertDirectionCommand('N')" title="Nahoru (↑)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↑</button>
+          <button onclick="window.insertDirectionCommand('NE')" title="Šikmo vpravo nahoru (↗)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↗</button>
+
+          <!-- Row 2: ← · → -->
+          <button onclick="window.insertDirectionCommand('W')" title="Doleva (←)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">←</button>
+          <div style="display: flex; align-items: center; justify-content: center; background: #1a1a1a; border-radius: 8px; color: #666; font-size: 36px">●</div>
+          <button onclick="window.insertDirectionCommand('E')" title="Doprava (→)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">→</button>
+
+          <!-- Row 3: ↙ ↓ ↘ -->
+          <button onclick="window.insertDirectionCommand('SW')" title="Šikmo vlevo dolů (↙)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↙</button>
+          <button onclick="window.insertDirectionCommand('S')" title="Dolů (↓)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↓</button>
+          <button onclick="window.insertDirectionCommand('SE')" title="Šikmo vpravo dolů (↘)" style="padding: 0; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 8px; color: #90cdf4; cursor: pointer; font-size: 32px">↘</button>
+        </div>
+
+        <div style="margin-top: 15px; text-align: center">
+          <button onclick="window.closeDirectionModal()" style="padding: 8px 16px; background: #3a7bc8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px">Zavřít</button>
+        </div>
+      </div>
+    </div>
+    <div id="controllerHelpModal" class="modal-overlay" style="display: none">
+      <div class="modal-window" style="max-width: 650px; max-height: 80vh; overflow-y: auto">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px">
+          <h2 style="color: #6ab0ff; font-size: 18px; margin: 0">❓ Nápověda - Ovladač</h2>
+          <button onclick="window.closeControllerHelp()" style="background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer">&times;</button>
+        </div>
+
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; font-size: 12px; color: #ccc">
+          <h3 style="color: #90cdf4; margin-top: 0">📐 Základní příkazy</h3>
+          <div style="background: #222; padding: 10px; border-radius: 4px; margin-bottom: 10px">
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">X80 Z120</code> - Bod na souřadnicích X=80, Z=120</div>
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">G1 X100 Z200</code> - Čára do bodu X=100, Z=200</div>
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">G0 X50</code> - Skok (bez čáry) na X=50</div>
+          </div>
+
+          <h3 style="color: #90cdf4">⭕ Kružnice a oblouky</h3>
+          <div style="background: #222; padding: 10px; border-radius: 4px; margin-bottom: 10px">
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">R50</code> - Kružnice s poloměrem 50mm</div>
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">CR30</code> - Kružnice s minimálním poloměrem</div>
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">G2 X100 Z150 R25</code> - Oblouk CW</div>
+          </div>
+
+          <h3 style="color: #90cdf4">📏 Polární souřadnice</h3>
+          <div style="background: #222; padding: 10px; border-radius: 4px">
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">AP0 RP120</code> - Čára úhel 0°, délka 120mm</div>
+            <div style="margin-bottom: 8px"><code style="color: #22c55e">L50 A90</code> - Délka 50, úhel 90°</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUICK INPUT MODAL - Klávesnice pro CNC příkazy -->
+    <div id="quickInputModal" class="modal-overlay" style="display: none">
+      <div class="modal-window" style="max-width: 550px">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px">
+          <h2 style="color: #6ab0ff; font-size: 18px; margin: 0">⌨️ Rychlé zadání (CNC)</h2>
+          <button onclick="window.closeQuickInput()" style="background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer">&times;</button>
+        </div>
+
+        <!-- TEXT DISPLAY -->
+        <textarea id="quickInputDisplay" style="width: 100%; height: 60px; background: #111; color: #90ee90; border: 1px solid #444; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 13px; margin-bottom: 12px; resize: none" placeholder="Zde se zobrazuje zadání..." readonly></textarea>
+
+        <!-- ERROR DISPLAY -->
+        <div id="quickInputError" style="
+          display: none;
+          padding: 8px;
+          background: #3a1a1a;
+          border: 1px solid #ff6b6b;
+          border-radius: 4px;
+          color: #ff6b6b;
+          font-size: 11px;
+          margin-bottom: 12px;
+          word-break: break-word;
+        "></div>
+
+        <!-- KEYPAD GRID -->
+        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 12px">
+          <!-- G-Codes -->
+          <button onclick="window.insertToken('G90 ')" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px">G90<span style="font-size: 7px; display: block">Abs</span></button>
+          <button onclick="window.insertToken('G91 ')" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px">G91<span style="font-size: 7px; display: block">Přír</span></button>
+          <button onclick="window.insertToken('G0 ')" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px">G0<span style="font-size: 7px; display: block">Bod</span></button>
+          <button onclick="window.insertToken('G1 ')" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px">G1<span style="font-size: 7px; display: block">Přímka</span></button>
+          <button onclick="window.insertToken('G2 ')" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px">G2<span style="font-size: 7px; display: block">CW</span></button>
+          <button onclick="window.insertToken('G3 ')" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px">G3<span style="font-size: 7px; display: block">CCW</span></button>
+
+          <!-- Row 1: X, Z, 7, 8, 9, ; -->
+          <button onclick="window.insertToken('X')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">X<span style="font-size: 7px; display: block">Osa</span></button>
+          <button onclick="window.insertToken('Z')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">Z<span style="font-size: 7px; display: block">Osa</span></button>
+          <button onclick="window.insertToken('7')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">7</button>
+          <button onclick="window.insertToken('8')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">8</button>
+          <button onclick="window.insertToken('9')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">9</button>
+          <button onclick="window.insertToken(';')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">;</button>
+
+          <!-- Row 2: R, D, 4, 5, 6, Space -->
+          <button onclick="window.insertToken('R')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">R<span style="font-size: 7px; display: block">Poloměr</span></button>
+          <button onclick="window.insertToken('D')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">D<span style="font-size: 7px; display: block">Průměr</span></button>
+          <button onclick="window.insertToken('4')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">4</button>
+          <button onclick="window.insertToken('5')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">5</button>
+          <button onclick="window.insertToken('6')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">6</button>
+          <button onclick="window.insertToken(' ')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">Mezera</button>
+
+          <!-- Row 3: L, A, 1, 2, 3, ? -->
+          <button onclick="window.insertToken('L')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">L<span style="font-size: 7px; display: block">Délka</span></button>
+          <button onclick="window.insertToken('A')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">A<span style="font-size: 7px; display: block">Úhel</span></button>
+          <button onclick="window.insertToken('1')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">1</button>
+          <button onclick="window.insertToken('2')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">2</button>
+          <button onclick="window.insertToken('3')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">3</button>
+          <button onclick="window.showQuickInputHelp()" style="padding: 6px; background: #444; border: 1px solid #666; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 9px">?<span style="font-size: 7px; display: block">Nápověda</span></button>
+
+          <!-- Row 4: RP, AP, -, 0, ., ⌫ -->
+          <button onclick="window.insertToken('RP ')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">RP<span style="font-size: 7px; display: block">Pol. poloměr</span></button>
+          <button onclick="window.insertToken('AP ')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">AP<span style="font-size: 7px; display: block">Pol. úhel</span></button>
+          <button onclick="window.insertToken('-')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">-</button>
+          <button onclick="window.insertToken('0')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">0</button>
+          <button onclick="window.insertToken('.')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">.</button>
+          <button onclick="window.backspaceToken()" style="padding: 6px; background: #c53030; border: 1px solid #e53e3e; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">⌫</button>
+
+          <!-- Row 5: Směry, Sražení, Zaoblení, Výběr, Vložit -->
+          <button onclick="window.showDirectionModal()" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px">🧭<span style="font-size: 7px; display: block">Směry</span></button>
+          <button onclick="window.openLengthModal()" style="padding: 6px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 9px">📏<span style="font-size: 7px; display: block">Délka</span></button>
+          <button onclick="window.insertToken('Sraž ')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">Sraž<span style="font-size: 7px; display: block">Sražení</span></button>
+          <button onclick="window.insertToken('Zaob ')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">Zaob<span style="font-size: 7px; display: block">Zaoblení</span></button>
+          <button onclick="window.insertToken('Výběr ')" style="padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer; font-size: 9px">Výběr<span style="font-size: 7px; display: block">Vybrané</span></button>
+          <button onclick="window.confirmQuickInput()" style="padding: 6px; background: #22c55e; border: 1px solid #4ade80; border-radius: 4px; color: white; cursor: pointer; font-size: 9px; grid-column: span 2">✓ Vložit<span style="font-size: 7px; display: block">do chatu</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIRECTION MODAL - Výběr směru pro usečky -->
+    <div id="directionModal" class="modal-overlay" style="display: none">
+      <div class="modal-window" style="max-width: 280px">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px">
+          <h2 style="color: #6ab0ff; font-size: 16px; margin: 0">🧭 Směr usečky</h2>
+          <button onclick="window.closeDirectionModal()" style="background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer">&times;</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px">
+          <button onclick="window.insertDirection(45)" style="padding: 8px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 16px">↖</button>
+          <button onclick="window.insertDirection(90)" style="padding: 8px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 16px">↑</button>
+          <button onclick="window.insertDirection(135)" style="padding: 8px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 16px">↗</button>
+
+          <button onclick="window.insertDirection(180)" style="padding: 8px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 16px">←</button>
+          <button onclick="window.closeDirectionModal()" style="padding: 8px; background: #333; border: 1px solid #444; border-radius: 4px; color: #888; cursor: pointer; font-size: 14px">●</button>
+          <button onclick="window.insertDirection(0)" style="padding: 8px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 16px">→</button>
+
+          <button onclick="window.insertDirection(225)" style="padding: 8px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 16px">↙</button>
+          <button onclick="window.insertDirection(270)" style="padding: 8px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 16px">↓</button>
+          <button onclick="window.insertDirection(315)" style="padding: 8px; background: #2d5a8f; border: 1px solid #5a7aaf; border-radius: 4px; color: #90cdf4; cursor: pointer; font-size: 16px">↘</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LENGTH MODAL - Zadání délky usečky -->
+    <div id="lengthModal" class="modal-overlay" style="display: none">
+      <div class="modal-window" style="max-width: 300px">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px">
+          <h2 style="color: #6ab0ff; font-size: 16px; margin: 0">📏 Délka usečky</h2>
+          <button onclick="window.closeLengthModal()" style="background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer">&times;</button>
+        </div>
+        <input id="lengthInput" type="number" placeholder="Zadej délku..." style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: #90ee90; border-radius: 4px; font-family: monospace; margin-bottom: 10px"/>
+        <div style="display: flex; gap: 8px">
+          <button onclick="window.insertLengthToken('L')" style="flex: 1; padding: 8px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer">L (Délka)</button>
+          <button onclick="window.insertLengthToken('RP')" style="flex: 1; padding: 8px; background: #333; border: 1px solid #444; border-radius: 4px; color: white; cursor: pointer">RP (Pol. poloměr)</button>
+        </div>
+        <button onclick="window.confirmLength()" style="width: 100%; padding: 8px; margin-top: 8px; background: #22c55e; border: 1px solid #4ade80; border-radius: 4px; color: white; cursor: pointer; font-weight: bold">✓ Vložit</button>
+      </div>
+    </div>
+
+    <!-- AI TEST SUITE MODAL -->
+    <div id="aiTestModal" class="modal-overlay" style="display: none">
+      <div class="modal-window" style="max-width: 700px; max-height: 85vh; overflow-y: auto">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #3a7bc8; padding-bottom: 10px">
+          <h2 style="color: #6ab0ff; font-size: 18px; margin: 0">🧪 AI TEST SUITE</h2>
+          <button onclick="window.closeAITestModal()" style="background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer">&times;</button>
+        </div>
+
+        <div id="aiTestContent" style="margin-bottom: 20px">
+          <!-- Obsah se vyplní dynamicky z JavaScriptu -->
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center; border-top: 1px solid #333; padding-top: 15px">
+          <button onclick="window.closeAITestModal()" style="padding: 10px 20px; background: #444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px">❌ Zrušit</button>
+        </div>
+      </div>
+    </div>
+
+  </body>
+</html>
+```
