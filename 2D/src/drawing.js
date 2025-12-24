@@ -42,80 +42,32 @@ function updateSnapPoints() {
       window.cachedSnapPoints.push({ x: s.x2, y: s.y2, type: "endpoint" });
     } else if (s.type === "circle") {
       window.cachedSnapPoints.push({ x: s.cx, y: s.cy, type: "center" });
-    } else if (s.type === "rectangle") {
-      // Přidej rohy obdélníku jako koncové body a také střed
-      const x1 = s.x1;
-      const y1 = s.y1;
-      const x2 = s.x2;
-      const y2 = s.y2;
-
-      window.cachedSnapPoints.push({ x: x1, y: y1, type: "endpoint" });
-      window.cachedSnapPoints.push({ x: x1, y: y2, type: "endpoint" });
-      window.cachedSnapPoints.push({ x: x2, y: y1, type: "endpoint" });
-      window.cachedSnapPoints.push({ x: x2, y: y2, type: "endpoint" });
-
-      const cx = (x1 + x2) / 2;
-      const cy = (y1 + y2) / 2;
-      window.cachedSnapPoints.push({ x: cx, y: cy, type: "center" });
     }
   });
 
   // 3. Průsečíky
-  // 3. Průsečíky - podporujeme i hrany obdélníků (převést rectangle -> 4 line segs)
-  function shapeToSegments(s) {
-    if (!s) return [];
-    if (s.type === "line") return [s];
-    if (s.type === "circle") return [s];
-    if (s.type === "rectangle") {
-      const x1 = s.x1;
-      const y1 = s.y1;
-      const x2 = s.x2;
-      const y2 = s.y2;
-      const rx1 = Math.min(x1, x2);
-      const rx2 = Math.max(x1, x2);
-      const ry1 = Math.min(y1, y2);
-      const ry2 = Math.max(y1, y2);
-
-      return [
-        { type: "line", x1: rx1, y1: ry1, x2: rx2, y2: ry1 }, // top
-        { type: "line", x1: rx2, y1: ry1, x2: rx2, y2: ry2 }, // right
-        { type: "line", x1: rx2, y1: ry2, x2: rx1, y2: ry2 }, // bottom
-        { type: "line", x1: rx1, y1: ry2, x2: rx1, y2: ry1 }, // left
-      ];
-    }
-    return [];
-  }
-
   for (let i = 0; i < window.shapes.length; i++) {
     for (let j = i + 1; j < window.shapes.length; j++) {
       const s1 = window.shapes[i];
       const s2 = window.shapes[j];
+      let intersects = [];
 
-      const segs1 = shapeToSegments(s1);
-      const segs2 = shapeToSegments(s2);
-
-      for (let a of segs1) {
-        for (let b of segs2) {
-          let intersects = [];
-          if (a.type === "line" && b.type === "line") {
-            const pt = lineIntersection(a, b);
-            if (pt) intersects.push(pt);
-          } else if (a.type === "line" && b.type === "circle") {
-            intersects = intersectLineCircle(a, b);
-          } else if (a.type === "circle" && b.type === "line") {
-            intersects = intersectLineCircle(b, a);
-          } else if (a.type === "circle" && b.type === "circle") {
-            intersects = intersectCircleCircle(a, b);
-          }
-
-          intersects.forEach((pt) => {
-            window.cachedSnapPoints.push({ x: pt.x, y: pt.y, type: "intersection" });
-          });
-        }
+      if (s1.type === "line" && s2.type === "line") {
+        const pt = lineIntersection(s1, s2);
+        if (pt) intersects.push(pt);
+      } else if (s1.type === "line" && s2.type === "circle") {
+        intersects = intersectLineCircle(s1, s2);
+      } else if (s1.type === "circle" && s2.type === "line") {
+        intersects = intersectLineCircle(s2, s1);
+      } else if (s1.type === "circle" && s2.type === "circle") {
+        intersects = intersectCircleCircle(s1, s2);
       }
+
+      intersects.forEach((pt) => {
+        window.cachedSnapPoints.push({ x: pt.x, y: pt.y, type: "intersection" });
+      });
     }
   }
-  window.logDebug && window.logDebug('[updateSnapPoints] cachedSnapPoints count =', window.cachedSnapPoints.length);
 }
 
 function snapPointInternal(pt) {
@@ -159,7 +111,7 @@ function snapPointInternal(pt) {
 }
 
 // Aktualizace nastavení snappingu z UI prvků
-function updateSnapSettings() {
+function updateSnap() {
   window.snapToGrid = document.getElementById("snapGrid")?.checked || false;
   window.snapToPoints = document.getElementById("snapPoints")?.checked !== false;
   const orthoCheckbox = document.getElementById("orthoMode");
@@ -171,11 +123,6 @@ function updateSnapSettings() {
 // ===== RENDERING =====
 
 function draw() {
-  window.logDebug && window.logDebug('[draw] start, selectedItems.length=', (window.selectedItems||[]).length);
-  // Debug: expose last selection time for tracing
-  if (window._lastSelectionTime) {
-    window.logDebug && window.logDebug('[draw] _lastSelectionTime=', window._lastSelectionTime);
-  }
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
 
@@ -228,8 +175,6 @@ function draw() {
   if (window.selectedItems && window.selectedItems.length > 0) {
     window.selectedItems.forEach((item) => {
       ctx.save();
-
-      window.logDebug && window.logDebug('[draw] rendering selected item', item);
 
       if (item.category === "shape") {
         const s = item.ref;
@@ -289,8 +234,8 @@ function draw() {
       } else if (item.category === "point") {
         const p = worldToScreen(item.x, item.y);
 
-        // Zvýraznění (výchozí magenta, ale pokud item.highlightColor existuje, použij ji)
-        ctx.fillStyle = item.highlightColor || "#ff66ff";
+        // Zvýraznění (magenta)
+        ctx.fillStyle = "#ff66ff";
         ctx.beginPath();
         ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
         ctx.fill();
@@ -386,17 +331,6 @@ function draw() {
 
     ctx.setLineDash([]);
   }
-
-  // Pokud není nic vybráno, zruš perzistentní info (pokud bylo nastaveno)
-  try {
-    if (!window.selectedItems || window.selectedItems.length === 0) {
-      const infoEl = document.getElementById('snapInfo');
-      if (infoEl && infoEl.dataset && infoEl.dataset.persistent) {
-        try { delete infoEl.dataset.persistent; } catch (e) {}
-        try { infoEl.style.display = 'none'; } catch (e) {}
-      }
-    }
-  } catch (e) {}
 }
 
 function drawGrid(ctx, canvas) {
@@ -558,72 +492,8 @@ function drawAxes(ctx, canvas) {
   }
 }
 
-// 🔍 Helper: Find lines adjacent to a circle (potential tangent lines for fillet)
-function findAdjacentLines(circle, shapes) {
-  const tolerance = circle.r * 1.5; // Lines within 1.5x radius are considered adjacent
-  const adjacentLines = [];
-
-  shapes.forEach(s => {
-    if (s.type === "line") {
-      // Check if line is near the circle
-      const dist1 = Math.sqrt((s.x1 - circle.cx) ** 2 + (s.y1 - circle.cy) ** 2);
-      const dist2 = Math.sqrt((s.x2 - circle.cx) ** 2 + (s.y2 - circle.cy) ** 2);
-
-      if (dist1 < tolerance || dist2 < tolerance) {
-        adjacentLines.push(s);
-      }
-    }
-  });
-
-  return adjacentLines;
-}
-
-// 📐 Helper: Calculate tangent angles for arc between two lines
-function calculateTangentAngles(circle, line1, line2) {
-  // Find the angles where circle touches each line
-  const angles = [];
-
-  [line1, line2].forEach(line => {
-    // Calculate perpendicular from circle center to line
-    const dx = line.x2 - line.x1;
-    const dy = line.y2 - line.y1;
-    const len = Math.sqrt(dx * dx + dy * dy);
-
-    if (len === 0) return;
-
-    // Unit vector along line
-    const ux = dx / len;
-    const uy = dy / len;
-
-    // Vector from line start to circle center
-    const px = circle.cx - line.x1;
-    const py = circle.cy - line.y1;
-
-    // Project onto line
-    const proj = px * ux + py * uy;
-    const closestX = line.x1 + proj * ux;
-    const closestY = line.y1 + proj * uy;
-
-    // Angle from circle center to closest point on line
-    const angle = Math.atan2(closestY - circle.cy, closestX - circle.cx);
-    angles.push(angle);
-  });
-
-  if (angles.length === 2) {
-    return { start: angles[0], end: angles[1] };
-  }
-
-  return null;
-}
-
 function drawShape(ctx, s, canvas) {
   let strokeColor = s.color || "#4a9eff";
-
-  // Zvýraznění při přichycení na polární úhel
-  if (s.type === "line" && window.updateSnap) {
-    const snap = window.updateSnap(s, { x: s.x2, y: s.y2 });
-    if (snap.snapped) strokeColor = snap.color;
-  }
 
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = 2;
@@ -652,22 +522,6 @@ function drawShape(ctx, s, canvas) {
 
   if (s.type === "circle") {
     const c = worldToScreen(s.cx, s.cy);
-
-    // 🔍 Auto-detect tangential fillet: check if circle is between two lines
-    const adjacentLines = findAdjacentLines(s, window.shapes);
-
-    if (adjacentLines.length === 2) {
-      // Draw only the arc portion that connects the two lines
-      const angles = calculateTangentAngles(s, adjacentLines[0], adjacentLines[1]);
-      if (angles) {
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, s.r * zoom, angles.start, angles.end, false);
-        ctx.stroke();
-        return; // Don't draw full circle
-      }
-    }
-
-    // Default: draw full circle
     ctx.beginPath();
     ctx.arc(c.x, c.y, s.r * zoom, 0, Math.PI * 2);
     ctx.stroke();
@@ -684,56 +538,16 @@ function drawShape(ctx, s, canvas) {
 
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = s.lineStyle === "thick" ? 4 : (s.lineStyle === "thin" ? 1 : 2);
-
-    // Kresli obdélník jako čtyři samostatné úsečky (aby bylo jasné, že jde o 4 segmenty)
-    ctx.beginPath();
-    const r1 = { x: p1.x, y: p1.y };
-    const r2 = { x: p2.x, y: p1.y };
-    const r3 = { x: p2.x, y: p2.y };
-    const r4 = { x: p1.x, y: p2.y };
-    ctx.moveTo(r1.x, r1.y);
-    ctx.lineTo(r2.x, r2.y);
-    ctx.lineTo(r3.x, r3.y);
-    ctx.lineTo(r4.x, r4.y);
-    ctx.closePath();
-    ctx.stroke();
+    ctx.strokeRect(x, y, width, height);
   }
 
   if (s.type === "arc") {
     const c = worldToScreen(s.cx, s.cy);
+    const p1 = worldToScreen(s.x1, s.y1);
+    const p2 = worldToScreen(s.x2, s.y2);
 
-    let angle1, angle2, counterclockwise;
-    let p1, p2; // Declare outside to avoid "not defined" errors
-
-    // Support two arc formats:
-    // 1. AI-generated: {cx, cy, r, startAngle, endAngle, counterclockwise}
-    // 2. User-drawn: {x1, y1, x2, y2, cx, cy, r, angle}
-
-    if (typeof s.startAngle === "number" && typeof s.endAngle === "number") {
-      // Format 1: Direct angles (in degrees from AI)
-      angle1 = (s.startAngle * Math.PI) / 180; // Convert to radians
-      angle2 = (s.endAngle * Math.PI) / 180;
-      counterclockwise = s.counterclockwise || false;
-
-      // Calculate endpoint positions for drawing dots
-      p1 = {
-        x: c.x + s.r * zoom * Math.cos(angle1),
-        y: c.y + s.r * zoom * Math.sin(angle1)
-      };
-      p2 = {
-        x: c.x + s.r * zoom * Math.cos(angle2),
-        y: c.y + s.r * zoom * Math.sin(angle2)
-      };
-    } else if (s.x1 !== undefined && s.y1 !== undefined) {
-      // Format 2: Calculate from endpoints
-      p1 = worldToScreen(s.x1, s.y1);
-      p2 = worldToScreen(s.x2, s.y2);
-      angle1 = Math.atan2(p1.y - c.y, p1.x - c.x);
-      angle2 = Math.atan2(p2.y - c.y, p2.x - c.x);
-      counterclockwise = s.angle > 180 ? true : false;
-    } else {
-      return; // Invalid arc
-    }
+    const angle1 = Math.atan2(p1.y - c.y, p1.x - c.x);
+    const angle2 = Math.atan2(p2.y - c.y, p2.x - c.x);
 
     ctx.save();
     ctx.strokeStyle = strokeColor;
@@ -752,7 +566,7 @@ function drawShape(ctx, s, canvas) {
       s.r * zoom,
       angle1,
       angle2,
-      counterclockwise
+      s.angle > 180 ? true : false
     );
     ctx.stroke();
     ctx.restore();
@@ -765,6 +579,8 @@ function drawShape(ctx, s, canvas) {
     ctx.arc(p2.x, p2.y, 3, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  // Bod typu 'point' ve shapes se nevykresluje, body se vykreslují pouze z window.points
 
   // ===== KÓTY (DIMENSIONS) =====
   if (s.type === "dimension") {
@@ -1104,7 +920,7 @@ window.redo = redo;
 window.aiUndo = undo;  // Alias for aiUndo
 window.aiRedo = redo;  // Alias for aiRedo
 window.saveState = saveState;
-window.updateSnapSettings = updateSnapSettings;
+window.updateSnap = updateSnap;
 window.updateSnapPoints = updateSnapPoints;
 window.screenToWorld = screenToWorld;
 window.worldToScreen = worldToScreen;
