@@ -741,14 +741,31 @@ function handleSelectMode(x, y, shiftKey) {
     return Math.hypot(p.x - x, p.y - y) < tolerance;
   });
 
-  if (found_point) {
+  // Screen-space fallback: pokud world-space check nic nenašel,
+  // porovnej vzdálenost v pixelech (robustnější při různém zoomu/zaokrouhlování)
+  let found_point_screen = null;
+  if (!found_point && window.points && window.points.length > 0 && window.worldToScreen) {
+    try {
+      const clickScreen = window.worldToScreen(x, y);
+      let bestPx = Infinity;
+      for (const p of window.points) {
+        const pScreen = window.worldToScreen(p.x, p.y);
+        const dpx = Math.hypot(pScreen.x - clickScreen.x, pScreen.y - clickScreen.y);
+        if (dpx < 8 && dpx < bestPx) { bestPx = dpx; found_point_screen = p; }
+      }
+      if (found_point_screen) window.logDebug && window.logDebug('[handleSelectMode] screen-space matched point', bestPx);
+    } catch (e) { window.logDebug && window.logDebug('[handleSelectMode] screen-space fallback error', e); }
+  }
+
+  if (found_point || found_point_screen) {
+    const fp = found_point || found_point_screen;
     found = {
       category: "point",
-      x: found_point.x,
-      y: found_point.y,
-      ref: found_point,
+      x: fp.x,
+      y: fp.y,
+      ref: fp,
     };
-    window.logDebug && window.logDebug("[handleSelectMode] found manual point", found_point);
+    window.logDebug && window.logDebug("[handleSelectMode] found manual point", fp);
     try {
       // Rychlý debug: okamžitě přiřadit výběr pro ověření renderu
       window.selectedItems = [{ category: 'point', x: found_point.x, y: found_point.y, ref: found_point, highlightColor: '#facc15' }];
@@ -951,9 +968,14 @@ function handleSelectMode(x, y, shiftKey) {
         // Už je vybraný - odeber ho když se klikne znovu
         window.selectedItems.splice(index, 1);
       } else {
-        // Přidej label
+        // Přidej unikátní label (A..Z) - vyhnout se duplicitám
         const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        const label = labels[window.selectedItems.length % labels.length];
+        const used = new Set((window.selectedItems || []).map(s => s.label).filter(Boolean));
+        let label = null;
+        for (let i = 0; i < labels.length; i++) {
+          if (!used.has(labels[i])) { label = labels[i]; break; }
+        }
+        if (!label) label = labels[(window.selectedItems.length) % labels.length];
         // Pokud je to bod, přidej highlightColor (žluté kolečko)
         if (found.category === "point") {
           found.highlightColor = "#facc15";
