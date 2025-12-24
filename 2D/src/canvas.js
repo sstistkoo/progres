@@ -766,20 +766,25 @@ function handleSelectMode(x, y, shiftKey) {
       ref: fp,
     };
     window.logDebug && window.logDebug("[handleSelectMode] found manual point", fp);
-    // Přidat bod do výběru s písmenem, nemazat ostatní označení
+  } else if (found && found.category === 'point' && found.ref && found.ref.type === 'center') {
+    // Pokud byl nalezen střed kružnice, použij ho
+    window.logDebug && window.logDebug("[handleSelectMode] found circle center for selection", found);
+  }
+
+  // Přidat bod nebo střed kružnice do výběru s písmenem, nemazat ostatní označení
+  if (found && found.category === 'point') {
     try {
       const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-      // Najdi nejvyšší použité písmeno
       const usedLabels = (window.selectedItems || []).map(s => s.label).filter(Boolean);
       let label = null;
       for (let i = 0; i < labels.length; i++) {
         if (!usedLabels.includes(labels[i])) { label = labels[i]; break; }
       }
       if (!label) label = labels[(window.selectedItems.length) % labels.length];
-      // Zkontrolovat, zda už není bod vybraný
-      const alreadySelected = window.selectedItems.some(i => i.category === 'point' && Math.abs(i.x - fp.x) < 0.0001 && Math.abs(i.y - fp.y) < 0.0001);
+      // Zkontrolovat, zda už není bod nebo střed kružnice vybraný
+      const alreadySelected = window.selectedItems.some(i => i.category === 'point' && Math.abs(i.x - found.x) < 0.0001 && Math.abs(i.y - found.y) < 0.0001);
       if (!alreadySelected) {
-        window.selectedItems.push({ category: 'point', x: fp.x, y: fp.y, ref: fp, highlightColor: '#facc15', label });
+        window.selectedItems.push({ ...found, highlightColor: '#facc15', label });
       }
     } catch (e) {}
   } else {
