@@ -172,7 +172,7 @@ window.setMode = function (m) {
       btnAiSelect.style.color = "#ccc";
 
       // Zobrazit patřičný panel pro režim
-      if (m === "line" || m === "circle" || m === "arc" || m === "point" || m === "rectangle" || m === "trim" || m === "extend" || m === "tangent" || m === "perpendicular" || m === "parallel" || m === "offset" || m === "mirror" || m === "erase" || m === "measure") {
+      if (m === "pan" || m === "line" || m === "circle" || m === "arc" || m === "point" || m === "rectangle" || m === "trim" || m === "extend" || m === "tangent" || m === "perpendicular" || m === "parallel" || m === "offset" || m === "mirror" || m === "erase" || m === "measure") {
         document.getElementById("toolsDrawing").style.display = "block";
         document.getElementById("toolsEdit").style.display = "none";
         document.getElementById("toolsCoords").style.display = "none";
@@ -338,32 +338,8 @@ window.showToolCategory = function (category) {
     menuEl.style.display = "flex";
     if (btnEl) btnEl.classList.add("active");
     window.currentCategory = category;
-    // If a saved position exists for this panel, restore it so it doesn't jump
-    try {
-      const raw = localStorage.getItem(menuId + '_pos');
-      if (raw) {
-        const pos = JSON.parse(raw);
-        if (pos && pos.left) {
-          menuEl.style.position = 'fixed';
-          menuEl.style.left = pos.left;
-          if (pos.top) menuEl.style.top = pos.top;
-          menuEl.style.right = 'auto';
-          menuEl.style.zIndex = '2000';
-        }
-      }
-    } catch (e) {}
   }
 };
-
-// Defensive fallback in case window.showToolCategory gets overwritten
-if (typeof window.showToolCategory !== 'function') {
-  window.showToolCategory = function (category) {
-    const menuId = 'tools' + category.charAt(0).toUpperCase() + category.slice(1);
-    const menuEl = document.getElementById(menuId);
-    if (!menuEl) return;
-    menuEl.style.display = menuEl.style.display === 'none' || !menuEl.style.display ? 'flex' : 'none';
-  };
-}
 
 // ===== SETTINGS & PREFERENCES =====
 
@@ -516,11 +492,7 @@ window.clearMode = function () {
   if (snapInfo) {
     snapInfo.textContent = "✕ Mód zrušen";
     snapInfo.style.display = "block";
-    setTimeout(() => {
-      try {
-        if (!snapInfo.dataset.persistent) snapInfo.style.display = "none";
-      } catch (e) {}
-    }, 800);
+    setTimeout(() => (snapInfo.style.display = "none"), 800);
   }
 };
 
@@ -843,7 +815,8 @@ window.quickAddPoint = function () {
     return;
   }
 
-  window.shapes.push({ type: "point", z, x });
+  if (!window.points) window.points = [];
+  window.points.push({ x: z, y: x });
   window.saveState();
   window.draw();
   document.getElementById("quickPointZ").value = "";
@@ -941,27 +914,7 @@ window.loadProject = function (input) {
 };
 
 // Stubní funkce - Snap
-// Přichycení čar na polární úhly
-window.updateSnap = function (start, end) {
-  // start, end: {x, y} body čáry
-  const step = parseInt(document.getElementById("polarSnapStep")?.value || "90");
-  const tolerance = 3; // stupně
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-  // Normalizace úhlu do [0,360)
-  let normAngle = ((angle % 360) + 360) % 360;
-  // Povolené úhly
-  let allowed = [];
-  for (let a = 0; a < 360; a += step) allowed.push(a);
-  // Najdi nejbližší povolený úhel
-  let snapAngle = allowed.find(a => Math.abs(normAngle - a) <= tolerance || Math.abs(normAngle - a + 360) <= tolerance);
-  if (snapAngle !== undefined) {
-    // Přichycení aktivní – změň barvu na žlutou
-    return { snapped: true, color: "#facc15", angle: snapAngle };
-  }
-  // Jinak běžná barva
-  return { snapped: false, color: window.defaultDrawColor || "#4a9eff", angle: normAngle };
+window.updateSnap = function () {
 };
 
 // Stubní funkce pro transformace
@@ -1129,24 +1082,6 @@ window.setObjectColor = function (color) {
 
   for (let item of window.selectedItems) {
     if (item && item.ref) {
-      // Pokud jde o syntetickou hranu obdélníku, nejprve rozštěpni rectangle (jednou)
-      if (item.ref.parentRect) {
-        const rect = item.ref.parentRect;
-        // split once per rectangle
-        if (!window.__splitCache) window.__splitCache = new Map();
-        let lines = window.__splitCache.get(rect);
-        if (!lines) {
-          lines = window.splitRectangle(rect) || [];
-          window.__splitCache.set(rect, lines);
-        }
-
-        // Najdi index edge (top/right/bottom/left)
-        const edgeIndex = { top: 0, right: 1, bottom: 2, left: 3 }[item.ref.parentEdge];
-        if (lines && lines[edgeIndex]) {
-          item.ref = lines[edgeIndex];
-        }
-      }
-
       item.ref.color = color;
     }
   }
@@ -1163,21 +1098,6 @@ window.setLineStyle = function (style) {
 
   for (let item of window.selectedItems) {
     if (item && item.ref) {
-      if (item.ref.parentRect) {
-        const rect = item.ref.parentRect;
-        if (!window.__splitCache) window.__splitCache = new Map();
-        let lines = window.__splitCache.get(rect);
-        if (!lines) {
-          lines = window.splitRectangle(rect) || [];
-          window.__splitCache.set(rect, lines);
-        }
-
-        const edgeIndex = { top: 0, right: 1, bottom: 2, left: 3 }[item.ref.parentEdge];
-        if (lines && lines[edgeIndex]) {
-          item.ref = lines[edgeIndex];
-        }
-      }
-
       item.ref.lineStyle = style;
     }
   }
@@ -1447,163 +1367,6 @@ window.closeQuickInputHelp = function () {
   if (helpModal) {
     helpModal.style.display = "none";
   }
-};
-
-// ===== MAKE MODALS DRAGGABLE =====
-window.makeModalDraggable = function (modalId) {
-  const overlay = document.getElementById(modalId);
-  if (!overlay) return;
-
-  const modal = overlay.querySelector('.modal-window');
-  if (!modal) return;
-
-  // Find header: prefer the element that contains an h2
-  let header = modal.querySelector('div');
-  const h2 = modal.querySelector('h2');
-  if (h2 && h2.parentElement) header = h2.parentElement;
-  if (!header) header = modal;
-
-  header.style.cursor = 'move';
-  header.style.userSelect = 'none';
-
-  let dragging = false;
-  let startX = 0, startY = 0, origLeft = 0, origTop = 0;
-  let pointerOffsetX = 0, pointerOffsetY = 0;
-
-  // add small grip visual if none
-  if (!modal.querySelector('.modal-grip')) {
-    const grip = document.createElement('div');
-    grip.className = 'modal-grip';
-    grip.style.cssText = 'width:18px;height:18px;border-radius:4px;background:transparent;display:inline-block;margin-right:8px;vertical-align:middle;position:relative;';
-    grip.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke="#888" stroke-width="1.2"><circle cx="5" cy="5" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="19" cy="5" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></g></svg>';
-    if (header.firstChild) header.insertBefore(grip, header.firstChild);
-  }
-
-  const startDrag = (clientX, clientY) => {
-    const rect = modal.getBoundingClientRect();
-    dragging = true;
-    pointerOffsetX = clientX - rect.left;
-    pointerOffsetY = clientY - rect.top;
-    origLeft = modal.style.left ? parseInt(modal.style.left,10) || rect.left : rect.left;
-    origTop = modal.style.top ? parseInt(modal.style.top,10) || rect.top : rect.top;
-
-    overlay.style.alignItems = 'flex-start';
-    overlay.style.justifyContent = 'flex-start';
-    modal.style.position = 'fixed';
-    modal.style.left = origLeft + 'px';
-    modal.style.top = origTop + 'px';
-    modal.style.right = 'auto';
-    document.body.style.userSelect = 'none';
-  };
-
-  const doDrag = (clientX, clientY) => {
-    if (!dragging) return;
-    modal.style.left = (clientX - pointerOffsetX) + 'px';
-    modal.style.top = (clientY - pointerOffsetY) + 'px';
-  };
-
-  const endDrag = () => {
-    if (!dragging) return;
-    dragging = false;
-    document.body.style.userSelect = '';
-    try {
-      const saved = { left: modal.style.left, top: modal.style.top };
-      localStorage.setItem(modalId + '_pos', JSON.stringify(saved));
-    } catch (e) {}
-  };
-
-  header.addEventListener('mousedown', (e) => { e.preventDefault(); startDrag(e.clientX, e.clientY); });
-  const gripEl = modal.querySelector('.modal-grip');
-  if (gripEl) gripEl.addEventListener('mousedown', (e) => { e.preventDefault(); startDrag(e.clientX, e.clientY); });
-  document.addEventListener('mousemove', (e) => { doDrag(e.clientX, e.clientY); });
-  document.addEventListener('mouseup', endDrag);
-
-  header.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (t) { e.preventDefault(); startDrag(t.clientX, t.clientY); } }, { passive: false });
-  document.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) { e.preventDefault(); doDrag(t.clientX, t.clientY); } }, { passive: false });
-  document.addEventListener('touchend', endDrag);
-
-  // Restore saved pos
-  try {
-    const raw = localStorage.getItem(modalId + '_pos');
-    if (raw) {
-      const pos = JSON.parse(raw);
-      if (pos && pos.left) {
-        overlay.style.alignItems = 'flex-start';
-        overlay.style.justifyContent = 'flex-start';
-        modal.style.position = 'fixed';
-        modal.style.left = pos.left;
-        modal.style.top = pos.top;
-        modal.style.right = 'auto';
-      }
-    }
-  } catch (e) {}
-};
-
-document.addEventListener('DOMContentLoaded', () => {
-  ['quickInputModal','quickInputHelpModal','controllerModal','controllerHelpModal','directionModal'].forEach(id => {
-    try { window.makeModalDraggable(id); } catch (e) {}
-  });
-  // Make toolsDrawing draggable via its panel-grip
-  try { window.makeElementDraggable && window.makeElementDraggable('toolsDrawing', '.panel-grip'); } catch(e) {}
-  // Prevent canvas control buttons from letting clicks fall through to underlying elements
-  try {
-    const canvasBtns = document.querySelectorAll('.canvas-controls .canvas-btn');
-    canvasBtns.forEach((b) => {
-      b.addEventListener('click', (ev) => { ev.stopPropagation(); });
-    });
-  } catch (e) {}
-});
-
-// Generic element draggable by handle selector
-window.makeElementDraggable = function(elementId, handleSelector) {
-  const el = document.getElementById(elementId);
-  if (!el) return;
-  const handle = el.querySelector(handleSelector) || el;
-  handle.style.cursor = 'move';
-
-  let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
-  let pointerOffsetX = 0, pointerOffsetY = 0;
-
-  const start = (x,y) => {
-    const rect = el.getBoundingClientRect();
-    dragging = true;
-    startX = x; startY = y;
-    // compute pointer offset so element follows cursor precisely
-    pointerOffsetX = x - rect.left;
-    pointerOffsetY = y - rect.top;
-    origLeft = el.style.left ? parseInt(el.style.left,10) || rect.left : rect.left;
-    origTop = el.style.top ? parseInt(el.style.top,10) || rect.top : rect.top;
-    el.style.position = 'fixed';
-    // convert to viewport coords
-    el.style.left = origLeft + 'px';
-    el.style.top = origTop + 'px';
-    el.style.zIndex = '2000';
-    el.style.right = 'auto';
-    document.body.style.userSelect = 'none';
-  };
-  const move = (x,y) => { if (!dragging) return; el.style.left = (x - pointerOffsetX) + 'px'; el.style.top = (y - pointerOffsetY) + 'px'; };
-  const end = () => { if (!dragging) return; dragging = false; document.body.style.userSelect = ''; };
-
-  handle.addEventListener('mousedown', (e) => { e.preventDefault(); start(e.clientX, e.clientY); });
-  document.addEventListener('mousemove', (e)=> move(e.clientX, e.clientY));
-  document.addEventListener('mouseup', () => { end(); try { localStorage.setItem(elementId + '_pos', JSON.stringify({ left: el.style.left, top: el.style.top })); } catch(e){} });
-  handle.addEventListener('touchstart', (e)=> { const t=e.touches[0]; if(t){ e.preventDefault(); start(t.clientX,t.clientY);} }, {passive:false});
-  document.addEventListener('touchmove', (e)=> { const t=e.touches[0]; if(t){ e.preventDefault(); move(t.clientX,t.clientY);} }, {passive:false});
-  document.addEventListener('touchend', () => { end(); try { localStorage.setItem(elementId + '_pos', JSON.stringify({ left: el.style.left, top: el.style.top })); } catch(e){} });
-  // Restore saved pos if available
-  try {
-    const raw = localStorage.getItem(elementId + '_pos');
-    if (raw) {
-      const pos = JSON.parse(raw);
-        if (pos && pos.left) {
-        el.style.position = 'fixed';
-        el.style.left = pos.left;
-        el.style.top = pos.top || el.style.top;
-        el.style.right = 'auto';
-        el.style.zIndex = '2000';
-      }
-    }
-  } catch (e) {}
 };
 
 if (typeof module !== "undefined" && module.exports) {

@@ -22,7 +22,7 @@ window.gridSize = 10;
 
 // ===== SETTINGS =====
 window.axisMode = "lathe"; // lathe nebo carousel
-window.xMeasureMode = "radius"; // radius or diameter - VÝCHOZÍ JE RADIUS (R)
+window.xMeasureMode = "diameter"; // radius or diameter
 window.displayDecimals = 2;
 window.snapToGrid = false;
 window.snapToPoints = true;
@@ -121,15 +121,3 @@ window.aiMetrics = {
 
 // ===== ANIMATION =====
 window.animationFrameId = null;
-
-// DEBUG: kontrola množství logů; nastavte na true pro detailní debug
-window.debugMode = false;
-window.logDebug = function(...args) {
-  try {
-    if (window.debugMode) {
-      console.log(...args);
-    }
-  } catch (e) {
-    // swallow
-  }
-};
