@@ -42,7 +42,7 @@
     <script>console.log("✅ index.html loaded");</script>
     <script src="src/utils.js"></script>
     <script src="src/drawing.js"></script>
-    <script src="src/canvas.js"></script>
+    <script src="src/canvas.js?v=4"></script>
     <script src="src/ui.js"></script>
     <script src="src/controller.js"></script>
     <script src="src/ai.js"></script>
@@ -102,18 +102,14 @@
       <div
         class="tool-submenu"
         id="toolsAi"
-        style="justify-content: center; width: 100%; display: none"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; z-index: 1000;"
       >
         <div
+          id="aiPanel"
           style="
-            position: relative;
-            background: rgba(26, 26, 26, 0.95);
-            padding: 15px;
-            border-radius: 12px;
-            border: 1px solid #555;
-            width: 95%;
-            max-width: 500px;
-            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.6);
+            position: absolute; top: 80px; right: 20px; background: rgba(26, 26, 26, 0.95);
+            padding: 15px; border-radius: 12px; border: 1px solid #555; width: 95%; max-width: 500px;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.6); z-index: 1001; touch-action: none;
           "
         >
           <!-- AI Header s nastavením -->
@@ -124,36 +120,60 @@
               justify-content: space-between;
               align-items: flex-start;
               margin-bottom: 10px;
+              cursor: move;
+              -webkit-user-select: none; user-select: none;
             "
           >
             <div style="display: flex; gap: 8px; align-items: center">
-              <!-- Přepínač modelu -->
-              <select
-                id="aiModelSelect"
-                style="
-                  background: #111;
-                  color: #888;
-                  border: 1px solid #444;
-                  padding: 4px 8px;
-                  border-radius: 4px;
-                  font-size: 11px;
-                  cursor: pointer;
-                  outline: none;
-                "
-              >
-                <option value="gemini-2.5-flash-lite" selected>
-                  ⚡ Gemini 2.5 Flash-Lite (Vyšší limit)
-                </option>
-                <option value="gemini-2.5-flash">
-                  ⚡ Gemini 2.5 Flash (Rychlý)
-                </option>
-                <option value="gemini-3-pro-preview">
-                  🧪 Gemini 3 Pro (Nejchytřejší)
-                </option>
-                <option value="gemini-2.0-flash-exp">
-                  ⚡ Gemini 2.0 Flash (Exp)
-                </option>
-              </select>
+              <!-- Model + AI Type (vertikálně) -->
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <select
+                  id="aiModelSelect"
+                  style="
+                    background: #111;
+                    color: #888;
+                    border: 1px solid #444;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    cursor: pointer;
+                    outline: none;
+                  "
+                >
+                  <option value="gemini-2.5-flash-lite" selected>
+                    ⚡ Gemini 2.5 Flash-Lite (Vyšší limit)
+                  </option>
+                  <option value="gemini-2.5-flash">
+                    ⚡ Gemini 2.5 Flash (Rychlý)
+                  </option>
+                  <option value="gemini-3-pro-preview">
+                    🧪 Gemini 3 Pro (Nejchytřejší)
+                  </option>
+                  <option value="gemini-2.0-flash-exp">
+                    ⚡ Gemini 2.0 Flash (Exp)
+                  </option>
+                </select>
+
+                <!-- AI Type (2D / CNC / Chat) -->
+                <select
+                  id="aiTypeSelect"
+                  style="
+                    background: #111;
+                    color: #888;
+                    border: 1px solid #444;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    cursor: pointer;
+                    outline: none;
+                  "
+                  title="Vyberte režim AI: 2D = kreslení, CNC = generování G-kódu/tvarů, Chat = běžný chat"
+                >
+                  <option value="2d" selected>✏️ 2D (kreslení)</option>
+                  <option value="cnc">🛠️ CNC (kódování)</option>
+                  <option value="chat">💬 Chat (pokec)</option>
+                </select>
+              </div>
 
               <!-- AI Memory Button -->
               <button
@@ -591,7 +611,7 @@
               </div>
 
               <button
-                onclick="if(window.callGemini) { window.callGemini(); }"
+                onclick="if(!window.processingAI && window.callGemini) { window.callGemini(); } else { alert('AI už zpracovává request nebo test běží!'); }"
                 id="btnGenerate"
                 style="
                   padding: 10px;
@@ -676,16 +696,22 @@
 
       <!-- Kreslení panel -->
       <div class="tool-submenu" id="toolsDrawing" style="display: none">
-        <div
-          style="
-            background: rgba(26, 26, 26, 0.95);
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #444;
-            max-width: 500px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-          "
-        >
+        <div class="drawing-panel" style="background: rgba(26, 26, 26, 0.95); padding: 12px; border-radius: 8px; border: 1px solid #444; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); margin: 0 auto;">
+        <!-- Header: polar snap + grip -->
+        <div class="tool-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;padding:4px 0;background: transparent;border-radius:6px;max-width:100%;box-shadow:none;">
+          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+            <div style="display:flex;flex-direction:column;min-width:0;">
+              <label style="font-size: 12px; color: #ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Polární krok (°):
+                <input type="number" id="polarSnapStep" min="1" max="90" value="90" style="width: 70px; margin-left: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 4px;">
+              </label>
+              <div style="font-size: 11px; color: #888; margin-top: 6px;">Přichycení funguje automaticky pro vodorovné/svislé (0°, 90°, 180°, 270°) a další zvolené úhly. Tolerance: ±3°.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-left:8px;">
+            <div class="panel-grip" style="cursor: move; padding:8px 12px; text-align:center; color:#aaa; border:1px solid rgba(255,255,255,0.03); border-radius:6px; background: rgba(0,0,0,0.12);">≡</div>
+          </div>
+        </div>
+        <div class="tools-content">
           <div
             style="
               display: flex;
@@ -865,6 +891,7 @@
               Polární přichycení (15°, 30°, 45°...)
             </label>
           </div>
+        </div>
         </div>
       </div>
 
@@ -1345,15 +1372,15 @@
             </div>
             <div id="otherHelpers" style="display: none; padding: 10px; background: #1a1a1a; border-radius: 6px; margin-top: 4px">
               <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; margin-bottom: 8px">
-                <input type="checkbox" id="snapGrid" onchange="window.updateSnap()" style="width: 16px; height: 16px" />
+                <input type="checkbox" id="snapGrid" onchange="window.updateSnapSettings()" style="width: 16px; height: 16px" />
                 <span>Přichycení k mřížce</span>
               </label>
               <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; margin-bottom: 8px">
-                <input type="checkbox" id="snapPoints" checked onchange="window.updateSnap()" style="width: 16px; height: 16px" />
+                <input type="checkbox" id="snapPoints" checked onchange="window.updateSnapSettings()" style="width: 16px; height: 16px" />
                 <span>Přichycení k bodům</span>
               </label>
               <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px">
-                <input type="checkbox" id="orthoMode" checked onchange="window.updateSnap()" style="width: 16px; height: 16px" />
+                <input type="checkbox" id="orthoMode" checked onchange="window.updateSnapSettings()" style="width: 16px; height: 16px" />
                 <span>Ortogonální (↔↕)</span>
               </label>
             </div>
