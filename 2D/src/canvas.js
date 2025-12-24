@@ -766,29 +766,22 @@ function handleSelectMode(x, y, shiftKey) {
       ref: fp,
     };
     window.logDebug && window.logDebug("[handleSelectMode] found manual point", fp);
+    // Přidat bod do výběru s písmenem, nemazat ostatní označení
     try {
-      // Rychlý debug: okamžitě přiřadit výběr pro ověření renderu
-      window.selectedItems = [{ category: 'point', x: found_point.x, y: found_point.y, ref: found_point, highlightColor: '#facc15' }];
-      window._lastSelectionTime = Date.now();
-      window.logDebug && window.logDebug('[handleSelectMode] QUICK-ASSIGN selectedItems=', window.selectedItems, '_lastSelectionTime=', window._lastSelectionTime);
-      if (window.draw) window.draw();
-      // Ensure snapInfo shows for manual points immediately
-      try {
-        const infoEl = document.getElementById('snapInfo');
-        if (infoEl) {
-          const sx = (found_point.x).toFixed(2);
-          const sy = (found_point.y).toFixed(2);
-          infoEl.textContent = `📍 Bod (${sx}, ${sy}) • Bod`;
-          infoEl.style.display = 'block';
-          // Mark as persistent so it won't be auto-hidden by other quick timeouts
-          try { infoEl.dataset.persistent = 'true'; } catch (e) {}
-        }
-      } catch (e) {
-        window.logDebug && window.logDebug('[handleSelectMode] failed to set snapInfo for manual point', e);
+      const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      // Najdi nejvyšší použité písmeno
+      const usedLabels = (window.selectedItems || []).map(s => s.label).filter(Boolean);
+      let label = null;
+      for (let i = 0; i < labels.length; i++) {
+        if (!usedLabels.includes(labels[i])) { label = labels[i]; break; }
       }
-    } catch (e) {
-      console.error('[handleSelectMode] QUICK-ASSIGN failed', e);
-    }
+      if (!label) label = labels[(window.selectedItems.length) % labels.length];
+      // Zkontrolovat, zda už není bod vybraný
+      const alreadySelected = window.selectedItems.some(i => i.category === 'point' && Math.abs(i.x - fp.x) < 0.0001 && Math.abs(i.y - fp.y) < 0.0001);
+      if (!alreadySelected) {
+        window.selectedItems.push({ category: 'point', x: fp.x, y: fp.y, ref: fp, highlightColor: '#facc15', label });
+      }
+    } catch (e) {}
   } else {
     // Pokud cached snap points nejsou dostupné, pokus se je aktualizovat
     if ((!window.cachedSnapPoints || window.cachedSnapPoints.length === 0) && window.updateSnapPoints) {
@@ -951,17 +944,24 @@ function handleSelectMode(x, y, shiftKey) {
     // použijeme dočasný single-select bez písmen — překliknutím se předchozí zruší.
     const persistentSelect = window.mode === "select" || window.colorPickerMode;
     if (!persistentSelect) {
-      // dočasné označení: jediný item, bez labelu
+      // Přidat bod do výběru s písmenem, nemazat ostatní označení
       try {
+        // Získat použitá písmena
+        const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const used = new Set((window.selectedItems || []).map(s => s.label).filter(Boolean));
+        let label = null;
+        for (let i = 0; i < labels.length; i++) {
+          if (!used.has(labels[i])) { label = labels[i]; break; }
+        }
+        if (!label) label = labels[(window.selectedItems.length) % labels.length];
         if (found.category === "point") {
           found.highlightColor = "#facc15";
         }
-        // Explicitně přiřadit pole (nikoli length=0 + push) - vyhnout se nechtěným referencím
-        window.selectedItems = [{ ...found }];
+        window.selectedItems.push({ ...found, label });
         window._lastSelectionTime = Date.now();
-        window.logDebug && window.logDebug("[handleSelectMode] selectedItems (temp) ASSIGNED:", window.selectedItems, "_lastSelectionTime=", window._lastSelectionTime);
+        window.logDebug && window.logDebug("[handleSelectMode] selectedItems (temp) PUSHED:", window.selectedItems, "_lastSelectionTime=", window._lastSelectionTime);
       } catch (e) {
-        console.error("[handleSelectMode] failed to assign selectedItems:", e);
+        console.error("[handleSelectMode] failed to push selectedItems:", e);
       }
     } else {
       if (index > -1) {
