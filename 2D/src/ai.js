@@ -38,11 +38,13 @@ window.enableAIDragging = function () {
     // Odstranit cursor: move a nastavit pevnou pozici
     header.style.cursor = 'default';
     panel.style.position = 'fixed';
-    panel.style.top = '80px';
+    panel.style.top = '10px';
     panel.style.left = '50%';
     panel.style.transform = 'translateX(-50%)';
     panel.style.right = 'auto';
-    panel.style.maxHeight = 'calc(100vh - 100px)';
+    panel.style.width = '98%';
+    panel.style.maxWidth = '100%';
+    panel.style.maxHeight = 'calc(100vh - 20px)';
     panel.style.overflowY = 'auto';
     return; // Vypnout dragging na mobilech
   }
@@ -852,6 +854,8 @@ window.toggleAiPanel = function (open) {
       window.loadAIMemory();
       window.aiMemoryLoaded = true;
     }
+    // Odstranit minimized indikátor
+    updateAIButtonIndicator(false);
   } else {
     container.style.display = "none";
     const chatWindow = document.getElementById("chatWindow");
@@ -862,6 +866,79 @@ window.toggleAiPanel = function (open) {
     const panelEl = document.getElementById('aiPanel');
     if (panelEl) panelEl.style.display = 'none';
   }
+};
+
+// ===== MINIMALIZACE A ZAVŘENÍ AI =====
+window.aiMinimized = false;
+
+// Aktualizuje indikátor na AI tlačítku
+function updateAIButtonIndicator(isMinimized) {
+  const btn = document.getElementById('btnCatAi');
+  if (!btn) return;
+
+  const existingIndicator = btn.querySelector('.ai-indicator');
+  if (existingIndicator) {
+    existingIndicator.remove();
+  }
+
+  if (isMinimized) {
+    const indicator = document.createElement('div');
+    indicator.className = 'ai-indicator';
+    indicator.innerHTML = '<span style="font-size: 8px;">●</span>';
+    indicator.style.cssText = 'position: absolute; top: 2px; right: 2px; background: #22c55e; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite;';
+    btn.style.position = 'relative';
+    btn.appendChild(indicator);
+  }
+}
+
+// Minimalizuje AI panel (schová ho, ale AI pokračuje)
+window.minimizeAI = function() {
+  const container = document.getElementById("toolsAi");
+  if (!container) return;
+
+  container.style.display = "none";
+  window.aiPanelOpen = false;
+  window.aiMinimized = true;
+
+  // Zobrazit indikátor na tlačítku
+  updateAIButtonIndicator(true);
+
+  // Deaktivovat tlačítko AI kategorie
+  const btnCatAi = document.getElementById('btnCatAi');
+  if (btnCatAi) {
+    btnCatAi.classList.remove('active');
+  }
+};
+
+// Zavře AI panel a ukončí probíhající operace
+window.closeAI = function() {
+  const container = document.getElementById("toolsAi");
+  if (!container) return;
+
+  // Poznámka: AbortController pro AI není momentálně implementován
+  // Toto pouze ukončí UI - probíhající dotaz může doběhnout
+  console.log("🛑 AI panel zavřen uživatelem");
+
+  container.style.display = "none";
+  window.aiPanelOpen = false;
+  window.aiMinimized = false;
+
+  // Odstranit indikátor
+  updateAIButtonIndicator(false);
+
+  // Deaktivovat tlačítko AI kategorie
+  const btnCatAi = document.getElementById('btnCatAi');
+  if (btnCatAi) {
+    btnCatAi.classList.remove('active');
+  }
+
+  const chatWindow = document.getElementById("chatWindow");
+  if (chatWindow) {
+    chatWindow.style.display = "none";
+  }
+
+  const panelEl = document.getElementById('aiPanel');
+  if (panelEl) panelEl.style.display = 'none';
 };
 
 // ===== RETRY WITH BACKOFF (Pro API chyby) =====

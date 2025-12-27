@@ -267,6 +267,22 @@ window.showToolCategory = function (category) {
 
   // Speciální handling pro AI - nevřít ho stejně jako ostatní panely
   if (category === "ai") {
+    // Pokud je AI minimalizované, znovu ho otevři
+    if (window.aiMinimized) {
+      if (menuEl) menuEl.style.display = "flex";
+      if (btnEl) btnEl.classList.add("active");
+      window.currentCategory = category;
+      window.aiMinimized = false;
+      if (window.toggleAiPanel) {
+        window.toggleAiPanel(true);
+      }
+      setTimeout(() => {
+        const input = document.getElementById("aiPrompt");
+        if (input) input.focus();
+      }, 200);
+      return;
+    }
+
     // Pro AI zkusíme toggle
     if (window.currentCategory === category && menuEl && menuEl.style.display !== "none") {
       // AI je otevřené, zavři ho
