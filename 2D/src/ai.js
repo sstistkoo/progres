@@ -38,14 +38,15 @@ window.enableAIDragging = function () {
     // Odstranit cursor: move a nastavit pevnou pozici
     header.style.cursor = 'default';
     panel.style.position = 'fixed';
-    panel.style.top = '10px';
+    panel.style.top = '5px';
     panel.style.left = '50%';
     panel.style.transform = 'translateX(-50%)';
     panel.style.right = 'auto';
-    panel.style.width = '98%';
+    panel.style.width = '96%';
     panel.style.maxWidth = '100%';
-    panel.style.maxHeight = 'calc(100vh - 20px)';
+    panel.style.maxHeight = 'calc(100vh - 80px)';
     panel.style.overflowY = 'auto';
+    panel.style.zIndex = '2100';
     return; // Vypnout dragging na mobilech
   }
 
