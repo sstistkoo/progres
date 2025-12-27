@@ -816,7 +816,10 @@ canvas {
   max-height: 60vh;
   min-height: 200px;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
   background: #111;
   border: 1px solid #444;
   border-radius: 6px;
@@ -1342,45 +1345,57 @@ canvas {
 
   #aiHeaderRow {
     cursor: default !important;
-    margin-bottom: 6px !important;
+    margin-bottom: 8px !important;
     flex-direction: column !important;
-    gap: 6px !important;
+    gap: 8px !important;
   }
 
   #aiHeaderFirstRow {
     width: 100% !important;
     justify-content: space-between !important;
+    flex-wrap: nowrap !important;
   }
 
   #aiHeaderSecondRow {
     width: 100% !important;
     justify-content: center !important;
-    gap: 12px !important;
+    gap: 20px !important;
+  }
+
+  /* Akční tlačítka (Minimize, Close) - větší */
+  .ai-action-btn {
+    min-width: 70px !important;
+    min-height: 50px !important;
+    font-size: 32px !important;
+  }
+
+  .ai-action-btn:active {
+    transform: scale(0.95);
   }
 
   /* Zmenšit header tlačítka na mobilech */
-  #aiPanel .ai-header-btn {
-    padding: 6px !important;
-    min-width: 40px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+  #aiPanel .ai-header-btn:not(.ai-action-btn) {
+    padding: 4px !important;
+    min-width: 32px !important;
   }
 
-  #aiPanel .ai-header-btn span {
-    font-size: 16px !important;
+  #aiPanel .ai-header-btn:not(.ai-action-btn) span {
+    font-size: 14px !important;
   }
 
-  /* Chat container větší na mobilu */
+  /* Chat container - opravené scrollování */
   #aiPanel .chat-container {
-    max-height: calc(100vh - 320px) !important;
-    min-height: 30vh !important;
+    max-height: calc(100vh - 360px) !important;
+    min-height: 25vh !important;
+    overflow-y: scroll !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
   }
 
   /* AI selecty menší na mobilech */
   #aiPanel select {
-    font-size: 10px !important;
-    padding: 3px 6px !important;
+    font-size: 9px !important;
+    padding: 3px 5px !important;
   }
 }
 
