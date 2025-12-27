@@ -1684,6 +1684,20 @@ window.makeElementDraggable = function(elementId, handleSelector) {
   const el = document.getElementById(elementId);
   if (!el) return;
   const handle = el.querySelector(handleSelector) || el;
+
+  // Detekce mobilního zařízení
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+
+  // Na mobilních zařízeních zakázat dragging
+  if (isMobile) {
+    handle.style.cursor = 'default';
+    // Skrýt grip na mobilech
+    if (handle.classList.contains('panel-grip') || handle.matches('.panel-grip')) {
+      handle.style.display = 'none';
+    }
+    return; // Vypnout dragging na mobilech
+  }
+
   handle.style.cursor = 'move';
 
   let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;

@@ -30,7 +30,24 @@ window.enableAIDragging = function () {
   const header = document.getElementById('aiHeaderRow');
   if (!panel || !header || !toolsAi) return;
 
-  // Restore saved position
+  // Detekce mobilního zařízení
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+
+  // Na mobilních zařízeních zakázat dragging a nastavit pevnou pozici
+  if (isMobile) {
+    // Odstranit cursor: move a nastavit pevnou pozici
+    header.style.cursor = 'default';
+    panel.style.position = 'fixed';
+    panel.style.top = '80px';
+    panel.style.left = '50%';
+    panel.style.transform = 'translateX(-50%)';
+    panel.style.right = 'auto';
+    panel.style.maxHeight = 'calc(100vh - 100px)';
+    panel.style.overflowY = 'auto';
+    return; // Vypnout dragging na mobilech
+  }
+
+  // Restore saved position jen na desktopu
   try {
     const saved = localStorage.getItem('aiPanelPosition');
     if (saved) {
@@ -76,7 +93,7 @@ window.enableAIDragging = function () {
   document.addEventListener('mousemove', (e) => { onMove(e.clientX, e.clientY); });
   document.addEventListener('mouseup', onEnd);
 
-  // Touch support
+  // Touch support - pouze na desktopu
   header.addEventListener('touchstart', (e) => { const t = e.touches[0]; onStart(t.clientX, t.clientY); }, { passive: true });
   document.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) onMove(t.clientX, t.clientY); }, { passive: false });
   document.addEventListener('touchend', onEnd);
