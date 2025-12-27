@@ -131,7 +131,7 @@
               -webkit-user-select: none; user-select: none;
             "
           >
-            <div style="display: flex; gap: 8px; align-items: center">
+            <div id="aiHeaderFirstRow" style="display: flex; gap: 8px; align-items: center">
               <!-- Provider + Model + AI Type (vertikálně) -->
               <div style="display: flex; flex-direction: column; gap: 6px;">
                 <!-- AI Provider (Gemini / Groq / OpenRouter / Mistral) -->
@@ -255,6 +255,30 @@
               >
                 <span style="font-size: 16px">📊</span>
               </button>
+            </div>
+
+            <!-- Druhý řádek tlačítek (Minimize, Settings, Close) -->
+            <div id="aiHeaderSecondRow" style="display: flex; gap: 8px; align-items: center;">
+              <!-- Minimize Button -->
+              <button
+                onclick="window.minimizeAI()"
+                title="Minimalizovat AI (pokračuje v práci)"
+                onmouseover="this.style.color='#ffa500'"
+                onmouseout="this.style.color='#888'"
+                class="ai-header-btn"
+                style="
+                  background: transparent;
+                  border: none;
+                  cursor: pointer;
+                  color: #888;
+                  transition: color 0.2s;
+                  padding: 4px;
+                  font-size: 22px;
+                  line-height: 1;
+                "
+              >
+                <span>−</span>
+              </button>
 
               <!-- Settings Button -->
               <button
@@ -273,32 +297,13 @@
                 <span style="font-size: 18px">⚙️</span>
               </button>
 
-              <!-- Minimize Button -->
-              <button
-                onclick="window.minimizeAI()"
-                title="Minimalizovat AI (pokračuje v práci)"
-                onmouseover="this.style.color='#ffa500'"
-                onmouseout="this.style.color='#888'"
-                style="
-                  background: transparent;
-                  border: none;
-                  cursor: pointer;
-                  color: #888;
-                  transition: color 0.2s;
-                  padding: 4px;
-                  font-size: 24px;
-                  line-height: 1;
-                "
-              >
-                <span>−</span>
-              </button>
-
               <!-- Close Button -->
               <button
                 onclick="window.closeAI()"
                 title="Zavřít AI a ukončit činnost"
                 onmouseover="this.style.color='#ff4444'"
                 onmouseout="this.style.color='#888'"
+                class="ai-header-btn"
                 style="
                   background: transparent;
                   border: none;
@@ -306,7 +311,7 @@
                   color: #888;
                   transition: color 0.2s;
                   padding: 4px;
-                  font-size: 24px;
+                  font-size: 22px;
                   line-height: 1;
                 "
               >
