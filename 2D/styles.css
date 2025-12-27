@@ -978,7 +978,7 @@ canvas {
   height: 100%;
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(4px);
-  z-index: 2000;
+  z-index: 3500;
   display: none;
   align-items: center;
   justify-content: center;
@@ -995,6 +995,13 @@ canvas {
   padding: 20px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
   color: #e0e0e0;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* Settings modal vyšší z-index */
+#settingsModal {
+  z-index: 3500 !important;
 }
 
 @media (max-width: 360px) {
@@ -1342,6 +1349,12 @@ canvas {
 
 /* ===== AI PANEL - MOBILNÍ ZAŘÍZENÍ ===== */
 @media (max-width: 768px) {
+  /* Drawing panel responsivní */
+  .drawing-panel {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
   #toolsAi {
     z-index: 3000 !important;
     background: rgba(0, 0, 0, 0.85) !important;
@@ -1441,7 +1454,18 @@ canvas {
 
 @media (max-width: 768px) {
   .modal-window {
-    max-height: 85vh;
+    max-height: 80vh !important;
+    overflow-y: scroll !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 15px !important;
+  }
+
+  /* Settings modal na mobilu */
+  #settingsModal .modal-window {
+    max-height: 75vh !important;
   }
 }
 
