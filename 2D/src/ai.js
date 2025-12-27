@@ -49,6 +49,11 @@ window.enableAIDragging = function () {
     panel.style.height = 'auto';
     panel.style.overflowY = 'auto';
     panel.style.webkitOverflowScrolling = 'touch';
+    panel.style.zIndex = '3001';
+
+    // Zajistit že overlay má také vysoký z-index
+    if (toolsAi) {
+      toolsAi.style.zIndex = '3000';
       toolsAi.style.background = 'rgba(0, 0, 0, 0.85)';
     }
 
