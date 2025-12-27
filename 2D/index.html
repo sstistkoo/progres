@@ -131,191 +131,203 @@
               -webkit-user-select: none; user-select: none;
             "
           >
-            <div id="aiHeaderFirstRow" style="display: flex; gap: 8px; align-items: center">
-              <!-- Provider + Model + AI Type (vertikálně) -->
-              <div style="display: flex; flex-direction: column; gap: 6px;">
-                <!-- AI Provider (Gemini / Groq / OpenRouter / Mistral) -->
-                <select
-                  id="aiProviderSelect"
-                  onchange="if(window.updateModelsForProvider) window.updateModelsForProvider()"
-                  style="
-                    background: #111;
-                    color: #888;
-                    border: 1px solid #444;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-size: 11px;
-                    cursor: pointer;
-                    outline: none;
-                  "
-                  title="Vyberte AI poskytovatele"
-                >
-                  <option value="gemini" selected>🤖 Gemini</option>
-                  <option value="groq">⚡ Groq</option>
-                  <option value="openrouter">🌐 OpenRouter</option>
-                  <option value="mistral">🔥 Mistral</option>
-                </select>
+            <div id="aiHeaderFirstRow" style="display: flex; gap: 8px; align-items: flex-start; justify-content: space-between;">
+              <!-- Levá část: Provider + Model + AI Type + Settings -->
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <!-- Provider + Model + AI Type (vertikálně) -->
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <!-- AI Provider (Gemini / Groq / OpenRouter / Mistral) -->
+                  <select
+                    id="aiProviderSelect"
+                    onchange="if(window.updateModelsForProvider) window.updateModelsForProvider()"
+                    style="
+                      background: #111;
+                      color: #888;
+                      border: 1px solid #444;
+                      padding: 4px 8px;
+                      border-radius: 4px;
+                      font-size: 11px;
+                      cursor: pointer;
+                      outline: none;
+                    "
+                    title="Vyberte AI poskytovatele"
+                  >
+                    <option value="gemini" selected>🤖 Gemini</option>
+                    <option value="groq">⚡ Groq</option>
+                    <option value="openrouter">🌐 OpenRouter</option>
+                    <option value="mistral">🔥 Mistral</option>
+                  </select>
 
-                <!-- AI Model -->
-                <select
-                  id="aiModelSelect"
-                  style="
-                    background: #111;
-                    color: #888;
-                    border: 1px solid #444;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-size: 11px;
-                    cursor: pointer;
-                    outline: none;
-                  "
-                >
-                  <option value="gemini-2.5-flash-lite" selected>
-                    ⚡ Gemini 2.5 Flash-Lite (Vyšší limit)
-                  </option>
-                  <option value="gemini-2.5-flash">
-                    ⚡ Gemini 2.5 Flash (Rychlý)
-                  </option>
-                  <option value="gemini-3-pro-preview">
-                    🧪 Gemini 3 Pro (Nejchytřejší)
-                  </option>
-                  <option value="gemini-2.0-flash-exp">
-                    ⚡ Gemini 2.0 Flash (Exp)
-                  </option>
-                </select>
+                  <!-- AI Model -->
+                  <select
+                    id="aiModelSelect"
+                    style="
+                      background: #111;
+                      color: #888;
+                      border: 1px solid #444;
+                      padding: 4px 8px;
+                      border-radius: 4px;
+                      font-size: 11px;
+                      cursor: pointer;
+                      outline: none;
+                    "
+                  >
+                    <option value="gemini-2.5-flash-lite" selected>
+                      ⚡ Gemini 2.5 Flash-Lite (Vyšší limit)
+                    </option>
+                    <option value="gemini-2.5-flash">
+                      ⚡ Gemini 2.5 Flash (Rychlý)
+                    </option>
+                    <option value="gemini-3-pro-preview">
+                      🧪 Gemini 3 Pro (Nejchytřejší)
+                    </option>
+                    <option value="gemini-2.0-flash-exp">
+                      ⚡ Gemini 2.0 Flash (Exp)
+                    </option>
+                  </select>
 
-                <!-- AI Type (2D / CNC / Chat) -->
-                <select
-                  id="aiTypeSelect"
+                  <!-- AI Type (2D / CNC / Chat) -->
+                  <select
+                    id="aiTypeSelect"
+                    style="
+                      background: #111;
+                      color: #888;
+                      border: 1px solid #444;
+                      padding: 4px 8px;
+                      border-radius: 4px;
+                      font-size: 11px;
+                      cursor: pointer;
+                      outline: none;
+                    "
+                    title="Vyberte režim AI: 2D = kreslení, CNC = generování G-kódu/tvarů, Chat = běžný chat"
+                  >
+                    <option value="2d" selected>✏️ 2D (kreslení)</option>
+                    <option value="cnc">🛠️ CNC (kódování)</option>
+                    <option value="chat">💬 Chat (pokec)</option>
+                  </select>
+                </div>
+
+                <!-- Settings Button -->
+                <button
+                  onclick="window.openSettings()"
+                  title="Nastavení API klíče"
+                  class="ai-header-btn ai-settings-btn"
                   style="
-                    background: #111;
-                    color: #888;
-                    border: 1px solid #444;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-size: 11px;
+                    background: transparent;
+                    border: none;
                     cursor: pointer;
-                    outline: none;
+                    color: #888;
+                    transition: color 0.2s;
+                    padding: 4px;
                   "
-                  title="Vyberte režim AI: 2D = kreslení, CNC = generování G-kódu/tvarů, Chat = běžný chat"
                 >
-                  <option value="2d" selected>✏️ 2D (kreslení)</option>
-                  <option value="cnc">🛠️ CNC (kódování)</option>
-                  <option value="chat">💬 Chat (pokec)</option>
-                </select>
+                  <span style="font-size: 20px">⚙️</span>
+                </button>
               </div>
 
-              <!-- AI Memory Button -->
-              <button
-                onclick="showAIMemory()"
-                title="AI Paměť - Co se AI naučila"
-                class="ai-header-btn"
-                style="
-                  background: transparent;
-                  border: none;
-                  cursor: pointer;
-                  color: #888;
-                  transition: color 0.2s;
-                  padding: 4px;
-                "
-              >
-                <span style="font-size: 16px">🧠</span>
-              </button>
+              <!-- Pravá část: Tlačítka ve sloupcích -->
+              <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                <!-- Horní řádek: Minimize a Close -->
+                <div style="display: flex; gap: 8px;">
+                  <!-- Minimize Button -->
+                  <button
+                    onclick="window.minimizeAI()"
+                    title="Minimalizovat AI (pokračuje v práci)"
+                    onmouseover="this.style.color='#ffa500'"
+                    onmouseout="this.style.color='#888'"
+                    class="ai-header-btn ai-action-btn"
+                    style="
+                      background: transparent;
+                      border: 1px solid #444;
+                      border-radius: 6px;
+                      cursor: pointer;
+                      color: #888;
+                      transition: all 0.2s;
+                      padding: 6px 12px;
+                      font-size: 20px;
+                      line-height: 1;
+                    "
+                  >
+                    <span>−</span>
+                  </button>
 
-              <!-- AI Preferences Button -->
-              <button
-                onclick="openAIPreferences()"
-                title="Nastavit preference AI (učí se)"
-                class="ai-header-btn"
-                style="
-                  background: transparent;
-                  border: none;
-                  cursor: pointer;
-                  color: #888;
-                  transition: color 0.2s;
-                  padding: 4px;
-                "
-              >
-                <span style="font-size: 16px">🎓</span>
-              </button>
+                  <!-- Close Button -->
+                  <button
+                    onclick="window.closeAI()"
+                    title="Zavřít AI a ukončit činnost"
+                    onmouseover="this.style.color='#ff4444'"
+                    onmouseout="this.style.color='#888'"
+                    class="ai-header-btn ai-action-btn"
+                    style="
+                      background: transparent;
+                      border: 1px solid #444;
+                      border-radius: 6px;
+                      cursor: pointer;
+                      color: #888;
+                      transition: all 0.2s;
+                      padding: 6px 12px;
+                      font-size: 20px;
+                      line-height: 1;
+                    "
+                  >
+                    <span>×</span>
+                  </button>
+                </div>
 
-              <!-- Debug Metrics Button -->
-              <button
-                onclick="showAIMetrics()"
-                title="Zobrazit AI statistiky"
-                class="ai-header-btn"
-                style="
-                  background: transparent;
-                  border: none;
-                  cursor: pointer;
-                  color: #888;
-                  transition: color 0.2s;
-                  padding: 4px;
-                "
-              >
-                <span style="font-size: 16px">📊</span>
-              </button>
+                <!-- Dolní řádek: Memory, Preferences, Metrics -->
+                <div style="display: flex; gap: 6px;">
+                  <!-- AI Memory Button -->
+                  <button
+                    onclick="showAIMemory()"
+                    title="AI Paměť - Co se AI naučila"
+                    class="ai-header-btn"
+                    style="
+                      background: transparent;
+                      border: none;
+                      cursor: pointer;
+                      color: #888;
+                      transition: color 0.2s;
+                      padding: 4px;
+                    "
+                  >
+                    <span style="font-size: 16px">🧠</span>
+                  </button>
 
-              <!-- Settings Button -->
-              <button
-                onclick="window.openSettings()"
-                title="Nastavení API klíče"
-                class="ai-header-btn ai-settings-btn"
-                style="
-                  background: transparent;
-                  border: none;
-                  cursor: pointer;
-                  color: #888;
-                  transition: color 0.2s;
-                  padding: 4px;
-                "
-              >
-                <span style="font-size: 20px">⚙️</span>
-              </button>
+                  <!-- AI Preferences Button -->
+                  <button
+                    onclick="openAIPreferences()"
+                    title="Nastavit preference AI (učí se)"
+                    class="ai-header-btn"
+                    style="
+                      background: transparent;
+                      border: none;
+                      cursor: pointer;
+                      color: #888;
+                      transition: color 0.2s;
+                      padding: 4px;
+                    "
+                  >
+                    <span style="font-size: 16px">🎓</span>
+                  </button>
 
-              <!-- Minimize Button -->
-              <button
-                onclick="window.minimizeAI()"
-                title="Minimalizovat AI (pokračuje v práci)"
-                onmouseover="this.style.color='#ffa500'"
-                onmouseout="this.style.color='#888'"
-                class="ai-header-btn ai-action-btn"
-                style="
-                  background: transparent;
-                  border: 1px solid #444;
-                  border-radius: 6px;
-                  cursor: pointer;
-                  color: #888;
-                  transition: all 0.2s;
-                  padding: 8px 16px;
-                  font-size: 24px;
-                  line-height: 1;
-                "
-              >
-                <span>−</span>
-              </button>
-
-              <!-- Close Button -->
-              <button
-                onclick="window.closeAI()"
-                title="Zavřít AI a ukončit činnost"
-                onmouseover="this.style.color='#ff4444'"
-                onmouseout="this.style.color='#888'"
-                class="ai-header-btn ai-action-btn"
-                style="
-                  background: transparent;
-                  border: 1px solid #444;
-                  border-radius: 6px;
-                  cursor: pointer;
-                  color: #888;
-                  transition: all 0.2s;
-                  padding: 8px 16px;
-                  font-size: 24px;
-                  line-height: 1;
-                "
-              >
-                <span>×</span>
-              </button>
+                  <!-- Debug Metrics Button -->
+                  <button
+                    onclick="showAIMetrics()"
+                    title="Zobrazit AI statistiky"
+                    class="ai-header-btn"
+                    style="
+                      background: transparent;
+                      border: none;
+                      cursor: pointer;
+                      color: #888;
+                      transition: color 0.2s;
+                      padding: 4px;
+                    "
+                  >
+                    <span style="font-size: 16px">📊</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
