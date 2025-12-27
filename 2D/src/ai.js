@@ -46,7 +46,14 @@ window.enableAIDragging = function () {
     panel.style.maxWidth = '100%';
     panel.style.maxHeight = 'calc(100vh - 80px)';
     panel.style.overflowY = 'auto';
-    panel.style.zIndex = '2100';
+    panel.style.zIndex = '3001';
+
+    // Zajistit že overlay má také vysoký z-index
+    if (toolsAi) {
+      toolsAi.style.zIndex = '3000';
+      toolsAi.style.background = 'rgba(0, 0, 0, 0.85)';
+    }
+
     return; // Vypnout dragging na mobilech
   }
 
@@ -835,11 +842,12 @@ window.toggleAiPanel = function (open) {
 
   if (window.aiPanelOpen) {
     container.style.display = "flex";
+    container.style.zIndex = "3000";
     // Ensure inner panel visible and draggable
     const panelEl = document.getElementById('aiPanel');
     if (panelEl) {
       panelEl.style.display = 'block';
-      panelEl.style.zIndex = '1002';
+      panelEl.style.zIndex = '3001';
       panelEl.style.pointerEvents = 'auto';
     }
     try { if (window.enableAIDragging) window.enableAIDragging(); } catch(e){}
