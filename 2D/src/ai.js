@@ -38,19 +38,17 @@ window.enableAIDragging = function () {
     // Odstranit cursor: move a nastavit pevnou pozici
     header.style.cursor = 'default';
     panel.style.position = 'fixed';
-    panel.style.top = '5px';
+    panel.style.top = '10px';
+    panel.style.bottom = '15px';
     panel.style.left = '50%';
     panel.style.transform = 'translateX(-50%)';
     panel.style.right = 'auto';
     panel.style.width = '96%';
     panel.style.maxWidth = '100%';
-    panel.style.maxHeight = 'calc(100vh - 80px)';
+    panel.style.maxHeight = 'calc(100vh - 25px)';
+    panel.style.height = 'auto';
     panel.style.overflowY = 'auto';
-    panel.style.zIndex = '3001';
-
-    // Zajistit že overlay má také vysoký z-index
-    if (toolsAi) {
-      toolsAi.style.zIndex = '3000';
+    panel.style.webkitOverflowScrolling = 'touch';
       toolsAi.style.background = 'rgba(0, 0, 0, 0.85)';
     }
 
