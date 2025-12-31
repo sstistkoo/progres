@@ -5487,6 +5487,10 @@
                         </svg>
                         Uložit na GitHub
                       </div>
+                      <div class="action-item" id="githubDuplicateCheckBtn" style="cursor:pointer;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                        Zkontrolovat duplicitní kód
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -6312,6 +6316,20 @@
     <div class="ai-panel" id="aiPanel">
       <div class="ai-panel-header">
         <div class="ai-panel-title">🤖 AI Asistent</div>
+        <div style="flex:1"></div>
+        <div class="ai-dropdown" style="margin-right:8px;">
+          <button class="ai-quick-btn ai-dropdown-toggle" onclick="toggleAIDropdownMenu()">⚡ Rychlé akce ▼</button>
+          <div class="ai-dropdown-menu" id="aiDropdownMenu" style="display:none;position:absolute;z-index:1000;background:#222;padding:8px 0;border-radius:10px;box-shadow:0 4px 24px #000a;min-width:220px;max-height:320px;overflow-y:auto;right:0;top:110%;">
+            <button class="ai-quick-btn" onclick="aiQuickAction('Vytvoř landing page');toggleAIDropdownMenu()">🏠 Landing page <span class='cz-desc'>– Vytvořit úvodní stránku</span></button>
+            <button class="ai-quick-btn" onclick="aiQuickAction('Přidej navigaci');toggleAIDropdownMenu()">📍 Navigace <span class='cz-desc'>– Přidat navigační menu</span></button>
+            <button class="ai-quick-btn" onclick="aiQuickAction('Přidej footer');toggleAIDropdownMenu()">📋 Footer <span class='cz-desc'>– Přidat patičku</span></button>
+            <button class="ai-quick-btn" onclick="aiQuickAction('Vylepši design');toggleAIDropdownMenu()">✨ Vylepši <span class='cz-desc'>– Vylepšit vzhled</span></button>
+            <button class="ai-quick-btn" onclick="aiQuickAction('Oprav chyby');toggleAIDropdownMenu()">🔧 Oprav <span class='cz-desc'>– Opravit chyby v kódu</span></button>
+            <button class="ai-quick-btn" onclick="aiQuickAction('Přidej animace');toggleAIDropdownMenu()">🎬 Animace <span class='cz-desc'>– Přidat animace</span></button>
+            <button class="ai-quick-btn" id="aiGithubDuplicateCheckBtn" type="button">🔎 Vyhledat podobný kód <span class='cz-desc'>– Najít podobný kód na internetu</span></button>
+            <button class="ai-quick-btn" id="aiChatDuplicateCheckBtn" type="button">🧠 Najít v AI chatu <span class='cz-desc'>– Najít kód v AI chatu</span></button>
+          </div>
+        </div>
         <button class="ai-panel-close" onclick="closeAIChat()">
           <svg
             viewBox="0 0 24 24"
@@ -6330,76 +6348,175 @@
         </div>
       </div>
       <div class="ai-quick-actions">
-        <button
-          class="ai-quick-btn"
-          onclick="aiQuickAction('Vytvoř landing page')"
-        >
-          🏠 Landing page
-        </button>
-        <button class="ai-quick-btn" onclick="aiQuickAction('Přidej navigaci')">
-          📍 Navigace
-        </button>
-        <button class="ai-quick-btn" onclick="aiQuickAction('Přidej footer')">
-          📋 Footer
-        </button>
-        <button class="ai-quick-btn" onclick="aiQuickAction('Vylepši design')">
-          ✨ Vylepši
-        </button>
-        <button class="ai-quick-btn" onclick="aiQuickAction('Oprav chyby')">
-          🔧 Oprav
-        </button>
-        <button class="ai-quick-btn" onclick="aiQuickAction('Přidej animace')">
-          🎬 Animace
-        </button>
-      </div>
-      <div class="ai-input-area">
-        <textarea
-          class="ai-input"
-          id="aiInput"
-          placeholder="Napiš co chceš..."
-          rows="1"
-          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendAIMessage();}"
-        ></textarea>
-        <button class="ai-send-btn" onclick="sendAIMessage()" id="aiSendBtn">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-        </button>
-      </div>
-    </div>
+          <div class="ai-input-area" style="display:flex;align-items:center;padding:12px 0 0 0;">
+            <input id="aiInput" class="ai-input" type="text" placeholder="Zeptej se AI..." autocomplete="off" style="flex:1;padding:10px 14px;border-radius:8px;border:none;background:#18181b;color:#fff;font-size:16px;outline:none;" onkeydown="if(event.key==='Enter'){sendAIMessage()}" />
+            <button id="aiSendBtn" onclick="sendAIMessage()" style="margin-left:8px;padding:10px 18px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:16px;cursor:pointer;">Odeslat</button>
+          </div>
+          <style>
+            .ai-dropdown { position: relative; display: inline-block; }
+            .ai-dropdown-toggle { min-width: 140px; }
+            .ai-dropdown-menu .ai-quick-btn { width: 100%; text-align: left; border-radius: 0; border: none; background: none; color: #fff; padding: 8px 18px; font-size: 15px; }
+            .ai-dropdown-menu .ai-quick-btn:hover { background: #333; }
+            .cz-desc { color: #8a8a8f; font-size: 13px; margin-left: 6px; }
+            @media (max-height: 500px) {
+              .ai-dropdown-menu { max-height: 180px; }
+            }
+          </style>
+          <script>
+            function openAIRychleAkceModal() {
+              var modal = document.getElementById('aiRychleAkceModal');
+              if (!modal) {
+                console.error('Modal aiRychleAkceModal nenalezen!');
+                return;
+              }
+              modal.classList.add('active');
+            }
+            function closeAIRychleAkceModal() {
+              var modal = document.getElementById('aiRychleAkceModal');
+              if (!modal) return;
+              modal.classList.remove('active');
+            }
+            // Připojit funkčnost pro tlačítka v modalu po načtení stránky
+            document.addEventListener('DOMContentLoaded', function() {
+              var btnGithub = document.getElementById('aiGithubDuplicateCheckBtnModal');
+              var btnChat = document.getElementById('aiChatDuplicateCheckBtnModal');
+              if (btnGithub) btnGithub.onclick = function() {
+                if (typeof getCurrentCode === 'function') {
+                  const code = getCurrentCode();
+                  if (!code || code.length < 20) {
+                    alert('Nejprve vložte nebo napište kód, který chcete ověřit.');
+                    return;
+                  }
+                  showCheckingModal();
+                  Promise.all([
+                    searchGithubRepos(code),
+                    searchCodepen(code),
+                    searchStackOverflow(code),
+                    searchGoogle(code)
+                  ]).then(([github, codepen, stack, google]) => {
+                    showMultiResultsModal({github, codepen, stack, google});
+                  });
+                }
+                closeAIRychleAkceModal();
+              };
+              if (btnChat) btnChat.onclick = function() {
+                if (typeof getCurrentCode === 'function') {
+                  const code = getCurrentCode();
+                  if (!code || code.length < 20) {
+                    alert('Nejprve vložte nebo napište kód, který chcete ověřit.');
+                    return;
+                  }
+                  let found = false;
+                  let foundText = '';
+                  const norm = (s) => s.replace(/\s+/g, '').toLowerCase();
+                  const codeNorm = norm(code);
+                  const messages = document.querySelectorAll('#aiMessages .ai-message');
+                  messages.forEach(msg => {
+                    const text = msg.innerText || msg.textContent || '';
+                    if (text && norm(text).includes(codeNorm)) {
+                      found = true;
+                      foundText = text;
+                    }
+                  });
+                  let modal = document.getElementById('github-check-modal');
+                  if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'github-check-modal';
+                    modal.style.position = 'fixed';
+                    modal.style.top = '30%';
+                    modal.style.left = '50%';
+                    modal.style.transform = 'translate(-50%, -50%)';
+                    modal.style.background = '#222';
+                    modal.style.color = '#fff';
+                    modal.style.padding = '24px 32px';
+                    modal.style.borderRadius = '12px';
+                    modal.style.zIndex = '9999';
+                  }
+                  if (found) {
+                    modal.innerHTML = '<b>Kód byl nalezen v AI chatu:</b><pre style="margin-top:10px;max-height:200px;overflow:auto;background:#111;color:#0f0;padding:8px;border-radius:6px;">' +
+                      foundText.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</pre>';
+                  } else {
+                    modal.innerHTML = 'Kód nebyl v AI chatu nalezen.';
+                  }
+                  modal.innerHTML += '<br><button onclick="this.parentNode.style.display=\'none\'" style="margin-top:10px;padding:6px 16px;">Zavřít</button>';
+                  document.body.appendChild(modal);
+                  modal.style.display = 'block';
+                }
+                toggleAIDropdownMenu();
+              }
+              // --- KONEC posluchače DOMContentLoaded pro MODAL ---
+            });
 
-    <!-- Components Modal -->
-    <div class="modal-overlay" id="componentsModal">
-      <div class="modal max-width-500">
-        <div class="modal-title">🧱 Komponenty</div>
-        <div class="modal-desc">
-          Klikni pro vložení. AI přizpůsobí komponentu tvé stránce.
-        </div>
-        <div class="components-grid">
-          <div class="component-card" onclick="insertComponent('header')">
-            <div class="component-icon">📍</div>
-            <div class="component-name">Header</div>
-            <div class="component-desc">Navigace s logem</div>
-          </div>
-          <div class="component-card" onclick="insertComponent('hero')">
-            <div class="component-icon">🦸</div>
-            <div class="component-name">Hero sekce</div>
-            <div class="component-desc">Hlavní banner</div>
-          </div>
-          <div class="component-card" onclick="insertComponent('features')">
-            <div class="component-icon">⭐</div>
-            <div class="component-name">Features</div>
-            <div class="component-desc">3 sloupce výhod</div>
-          </div>
-          <div class="component-card" onclick="insertComponent('cards')">
-            <div class="component-icon">🃏</div>
-            <div class="component-name">Karty</div>
+            // --- DROPDOWN: Připojit funkčnost pro tlačítka v dropdownu po načtení stránky ---
+            document.addEventListener('DOMContentLoaded', function() {
+              var btnGithub = document.getElementById('aiGithubDuplicateCheckBtn');
+              var btnChat = document.getElementById('aiChatDuplicateCheckBtn');
+              if (btnGithub) btnGithub.onclick = function() {
+                if (typeof getCurrentCode === 'function') {
+                  const code = getCurrentCode();
+                  if (!code || code.length < 20) {
+                    alert('Nejprve vložte nebo napište kód, který chcete ověřit.');
+                    return;
+                  }
+                  showCheckingModal();
+                  Promise.all([
+                    searchGithubRepos(code),
+                    searchCodepen(code),
+                    searchStackOverflow(code),
+                    searchGoogle(code)
+                  ]).then(([github, codepen, stack, google]) => {
+                    showMultiResultsModal({github, codepen, stack, google});
+                  });
+                }
+                toggleAIDropdownMenu();
+              };
+              if (btnChat) btnChat.onclick = function() {
+                if (typeof getCurrentCode === 'function') {
+                  const code = getCurrentCode();
+                  if (!code || code.length < 20) {
+                    alert('Nejprve vložte nebo napište kód, který chcete ověřit.');
+                    return;
+                  }
+                  let found = false;
+                  let foundText = '';
+                  const norm = (s) => s.replace(/\s+/g, '').toLowerCase();
+                  const codeNorm = norm(code);
+                  const messages = document.querySelectorAll('#aiMessages .ai-message');
+                  messages.forEach(msg => {
+                    const text = msg.innerText || msg.textContent || '';
+                    if (text && norm(text).includes(codeNorm)) {
+                      found = true;
+                      foundText = text;
+                    }
+                  });
+                  let modal = document.getElementById('github-check-modal');
+                  if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'github-check-modal';
+                    modal.style.position = 'fixed';
+                    modal.style.top = '30%';
+                    modal.style.left = '50%';
+                    modal.style.transform = 'translate(-50%, -50%)';
+                    modal.style.background = '#222';
+                    modal.style.color = '#fff';
+                    modal.style.padding = '24px 32px';
+                    modal.style.borderRadius = '12px';
+                    modal.style.zIndex = '9999';
+                  }
+                  if (found) {
+                    modal.innerHTML = '<b>Kód byl nalezen v AI chatu:</b><pre style="margin-top:10px;max-height:200px;overflow:auto;background:#111;color:#0f0;padding:8px;border-radius:6px;">' +
+                      foundText.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</pre>';
+                  } else {
+                    modal.innerHTML = 'Kód nebyl v AI chatu nalezen.';
+                  }
+                  modal.innerHTML += '<br><button onclick="this.parentNode.style.display=\'none\'" style="margin-top:10px;padding:6px 16px;">Zavřít</button>';
+                  document.body.appendChild(modal);
+                  modal.style.display = 'block';
+                }
+                toggleAIDropdownMenu();
+              };
+            });
+          </script>
             <div class="component-desc">Grid produktů</div>
           </div>
           <div class="component-card" onclick="insertComponent('gallery')">
@@ -8014,6 +8131,14 @@
     </div>
 
     <script>
+      // Vrátí aktuální kód z hlavního textarea editoru
+      function getCurrentCode() {
+        var split = document.getElementById('codeInputSplit');
+        if (split && split.offsetParent !== null) return split.value;
+        var el = document.getElementById('codeInput');
+        if (el) return el.value;
+        return '';
+      }
       // ============================================
       // AI MODULE v1.0 - Gemini, Groq, OpenRouter, Mistral, Cohere, HuggingFace
       // Dokumentace: viz ai-module.js
@@ -9459,10 +9584,17 @@
         const isHtml = currentFile.name.match(/\.(html?|htm)$/i);
 
         let htmlContent = "";
+        let currentValue = (() => {
+          var split = document.getElementById('codeInputSplit');
+          if (split && split.offsetParent !== null) return split.value;
+          var el = document.getElementById('codeInput');
+          if (el) return el.value;
+          return '';
+        })();
 
         if (isHtml) {
           // Použij aktuální HTML soubor
-          htmlContent = codeInput.value;
+          htmlContent = currentValue;
         } else {
           // Není HTML - najdi hlavní HTML soubor pro preview
           const mainHtml = findMainHtmlFile();
@@ -9474,7 +9606,7 @@
             doc.open();
             doc.write(
               `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:monospace;padding:20px;background:#1a1a2e;color:#eee;white-space:pre-wrap;}</style></head><body>${escapeHtml(
-                codeInput.value
+                currentValue
               )}</body></html>`
             );
             doc.close();
@@ -13916,8 +14048,8 @@ PROBLÉM: [co bylo špatně]
           e.preventDefault();
           saveToLocal();
         }
-        // Ctrl/Cmd + Shift + S = Download
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "S") {
+        // Ctrl/Cmd + Alt + S = Download
+        if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === "s") {
           e.preventDefault();
           downloadFile();
         }
@@ -16636,6 +16768,10 @@ Odpověz POUZE kódem v \`\`\`html ... \`\`\``;
       // INIT
       // ============================================
       function init() {
+        // Debug: kontrola obnovy práce
+        if (localStorage.getItem('htmlStudio_files')) {
+          console.debug('Načítám uloženou práci z localStorage:', localStorage.getItem('htmlStudio_files'));
+        }
         const saved = localStorage.getItem("htmlStudio_files");
         const savedId = localStorage.getItem("htmlStudio_activeId");
         if (saved) {
@@ -16704,31 +16840,117 @@ Odpověz POUZE kódem v \`\`\`html ... \`\`\``;
 
       // Načti sdílený kód z URL hash
       loadSharedCode();
-      // Přidáno: tlačítko pro kontrolu duplicitního kódu
-      const checkDuplicateBtn = document.createElement('button');
-      checkDuplicateBtn.textContent = 'Zkontrolovat duplicitní kód (GitHub)';
-      checkDuplicateBtn.className = 'nav-btn';
-      checkDuplicateBtn.style.margin = '20px auto 0 auto';
-      checkDuplicateBtn.onclick = async function() {
-        const code = getCurrentCode ? getCurrentCode() : '';
-        if (!code || code.length < 20) {
-          alert('Nejprve vložte nebo napište kód, který chcete ověřit.');
-          return;
-        }
-        showCheckingModal();
-        const results = await searchGithubForCode(code);
-        showGithubResultsModal(results);
-      };
-      document.body.appendChild(checkDuplicateBtn);
+      // Přesunuto: logika pro kontrolu duplicitního kódu na tlačítko v sekci GitHub nástrojů
+      // Přidání funkce na nové tlačítko v AI panelu
+      const aiGithubDuplicateCheckBtn = document.getElementById('aiGithubDuplicateCheckBtn');
+      if (aiGithubDuplicateCheckBtn) {
+        aiGithubDuplicateCheckBtn.onclick = async function() {
+          const code = getCurrentCode ? getCurrentCode() : '';
+          if (!code || code.length < 20) {
+            alert('Nejprve vložte nebo napište kód, který chcete ověřit.');
+            return;
+          }
+          showCheckingModal();
+          // Spustit paralelně všechny vyhledávače
+          const [github, codepen, stack, google] = await Promise.all([
+            searchGithubRepos(code),
+            searchCodepen(code),
+            searchStackOverflow(code),
+            searchGoogle(code)
+          ]);
+          showMultiResultsModal({github, codepen, stack, google});
+        };
+            // Vyhledávání na GitHub (repozitáře)
+            async function searchGithubRepos(code) {
+              const query = encodeURIComponent(code.slice(0, 64));
+              const url = `https://api.github.com/search/repositories?q=${query}`;
+              const token = getGithubToken();
+              const headers = token ? { 'Authorization': 'token ' + token } : {};
+              try {
+                const resp = await fetch(url, { headers });
+                if (!resp.ok) return [];
+                const data = await resp.json();
+                return data.items || [];
+              } catch (e) { return []; }
+            }
+
+            // Vyhledávání na CodePen (pouze odkaz, protože API není veřejné)
+            function searchCodepen(code) {
+              const query = encodeURIComponent(code.split(/[\s\n]+/).slice(0,8).join(' '));
+              const url = `https://codepen.io/search/pens?q=${query}`;
+              return Promise.resolve(url); // Vrací pouze URL
+            }
+
+            // Vyhledávání na Stack Overflow (pouze odkaz s query)
+            function searchStackOverflow(code) {
+              const query = encodeURIComponent(code.split(/[\s\n]+/).slice(0,8).join(' '));
+              const url = `https://stackoverflow.com/search?q=${query}`;
+              return Promise.resolve(url);
+            }
+
+            // Vyhledávání na Google s filtrem na programování
+            function searchGoogle(code) {
+              const query = encodeURIComponent(code.split(/[\s\n]+/).slice(0,8).join(' ') + ' programming');
+              const url = `https://www.google.com/search?q=${query}`;
+              return Promise.resolve(url);
+            }
+
+            // Zobrazí výsledky z více zdrojů v modálním okně
+            function showMultiResultsModal(results) {
+              let modal = document.getElementById('github-check-modal');
+              if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'github-check-modal';
+                modal.style.position = 'fixed';
+                modal.style.top = '30%';
+                modal.style.left = '50%';
+                modal.style.transform = 'translate(-50%, -50%)';
+                modal.style.background = '#222';
+                modal.style.color = '#fff';
+                modal.style.padding = '24px 32px';
+                modal.style.borderRadius = '12px';
+                modal.style.zIndex = '9999';
+              }
+              let html = '';
+              // GitHub repozitáře
+              html += '<b>GitHub repozitáře:</b>';
+              if (results.github && results.github.length > 0) {
+                html += '<ul style="margin-top:10px;max-height:120px;overflow:auto;">' +
+                  results.github.map(item => `<li><a href="${item.html_url}" target="_blank" style="color:#00d4aa;">${item.full_name}</a></li>`).join('') + '</ul>';
+              } else {
+                html += '<div style="margin-bottom:10px;">Žádné podobné repozitáře nenalezeny.</div>';
+              }
+              // CodePen
+              html += `<b>CodePen inspirace:</b><div><a href="${results.codepen}" target="_blank" style="color:#00d4aa;">Zobrazit výsledky na CodePen</a></div>`;
+              // Stack Overflow
+              html += `<b>Stack Overflow:</b><div><a href="${results.stack}" target="_blank" style="color:#00d4aa;">Zobrazit výsledky na Stack Overflow</a></div>`;
+              // Google
+              html += `<b>Google (programování):</b><div><a href="${results.google}" target="_blank" style="color:#00d4aa;">Zobrazit výsledky na Google</a></div>`;
+              html += '<br><button onclick="this.parentNode.style.display=\'none\'" style="margin-top:10px;padding:6px 16px;">Zavřít</button>';
+              modal.innerHTML = html;
+              document.body.appendChild(modal);
+              modal.style.display = 'block';
+            }
+      }
 
       // Pomocné funkce pro GitHub search
+      // Funkce pro získání tokenu z pole v nastavení
+      function getGithubToken() {
+        var el = document.getElementById('githubToken');
+        if (el && el.value) return el.value.trim();
+        // fallback na localStorage (pro starší verze)
+        return localStorage.getItem('github_token') || '';
+      }
+
       async function searchGithubForCode(code) {
         // Základní vyhledávání přes GitHub API (code search)
         // POZOR: GitHub API má limity a vyžaduje token pro větší objem
         const query = encodeURIComponent(code.slice(0, 256));
         const url = `https://api.github.com/search/code?q=${query}`;
+        const token = getGithubToken();
+        const headers = token ? { 'Authorization': 'token ' + token } : {};
         try {
-          const resp = await fetch(url);
+          const resp = await fetch(url, { headers });
           if (!resp.ok) return [];
           const data = await resp.json();
           return data.items || [];
