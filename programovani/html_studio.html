@@ -16704,6 +16704,73 @@ Odpověz POUZE kódem v \`\`\`html ... \`\`\``;
 
       // Načti sdílený kód z URL hash
       loadSharedCode();
+      // Přidáno: tlačítko pro kontrolu duplicitního kódu
+      const checkDuplicateBtn = document.createElement('button');
+      checkDuplicateBtn.textContent = 'Zkontrolovat duplicitní kód (GitHub)';
+      checkDuplicateBtn.className = 'nav-btn';
+      checkDuplicateBtn.style.margin = '20px auto 0 auto';
+      checkDuplicateBtn.onclick = async function() {
+        const code = getCurrentCode ? getCurrentCode() : '';
+        if (!code || code.length < 20) {
+          alert('Nejprve vložte nebo napište kód, který chcete ověřit.');
+          return;
+        }
+        showCheckingModal();
+        const results = await searchGithubForCode(code);
+        showGithubResultsModal(results);
+      };
+      document.body.appendChild(checkDuplicateBtn);
+
+      // Pomocné funkce pro GitHub search
+      async function searchGithubForCode(code) {
+        // Základní vyhledávání přes GitHub API (code search)
+        // POZOR: GitHub API má limity a vyžaduje token pro větší objem
+        const query = encodeURIComponent(code.slice(0, 256));
+        const url = `https://api.github.com/search/code?q=${query}`;
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) return [];
+          const data = await resp.json();
+          return data.items || [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function showCheckingModal() {
+        let modal = document.getElementById('github-check-modal');
+        if (!modal) {
+          modal = document.createElement('div');
+          modal.id = 'github-check-modal';
+          modal.style.position = 'fixed';
+          modal.style.top = '30%';
+          modal.style.left = '50%';
+          modal.style.transform = 'translate(-50%, -50%)';
+          modal.style.background = '#222';
+          modal.style.color = '#fff';
+          modal.style.padding = '24px 32px';
+          modal.style.borderRadius = '12px';
+          modal.style.zIndex = '9999';
+          modal.textContent = 'Vyhledávám duplicitní kód na GitHubu...';
+          document.body.appendChild(modal);
+        } else {
+          modal.textContent = 'Vyhledávám duplicitní kód na GitHubu...';
+          modal.style.display = 'block';
+        }
+      }
+
+      function showGithubResultsModal(results) {
+        let modal = document.getElementById('github-check-modal');
+        if (!modal) return;
+        if (!results || results.length === 0) {
+          modal.textContent = 'Nebyly nalezeny žádné shody na GitHubu.';
+          setTimeout(() => { modal.style.display = 'none'; }, 3000);
+          return;
+        }
+        modal.innerHTML = '<b>Nalezené shody na GitHubu:</b><ul style="margin-top:10px;max-height:200px;overflow:auto;">' +
+          results.map(item => `<li><a href="${item.html_url}" target="_blank" style="color:#00d4aa;">${item.repository.full_name} / ${item.name}</a></li>`).join('') + '</ul>';
+        modal.innerHTML += '<br><button onclick="this.parentNode.style.display=\'none\'" style="margin-top:10px;padding:6px 16px;">Zavřít</button>';
+      }
     </script>
   </body>
 </html>
