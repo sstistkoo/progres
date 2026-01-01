@@ -175,20 +175,7 @@ export class ShortcutsPanel {
         action: 'minify',
         shortcut: 'Ctrl+Shift+M'
       },
-      {
-        icon: '👁️',
-        title: 'Náhled',
-        description: 'Zobrazit náhled',
-        action: 'preview',
-        shortcut: 'F5'
-      },
-      {
-        icon: '💻',
-        title: 'Konzole',
-        description: 'Otevřít konzoli',
-        action: 'console',
-        shortcut: 'Ctrl+`'
-      },
+
       {
         icon: '↩️',
         title: 'Zpět',
