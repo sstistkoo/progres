@@ -29,7 +29,9 @@ class CrewAIConnector {
       }
     } catch (error) {
       this.isAvailable = false;
-      console.log('⚠️ CrewAI API not available. Start server with: python crewai_api.py');
+      console.log('⚠️ CrewAI API není dostupné (localhost:5005)');
+      console.log('💡 Aplikace funguje i bez CrewAI - používají se JavaScript agenti');
+      console.log('🔧 Pro spuštění CrewAI: python python/crewai_api.py');
       return false;
     }
   }
