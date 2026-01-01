@@ -70,7 +70,7 @@ CrewAI má Orchestrátora vestavěného (`allow_delegation=True`), takže automa
 Stačí:
 
 ```bash
-python crewai_api.py
+python python/crewai_api.py
 ```
 
 A v UI:
