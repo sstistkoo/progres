@@ -57,6 +57,7 @@ export class AIPanel {
         <!-- Tabs -->
         <div class="ai-tabs">
           <button class="ai-tab active" data-tab="chat">💬 Chat</button>
+          <button class="ai-tab" data-tab="agents">🤖 Agenti</button>
           <button class="ai-tab" data-tab="actions">⚡ Akce</button>
           <button class="ai-tab" data-tab="prompts">📝 Prompty</button>
           <button class="ai-tab" data-tab="github">🔗 GitHub</button>
@@ -103,6 +104,50 @@ export class AIPanel {
                   <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                 </svg>
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Agents Tab -->
+        <div class="ai-tab-content" data-content="agents">
+          <div class="agents-panel">
+            <h3>🤖 AI Programovací Agenti</h3>
+            <p class="agents-description">Aktivuj agenty podle typu úkolu. Můžeš použít více agentů najednou pro kolaborativní práci.</p>
+            
+            <div class="agents-grid" id="agentsGrid">
+              <!-- Agents will be dynamically loaded here -->
+            </div>
+
+            <div class="active-agents-section" id="activeAgentsSection" style="display: none;">
+              <h4>Aktivní agenti</h4>
+              <div class="active-agents-list" id="activeAgentsList"></div>
+              
+              <div class="collaborative-actions">
+                <button class="btn-collaborative" id="collaborativeTaskBtn">
+                  <span class="icon">🤝</span>
+                  <span>Společný úkol</span>
+                </button>
+                <button class="btn-clear-agents" id="clearAgentsBtn">
+                  <span class="icon">🗑️</span>
+                  <span>Vymazat historii</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Agent Chat -->
+            <div class="agent-chat-section" id="agentChatSection" style="display: none;">
+              <h4>Chat s agentem: <span id="currentAgentName"></span></h4>
+              <div class="agent-chat-messages" id="agentChatMessages"></div>
+              <div class="agent-chat-input">
+                <textarea
+                  id="agentChatInput"
+                  placeholder="Napiš zprávu agentovi..."
+                  rows="3"
+                ></textarea>
+                <button id="sendToAgentBtn" class="btn-primary">
+                  Odeslat
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -341,6 +386,9 @@ export class AIPanel {
 
     // Check token on load
     this.checkGitHubConnection();
+
+    // AI Agents handlers
+    this.attachAgentsHandlers();
 
     // Chat input
     const chatInput = this.modal.element.querySelector('#aiChatInput');
@@ -1463,6 +1511,304 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
       type: 'info'
     });
     // In production, this would open repo details or clone it
+  }
+
+  /**
+   * AI Agents Methods
+   */
+  attachAgentsHandlers() {
+    // Load agents grid
+    this.loadAgentsGrid();
+
+    // Collaborative task button
+    const collaborativeBtn = this.modal.element.querySelector('#collaborativeTaskBtn');
+    if (collaborativeBtn) {
+      collaborativeBtn.addEventListener('click', () => this.startCollaborativeTask());
+    }
+
+    // Clear agents button
+    const clearAgentsBtn = this.modal.element.querySelector('#clearAgentsBtn');
+    if (clearAgentsBtn) {
+      clearAgentsBtn.addEventListener('click', () => this.clearAgentsHistory());
+    }
+
+    // Send to agent button
+    const sendToAgentBtn = this.modal.element.querySelector('#sendToAgentBtn');
+    const agentChatInput = this.modal.element.querySelector('#agentChatInput');
+    
+    if (sendToAgentBtn && agentChatInput) {
+      sendToAgentBtn.addEventListener('click', () => {
+        const message = agentChatInput.value.trim();
+        if (message && this.currentAgent) {
+          this.sendToCurrentAgent(message);
+          agentChatInput.value = '';
+        }
+      });
+
+      agentChatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendToAgentBtn.click();
+        }
+      });
+    }
+  }
+
+  loadAgentsGrid() {
+    const agentsGrid = this.modal.element.querySelector('#agentsGrid');
+    if (!agentsGrid) return;
+
+    // Wait for AIAgents to be initialized
+    if (!window.AIAgents || !window.AIAgents.initialized) {
+      setTimeout(() => this.loadAgentsGrid(), 100);
+      return;
+    }
+
+    const agents = window.AIAgents.getAgents();
+    
+    agentsGrid.innerHTML = agents.map(agent => `
+      <div class="agent-card ${agent.active ? 'active' : ''}" data-agent-id="${agent.id}">
+        <div class="agent-icon">${agent.icon}</div>
+        <div class="agent-info">
+          <h4 class="agent-name">${agent.name}</h4>
+          <p class="agent-role">${agent.role}</p>
+          <div class="agent-capabilities">
+            ${agent.capabilities.slice(0, 3).map(cap => 
+              `<span class="capability-tag">${cap}</span>`
+            ).join('')}
+          </div>
+        </div>
+        <div class="agent-actions">
+          <button class="btn-agent-toggle" data-agent-id="${agent.id}">
+            ${agent.active ? '✅ Aktivní' : '⚪ Aktivovat'}
+          </button>
+          <button class="btn-agent-chat" data-agent-id="${agent.id}" style="${agent.active ? '' : 'display:none;'}">
+            💬 Chat
+          </button>
+        </div>
+      </div>
+    `).join('');
+
+    // Attach card handlers
+    const toggleBtns = agentsGrid.querySelectorAll('.btn-agent-toggle');
+    toggleBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const agentId = btn.dataset.agentId;
+        this.toggleAgent(agentId);
+      });
+    });
+
+    const chatBtns = agentsGrid.querySelectorAll('.btn-agent-chat');
+    chatBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const agentId = btn.dataset.agentId;
+        this.openAgentChat(agentId);
+      });
+    });
+
+    // Update active agents list
+    this.updateActiveAgentsList();
+  }
+
+  toggleAgent(agentId) {
+    const agent = window.AIAgents.getAgent(agentId);
+    if (!agent) return;
+
+    if (agent.active) {
+      window.AIAgents.deactivateAgent(agentId);
+    } else {
+      window.AIAgents.activateAgent(agentId);
+    }
+
+    // Reload grid to update UI
+    this.loadAgentsGrid();
+    
+    toast.success(
+      agent.active ? `Agent ${agent.name} deaktivován` : `Agent ${agent.name} aktivován`,
+      2000
+    );
+  }
+
+  updateActiveAgentsList() {
+    const activeAgents = window.AIAgents.getActiveAgents();
+    const section = this.modal.element.querySelector('#activeAgentsSection');
+    const list = this.modal.element.querySelector('#activeAgentsList');
+
+    if (!section || !list) return;
+
+    if (activeAgents.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+    list.innerHTML = activeAgents.map(agent => `
+      <div class="active-agent-badge">
+        <span class="agent-icon">${agent.icon}</span>
+        <span class="agent-name">${agent.name}</span>
+        <button class="btn-remove-agent" data-agent-id="${agent.id}">×</button>
+      </div>
+    `).join('');
+
+    // Attach remove handlers
+    const removeBtns = list.querySelectorAll('.btn-remove-agent');
+    removeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const agentId = btn.dataset.agentId;
+        this.toggleAgent(agentId);
+      });
+    });
+  }
+
+  openAgentChat(agentId) {
+    const agent = window.AIAgents.getAgent(agentId);
+    if (!agent) return;
+
+    this.currentAgent = agentId;
+    const chatSection = this.modal.element.querySelector('#agentChatSection');
+    const agentName = this.modal.element.querySelector('#currentAgentName');
+    const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
+
+    if (!chatSection || !agentName || !messagesContainer) return;
+
+    chatSection.style.display = 'block';
+    agentName.textContent = agent.name;
+
+    // Load conversation history
+    messagesContainer.innerHTML = agent.conversationHistory.length === 0
+      ? '<div class="agent-message system">Ahoj! Jsem ' + agent.name + '. ' + agent.role + '</div>'
+      : agent.conversationHistory.map(msg => `
+          <div class="agent-message ${msg.role}">
+            <strong>${msg.role === 'user' ? 'Ty' : agent.name}:</strong>
+            <p>${msg.content}</p>
+          </div>
+        `).join('');
+
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  async sendToCurrentAgent(message) {
+    if (!this.currentAgent) return;
+
+    const agent = window.AIAgents.getAgent(this.currentAgent);
+    const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
+
+    // Add user message to UI
+    const userMsg = document.createElement('div');
+    userMsg.className = 'agent-message user';
+    userMsg.innerHTML = `<strong>Ty:</strong><p>${message}</p>`;
+    messagesContainer.appendChild(userMsg);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Show loading
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'agent-message assistant loading';
+    loadingMsg.innerHTML = `<strong>${agent.name}:</strong><p>Přemýšlím...</p>`;
+    messagesContainer.appendChild(loadingMsg);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    try {
+      // Get current code context
+      const code = state.get('editor.code') || '';
+      const context = { code };
+
+      // Send to agent
+      const response = await window.AIAgents.sendToAgent(this.currentAgent, message, context);
+
+      // Remove loading message
+      loadingMsg.remove();
+
+      // Add agent response
+      const agentMsg = document.createElement('div');
+      agentMsg.className = 'agent-message assistant';
+      agentMsg.innerHTML = `<strong>${agent.name}:</strong><p>${response.response}</p>`;
+      messagesContainer.appendChild(agentMsg);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    } catch (error) {
+      loadingMsg.remove();
+      
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'agent-message error';
+      errorMsg.innerHTML = `<strong>Chyba:</strong><p>${error.message}</p>`;
+      messagesContainer.appendChild(errorMsg);
+    }
+  }
+
+  async startCollaborativeTask() {
+    const activeAgents = window.AIAgents.getActiveAgents();
+    
+    if (activeAgents.length < 2) {
+      toast.error('Aktivuj alespoň 2 agenty pro kolaborativní práci', 3000);
+      return;
+    }
+
+    const task = prompt('Zadej úkol pro agenty:');
+    if (!task) return;
+
+    const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
+    const chatSection = this.modal.element.querySelector('#agentChatSection');
+    
+    if (chatSection) {
+      chatSection.style.display = 'block';
+      const agentName = this.modal.element.querySelector('#currentAgentName');
+      if (agentName) agentName.textContent = 'Kolaborativní session';
+    }
+
+    if (messagesContainer) {
+      messagesContainer.innerHTML = '<div class="agent-message system">🤝 Spouštím kolaborativní session...</div>';
+    }
+
+    try {
+      const code = state.get('editor.code') || '';
+      const context = { code };
+      
+      const agentIds = activeAgents.map(a => a.id);
+      const results = await window.AIAgents.collaborativeSession(agentIds, task, context);
+
+      // Display results
+      results.forEach(phaseResult => {
+        if (phaseResult.phase === 'analysis' || phaseResult.phase === 'review') {
+          phaseResult.responses.forEach(response => {
+            const msg = document.createElement('div');
+            msg.className = 'agent-message assistant';
+            msg.innerHTML = `<strong>${response.agent} (${phaseResult.phase}):</strong><p>${response.response}</p>`;
+            messagesContainer.appendChild(msg);
+          });
+        } else if (phaseResult.phase === 'synthesis') {
+          const msg = document.createElement('div');
+          msg.className = 'agent-message synthesis';
+          msg.innerHTML = `<strong>📋 Finální řešení:</strong><p>${phaseResult.response.response}</p>`;
+          messagesContainer.appendChild(msg);
+        }
+      });
+
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      toast.success('Kolaborativní session dokončena', 3000);
+
+    } catch (error) {
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'agent-message error';
+      errorMsg.innerHTML = `<strong>Chyba:</strong><p>${error.message}</p>`;
+      messagesContainer.appendChild(errorMsg);
+      toast.error('Chyba při kolaborativní session', 3000);
+    }
+  }
+
+  clearAgentsHistory() {
+    if (confirm('Opravdu chceš vymazat historii všech agentů?')) {
+      window.AIAgents.clearAllHistory();
+      toast.success('Historie agentů vymazána', 2000);
+      
+      // Clear chat display
+      const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
+      if (messagesContainer) {
+        messagesContainer.innerHTML = '';
+      }
+    }
   }
 }
 

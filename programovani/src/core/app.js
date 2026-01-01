@@ -128,6 +128,8 @@ class App {
     eventBus.on('action:undo', () => this.editor?.undo());
     eventBus.on('action:redo', () => this.editor?.redo());
     eventBus.on('action:search', () => this.showSearch());
+    eventBus.on('console:toggle', () => this.toggleConsole());
+    eventBus.on('preview:refresh', () => this.refreshPreview());
   }
 
   setupConsoleListener() {
@@ -237,7 +239,7 @@ class App {
     // Set new content
     state.set('editor.code', code);
     if (this.editor) {
-      this.editor.setValue(code);
+      this.editor.setCode(code);
     }
 
     toast.success('Nový soubor vytvořen', 2000);
@@ -257,6 +259,20 @@ class App {
 
   showSearch() {
     eventBus.emit('search:show');
+  }
+
+  toggleConsole() {
+    const consolePanel = document.querySelector('.console-panel');
+    if (consolePanel) {
+      consolePanel.classList.toggle('active');
+    }
+  }
+
+  refreshPreview() {
+    if (this.preview) {
+      this.preview.refresh();
+      toast.success('Náhled obnoven', 2000);
+    }
   }
 
   togglePreview() {
