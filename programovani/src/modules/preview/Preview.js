@@ -187,6 +187,11 @@ export class Preview {
     doc.close();
   }
 
+  refresh() {
+    const code = state.get('editor.code');
+    this.update(code);
+  }
+
   destroy() {
     if (this.iframe && this.iframe.parentNode) {
       this.iframe.parentNode.removeChild(this.iframe);
