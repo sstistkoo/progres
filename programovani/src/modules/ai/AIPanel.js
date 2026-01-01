@@ -1086,6 +1086,9 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
   }
 
   createRepoManagerContent() {
+    const undoHistory = this.getUndoHistory();
+    const redoHistory = this.getRedoHistory();
+
     return `
       <div class="repo-manager">
         <div class="repo-toolbar">
@@ -1097,10 +1100,16 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
             <span class="icon">🔄</span>
             <span>Obnovit</span>
           </button>
-          <button class="repo-btn" id="undoRepoActionBtn" disabled>
-            <span class="icon">↩️</span>
-            <span>Vrátit zpět</span>
-          </button>
+          <div class="repo-history-btns">
+            <button class="repo-btn" id="undoRepoActionBtn" ${undoHistory.length === 0 ? 'disabled' : ''}>
+              <span class="icon">↩️</span>
+              <span>Zpět (${undoHistory.length}/5)</span>
+            </button>
+            <button class="repo-btn" id="redoRepoActionBtn" ${redoHistory.length === 0 ? 'disabled' : ''}>
+              <span class="icon">↪️</span>
+              <span>Vpřed (${redoHistory.length})</span>
+            </button>
+          </div>
         </div>
 
         <div class="repo-search">
@@ -1123,6 +1132,7 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     const createBtn = repoModal.element.querySelector('#createRepoBtn');
     const refreshBtn = repoModal.element.querySelector('#refreshReposBtn');
     const undoBtn = repoModal.element.querySelector('#undoRepoActionBtn');
+    const redoBtn = repoModal.element.querySelector('#redoRepoActionBtn');
     const searchInput = repoModal.element.querySelector('#repoSearchInput');
 
     if (createBtn) {
@@ -1135,6 +1145,10 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
 
     if (undoBtn) {
       undoBtn.addEventListener('click', () => this.undoLastRepoAction(repoModal));
+    }
+
+    if (redoBtn) {
+      redoBtn.addEventListener('click', () => this.redoRepoAction(repoModal));
     }
 
     if (searchInput) {
@@ -1252,7 +1266,7 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
 
     // Reload list
     await this.loadRepositories(repoModal);
-    this.enableUndoButton(repoModal);
+    this.updateHistoryButtons(repoModal);
   }
 
   async deleteRepository(repoName, repoModal) {
@@ -1296,24 +1310,56 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
 
     // Reload list
     await this.loadRepositories(repoModal);
-    this.enableUndoButton(repoModal);
+    this.updateHistoryButtons(repoModal);
+  }
+
+  // Undo/Redo History Management (max 5 steps)
+  getUndoHistory() {
+    const history = localStorage.getItem('github_undo_history');
+    return history ? JSON.parse(history) : [];
+  }
+
+  getRedoHistory() {
+    const history = localStorage.getItem('github_redo_history');
+    return history ? JSON.parse(history) : [];
   }
 
   storeUndoAction(action, data) {
-    localStorage.setItem('github_last_action', JSON.stringify({
+    const history = this.getUndoHistory();
+
+    // Add new action to history
+    history.push({
       action,
       data,
       timestamp: Date.now()
-    }));
+    });
+
+    // Keep only last 5 actions
+    if (history.length > 5) {
+      history.shift();
+    }
+
+    localStorage.setItem('github_undo_history', JSON.stringify(history));
+
+    // Clear redo history when new action is performed
+    localStorage.removeItem('github_redo_history');
   }
 
   async undoLastRepoAction(repoModal) {
-    const lastAction = localStorage.getItem('github_last_action');
-    if (!lastAction) return;
+    const undoHistory = this.getUndoHistory();
+    if (undoHistory.length === 0) return;
 
-    const { action, data } = JSON.parse(lastAction);
+    // Get last action
+    const lastAction = undoHistory.pop();
+    const { action, data } = lastAction;
     const repos = this.getMockRepositories();
 
+    // Store to redo history
+    const redoHistory = this.getRedoHistory();
+    redoHistory.push(lastAction);
+    localStorage.setItem('github_redo_history', JSON.stringify(redoHistory));
+
+    // Perform undo
     if (action === 'create') {
       // Remove created repo
       const index = repos.findIndex(r => r.name === data.name);
@@ -1326,16 +1372,73 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     }
 
     localStorage.setItem('github_repos', JSON.stringify(repos));
-    localStorage.removeItem('github_last_action');
+    localStorage.setItem('github_undo_history', JSON.stringify(undoHistory));
 
     eventBus.emit('toast:show', {
-      message: 'Akce byla vrácena zpět',
+      message: `Akce vrácena zpět (${undoHistory.length} zbývá)`,
       type: 'success'
     });
 
-    // Reload list
+    // Reload list and update buttons
     await this.loadRepositories(repoModal);
-    this.disableUndoButton(repoModal);
+    this.updateHistoryButtons(repoModal);
+  }
+
+  async redoRepoAction(repoModal) {
+    const redoHistory = this.getRedoHistory();
+    if (redoHistory.length === 0) return;
+
+    // Get last redo action
+    const lastAction = redoHistory.pop();
+    const { action, data } = lastAction;
+    const repos = this.getMockRepositories();
+
+    // Store back to undo history
+    const undoHistory = this.getUndoHistory();
+    undoHistory.push(lastAction);
+    localStorage.setItem('github_undo_history', JSON.stringify(undoHistory));
+
+    // Perform redo (reverse of undo)
+    if (action === 'create') {
+      // Re-add created repo
+      repos.unshift(data);
+    } else if (action === 'delete') {
+      // Re-remove deleted repo
+      const index = repos.findIndex(r => r.name === data.name);
+      if (index !== -1) {
+        repos.splice(index, 1);
+      }
+    }
+
+    localStorage.setItem('github_repos', JSON.stringify(repos));
+    localStorage.setItem('github_redo_history', JSON.stringify(redoHistory));
+
+    eventBus.emit('toast:show', {
+      message: `Akce obnovena (${redoHistory.length} zbývá vpřed)`,
+      type: 'success'
+    });
+
+    // Reload list and update buttons
+    await this.loadRepositories(repoModal);
+    this.updateHistoryButtons(repoModal);
+  }
+
+  updateHistoryButtons(repoModal) {
+    const undoHistory = this.getUndoHistory();
+    const redoHistory = this.getRedoHistory();
+
+    const undoBtn = repoModal.element.querySelector('#undoRepoActionBtn');
+    const redoBtn = repoModal.element.querySelector('#redoRepoActionBtn');
+
+    if (undoBtn) {
+      undoBtn.disabled = undoHistory.length === 0;
+      undoBtn.querySelector('span:last-child').textContent = `Zpět (${undoHistory.length}/5)`;
+    }
+
+    if (redoBtn) {
+      redoBtn.disabled = redoHistory.length === 0;
+      redoBtn.querySelector('span:last-child').textContent = `Vpřed (${redoHistory.length})`;
+    }
   }
 
   filterRepositories(query, repoModal) {
@@ -1360,20 +1463,6 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
       type: 'info'
     });
     // In production, this would open repo details or clone it
-  }
-
-  enableUndoButton(repoModal) {
-    const undoBtn = repoModal.element.querySelector('#undoRepoActionBtn');
-    if (undoBtn) {
-      undoBtn.disabled = false;
-    }
-  }
-
-  disableUndoButton(repoModal) {
-    const undoBtn = repoModal.element.querySelector('#undoRepoActionBtn');
-    if (undoBtn) {
-      undoBtn.disabled = true;
-    }
   }
 }
 

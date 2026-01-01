@@ -189,79 +189,107 @@
     </div>
 
     <!-- Main App Script (Module) -->
-    <script type="module" src="/src/core/app.js"></script>
+    <script type="module" src="./src/core/app.js"></script>
 
     <script>
+      // Wait for eventBus to be ready
+      let eventBusReady = false;
+      let pendingEvents = [];
+
+      // Poll for eventBus availability
+      const checkEventBus = setInterval(() => {
+        if (window.eventBus) {
+          eventBusReady = true;
+          clearInterval(checkEventBus);
+          console.log('✅ EventBus ready');
+
+          // Emit pending events
+          pendingEvents.forEach(({ event, data }) => {
+            window.eventBus.emit(event, data);
+          });
+          pendingEvents = [];
+        }
+      }, 50);
+
+      // Helper function to safely emit events
+      function safeEmit(event, data) {
+        if (eventBusReady && window.eventBus) {
+          window.eventBus.emit(event, data);
+        } else {
+          pendingEvents.push({ event, data });
+        }
+      }
+
       // Setup basic UI interactions before app loads
       document.addEventListener('DOMContentLoaded', () => {
+        console.log('🚀 DOM loaded, setting up event listeners');
+
         // Menu button
         document.getElementById('menuBtn')?.addEventListener('click', () => {
           console.log('Menu button clicked');
-          window.eventBus?.emit('menu:toggle');
+          safeEmit('menu:toggle');
         });
 
         // Theme toggle
         document.getElementById('themeBtn')?.addEventListener('click', () => {
           document.body.classList.toggle('light-theme');
-          if (window.eventBus) {
-            window.eventBus.emit('theme:toggle');
-          }
+          safeEmit('theme:toggle');
         });
 
         // View switchers
         document.getElementById('viewEditorBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('view:change', { view: 'editor' });
+          safeEmit('view:change', { view: 'editor' });
         });
         document.getElementById('viewSplitBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('view:change', { view: 'split' });
+          safeEmit('view:change', { view: 'split' });
         });
         document.getElementById('viewPreviewBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('view:change', { view: 'preview' });
+          safeEmit('view:change', { view: 'preview' });
         });
 
         // Toolbar actions
         document.getElementById('newFileBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('action:newTab');
+          safeEmit('action:newTab');
         });
         document.getElementById('saveBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('action:save');
+          safeEmit('action:save');
         });
         document.getElementById('formatBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('action:format');
+          safeEmit('action:format');
         });
         document.getElementById('formatToolbarBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('action:format');
+          safeEmit('action:format');
         });
         document.getElementById('validateBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('action:validate');
+          safeEmit('action:validate');
         });
         document.getElementById('minifyBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('action:minify');
+          safeEmit('action:minify');
         });
         document.getElementById('undoBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('action:undo');
+          safeEmit('action:undo');
         });
         document.getElementById('redoBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('action:redo');
+          safeEmit('action:redo');
         });
         document.getElementById('searchBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('action:search');
+          safeEmit('action:search');
         });
         document.getElementById('refreshBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('preview:refresh');
+          safeEmit('preview:refresh');
         });
         document.getElementById('shortcutsBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('shortcuts:show');
+          safeEmit('shortcuts:show');
         });
         document.getElementById('aiBtn')?.addEventListener('click', () => {
-          window.eventBus?.emit('ai:show');
+          console.log('AI button clicked');
+          safeEmit('ai:show');
         });
 
         // Auto-open AI panel on first load
         setTimeout(() => {
-          if (window.eventBus) {
-            window.eventBus.emit('ai:show');
-          }
+          console.log('Auto-opening AI panel');
+          safeEmit('ai:show');
         }, 1000);
       });
     </script>
