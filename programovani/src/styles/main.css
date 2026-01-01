@@ -1,0 +1,127 @@
+/* Reset & Base */
+@import './base/reset.css';
+@import './base/variables.css';
+@import './base/typography.css';
+
+/* Components */
+@import './components/header.css';
+@import './components/toolbar.css';
+@import './components/editor.css';
+@import './components/preview.css';
+@import './components/modal.css';
+@import './components/toast.css';
+@import './components/button.css';
+@import './components/panels.css';
+
+/* Layout */
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  touch-action: manipulation;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding-bottom: var(--safe-bottom);
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* View Modes */
+.app.view-split .editor-section,
+.app.view-split .preview-section {
+  flex: 1;
+  display: flex;
+}
+
+.app.view-editor .editor-section {
+  flex: 1;
+  display: flex;
+}
+
+.app.view-editor .preview-section {
+  display: none;
+}
+
+.app.view-preview .preview-section {
+  flex: 1;
+  display: flex;
+}
+
+.app.view-preview .editor-section {
+  display: none;
+}
+
+/* Section */
+.editor-section,
+.preview-section {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+}
+
+.preview-section {
+  border-right: none;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.section-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.section-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.editor-container,
+.preview-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app.view-split {
+    flex-direction: column;
+  }
+
+  .app.view-split .editor-section,
+  .app.view-split .preview-section {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app.view-split .preview-section {
+    border-bottom: none;
+  }
+}

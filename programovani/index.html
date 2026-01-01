@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="description" content="Mobilní HTML editor s AI asistencí a GitHub integrací" />
+    <link rel="manifest" href="manifest.webmanifest" />
+
+    <title>HTML Studio</title>
+
+    <link rel="stylesheet" href="src/styles/main.css" />
+
+    <!-- AI Module -->
+    <script src="ai_module.js"></script>
+
+    <!-- Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- App Container -->
+    <div class="app view-split">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left">
+          <button class="nav-btn" id="menuBtn" title="Menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12h18M3 6h18M3 18h18" />
+            </svg>
+          </button>
+          <div class="logo">
+            <span class="logo-icon">⚡</span>
+            <span class="logo-text">HTML Studio</span>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <!-- View Switcher -->
+          <button class="nav-btn" id="viewEditorBtn" title="Pouze editor">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M9 3v18" />
+            </svg>
+          </button>
+          <button class="nav-btn" id="viewSplitBtn" title="Rozdělený pohled">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M12 3v18" />
+            </svg>
+          </button>
+          <button class="nav-btn" id="viewPreviewBtn" title="Pouze náhled">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M15 3v18" />
+            </svg>
+          </button>
+
+          <!-- Actions -->
+          <button class="nav-btn" id="aiBtn" title="AI asistent">
+            <span style="font-size: 18px">🤖</span>
+          </button>
+          <button class="nav-btn" id="shortcutsBtn" title="Rychlé akce (Ctrl+K)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </button>
+          <button class="nav-btn" id="themeBtn" title="Přepnout téma">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5" />
+              <path
+                d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+              />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="newFileBtn" title="Nový soubor (Ctrl+N)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <path d="M14 2v6h6M12 18v-6m-3 3h6" />
+            </svg>
+            <span>Nový</span>
+          </button>
+          <button class="toolbar-btn" id="saveBtn" title="Uložit (Ctrl+S)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <path d="M17 21v-8H7v8M7 3v5h8" />
+            </svg>
+            <span>Uložit</span>
+          </button>
+        </div>
+
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="formatToolbarBtn" title="Formátovat (Ctrl+Shift+F)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 7h16M4 12h16M4 17h10" />
+            </svg>
+            <span>Formát</span>
+          </button>
+          <button class="toolbar-btn" id="validateBtn" title="Validovat (Ctrl+Shift+V)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <path d="M22 4L12 14.01l-3-3" />
+            </svg>
+            <span>Validovat</span>
+          </button>
+          <button class="toolbar-btn" id="minifyBtn" title="Minifikovat (Ctrl+Shift+M)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M9 8h6M9 12h6M9 16h6" />
+            </svg>
+            <span>Minify</span>
+          </button>
+        </div>
+
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="undoBtn" title="Zpět (Ctrl+Z)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 7v6h6" />
+              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+            </svg>
+          </button>
+          <button class="toolbar-btn" id="redoBtn" title="Vpřed (Ctrl+Y)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 7v6h-6" />
+              <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="toolbar-spacer"></div>
+
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="searchBtn" title="Hledat (Ctrl+F)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+            <span>Hledat</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Editor Section -->
+        <section class="editor-section">
+          <div class="section-header">
+            <h2>Editor</h2>
+            <div class="section-actions">
+              <button class="btn-icon" id="formatBtn" title="Formátovat (Ctrl+Shift+F)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 7h16M4 12h16M4 17h10" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div id="editorContainer" class="editor-container"></div>
+        </section>
+
+        <!-- Preview Section -->
+        <section class="preview-section">
+          <div class="section-header">
+            <h2>Náhled</h2>
+            <div class="section-actions">
+              <button class="btn-icon" id="refreshBtn" title="Obnovit náhled">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 4v6h6M23 20v-6h-6" />
+                  <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div id="previewContainer" class="preview-container"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Main App Script (Module) -->
+    <script type="module" src="/src/core/app.js"></script>
+
+    <script>
+      // Setup basic UI interactions before app loads
+      document.addEventListener('DOMContentLoaded', () => {
+        // Menu button
+        document.getElementById('menuBtn')?.addEventListener('click', () => {
+          console.log('Menu button clicked');
+          window.eventBus?.emit('menu:toggle');
+        });
+
+        // Theme toggle
+        document.getElementById('themeBtn')?.addEventListener('click', () => {
+          document.body.classList.toggle('light-theme');
+          if (window.eventBus) {
+            window.eventBus.emit('theme:toggle');
+          }
+        });
+
+        // View switchers
+        document.getElementById('viewEditorBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('view:change', { view: 'editor' });
+        });
+        document.getElementById('viewSplitBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('view:change', { view: 'split' });
+        });
+        document.getElementById('viewPreviewBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('view:change', { view: 'preview' });
+        });
+
+        // Toolbar actions
+        document.getElementById('newFileBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('action:newTab');
+        });
+        document.getElementById('saveBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('action:save');
+        });
+        document.getElementById('formatBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('action:format');
+        });
+        document.getElementById('formatToolbarBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('action:format');
+        });
+        document.getElementById('validateBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('action:validate');
+        });
+        document.getElementById('minifyBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('action:minify');
+        });
+        document.getElementById('undoBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('action:undo');
+        });
+        document.getElementById('redoBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('action:redo');
+        });
+        document.getElementById('searchBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('action:search');
+        });
+        document.getElementById('refreshBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('preview:refresh');
+        });
+        document.getElementById('shortcutsBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('shortcuts:show');
+        });
+        document.getElementById('aiBtn')?.addEventListener('click', () => {
+          window.eventBus?.emit('ai:show');
+        });
+
+        // Auto-open AI panel on first load
+        setTimeout(() => {
+          if (window.eventBus) {
+            window.eventBus.emit('ai:show');
+          }
+        }, 1000);
+      });
+    </script>
+  </body>
+</html>
