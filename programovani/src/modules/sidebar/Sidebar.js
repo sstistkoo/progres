@@ -438,14 +438,33 @@ export class Sidebar {
     // Handle modal actions
     const closeModal = () => {
       modal.classList.add('closing');
-      setTimeout(() => modal.remove(), 300);
+      setTimeout(() => {
+        modal.remove();
+        document.removeEventListener('keydown', escapeHandler);
+      }, 300);
     };
 
-    modal.querySelector('.modal-close')?.addEventListener('click', closeModal);
-    modal.querySelector('.modal-overlay')?.addEventListener('click', closeModal);
-    modal.querySelector('[data-action="cancel"]')?.addEventListener('click', closeModal);
+    // Prevent event bubbling on modal content
+    modal.querySelector('.modal-content')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
 
-    modal.querySelector('[data-action="login"]')?.addEventListener('click', () => {
+    modal.querySelector('.modal-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeModal();
+    });
+
+    modal.querySelector('.modal-overlay')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeModal();
+    });
+
+    modal.querySelector('[data-action="cancel"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeModal();
+    });
+
+    const handleLogin = () => {
       const username = modal.querySelector('#githubUsername').value.trim();
       const token = modal.querySelector('#githubToken').value.trim();
 
@@ -463,13 +482,19 @@ export class Sidebar {
       toast.success(`Připojeno jako @${username}`);
       this.updateGitHubStatus();
       closeModal();
+    };
+
+    modal.querySelector('[data-action="login"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleLogin();
     });
 
     // Enter to submit
     modal.querySelectorAll('.github-input').forEach(input => {
       input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-          modal.querySelector('[data-action="login"]')?.click();
+          e.preventDefault();
+          handleLogin();
         }
       });
     });
@@ -478,7 +503,6 @@ export class Sidebar {
     const escapeHandler = (e) => {
       if (e.key === 'Escape') {
         closeModal();
-        document.removeEventListener('keydown', escapeHandler);
       }
     };
     document.addEventListener('keydown', escapeHandler);
