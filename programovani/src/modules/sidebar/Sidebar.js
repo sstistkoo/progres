@@ -12,6 +12,7 @@ export class Sidebar {
     this.isVisible = false;
     this.activeTab = 'files'; // 'files' or 'github'
     this.sidebarElement = null;
+    this.escapeHandler = null; // Store handler reference
     this.init();
   }
 
@@ -204,17 +205,29 @@ export class Sidebar {
     const loginBtn = this.sidebarElement.querySelector('#githubLoginBtn');
     loginBtn?.addEventListener('click', () => this.showGitHubLoginModal());
 
-    // Close on Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isVisible) {
-        this.hide();
-      }
-    });
+    // Close on Escape - store handler to remove later
+    if (this.escapeHandler) {
+      document.removeEventListener('keydown', this.escapeHandler);
+    }
 
-    // Close on overlay click
+    this.escapeHandler = (e) => {
+      if (e.key === 'Escape' && this.isVisible) {
+        // Check if modal is open
+        const modalOpen = document.querySelector('.modal-overlay');
+        if (!modalOpen) {
+          this.hide();
+        }
+      }
+    };
+    document.addEventListener('keydown', this.escapeHandler);
+
+    // Close on overlay click - but not if modal is open
     this.sidebarElement.addEventListener('click', (e) => {
       if (e.target === this.sidebarElement) {
-        this.hide();
+        const modalOpen = document.querySelector('.modal-overlay');
+        if (!modalOpen) {
+          this.hide();
+        }
       }
     });
   }
@@ -366,6 +379,12 @@ export class Sidebar {
   }
 
   showGitHubLoginModal() {
+    // Prevent multiple modals
+    const existingModal = document.querySelector('.github-login-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
     // Create login modal with same structure as blank modal
     const modal = document.createElement('div');
     modal.className = 'modal-overlay github-login-modal';
@@ -393,9 +412,13 @@ export class Sidebar {
             <input
               type="text"
               id="githubUsername"
+              name="github-username"
               placeholder="např. octocat"
               class="github-input"
-              autocomplete="username"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
             />
           </div>
           <div class="form-group">
@@ -403,9 +426,10 @@ export class Sidebar {
             <input
               type="password"
               id="githubToken"
+              name="github-token"
               placeholder="ghp_..."
               class="github-input"
-              autocomplete="off"
+              autocomplete="new-password"
             />
             <small class="help-text">
               Pro plný přístup k API vytvořte token na
@@ -540,6 +564,18 @@ export class Sidebar {
       this.hide();
     } else {
       this.show();
+    }
+  }
+
+  destroy() {
+    // Cleanup event listeners
+    if (this.escapeHandler) {
+      document.removeEventListener('keydown', this.escapeHandler);
+    }
+
+    // Remove sidebar element
+    if (this.sidebarElement) {
+      this.sidebarElement.remove();
     }
   }
 }

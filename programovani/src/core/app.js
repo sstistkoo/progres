@@ -310,6 +310,12 @@ class App {
   }
 
   showBlankModal() {
+    // Prevent multiple modals
+    const existingModal = document.querySelector('.blank-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
     // Create blank modal
     const modal = document.createElement('div');
     modal.className = 'modal-overlay blank-modal';
