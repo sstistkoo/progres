@@ -481,9 +481,6 @@ export class AIPanel {
     // Add user message to chat
     this.addChatMessage('user', message);
 
-    // Show loading
-    const loadingId = this.addChatMessage('assistant', 'Přemýšlím...');
-
     try {
       // Get current provider and model
       const provider = this.modal.element.querySelector('#aiProvider')?.value || 'groq';
@@ -515,8 +512,6 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
         temperature: 0.7
       });
 
-      this.removeChatMessage(loadingId);
-
       // Check if response contains code
       const codeMatch = response.match(/```html\n?([\s\S]*?)```/);
       if (codeMatch) {
@@ -543,8 +538,6 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
         this.addChatMessage('assistant', response);
       }
     } catch (error) {
-      this.removeChatMessage(loadingId);
-
       let errorMsg = error.message;
       if (error.message.includes('API key')) {
         errorMsg = 'Chybí API klíč. Nastavte klíč v ai_module.js nebo použijte demo klíče.';
@@ -607,9 +600,12 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
       ]
     };
 
-    modelSelect.innerHTML = models[provider]
-      .map(m => `<option value="${m.value}">${m.label}</option>`)
-      .join('');
+    const providerModels = models[provider];
+    if (providerModels && Array.isArray(providerModels)) {
+      modelSelect.innerHTML = providerModels
+        .map(m => `<option value="${m.value}">${m.label}</option>`)
+        .join('');
+    }
   }
 
   // Template generators
@@ -1549,7 +1545,9 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
       radio.addEventListener('change', (e) => {
         this.currentAgentEngine = e.target.value;
         this.loadAgentsGrid();
-        toast.info(`Přepnuto na ${e.target.value === 'javascript' ? 'JavaScript' : 'CrewAI'} agenty`, 2000);
+        if (window.showNotification) {
+          window.showNotification(`Přepnuto na ${e.target.value === 'javascript' ? 'JavaScript' : 'CrewAI'} agenty`, 'info');
+        }
       });
     });
 
@@ -1884,7 +1882,7 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     // Show loading
     const loadingMsg = document.createElement('div');
     loadingMsg.className = 'agent-message assistant loading';
-    loadingMsg.innerHTML = `<strong>${agent.name}:</strong><p>Přemýšlím...</p>`;
+    loadingMsg.innerHTML = `<strong>${agent.name}:</strong><p>⏳ Pracuji na úkolu...</p>`;
     messagesContainer.appendChild(loadingMsg);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
