@@ -388,12 +388,15 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 2000;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 2000;
   opacity: 0;
   transition: opacity 0.3s ease;
+  pointer-events: all;
 }
 
 .github-login-modal.show {
@@ -404,26 +407,20 @@
   opacity: 0;
 }
 
-.github-login-modal .modal-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-}
-
 .github-login-modal .modal-content {
   position: relative;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
   width: 90%;
   max-width: 500px;
-  background: var(--bg-primary);
-  border-radius: 12px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-  transform: scale(0.9);
-  transition: transform 0.3s ease;
+  transform: scale(0.95);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: all;
 }
 
 .github-login-modal.show .modal-content {
@@ -453,28 +450,30 @@
 }
 
 .github-login-modal .modal-close {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  font-size: 24px;
+  line-height: 1;
 }
 
 .github-login-modal .modal-close:hover {
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
 .github-login-modal .modal-body {
   padding: 20px;
-  max-height: 60vh;
   overflow-y: auto;
+  flex: 1;
 }
 
 .github-login-modal .info-message {
@@ -543,29 +542,27 @@
 }
 
 .github-login-modal .modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 20px;
+  padding: 15px 20px;
   border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
-.github-login-modal .btn-secondary,
-.github-login-modal .btn-primary {
+.github-login-modal .btn {
   padding: 10px 20px;
   border: none;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  min-width: 44px;
   min-height: 44px;
-  min-width: 100px;
 }
 
 .github-login-modal .btn-secondary {
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
 }
 

@@ -366,32 +366,27 @@ export class Sidebar {
   }
 
   showGitHubLoginModal() {
-    // Create login modal
+    // Create login modal with same structure as blank modal
     const modal = document.createElement('div');
-    modal.className = 'github-login-modal';
+    modal.className = 'modal-overlay github-login-modal';
     modal.innerHTML = `
-      <div class="modal-overlay"></div>
       <div class="modal-content">
         <div class="modal-header">
           <h2>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
               <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
             </svg>
             Přihlášení na GitHub
           </h2>
-          <button class="modal-close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
+          <button class="modal-close" aria-label="Zavřít">&times;</button>
         </div>
         <div class="modal-body">
           <p class="info-message">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
               <circle cx="12" cy="12" r="10"/>
               <path d="M12 16v-4M12 8h.01"/>
             </svg>
-            V produkční verzi by se zde otevřelo OAuth okno od GitHubu. Pro demo zadejte své GitHub uživatelské jméno:
+            V produkční verzi by se zde otevřelo OAuth okno od GitHubu. Pro demo zadejte své GitHub údaje:
           </p>
           <div class="form-group">
             <label for="githubUsername">GitHub uživatelské jméno</label>
@@ -400,6 +395,7 @@ export class Sidebar {
               id="githubUsername"
               placeholder="např. octocat"
               class="github-input"
+              autocomplete="username"
             />
           </div>
           <div class="form-group">
@@ -409,6 +405,7 @@ export class Sidebar {
               id="githubToken"
               placeholder="ghp_..."
               class="github-input"
+              autocomplete="off"
             />
             <small class="help-text">
               Pro plný přístup k API vytvořte token na
@@ -417,9 +414,9 @@ export class Sidebar {
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" data-action="cancel">Zrušit</button>
-          <button class="btn-primary" data-action="login">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button class="btn btn-secondary" data-action="cancel">Zrušit</button>
+          <button class="btn btn-primary" data-action="login">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
               <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/>
             </svg>
             Přihlásit se
@@ -454,9 +451,11 @@ export class Sidebar {
       closeModal();
     });
 
-    modal.querySelector('.modal-overlay')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeModal();
+    // Click outside modal to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeModal();
+      }
     });
 
     modal.querySelector('[data-action="cancel"]')?.addEventListener('click', (e) => {
