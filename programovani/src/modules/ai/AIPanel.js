@@ -70,18 +70,13 @@ export class AIPanel {
             <div class="ai-provider-selector">
               <label for="aiProvider">Provider:</label>
               <select id="aiProvider" class="ai-select">
-                <option value="groq">Groq</option>
-                <option value="gemini">Google Gemini</option>
-                <option value="openrouter">OpenRouter</option>
-                <option value="mistral">Mistral</option>
-                <option value="cohere">Cohere</option>
-                <option value="huggingface">HuggingFace</option>
+                ${this.generateProviderOptions()}
               </select>
             </div>
             <div class="ai-model-selector">
               <label for="aiModel">Model:</label>
               <select id="aiModel" class="ai-select">
-                <option value="llama-3.3-70b-versatile">Llama 3.3 70B</option>
+                <option value="">Načítání...</option>
               </select>
             </div>
           </div>
@@ -436,6 +431,9 @@ export class AIPanel {
       providerSelect.addEventListener('change', (e) => {
         this.updateModels(e.target.value);
       });
+
+      // Initialize models for default provider
+      this.updateModels(providerSelect.value);
     }
   }
 
@@ -576,35 +574,45 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     return div.innerHTML;
   }
 
+  generateProviderOptions() {
+    // Načti providery z AI modulu
+    if (typeof window.AI === 'undefined' || !window.AI.getAllProvidersWithModels) {
+      return `
+        <option value="groq">Groq</option>
+        <option value="gemini">Google Gemini</option>
+        <option value="openrouter">OpenRouter</option>
+        <option value="mistral">Mistral</option>
+        <option value="cohere">Cohere</option>
+        <option value="huggingface">HuggingFace</option>
+      `;
+    }
+
+    const allProviders = window.AI.getAllProvidersWithModels();
+    return Object.entries(allProviders)
+      .map(([key, data]) => `<option value="${key}">${data.name}</option>`)
+      .join('');
+  }
+
   updateModels(provider) {
     const modelSelect = this.modal.element.querySelector('#aiModel');
+    if (!modelSelect) return;
 
-    const models = {
-      openai: [
-        { value: 'gpt-4', label: 'GPT-4' },
-        { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-        { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
-      ],
-      anthropic: [
-        { value: 'claude-3-opus', label: 'Claude 3 Opus' },
-        { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
-        { value: 'claude-3-haiku', label: 'Claude 3 Haiku' }
-      ],
-      gemini: [
-        { value: 'gemini-pro', label: 'Gemini Pro' },
-        { value: 'gemini-pro-vision', label: 'Gemini Pro Vision' }
-      ],
-      groq: [
-        { value: 'mixtral-8x7b', label: 'Mixtral 8x7B' },
-        { value: 'llama2-70b', label: 'Llama 2 70B' }
-      ]
-    };
+    // Načti modely z AI modulu
+    if (typeof window.AI === 'undefined' || !window.AI.getAllProvidersWithModels) {
+      console.warn('AI module not loaded, using fallback models');
+      modelSelect.innerHTML = '<option value="">AI modul není načten</option>';
+      return;
+    }
 
-    const providerModels = models[provider];
-    if (providerModels && Array.isArray(providerModels)) {
-      modelSelect.innerHTML = providerModels
+    const allProviders = window.AI.getAllProvidersWithModels();
+    const providerData = allProviders[provider];
+
+    if (providerData && Array.isArray(providerData.models)) {
+      modelSelect.innerHTML = providerData.models
         .map(m => `<option value="${m.value}">${m.label}</option>`)
         .join('');
+    } else {
+      modelSelect.innerHTML = '<option value="">Žádné modely</option>';
     }
   }
 
