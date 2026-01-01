@@ -14,6 +14,7 @@ import Preview from '@modules/preview/Preview.js';
 import { AIPanel } from '@modules/ai/AIPanel.js';
 import { ShortcutsPanel } from '@modules/shortcuts/ShortcutsPanel.js';
 import { MenuPanel } from '@modules/menu/MenuPanel.js';
+import { SearchPanel } from '@modules/search/SearchPanel.js';
 
 class App {
   constructor() {
@@ -22,6 +23,7 @@ class App {
     this.aiPanel = null;
     this.shortcutsPanel = null;
     this.menuPanel = null;
+    this.searchPanel = null;
     this.initialized = false;
   }
 
@@ -85,6 +87,10 @@ class App {
     // Menu Panel
     this.menuPanel = new MenuPanel();
     console.log('✓ Menu Panel initialized');
+
+    // Search Panel
+    this.searchPanel = new SearchPanel();
+    console.log('✓ Search Panel initialized');
   }
 
   setupEventListeners() {
@@ -207,8 +213,34 @@ class App {
   }
 
   newTab() {
-    toast.info('Vytváří se nový soubor...', 2000);
-    // TODO: Implement new file creation
+    const code = `<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nový dokument</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Nový dokument</h1>
+  <p>Začněte psát zde...</p>
+</body>
+</html>`;
+
+    // Set new content
+    state.set('editor.code', code);
+    if (this.editor) {
+      this.editor.setValue(code);
+    }
+
+    toast.success('Nový soubor vytvořen', 2000);
   }
 
   downloadFile() {
@@ -224,8 +256,7 @@ class App {
   }
 
   showSearch() {
-    toast.info('Vyhledávání...', 2000);
-    // TODO: Implement search functionality
+    eventBus.emit('search:show');
   }
 
   togglePreview() {

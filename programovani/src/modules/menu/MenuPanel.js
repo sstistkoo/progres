@@ -31,6 +31,9 @@ export class MenuPanel {
       this.createMenu();
     }
 
+    // Update open files list before showing
+    this.updateOpenFilesList();
+
     this.menuElement.classList.add('active');
     this.isOpen = true;
 
@@ -87,6 +90,13 @@ export class MenuPanel {
       </div>
 
       <nav class="menu-nav">
+        <div class="menu-section">
+          <h3>Otevřené soubory</h3>
+          <div id="openFilesManager" class="open-files-list">
+            <!-- Files will be dynamically added here -->
+          </div>
+        </div>
+
         <div class="menu-section">
           <h3>Soubor</h3>
           <button class="menu-item" data-action="newFile">
@@ -319,5 +329,59 @@ export class MenuPanel {
         eventBus.emit(event);
       }
     }
+  }
+
+  updateOpenFilesList() {
+    const filesContainer = this.menuElement?.querySelector('#openFilesManager');
+    if (!filesContainer) return;
+
+    const openFiles = this.getOpenFiles();
+
+    if (openFiles.length === 0) {
+      filesContainer.innerHTML = '<div class="no-files-message">Žádné otevřené soubory</div>';
+      return;
+    }
+
+    filesContainer.innerHTML = openFiles.map((file, index) => `
+      <div class="open-file-item" data-index="${index}">
+        <span class="file-icon">📄</span>
+        <span class="file-name">${file.name}</span>
+        <button class="file-close-btn" data-index="${index}" title="Zavřít">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    `).join('');
+
+    // Attach event handlers for file items
+    filesContainer.querySelectorAll('.open-file-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        if (!e.target.closest('.file-close-btn')) {
+          const index = parseInt(item.dataset.index);
+          eventBus.emit('file:switch', { index });
+          this.hide();
+        }
+      });
+    });
+
+    // Attach event handlers for close buttons
+    filesContainer.querySelectorAll('.file-close-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const index = parseInt(btn.dataset.index);
+        eventBus.emit('file:close', { index });
+      });
+    });
+  }
+
+  getOpenFiles() {
+    // This would normally come from state or tabs manager
+    // For now, return a simple list
+    const tabs = document.querySelectorAll('.tab');
+    return Array.from(tabs).map((tab, index) => ({
+      name: tab.textContent.trim() || `Soubor ${index + 1}`,
+      index: index
+    }));
   }
 }
