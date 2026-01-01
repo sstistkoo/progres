@@ -113,7 +113,20 @@ export class AIPanel {
           <div class="agents-panel">
             <h3>🤖 AI Programovací Agenti</h3>
             <p class="agents-description">Aktivuj agenty podle typu úkolu. Můžeš použít více agentů najednou pro kolaborativní práci.</p>
-            
+
+            <!-- Engine Selector -->
+            <div class="agent-engine-selector">
+              <label>
+                <input type="radio" name="agentEngine" value="javascript" checked>
+                <span>⚡ JavaScript Agenti (Online AI)</span>
+              </label>
+              <label>
+                <input type="radio" name="agentEngine" value="crewai">
+                <span>🐍 CrewAI (Ollama lokálně)</span>
+                <span class="engine-status" id="crewaiStatus">○</span>
+              </label>
+            </div>
+
             <div class="agents-grid" id="agentsGrid">
               <!-- Agents will be dynamically loaded here -->
             </div>
@@ -121,8 +134,12 @@ export class AIPanel {
             <div class="active-agents-section" id="activeAgentsSection" style="display: none;">
               <h4>Aktivní agenti</h4>
               <div class="active-agents-list" id="activeAgentsList"></div>
-              
+
               <div class="collaborative-actions">
+                <button class="btn-orchestrated" id="orchestratedTaskBtn">
+                  <span class="icon">🎯</span>
+                  <span>Orchestrovaný úkol</span>
+                </button>
                 <button class="btn-collaborative" id="collaborativeTaskBtn">
                   <span class="icon">🤝</span>
                   <span>Společný úkol</span>
@@ -1517,8 +1534,30 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
    * AI Agents Methods
    */
   attachAgentsHandlers() {
+    // Store current engine
+    this.currentAgentEngine = 'javascript';
+
     // Load agents grid
     this.loadAgentsGrid();
+
+    // Check CrewAI connection
+    this.checkCrewAIConnection();
+
+    // Engine selector
+    const engineRadios = this.modal.element.querySelectorAll('input[name="agentEngine"]');
+    engineRadios.forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        this.currentAgentEngine = e.target.value;
+        this.loadAgentsGrid();
+        toast.info(`Přepnuto na ${e.target.value === 'javascript' ? 'JavaScript' : 'CrewAI'} agenty`, 2000);
+      });
+    });
+
+    // Orchestrated task button
+    const orchestratedBtn = this.modal.element.querySelector('#orchestratedTaskBtn');
+    if (orchestratedBtn) {
+      orchestratedBtn.addEventListener('click', () => this.startOrchestratedTask());
+    }
 
     // Collaborative task button
     const collaborativeBtn = this.modal.element.querySelector('#collaborativeTaskBtn');
@@ -1535,7 +1574,7 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     // Send to agent button
     const sendToAgentBtn = this.modal.element.querySelector('#sendToAgentBtn');
     const agentChatInput = this.modal.element.querySelector('#agentChatInput');
-    
+
     if (sendToAgentBtn && agentChatInput) {
       sendToAgentBtn.addEventListener('click', () => {
         const message = agentChatInput.value.trim();
@@ -1554,10 +1593,38 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     }
   }
 
+  async checkCrewAIConnection() {
+    if (!window.CrewAI) {
+      setTimeout(() => this.checkCrewAIConnection(), 200);
+      return;
+    }
+
+    const isConnected = await window.CrewAI.checkConnection();
+    const statusIndicator = this.modal.element.querySelector('#crewaiStatus');
+
+    if (statusIndicator) {
+      if (isConnected) {
+        statusIndicator.textContent = '✅';
+        statusIndicator.title = 'CrewAI server běží na http://localhost:5005';
+      } else {
+        statusIndicator.textContent = '○';
+        statusIndicator.title = 'CrewAI server není dostupný. Spusť: python crewai_api.py';
+      }
+    }
+  }
+
   loadAgentsGrid() {
     const agentsGrid = this.modal.element.querySelector('#agentsGrid');
     if (!agentsGrid) return;
 
+    if (this.currentAgentEngine === 'crewai') {
+      this.loadCrewAIAgents(agentsGrid);
+    } else {
+      this.loadJavaScriptAgents(agentsGrid);
+    }
+  }
+
+  loadJavaScriptAgents(agentsGrid) {
     // Wait for AIAgents to be initialized
     if (!window.AIAgents || !window.AIAgents.initialized) {
       setTimeout(() => this.loadAgentsGrid(), 100);
@@ -1565,7 +1632,7 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     }
 
     const agents = window.AIAgents.getAgents();
-    
+
     agentsGrid.innerHTML = agents.map(agent => `
       <div class="agent-card ${agent.active ? 'active' : ''}" data-agent-id="${agent.id}">
         <div class="agent-icon">${agent.icon}</div>
@@ -1573,7 +1640,7 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
           <h4 class="agent-name">${agent.name}</h4>
           <p class="agent-role">${agent.role}</p>
           <div class="agent-capabilities">
-            ${agent.capabilities.slice(0, 3).map(cap => 
+            ${agent.capabilities.slice(0, 3).map(cap =>
               `<span class="capability-tag">${cap}</span>`
             ).join('')}
           </div>
@@ -1612,6 +1679,117 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     this.updateActiveAgentsList();
   }
 
+  async loadCrewAIAgents(agentsGrid) {
+    if (!window.CrewAI || !window.CrewAI.isAvailable) {
+      agentsGrid.innerHTML = `
+        <div class="crewai-warning">
+          <h4>⚠️ CrewAI server není dostupný</h4>
+          <p>Spusť Python server příkazem:</p>
+          <code>python crewai_api.py</code>
+          <p>Server běží na http://localhost:5005</p>
+        </div>
+      `;
+      return;
+    }
+
+    try {
+      const agents = await window.CrewAI.getAgents();
+
+      agentsGrid.innerHTML = agents.map(agent => `
+        <div class="agent-card crewai-agent" data-agent-id="${agent.id}">
+          <div class="agent-icon">🐍</div>
+          <div class="agent-info">
+            <h4 class="agent-name">${agent.name}</h4>
+            <p class="agent-role">${agent.role}</p>
+            <div class="agent-goal">${agent.goal}</div>
+          </div>
+          <div class="agent-actions">
+            <button class="btn-agent-use" data-agent-id="${agent.id}">
+              🚀 Použít
+            </button>
+          </div>
+        </div>
+      `).join('');
+
+      // Attach handlers for CrewAI agents
+      const useBtns = agentsGrid.querySelectorAll('.btn-agent-use');
+      useBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const agentId = btn.dataset.agentId;
+          this.useCrewAIAgent(agentId);
+        });
+      });
+
+    } catch (error) {
+      agentsGrid.innerHTML = `
+        <div class="crewai-error">
+          <h4>❌ Chyba při načítání CrewAI agentů</h4>
+          <p>${error.message}</p>
+        </div>
+      `;
+    }
+  }
+
+  async useCrewAIAgent(agentId) {
+    const task = prompt('Zadej úkol pro CrewAI agenta:');
+    if (!task) return;
+
+    const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
+    const chatSection = this.modal.element.querySelector('#agentChatSection');
+    const agentName = this.modal.element.querySelector('#currentAgentName');
+
+    if (chatSection) {
+      chatSection.style.display = 'block';
+    }
+
+    if (agentName) {
+      agentName.textContent = `CrewAI - ${agentId}`;
+    }
+
+    if (messagesContainer) {
+      // Add user message
+      const userMsg = document.createElement('div');
+      userMsg.className = 'agent-message user';
+      userMsg.innerHTML = `<strong>Ty:</strong><p>${task}</p>`;
+      messagesContainer.appendChild(userMsg);
+
+      // Add loading message
+      const loadingMsg = document.createElement('div');
+      loadingMsg.className = 'agent-message assistant loading';
+      loadingMsg.innerHTML = `<strong>CrewAI:</strong><p>Zpracovávám úkol...</p>`;
+      messagesContainer.appendChild(loadingMsg);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    try {
+      const result = await window.CrewAI.runSingleAgent(agentId, task);
+
+      if (messagesContainer) {
+        loadingMsg.remove();
+
+        const responseMsg = document.createElement('div');
+        responseMsg.className = 'agent-message assistant';
+        responseMsg.innerHTML = `<strong>CrewAI:</strong><p>${result.result}</p>`;
+        messagesContainer.appendChild(responseMsg);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      toast.success('CrewAI úkol dokončen', 3000);
+
+    } catch (error) {
+      if (messagesContainer && loadingMsg) {
+        loadingMsg.remove();
+
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'agent-message error';
+        errorMsg.innerHTML = `<strong>Chyba:</strong><p>${error.message}</p>`;
+        messagesContainer.appendChild(errorMsg);
+      }
+
+      toast.error('Chyba při spouštění CrewAI', 3000);
+    }
+  }
+
   toggleAgent(agentId) {
     const agent = window.AIAgents.getAgent(agentId);
     if (!agent) return;
@@ -1624,7 +1802,7 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
 
     // Reload grid to update UI
     this.loadAgentsGrid();
-    
+
     toast.success(
       agent.active ? `Agent ${agent.name} deaktivován` : `Agent ${agent.name} aktivován`,
       2000
@@ -1730,7 +1908,7 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
 
     } catch (error) {
       loadingMsg.remove();
-      
+
       const errorMsg = document.createElement('div');
       errorMsg.className = 'agent-message error';
       errorMsg.innerHTML = `<strong>Chyba:</strong><p>${error.message}</p>`;
@@ -1738,9 +1916,90 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     }
   }
 
+  async startOrchestratedTask() {
+    // Check if orchestrator is active
+    const orchestratorAgent = window.AIAgents.getAgent('orchestrator');
+    if (!orchestratorAgent || !orchestratorAgent.active) {
+      toast.error('Aktivuj Orchestrator agenta pro orchestrovaný režim', 3000);
+      return;
+    }
+
+    const task = prompt('Zadej úkol pro Orchestrátora (rozdělí ho mezi agenty):');
+    if (!task) return;
+
+    const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
+    const chatSection = this.modal.element.querySelector('#agentChatSection');
+
+    if (chatSection) {
+      chatSection.style.display = 'block';
+      const agentName = this.modal.element.querySelector('#currentAgentName');
+      if (agentName) agentName.textContent = '🎯 Orchestrovaná session';
+    }
+
+    if (messagesContainer) {
+      messagesContainer.innerHTML = '<div class="agent-message system">🎯 Orchestrator analyzuje a rozděluje úkol...</div>';
+    }
+
+    try {
+      const code = state.get('editor.code') || '';
+      const context = { code };
+
+      const results = await window.AIAgents.orchestratedSession(task, context);
+
+      // Display results phase by phase
+      results.forEach(phaseResult => {
+        if (phaseResult.phase === 'orchestration') {
+          const msg = document.createElement('div');
+          msg.className = 'agent-message orchestrator';
+          msg.innerHTML = `<strong>🎯 Orchestrator - Plán:</strong><p>${phaseResult.response.response}</p>`;
+          messagesContainer.appendChild(msg);
+        } else if (phaseResult.phase === 'execution') {
+          // Show plan first
+          if (phaseResult.plan) {
+            const planMsg = document.createElement('div');
+            planMsg.className = 'agent-message system';
+            planMsg.innerHTML = `<strong>📋 Rozdělení úkolů:</strong><ul>${
+              (phaseResult.plan.agents || []).map(a =>
+                `<li><strong>${a.agent}</strong>: ${a.task}</li>`
+              ).join('')
+            }</ul>`;
+            messagesContainer.appendChild(planMsg);
+          }
+
+          // Show agent responses
+          phaseResult.responses.forEach(response => {
+            const msg = document.createElement('div');
+            msg.className = 'agent-message assistant';
+            msg.innerHTML = `<strong>${response.agent}:</strong><p>${response.response}</p>`;
+            messagesContainer.appendChild(msg);
+          });
+        } else if (phaseResult.phase === 'synthesis') {
+          const msg = document.createElement('div');
+          msg.className = 'agent-message synthesis';
+          msg.innerHTML = `<strong>✨ Finální řešení od Orchestrátora:</strong><p>${phaseResult.response.response}</p>`;
+          messagesContainer.appendChild(msg);
+        }
+      });
+
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      toast.success('Orchestrovaná session dokončena', 3000);
+
+    } catch (error) {
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'agent-message error';
+      errorMsg.innerHTML = `<strong>Chyba:</strong><p>${error.message}</p>`;
+      messagesContainer.appendChild(errorMsg);
+      toast.error('Chyba při orchestrované session', 3000);
+    }
+  }
+
   async startCollaborativeTask() {
+    if (this.currentAgentEngine === 'crewai') {
+      return this.startCrewAICollaborativeTask();
+    }
+
     const activeAgents = window.AIAgents.getActiveAgents();
-    
+
     if (activeAgents.length < 2) {
       toast.error('Aktivuj alespoň 2 agenty pro kolaborativní práci', 3000);
       return;
@@ -1751,7 +2010,7 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
 
     const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
     const chatSection = this.modal.element.querySelector('#agentChatSection');
-    
+
     if (chatSection) {
       chatSection.style.display = 'block';
       const agentName = this.modal.element.querySelector('#currentAgentName');
@@ -1765,7 +2024,7 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     try {
       const code = state.get('editor.code') || '';
       const context = { code };
-      
+
       const agentIds = activeAgents.map(a => a.id);
       const results = await window.AIAgents.collaborativeSession(agentIds, task, context);
 
@@ -1798,11 +2057,62 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     }
   }
 
+  async startCrewAICollaborativeTask() {
+    const task = prompt('Zadej úkol pro CrewAI tým (Architekt, Vývojář, Tester, Dokumentarista):');
+    if (!task) return;
+
+    const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
+    const chatSection = this.modal.element.querySelector('#agentChatSection');
+
+    if (chatSection) {
+      chatSection.style.display = 'block';
+      const agentName = this.modal.element.querySelector('#currentAgentName');
+      if (agentName) agentName.textContent = 'CrewAI - Celý tým';
+    }
+
+    if (messagesContainer) {
+      messagesContainer.innerHTML = '<div class="agent-message system">🐍 Spouštím CrewAI tým...</div>';
+
+      const loadingMsg = document.createElement('div');
+      loadingMsg.className = 'agent-message assistant loading';
+      loadingMsg.innerHTML = `<strong>CrewAI:</strong><p>Agenti pracují na úkolu (může trvat několik minut)...</p>`;
+      messagesContainer.appendChild(loadingMsg);
+    }
+
+    try {
+      const result = await window.CrewAI.runCrew(task);
+
+      if (messagesContainer && loadingMsg) {
+        loadingMsg.remove();
+
+        const responseMsg = document.createElement('div');
+        responseMsg.className = 'agent-message synthesis';
+        responseMsg.innerHTML = `<strong>📋 Výsledek CrewAI týmu:</strong><p>${result.result}</p>`;
+        messagesContainer.appendChild(responseMsg);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      toast.success('CrewAI tým dokončil úkol', 3000);
+
+    } catch (error) {
+      if (messagesContainer && loadingMsg) {
+        loadingMsg.remove();
+
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'agent-message error';
+        errorMsg.innerHTML = `<strong>Chyba:</strong><p>${error.message}</p>`;
+        messagesContainer.appendChild(errorMsg);
+      }
+
+      toast.error('Chyba při spouštění CrewAI týmu', 3000);
+    }
+  }
+
   clearAgentsHistory() {
     if (confirm('Opravdu chceš vymazat historii všech agentů?')) {
       window.AIAgents.clearAllHistory();
       toast.success('Historie agentů vymazána', 2000);
-      
+
       // Clear chat display
       const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
       if (messagesContainer) {

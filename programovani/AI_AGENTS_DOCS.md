@@ -7,9 +7,11 @@ AI Agents System je pokročilý systém pro kolaborativní programování s víc
 ## Dostupní Agenti
 
 ### 1. 🏗️ Architekt
+
 **Role**: Návrh architektury a struktury aplikace
 
 **Schopnosti**:
+
 - Návrh struktury aplikací a komponent
 - Vytváření diagramů a modelů
 - Definování API a rozhraní
@@ -19,9 +21,11 @@ AI Agents System je pokročilý systém pro kolaborativní programování s víc
 **Kdy použít**: Při plánování nových projektů, refaktoringu nebo návrhu komplexních systémů
 
 ### 2. 🎨 Frontend Developer
+
 **Role**: HTML, CSS, JavaScript a React vývoj
 
 **Schopnosti**:
+
 - HTML5 a sémantické značky
 - CSS3, Flexbox, Grid, animace
 - JavaScript ES6+, DOM manipulace
@@ -32,9 +36,11 @@ AI Agents System je pokročilý systém pro kolaborativní programování s víc
 **Kdy použít**: Pro vývoj uživatelského rozhraní, styling, interaktivních komponent
 
 ### 3. ⚙️ Backend Developer
+
 **Role**: Server-side logika a databáze
 
 **Schopnosti**:
+
 - Node.js, Express, REST APIs
 - Python, Django, Flask
 - Databáze: SQL, MongoDB, Redis
@@ -45,9 +51,11 @@ AI Agents System je pokročilý systém pro kolaborativní programování s víc
 **Kdy použít**: Pro server-side logiku, databázové dotazy, API endpoints
 
 ### 4. 🚀 Full-Stack Developer
+
 **Role**: Kompletní end-to-end vývoj
 
 **Schopnosti**:
+
 - Frontend: React, Vue, HTML/CSS
 - Backend: Node.js, Python
 - Databáze: PostgreSQL, MongoDB
@@ -58,9 +66,11 @@ AI Agents System je pokročilý systém pro kolaborativní programování s víc
 **Kdy použít**: Pro celkový vývoj aplikace, propojení frontendu s backendem
 
 ### 5. 🐛 Debugger
+
 **Role**: Hledání a oprava chyb
 
 **Schopnosti**:
+
 - Analýza chybových hlášení
 - Console.log a debugging tools
 - Performance profiling
@@ -71,9 +81,11 @@ AI Agents System je pokročilý systém pro kolaborativní programování s víc
 **Kdy použít**: Při řešení bugů, performance issues, memory leaks
 
 ### 6. 👁️ Code Reviewer
+
 **Role**: Review kódu a quality assurance
 
 **Schopnosti**:
+
 - Code review a best practices
 - Security vulnerabilities
 - Performance issues
@@ -84,9 +96,11 @@ AI Agents System je pokročilý systém pro kolaborativní programování s víc
 **Kdy použít**: Pro kontrolu kvality kódu před commitem nebo deploym
 
 ### 7. 📚 Documentation Writer
+
 **Role**: Tvorba dokumentace
 
 **Schopnosti**:
+
 - API dokumentace
 - README a usage guides
 - Code comments a JSDoc
@@ -97,9 +111,11 @@ AI Agents System je pokročilý systém pro kolaborativní programování s víc
 **Kdy použít**: Pro vytvoření dokumentace projektu, API, nebo tutoriálů
 
 ### 8. ✅ Test Engineer
+
 **Role**: Tvorba testů a QA
 
 **Schopnosti**:
+
 - Unit tests (Jest, Mocha)
 - Integration tests
 - E2E tests (Cypress, Playwright)
@@ -138,6 +154,7 @@ AI Agents System je pokročilý systém pro kolaborativní programování s víc
 ### Příklady použití
 
 #### Příklad 1: Tvorba Landing Page
+
 ```
 Aktivní agenti: Architekt, Frontend Developer, Documentation Writer
 
@@ -149,6 +166,7 @@ Documentation Writer: Přidá komentáře a dokumentaci
 ```
 
 #### Příklad 2: Oprava Bugů
+
 ```
 Aktivní agenti: Debugger, Code Reviewer
 
@@ -159,6 +177,7 @@ Code Reviewer: Zkontroluje opravu, doporučí best practices
 ```
 
 #### Příklad 3: Full-Stack Aplikace
+
 ```
 Aktivní agenti: Architekt, Frontend, Backend, Test Engineer
 
@@ -183,7 +202,7 @@ window.AIAgents.activateAgent('frontend');
 
 // Poslat zprávu agentovi
 const response = await window.AIAgents.sendToAgent('frontend', 'Vytvoř navbar', {
-  code: currentCode
+  code: currentCode,
 });
 
 // Kolaborativní session

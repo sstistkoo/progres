@@ -17,6 +17,48 @@ class AIAgentsSystem {
   async init() {
     if (this.initialized) return;
 
+    // Register Orchestrator - Main coordinator agent
+    this.registerAgent('orchestrator', {
+      name: 'Orchestrator',
+      role: 'Hlavní koordinátor a rozdělování úkolů',
+      icon: '🎯',
+      systemPrompt: `Jsi hlavní orchestrator AI agentů. Tvým úkolem je:
+- Analyzovat zadání od uživatele
+- Rozdělit úkol na konkrétní podúkoly
+- Přiřadit každý podúkol správnému agentovi
+- Koordinovat spolupráci mezi agenty
+- Spojit výsledky do finálního řešení
+
+Dostupní agenti a jejich specializace:
+- Architekt: Navrhování struktury, architektury, plánování
+- Frontend Developer: HTML, CSS, JavaScript, React, Vue
+- Backend Developer: Node.js, Python, API, databáze
+- Full-Stack: Kompletní aplikace frontend + backend
+- Debugger: Hledání a oprava chyb, troubleshooting
+- Code Reviewer: Kontrola kvality, security, best practices
+- Documentation Writer: Dokumentace, komentáře, návody
+- Test Engineer: Unit testy, E2E testy, TDD
+
+Když dostaneš úkol, odpověz ve formátu JSON:
+{
+  "analysis": "Stručná analýza úkolu",
+  "agents": [
+    {
+      "agent": "architect",
+      "task": "Konkrétní úkol pro architekta",
+      "priority": 1
+    },
+    {
+      "agent": "frontend",
+      "task": "Konkrétní úkol pro frontend developera",
+      "priority": 2
+    }
+  ],
+  "expectedOutcome": "Co očekáváme jako výsledek"
+}`,
+      capabilities: ['coordination', 'task-distribution', 'planning', 'analysis']
+    });
+
     // Register default agents
     this.registerAgent('architect', {
       name: 'Architekt',
@@ -256,11 +298,117 @@ class AIAgentsSystem {
   }
 
   /**
+   * Orchestrated session - Orchestrator distributes tasks
+   */
+  async orchestratedSession(task, context = {}) {
+    const results = [];
+
+    // Phase 1: Orchestrator analyzes and distributes tasks
+    console.log('🎯 Phase 1: Task Distribution by Orchestrator');
+
+    try {
+      const orchestratorResponse = await this.sendToAgent(
+        'orchestrator',
+        `Analyzuj tento úkol a rozděl ho mezi vhodné agenty:\n\n${task}`,
+        context
+      );
+
+      results.push({
+        phase: 'orchestration',
+        response: orchestratorResponse
+      });
+
+      // Try to parse JSON response from orchestrator
+      let plan;
+      try {
+        // Extract JSON from response (might be wrapped in markdown or text)
+        const jsonMatch = orchestratorResponse.response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          plan = JSON.parse(jsonMatch[0]);
+        } else {
+          // Fallback: use all active agents
+          const activeAgents = this.getActiveAgents();
+          plan = {
+            analysis: orchestratorResponse.response,
+            agents: activeAgents.map((agent, index) => ({
+              agent: agent.id,
+              task: task,
+              priority: index + 1
+            }))
+          };
+        }
+      } catch (parseError) {
+        console.warn('Could not parse orchestrator response, using active agents');
+        const activeAgents = this.getActiveAgents();
+        plan = {
+          analysis: orchestratorResponse.response,
+          agents: activeAgents.map((agent, index) => ({
+            agent: agent.id,
+            task: task,
+            priority: index + 1
+          }))
+        };
+      }
+
+      // Phase 2: Execute tasks based on orchestrator's plan
+      console.log('🔨 Phase 2: Executing Distributed Tasks');
+
+      // Sort by priority
+      const sortedTasks = (plan.agents || []).sort((a, b) => a.priority - b.priority);
+
+      const taskResults = [];
+      for (const agentTask of sortedTasks) {
+        if (this.agents.has(agentTask.agent) && agentTask.agent !== 'orchestrator') {
+          console.log(`  → ${agentTask.agent}: ${agentTask.task}`);
+
+          try {
+            const result = await this.sendToAgent(
+              agentTask.agent,
+              agentTask.task,
+              context
+            );
+            taskResults.push(result);
+          } catch (error) {
+            console.error(`Error executing task for ${agentTask.agent}:`, error);
+          }
+        }
+      }
+
+      results.push({
+        phase: 'execution',
+        responses: taskResults,
+        plan: plan
+      });
+
+      // Phase 3: Orchestrator synthesizes results
+      console.log('✨ Phase 3: Synthesis by Orchestrator');
+
+      const allOutputs = taskResults.map(r => `${r.agent}: ${r.response}`).join('\n\n');
+      const synthesis = await this.sendToAgent(
+        'orchestrator',
+        `Na základě výsledků od agentů vytvoř finální komplexní řešení:\n\nPůvodní úkol: ${task}\n\nVýsledky od agentů:\n${allOutputs}`,
+        context
+      );
+
+      results.push({
+        phase: 'synthesis',
+        response: synthesis
+      });
+
+      return results;
+
+    } catch (error) {
+      console.error('Error in orchestrated session:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Collaborative session - agents work together
    */
   async collaborativeSession(agentIds, task, context = {}) {
     const results = [];
-    
+
     // Phase 1: Each agent analyzes the task
     console.log('📋 Phase 1: Task Analysis');
     const analyses = await this.sendToMultipleAgents(
