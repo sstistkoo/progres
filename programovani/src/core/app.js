@@ -125,6 +125,11 @@ class App {
       }
     });
 
+    // Blank modal
+    eventBus.on('modal:blank', () => {
+      this.showBlankModal();
+    });
+
     // State changes
     state.subscribe('ui.theme', theme => {
       this.applyTheme(theme);
@@ -302,6 +307,82 @@ class App {
     const currentView = state.get('ui.view');
     const newView = currentView === 'split' ? 'editor' : 'split';
     this.switchView(newView);
+  }
+
+  showBlankModal() {
+    // Create blank modal
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay blank-modal';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>📋 Prázdný Modal</h2>
+          <button class="modal-close" aria-label="Zavřít">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Toto je prázdné modální okno.</p>
+          <p>Můžeš sem přidat jakýkoliv obsah.</p>
+          <div style="padding: 20px; background: var(--editor-bg); border-radius: 8px; margin-top: 15px;">
+            <code style="color: var(--primary);">// Zde může být tvůj obsah</code>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-action="cancel">Zavřít</button>
+          <button class="btn btn-primary" data-action="ok">OK</button>
+        </div>
+      </div>
+    `;
+
+    const closeModal = () => {
+      modal.classList.add('closing');
+      setTimeout(() => {
+        modal.remove();
+        document.removeEventListener('keydown', escHandler);
+      }, 300);
+    };
+
+    // Prevent bubbling on modal content
+    modal.querySelector('.modal-content')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+
+    // Close handlers
+    modal.querySelector('.modal-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeModal();
+    });
+
+    modal.querySelector('[data-action="cancel"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeModal();
+    });
+
+    modal.querySelector('[data-action="ok"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toast.success('Modal zavřen', 2000);
+      closeModal();
+    });
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
+    // ESC to close
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Add to DOM
+    document.body.appendChild(modal);
+
+    // Show with animation
+    setTimeout(() => modal.classList.add('show'), 10);
   }
 
   destroy() {
