@@ -609,7 +609,13 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
 
     if (providerData && Array.isArray(providerData.models)) {
       modelSelect.innerHTML = providerData.models
-        .map(m => `<option value="${m.value}">${m.label}</option>`)
+        .map(m => {
+          const freeLabel = m.free ? '🟢 FREE' : '💰 Paid';
+          const rpmLabel = `${m.rpm} RPM`;
+          const contextLabel = m.context || '';
+          const info = `${freeLabel} | ${rpmLabel} | ${contextLabel}`;
+          return `<option value="${m.value}" title="${m.description || ''}">${m.label} (${info})</option>`;
+        })
         .join('');
     } else {
       modelSelect.innerHTML = '<option value="">Žádné modely</option>';

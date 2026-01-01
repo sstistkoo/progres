@@ -709,57 +709,239 @@ const AI = {
             groq: {
                 name: 'Groq',
                 models: [
-                    { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile' },
-                    { value: 'llama-3.1-70b-versatile', label: 'Llama 3.1 70B Versatile' },
-                    { value: 'llama-3.2-90b-text-preview', label: 'Llama 3.2 90B Text' },
-                    { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
-                    { value: 'gemma2-9b-it', label: 'Gemma 2 9B' }
+                    {
+                        value: 'llama-3.3-70b-versatile',
+                        label: 'Llama 3.3 70B Versatile',
+                        free: true,
+                        rpm: 30,
+                        context: '128K tokens',
+                        description: 'Nejnovější Llama, výborný pro komplexní úkoly'
+                    },
+                    {
+                        value: 'llama-3.1-70b-versatile',
+                        label: 'Llama 3.1 70B Versatile',
+                        free: true,
+                        rpm: 30,
+                        context: '128K tokens',
+                        description: 'Stabilní, vhodný pro dlouhé konverzace'
+                    },
+                    {
+                        value: 'llama-3.2-90b-text-preview',
+                        label: 'Llama 3.2 90B Text',
+                        free: true,
+                        rpm: 30,
+                        context: '8K tokens',
+                        description: 'Preview model, rychlý a kvalitní'
+                    },
+                    {
+                        value: 'mixtral-8x7b-32768',
+                        label: 'Mixtral 8x7B',
+                        free: true,
+                        rpm: 30,
+                        context: '32K tokens',
+                        description: 'Velmi rychlý, dobrý pro kód'
+                    },
+                    {
+                        value: 'gemma2-9b-it',
+                        label: 'Gemma 2 9B',
+                        free: true,
+                        rpm: 30,
+                        context: '8K tokens',
+                        description: 'Malý a efektivní model'
+                    }
                 ]
             },
             gemini: {
                 name: 'Google Gemini',
                 models: [
-                    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-                    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-                    { value: 'gemini-1.0-pro', label: 'Gemini 1.0 Pro' }
+                    {
+                        value: 'gemini-1.5-flash',
+                        label: 'Gemini 1.5 Flash',
+                        free: true,
+                        rpm: 15,
+                        context: '1M tokens',
+                        description: 'Extrémně dlouhý kontext, rychlý a free'
+                    },
+                    {
+                        value: 'gemini-1.5-pro',
+                        label: 'Gemini 1.5 Pro',
+                        free: false,
+                        rpm: 2,
+                        context: '2M tokens',
+                        description: 'Nejchytřejší Gemini, placený'
+                    },
+                    {
+                        value: 'gemini-1.0-pro',
+                        label: 'Gemini 1.0 Pro',
+                        free: true,
+                        rpm: 60,
+                        context: '32K tokens',
+                        description: 'Starší verze, stále velmi dobrý'
+                    }
                 ]
             },
             openrouter: {
                 name: 'OpenRouter',
                 models: [
-                    { value: 'mistralai/mistral-small-3.1-24b-instruct:free', label: 'Mistral Small 3.1 24B (Free)' },
-                    { value: 'google/gemini-flash-1.5', label: 'Gemini Flash 1.5' },
-                    { value: 'meta-llama/llama-3.1-8b-instruct:free', label: 'Llama 3.1 8B (Free)' },
-                    { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
-                    { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' }
+                    {
+                        value: 'mistralai/mistral-small-3.1-24b-instruct:free',
+                        label: 'Mistral Small 3.1 24B (Free)',
+                        free: true,
+                        rpm: 20,
+                        context: '32K tokens',
+                        description: 'Malý Mistral, rychlý a free'
+                    },
+                    {
+                        value: 'google/gemini-flash-1.5',
+                        label: 'Gemini Flash 1.5',
+                        free: false,
+                        rpm: 10,
+                        context: '1M tokens',
+                        description: 'Gemini přes OpenRouter'
+                    },
+                    {
+                        value: 'meta-llama/llama-3.1-8b-instruct:free',
+                        label: 'Llama 3.1 8B (Free)',
+                        free: true,
+                        rpm: 20,
+                        context: '128K tokens',
+                        description: 'Malý Llama, free a rychlý'
+                    },
+                    {
+                        value: 'anthropic/claude-3.5-sonnet',
+                        label: 'Claude 3.5 Sonnet',
+                        free: false,
+                        rpm: 5,
+                        context: '200K tokens',
+                        description: 'Nejchytřejší Claude, placený'
+                    },
+                    {
+                        value: 'openai/gpt-4o-mini',
+                        label: 'GPT-4o Mini',
+                        free: false,
+                        rpm: 10,
+                        context: '128K tokens',
+                        description: 'Levný GPT-4, dobrý poměr cena/výkon'
+                    }
                 ]
             },
             mistral: {
                 name: 'Mistral',
                 models: [
-                    { value: 'mistral-small-latest', label: 'Mistral Small (Latest)' },
-                    { value: 'mistral-medium-latest', label: 'Mistral Medium' },
-                    { value: 'mistral-large-latest', label: 'Mistral Large' },
-                    { value: 'open-mistral-7b', label: 'Open Mistral 7B' },
-                    { value: 'open-mixtral-8x7b', label: 'Open Mixtral 8x7B' }
+                    {
+                        value: 'mistral-small-latest',
+                        label: 'Mistral Small (Latest)',
+                        free: false,
+                        rpm: 5,
+                        context: '32K tokens',
+                        description: 'Rychlý a efektivní, placený'
+                    },
+                    {
+                        value: 'mistral-medium-latest',
+                        label: 'Mistral Medium',
+                        free: false,
+                        rpm: 5,
+                        context: '32K tokens',
+                        description: 'Středně velký model, placený'
+                    },
+                    {
+                        value: 'mistral-large-latest',
+                        label: 'Mistral Large',
+                        free: false,
+                        rpm: 5,
+                        context: '128K tokens',
+                        description: 'Největší Mistral, velmi chytrý'
+                    },
+                    {
+                        value: 'open-mistral-7b',
+                        label: 'Open Mistral 7B',
+                        free: true,
+                        rpm: 10,
+                        context: '32K tokens',
+                        description: 'Open-source verze, free'
+                    },
+                    {
+                        value: 'open-mixtral-8x7b',
+                        label: 'Open Mixtral 8x7B',
+                        free: true,
+                        rpm: 10,
+                        context: '32K tokens',
+                        description: 'MoE architektura, rychlý'
+                    }
                 ]
             },
             cohere: {
                 name: 'Cohere',
                 models: [
-                    { value: 'command-a-03-2025', label: 'Command A (2025)' },
-                    { value: 'command-r-plus', label: 'Command R+' },
-                    { value: 'command-r', label: 'Command R' },
-                    { value: 'command-light', label: 'Command Light' }
+                    {
+                        value: 'command-a-03-2025',
+                        label: 'Command A (2025)',
+                        free: true,
+                        rpm: 20,
+                        context: '128K tokens',
+                        description: 'Nejnovější Cohere, trial free'
+                    },
+                    {
+                        value: 'command-r-plus',
+                        label: 'Command R+',
+                        free: false,
+                        rpm: 10,
+                        context: '128K tokens',
+                        description: 'Pokročilý model pro RAG'
+                    },
+                    {
+                        value: 'command-r',
+                        label: 'Command R',
+                        free: false,
+                        rpm: 10,
+                        context: '128K tokens',
+                        description: 'Dobrý pro retrieval úkoly'
+                    },
+                    {
+                        value: 'command-light',
+                        label: 'Command Light',
+                        free: true,
+                        rpm: 20,
+                        context: '4K tokens',
+                        description: 'Rychlý lightweight model'
+                    }
                 ]
             },
             huggingface: {
                 name: 'HuggingFace',
                 models: [
-                    { value: 'mistralai/Mistral-7B-Instruct-v0.3', label: 'Mistral 7B Instruct' },
-                    { value: 'meta-llama/Llama-2-13b-chat-hf', label: 'Llama 2 13B Chat' },
-                    { value: 'bigscience/bloom-560m', label: 'BLOOM 560M' },
-                    { value: 'google/flan-t5-xxl', label: 'FLAN-T5 XXL' }
+                    {
+                        value: 'mistralai/Mistral-7B-Instruct-v0.3',
+                        label: 'Mistral 7B Instruct',
+                        free: true,
+                        rpm: 10,
+                        context: '8K tokens',
+                        description: 'Open-source, inference API free'
+                    },
+                    {
+                        value: 'meta-llama/Llama-2-13b-chat-hf',
+                        label: 'Llama 2 13B Chat',
+                        free: true,
+                        rpm: 10,
+                        context: '4K tokens',
+                        description: 'Stabilní Llama 2, free'
+                    },
+                    {
+                        value: 'bigscience/bloom-560m',
+                        label: 'BLOOM 560M',
+                        free: true,
+                        rpm: 30,
+                        context: '2K tokens',
+                        description: 'Velmi malý a rychlý model'
+                    },
+                    {
+                        value: 'google/flan-t5-xxl',
+                        label: 'FLAN-T5 XXL',
+                        free: true,
+                        rpm: 20,
+                        context: '2K tokens',
+                        description: 'Dobrý pro instrukce, free'
+                    }
                 ]
             }
         };
