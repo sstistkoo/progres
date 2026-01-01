@@ -27,7 +27,7 @@ ollama pull qwen2.5-coder
 ### 3. Spusť CrewAI API server
 
 ```bash
-python crewai_api.py
+python python/crewai_api.py
 ```
 
 Server běží na **http://localhost:5005**
@@ -178,12 +178,12 @@ ollama list
 ollama pull qwen2.5-coder
 
 # Spusť server
-python crewai_api.py
+python python/crewai_api.py
 ```
 
 ### Port 5005 už používá někdo jiný
 
-Změň port v `crewai_api.py`:
+Změň port v `python/crewai_api.py`:
 
 ```python
 app.run(port=5006, host='0.0.0.0', debug=True)

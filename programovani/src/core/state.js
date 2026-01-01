@@ -33,8 +33,8 @@ export class AppState {
         consoleOpen: false,
       },
       ai: {
-        provider: 'gemini',
-        model: 'gemini-2.5-flash-lite',
+        provider: 'groq',
+        model: 'llama-3.3-70b-versatile',
         keys: {},
         chatHistory: [],
       },
