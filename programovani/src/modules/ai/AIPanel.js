@@ -1115,20 +1115,108 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
       type: 'info'
     });
 
-    // Simulate OAuth flow (in production, this would redirect to GitHub)
-    const username = prompt('GitHub uživatelské jméno (pro demo):');
-    if (!username) return;
+    // Show GitHub login modal instead of prompt
+    const result = await this.showGitHubLoginModal();
+    if (!result || !result.username) return;
 
-    // Store username
-    localStorage.setItem('github_username', username);
+    // Store username and token
+    localStorage.setItem('github_username', result.username);
+    if (result.token) {
+      localStorage.setItem('github_token', result.token);
+    }
 
-    // Simulate getting token (in production, this would come from OAuth callback)
     eventBus.emit('toast:show', {
-      message: 'Připojeno jako @' + username + '. Nezapomeňte nastavit token pro API přístup.',
+      message: 'Připojeno jako @' + result.username + (result.token ? '' : '. Nezapomeňte nastavit token pro API přístup.'),
       type: 'success'
     });
 
     this.checkGitHubConnection();
+  }
+
+  // Show GitHub Login Modal
+  showGitHubLoginModal() {
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-content github-login-modal">
+          <div class="modal-header">
+            <h2>🔐 Přihlášení k GitHub</h2>
+            <button class="modal-close" aria-label="Zavřít">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p class="modal-description">
+              V produkční verzi by se zde otevřelo OAuth okno od GitHubu.
+              Pro demo zadejte své GitHub údaje:
+            </p>
+            <form id="githubLoginForm">
+              <div class="form-group">
+                <label for="githubUsername">GitHub uživatelské jméno</label>
+                <input
+                  type="text"
+                  id="githubUsername"
+                  placeholder="octocat"
+                  required
+                  autocomplete="username"
+                />
+              </div>
+              <div class="form-group">
+                <label for="githubToken">Personal Access Token (volitelné)</label>
+                <input
+                  type="password"
+                  id="githubToken"
+                  placeholder="ghp_xxxxxxxxxxxx"
+                  autocomplete="off"
+                />
+                <small>Pro API přístup. <a href="https://github.com/settings/tokens" target="_blank">Vytvořit token</a></small>
+              </div>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" data-action="cancel">Zrušit</button>
+                <button type="submit" class="btn btn-primary">Přihlásit</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+
+      const closeModal = (result = null) => {
+        modal.remove();
+        resolve(result);
+      };
+
+      // Close button
+      modal.querySelector('.modal-close').addEventListener('click', () => closeModal());
+      modal.querySelector('[data-action="cancel"]').addEventListener('click', () => closeModal());
+
+      // Close on backdrop click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+
+      // Close on ESC
+      const escHandler = (e) => {
+        if (e.key === 'Escape') {
+          closeModal();
+          document.removeEventListener('keydown', escHandler);
+        }
+      };
+      document.addEventListener('keydown', escHandler);
+
+      // Form submit
+      modal.querySelector('#githubLoginForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = modal.querySelector('#githubUsername').value.trim();
+        const token = modal.querySelector('#githubToken').value.trim();
+        if (username) {
+          closeModal({ username, token });
+        }
+      });
+
+      document.body.appendChild(modal);
+
+      // Focus first input
+      setTimeout(() => modal.querySelector('#githubUsername').focus(), 100);
+    });
   }
 
   // Repository Manager

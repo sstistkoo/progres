@@ -93,6 +93,10 @@ class App {
     // Search Panel
     this.searchPanel = new SearchPanel();
     console.log('✓ Search Panel initialized');
+
+    // Sidebar
+    this.sidebar = new Sidebar();
+    console.log('✓ Sidebar initialized');
   }
 
   setupEventListeners() {
@@ -112,6 +116,13 @@ class App {
     // Menu toggle
     eventBus.on('menu:toggle', () => {
       this.menuPanel.toggle();
+    });
+
+    // Sidebar toggle
+    eventBus.on('sidebar:toggle', () => {
+      if (this.sidebar) {
+        this.sidebar.toggle();
+      }
     });
 
     // State changes
