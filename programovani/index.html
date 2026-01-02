@@ -246,9 +246,30 @@
     </div>
 
     <!-- Main App Script (Module) -->
-    <script type="module" src="./src/core/app.js"></script>
+    <script type="module" src="./src/core/app.js" onerror="console.error('❌ Failed to load app.js')"></script>
+    <script>
+      // Fallback error handling for module loading
+      window.addEventListener('error', (e) => {
+        if (e.filename && e.filename.includes('.js')) {
+          console.error('❌ JavaScript load error:', e.filename, e.message);
+          document.body.insertAdjacentHTML('beforeend', 
+            `<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            padding: 20px; background: #f44336; color: white; border-radius: 8px; z-index: 99999;">
+            ⚠️ Chyba načítání: ${e.message}<br>Soubor: ${e.filename}</div>`
+          );
+        }
+      }, true);
+    </script>
 
     <script>
+      // Debug: Log script loading
+      console.log('📦 Inline script starting...');
+      
+      // Check if modules are supported
+      if (!('noModule' in HTMLScriptElement.prototype)) {
+        console.warn('⚠️ ES modules may not be supported in this browser');
+      }
+      
       // Wait for eventBus to be ready
       let eventBusReady = false;
       let pendingEvents = [];
