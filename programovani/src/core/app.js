@@ -1,21 +1,21 @@
 /**
  * Main Application Entry Point
  */
-import { state } from '@core/state.js';
-import { eventBus } from '@core/events.js';
-import config from '@core/config.js';
-import { registerDefaultShortcuts } from '@utils/shortcuts.js';
-import { ready } from '@utils/dom.js';
-import toast from '@ui/components/Toast.js';
+import { state } from './state.js';
+import { eventBus } from './events.js';
+import config from './config.js';
+import { registerDefaultShortcuts } from '../utils/shortcuts.js';
+import { ready } from '../utils/dom.js';
+import toast from '../ui/components/Toast.js';
 
 // Import modules
-import Editor from '@modules/editor/Editor.js';
-import Preview from '@modules/preview/Preview.js';
-import { AIPanel } from '@modules/ai/AIPanel.js';
-import { ShortcutsPanel } from '@modules/shortcuts/ShortcutsPanel.js';
-import { MenuPanel } from '@modules/menu/MenuPanel.js';
-import { SearchPanel } from '@modules/search/SearchPanel.js';
-import { SidePanel } from '@modules/panel/SidePanel.js';
+import Editor from '../modules/editor/Editor.js';
+import Preview from '../modules/preview/Preview.js';
+import { AIPanel } from '../modules/ai/AIPanel.js';
+import { ShortcutsPanel } from '../modules/shortcuts/ShortcutsPanel.js';
+import { MenuPanel } from '../modules/menu/MenuPanel.js';
+import { SearchPanel } from '../modules/search/SearchPanel.js';
+import { SidePanel } from '../modules/panel/SidePanel.js';
 
 class App {
   constructor() {
