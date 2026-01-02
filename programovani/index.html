@@ -264,7 +264,7 @@
     <script>
       // Debug: Log script loading
       console.log('📦 Inline script starting...');
-      
+
       // Clear localStorage on first load (for debugging)
       if (!sessionStorage.getItem('debugCleared')) {
         console.log('🗑️ Clearing localStorage for fresh start...');
@@ -276,7 +276,7 @@
       if (!('noModule' in HTMLScriptElement.prototype)) {
         console.warn('⚠️ ES modules may not be supported in this browser');
       }
-      
+
       // Debug DOM after app loads
       setTimeout(() => {
         console.log('🔍 Checking DOM elements...');
@@ -284,17 +284,17 @@
         const previewContainer = document.getElementById('previewContainer');
         const textarea = document.querySelector('.code-input');
         const iframe = document.querySelector('.preview-frame');
-        
+
         console.log('Editor container:', editorContainer);
         console.log('Preview container:', previewContainer);
         console.log('Textarea exists:', !!textarea);
         console.log('Iframe exists:', !!iframe);
-        
+
         if (textarea) {
           console.log('Textarea value length:', textarea.value.length);
           console.log('Textarea first 50 chars:', textarea.value.substring(0, 50));
         }
-        
+
         // Check computed styles
         const editorSection = document.querySelector('.editor-section');
         const previewSection = document.querySelector('.preview-section');
@@ -309,6 +309,48 @@
           console.log('Preview section display:', style.display);
           console.log('Preview section flex:', style.flex);
           console.log('Preview section height:', style.height);
+        }
+        
+        // Check wrapper and frame styles
+        const wrapper = document.querySelector('.editor-wrapper');
+        const frame = document.querySelector('.preview-frame');
+        if (wrapper) {
+          const style = window.getComputedStyle(wrapper);
+          console.log('🎨 Editor wrapper display:', style.display);
+          console.log('🎨 Editor wrapper width:', style.width);
+          console.log('🎨 Editor wrapper height:', style.height);
+          console.log('🎨 Editor wrapper background:', style.backgroundColor);
+        }
+        if (frame) {
+          const style = window.getComputedStyle(frame);
+          console.log('🎨 Preview frame display:', style.display);
+          console.log('🎨 Preview frame width:', style.width);
+          console.log('🎨 Preview frame height:', style.height);
+          console.log('🎨 Preview frame visibility:', style.visibility);
+          console.log('🎨 Preview frame opacity:', style.opacity);
+        }
+        
+        // Check main-content position
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+          const style = window.getComputedStyle(mainContent);
+          const rect = mainContent.getBoundingClientRect();
+          console.log('📐 Main content top:', rect.top);
+          console.log('📐 Main content height:', rect.height);
+          console.log('📐 Main content position:', style.position);
+          console.log('📐 Main content z-index:', style.zIndex);
+        }
+        
+        // Check if something is covering the content
+        const header = document.querySelector('.header');
+        const toolbar = document.querySelector('.toolbar');
+        if (header) {
+          const rect = header.getBoundingClientRect();
+          console.log('📐 Header height:', rect.height);
+        }
+        if (toolbar) {
+          const rect = toolbar.getBoundingClientRect();
+          console.log('📐 Toolbar height:', rect.height);
         }
       }, 2000);
 
