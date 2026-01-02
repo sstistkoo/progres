@@ -17,6 +17,14 @@ export class Editor {
       future: [],
       maxSize: 100,
     };
+    
+    // Store bound handlers for cleanup
+    this.handlers = {
+      input: null,
+      scroll: null,
+      keydown: null,
+      selectionchange: null,
+    };
 
     this.init();
     this.setupEventListeners();
@@ -53,27 +61,31 @@ export class Editor {
 
   setupEventListeners() {
     // Input changes
-    this.textarea.addEventListener('input', debounce(() => {
+    this.handlers.input = debounce(() => {
       this.handleInput();
-    }, 300));
+    }, 300);
+    this.textarea.addEventListener('input', this.handlers.input);
 
     // Scroll sync
-    this.textarea.addEventListener('scroll', () => {
+    this.handlers.scroll = () => {
       this.lineNumbers.scrollTop = this.textarea.scrollTop;
-    });
+    };
+    this.textarea.addEventListener('scroll', this.handlers.scroll);
 
     // Tab key handling
-    this.textarea.addEventListener('keydown', e => {
+    this.handlers.keydown = (e) => {
       if (e.key === 'Tab') {
         e.preventDefault();
         this.insertTab();
       }
-    });
+    };
+    this.textarea.addEventListener('keydown', this.handlers.keydown);
 
     // Cursor position tracking
-    this.textarea.addEventListener('selectionchange', () => {
+    this.handlers.selectionchange = () => {
       this.updateCursorPosition();
-    });
+    };
+    this.textarea.addEventListener('selectionchange', this.handlers.selectionchange);
 
     // State changes
     state.subscribe('editor.code', code => {
@@ -238,10 +250,32 @@ export class Editor {
   }
 
   destroy() {
-    // Clean up
+    // Remove event listeners
+    if (this.textarea) {
+      if (this.handlers.input) {
+        this.textarea.removeEventListener('input', this.handlers.input);
+      }
+      if (this.handlers.scroll) {
+        this.textarea.removeEventListener('scroll', this.handlers.scroll);
+      }
+      if (this.handlers.keydown) {
+        this.textarea.removeEventListener('keydown', this.handlers.keydown);
+      }
+      if (this.handlers.selectionchange) {
+        this.textarea.removeEventListener('selectionchange', this.handlers.selectionchange);
+      }
+    }
+    
+    // Clean up DOM
     if (this.wrapper && this.wrapper.parentNode) {
       this.wrapper.parentNode.removeChild(this.wrapper);
     }
+    
+    // Clear references
+    this.textarea = null;
+    this.lineNumbers = null;
+    this.wrapper = null;
+    this.handlers = null;
   }
 }
 
