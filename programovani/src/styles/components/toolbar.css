@@ -63,11 +63,44 @@
 }
 
 @media (max-width: 768px) {
+  .toolbar {
+    padding: 6px 8px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
   .toolbar-btn span {
     display: none;
   }
 
   .toolbar-btn {
     padding: 8px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .toolbar-group {
+    gap: 2px;
+    padding: 0 4px;
+  }
+
+  /* Skrýt některé skupiny na velmi malých obrazovkách */
+  @media (max-width: 480px) {
+    .toolbar-group:nth-child(2) {
+      display: none; /* Format, Validate, Minify */
+    }
+    
+    /* Zmenšit další skupiny */
+    .toolbar-group:nth-child(3) {
+      padding: 0 2px;
+    }
+  }
+  
+  /* Na velmi malých displejích (<400px) skrýt i undo/redo */
+  @media (max-width: 400px) {
+    .toolbar-group:nth-child(3) {
+      display: none; /* Undo/Redo */
+    }
   }
 }

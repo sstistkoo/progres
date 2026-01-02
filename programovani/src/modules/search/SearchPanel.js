@@ -101,10 +101,34 @@ export class SearchPanel {
         </div>
 
         <div class="search-actions">
-          <button class="search-btn primary" id="findBtn">Hledat</button>
-          <button class="search-btn" id="replaceBtn">Nahradit</button>
-          <button class="search-btn" id="replaceAllBtn">Nahradit vše</button>
-          <button class="search-btn secondary" id="clearBtn">Vymazat</button>
+          <button class="search-btn search-btn-primary" id="findBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+            </svg>
+            Hledat
+          </button>
+          <button class="search-btn search-btn-secondary" id="replaceBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Nahradit
+          </button>
+          <button class="search-btn search-btn-secondary" id="replaceAllBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              <circle cx="19" cy="5" r="2" fill="currentColor"/>
+            </svg>
+            Nahradit vše
+          </button>
+          <button class="search-btn search-btn-clear" id="clearBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+            Vymazat
+          </button>
         </div>
       </div>
     `;
@@ -224,8 +248,9 @@ export class SearchPanel {
   replaceNext() {
     const searchInput = this.modal.element.querySelector('#searchInput');
     const replaceInput = this.modal.element.querySelector('#replaceInput');
+    const resultsDiv = this.modal.element.querySelector('#searchResults');
 
-    if (!searchInput || !replaceInput) return;
+    if (!searchInput || !replaceInput || !resultsDiv) return;
 
     const searchText = searchInput.value.trim();
     const replaceText = replaceInput.value;
@@ -236,15 +261,24 @@ export class SearchPanel {
     }
 
     const code = state.get('editor.code') || '';
-    const newCode = code.replace(searchText, replaceText);
+    
+    // Use first occurrence
+    const index = code.indexOf(searchText);
+    if (index === -1) {
+      eventBus.emit('toast:show', { message: '❌ Text nenalezen', type: 'warning' });
+      resultsDiv.innerHTML = `<div class=\"search-results-empty\">❌ Text \"${this.escapeHtml(searchText)}\" nenalezen</div>`;
+      return;
+    }
+
+    const newCode = code.substring(0, index) + replaceText + code.substring(index + searchText.length);
 
     if (newCode !== code) {
       state.set('editor.code', newCode);
-      eventBus.emit('editor:setContent', { content: newCode });
-      eventBus.emit('toast:show', { message: 'Text nahrazen', type: 'success' });
-      this.performSearch(); // Update results
-    } else {
-      eventBus.emit('toast:show', { message: 'Text nenalezen', type: 'warning' });
+      eventBus.emit('editor:setCode', { content: newCode });
+      eventBus.emit('toast:show', { message: '✅ Text nahrazen', type: 'success' });
+      
+      // Update results
+      setTimeout(() => this.performSearch(), 100);
     }
   }
 
@@ -253,8 +287,9 @@ export class SearchPanel {
     const replaceInput = this.modal.element.querySelector('#replaceInput');
     const caseSensitive = this.modal.element.querySelector('#caseSensitive');
     const useRegex = this.modal.element.querySelector('#useRegex');
+    const resultsDiv = this.modal.element.querySelector('#searchResults');
 
-    if (!searchInput || !replaceInput) return;
+    if (!searchInput || !replaceInput || !resultsDiv) return;
 
     const searchText = searchInput.value.trim();
     const replaceText = replaceInput.value;
@@ -283,20 +318,26 @@ export class SearchPanel {
       if (count > 0) {
         const newCode = code.replace(pattern, replaceText);
         state.set('editor.code', newCode);
-        eventBus.emit('editor:setContent', { content: newCode });
+        eventBus.emit('editor:setCode', { content: newCode });
         eventBus.emit('toast:show', {
-          message: `Nahrazeno ${count} výskytů`,
+          message: `✅ Nahrazeno ${count} výskytů`,
           type: 'success'
         });
-        this.performSearch(); // Update results
+        
+        // Update results with success message
+        setTimeout(() => {
+          resultsDiv.innerHTML = `<div class=\"search-results-empty\">✅ Nahrazeno ${count} výskytů textu \"${this.escapeHtml(searchText)}\"</div>`;
+        }, 100);
       } else {
-        eventBus.emit('toast:show', { message: 'Text nenalezen', type: 'warning' });
+        eventBus.emit('toast:show', { message: '❌ Text nenalezen', type: 'warning' });
+        resultsDiv.innerHTML = `<div class=\"search-results-empty\">❌ Text \"${this.escapeHtml(searchText)}\" nenalezen</div>`;
       }
     } catch (error) {
       eventBus.emit('toast:show', {
         message: `Chyba: ${error.message}`,
         type: 'error'
       });
+      resultsDiv.innerHTML = `<div class=\"search-results-error\">❌ Chyba: ${this.escapeHtml(error.message)}</div>`;
     }
   }
 
