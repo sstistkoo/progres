@@ -261,7 +261,7 @@ export class SearchPanel {
     }
 
     const code = state.get('editor.code') || '';
-    
+
     // Use first occurrence
     const index = code.indexOf(searchText);
     if (index === -1) {
@@ -276,7 +276,7 @@ export class SearchPanel {
       state.set('editor.code', newCode);
       eventBus.emit('editor:setCode', { content: newCode });
       eventBus.emit('toast:show', { message: '✅ Text nahrazen', type: 'success' });
-      
+
       // Update results
       setTimeout(() => this.performSearch(), 100);
     }
@@ -323,7 +323,7 @@ export class SearchPanel {
           message: `✅ Nahrazeno ${count} výskytů`,
           type: 'success'
         });
-        
+
         // Update results with success message
         setTimeout(() => {
           resultsDiv.innerHTML = `<div class=\"search-results-empty\">✅ Nahrazeno ${count} výskytů textu \"${this.escapeHtml(searchText)}\"</div>`;
