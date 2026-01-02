@@ -12,7 +12,26 @@ export class AppState {
   getInitialState() {
     return {
       editor: {
-        code: '',
+        code: `<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dokument</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Hello World!</h1>
+  <p>Začni psát svůj kód zde...</p>
+</body>
+</html>`,
         language: 'html',
         cursor: { line: 0, col: 0 },
         selection: null,
@@ -25,7 +44,7 @@ export class AppState {
       },
       ui: {
         theme: 'dark',
-        view: 'preview', // 'split', 'editor', 'preview' - default to preview
+        view: 'split', // 'split', 'editor', 'preview' - default to split
         splitRatio: 50,
         toolsPanelOpen: false,
         toolsPanelWidth: 300,
