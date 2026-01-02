@@ -264,11 +264,53 @@
     <script>
       // Debug: Log script loading
       console.log('📦 Inline script starting...');
+      
+      // Clear localStorage on first load (for debugging)
+      if (!sessionStorage.getItem('debugCleared')) {
+        console.log('🗑️ Clearing localStorage for fresh start...');
+        localStorage.clear();
+        sessionStorage.setItem('debugCleared', 'true');
+      }
 
       // Check if modules are supported
       if (!('noModule' in HTMLScriptElement.prototype)) {
         console.warn('⚠️ ES modules may not be supported in this browser');
       }
+      
+      // Debug DOM after app loads
+      setTimeout(() => {
+        console.log('🔍 Checking DOM elements...');
+        const editorContainer = document.getElementById('editorContainer');
+        const previewContainer = document.getElementById('previewContainer');
+        const textarea = document.querySelector('.code-input');
+        const iframe = document.querySelector('.preview-frame');
+        
+        console.log('Editor container:', editorContainer);
+        console.log('Preview container:', previewContainer);
+        console.log('Textarea exists:', !!textarea);
+        console.log('Iframe exists:', !!iframe);
+        
+        if (textarea) {
+          console.log('Textarea value length:', textarea.value.length);
+          console.log('Textarea first 50 chars:', textarea.value.substring(0, 50));
+        }
+        
+        // Check computed styles
+        const editorSection = document.querySelector('.editor-section');
+        const previewSection = document.querySelector('.preview-section');
+        if (editorSection) {
+          const style = window.getComputedStyle(editorSection);
+          console.log('Editor section display:', style.display);
+          console.log('Editor section flex:', style.flex);
+          console.log('Editor section height:', style.height);
+        }
+        if (previewSection) {
+          const style = window.getComputedStyle(previewSection);
+          console.log('Preview section display:', style.display);
+          console.log('Preview section flex:', style.flex);
+          console.log('Preview section height:', style.height);
+        }
+      }, 2000);
 
       // Wait for eventBus to be ready
       let eventBusReady = false;
