@@ -111,6 +111,12 @@ export class AIPanel {
                 rows="3"
               ></textarea>
               <div class="ai-chat-buttons">
+                <button class="ai-send-btn" id="aiSendBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                  </svg>
+                  <span>Odeslat</span>
+                </button>
                 <button class="ai-orchestrator-btn" id="aiOrchestratorBtn" title="Orchestrator zpracuje zadání a rozdělí úkoly mezi agenty">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 2L2 7l10 5 10-5-10-5z"/>
@@ -118,11 +124,6 @@ export class AIPanel {
                     <path d="M2 12l10 5 10-5"/>
                   </svg>
                   <span>Orchestrator</span>
-                </button>
-                <button class="ai-send-btn" id="aiSendBtn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-                  </svg>
                 </button>
               </div>
             </div>
