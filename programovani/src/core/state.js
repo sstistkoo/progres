@@ -37,10 +37,37 @@ export class AppState {
         selection: null,
       },
       files: {
-        active: null,
-        tabs: [],
+        active: 1,
+        tabs: [
+          {
+            id: 1,
+            name: 'index.html',
+            content: `<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dokument</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Hello World!</h1>
+  <p>Začni psát svůj kód zde...</p>
+</body>
+</html>`,
+            modified: false,
+            type: 'html'
+          }
+        ],
         tree: {},
-        nextId: 1,
+        nextId: 2,
       },
       ui: {
         theme: 'dark',
