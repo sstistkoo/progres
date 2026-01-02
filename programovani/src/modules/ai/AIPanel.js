@@ -40,7 +40,17 @@ export class AIPanel {
     const content = this.createAIInterface();
 
     this.modal = new Modal({
-      title: '🤖 AI Asistent',
+      title: `<div class="modal-title-wrapper">
+        <span class="modal-title-text">📝 AI Kod</span>
+        <select class="ai-tab-select-header" id="aiTabSelectHeader">
+          <option value="chat" selected>💬 Chat</option>
+          <option value="agents">🤖 Agenti</option>
+          <option value="editor">📝 Kód</option>
+          <option value="actions">⚡ Akce</option>
+          <option value="prompts">📝 Prompty</option>
+          <option value="github">🔗 GitHub</option>
+        </select>
+      </div>`,
       content,
       className: 'ai-modal',
       size: 'large',
@@ -57,16 +67,6 @@ export class AIPanel {
   createAIInterface() {
     return `
       <div class="ai-panel">
-        <!-- Tab Selector -->
-        <select class="ai-tab-select" id="aiTabSelect">
-          <option value="chat" selected>💬 Chat</option>
-          <option value="agents">🤖 Agenti</option>
-          <option value="editor">📝 Kód</option>
-          <option value="actions">⚡ Akce</option>
-          <option value="prompts">📝 Prompty</option>
-          <option value="github">🔗 GitHub</option>
-        </select>
-
         <!-- Chat Tab -->
         <div class="ai-tab-content active" data-content="chat">
           <!-- AI Provider Selection - Collapsible -->
@@ -350,8 +350,8 @@ export class AIPanel {
   }
 
   attachEventHandlers() {
-    // Tab Select Dropdown
-    const tabSelect = this.modal.element.querySelector('#aiTabSelect');
+    // Tab Select Dropdown in Header
+    const tabSelect = this.modal.element.querySelector('#aiTabSelectHeader');
     const tabContents = this.modal.element.querySelectorAll('.ai-tab-content');
 
     if (tabSelect) {
