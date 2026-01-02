@@ -256,7 +256,7 @@ class App {
       this.editor.setCode(code);
       this.editor.focus();
     }
-    
+
     // Update preview
     if (this.preview) {
       this.preview.update(code);
