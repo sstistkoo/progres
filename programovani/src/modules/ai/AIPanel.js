@@ -107,11 +107,21 @@ export class AIPanel {
                 placeholder="Napiš zprávu... (Shift+Enter pro nový řádek)"
                 rows="3"
               ></textarea>
-              <button class="ai-send-btn" id="aiSendBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-                </svg>
-              </button>
+              <div class="ai-chat-buttons">
+                <button class="ai-orchestrator-btn" id="aiOrchestratorBtn" title="Orchestrator zpracuje zadání a rozdělí úkoly mezi agenty">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                  </svg>
+                  <span>Orchestrator</span>
+                </button>
+                <button class="ai-send-btn" id="aiSendBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -384,6 +394,19 @@ export class AIPanel {
       };
 
       sendBtn.addEventListener('click', sendMessage);
+
+      // Orchestrator button
+      const orchestratorBtn = this.modal.element.querySelector('#aiOrchestratorBtn');
+      if (orchestratorBtn) {
+        orchestratorBtn.addEventListener('click', () => {
+          const message = chatInput.value.trim();
+          if (message) {
+            this.sendToOrchestrator(message);
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+          }
+        });
+      }
 
       chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -868,7 +891,10 @@ ${hasCode && hasHistory ?
     const currentCode = this.originalCode || '';
     const hasExistingContent = currentCode.trim().length > 0;
 
-    if (isModification) {
+    // Check if there's chat history - if yes, it's likely a modification
+    const hasHistory = this.chatHistory && this.chatHistory.length > 1;
+
+    if (isModification || hasHistory) {
       // This is a modification of existing project
       console.log('✏️ Úprava existujícího projektu - aktualizuji editor');
     } else if (isCompleteProject && hasExistingContent) {
@@ -893,8 +919,9 @@ ${hasCode && hasHistory ?
       }
     }
 
-    // Show toast
-    const toastMsg = isCompleteProject ? '✅ Nový projekt vytvořen' : '✅ Kód vložen do editoru';
+    // Show toast - jen pokud není historie (nový projekt)
+    const hasHistory = this.chatHistory && this.chatHistory.length > 1;
+    const toastMsg = (!hasHistory && isCompleteProject) ? '✅ Nový projekt vytvořen' : '✅ Kód aktualizován';
     if (window.innerWidth <= 768) {
       toast.show(toastMsg + ' - Přepnuto na editor', 'success');
     } else {
@@ -2501,6 +2528,96 @@ ${hasCode && hasHistory ?
 
     // Scroll to bottom
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  async sendToOrchestrator(message) {
+    // Add user message to chat
+    this.addChatMessage('user', message);
+
+    // Show thinking message
+    const thinkingId = 'orchestrator-thinking-' + Date.now();
+    this.addChatMessage('ai', '🎭 Orchestrator připravuje úkoly pro agenty...', thinkingId);
+
+    try {
+      // Get current code for context
+      const currentCode = state.get('editor.code') || '';
+
+      // Build orchestrator prompt
+      const orchestratorPrompt = `Jsi Orchestrator - řídící AI agent, který analyzuje požadavky uživatele a vytváří detailní task list pro ostatní specializované agenty.
+
+TVŮJ ÚKOL:
+Uživatelský požadavek: "${message}"
+
+Aktuální stav projektu:
+${currentCode ? `Projekt existuje (${currentCode.length} znaků)` : 'Prázdný editor - nový projekt'}
+
+ANALYZUJ požadavek a rozděl ho na konkrétní úkoly pro tyto agenty:
+1. HTML Agent - struktura, značky, sémantika
+2. CSS Agent - design, layout, responsivita
+3. JavaScript Agent - interaktivita, logika, funkce
+
+ODPOVĚZ VE FORMÁTU:
+📋 **Analýza požadavku:**
+[Krátká analýza co uživatel chce]
+
+🎯 **Plán úkolů:**
+
+**HTML Agent:**
+- [konkrétní úkol 1]
+- [konkrétní úkol 2]
+
+**CSS Agent:**
+- [konkrétní úkol 1]
+- [konkrétní úkol 2]
+
+**JavaScript Agent:**
+- [konkrétní úkol 1]
+- [konkrétní úkol 2]
+
+**Výsledek:**
+\`\`\`html
+[zde vlož KOMPLETNÍ fungující kód s UNIKÁTNÍMI názvy proměnných]
+\`\`\`
+
+⚠️ KRITICKÉ PRAVIDLO: KAŽDÁ PROMĚNNÁ MUSÍ MÍT UNIKÁTNÍ NÁZEV!`;
+
+      // Call AI with orchestrator prompt
+      const bestModel = window.AI.selectBestModel();
+      const response = await window.AI.chat(orchestratorPrompt, {
+        provider: bestModel.provider,
+        model: bestModel.model,
+        temperature: 0.7,
+        max_tokens: 2000
+      });
+
+      // Remove thinking message
+      const thinkingEl = this.modal.element.querySelector(`[data-message-id="${thinkingId}"]`);
+      if (thinkingEl) thinkingEl.remove();
+
+      // Add orchestrator response
+      this.addChatMessage('ai', response);
+
+      // Add to history
+      this.chatHistory.push({
+        role: 'assistant',
+        content: response
+      });
+
+      // Update history counter
+      this.updateHistoryInfo();
+
+      // Extract code if present
+      this.extractAndApplyCode(response, false);
+
+    } catch (error) {
+      console.error('Orchestrator error:', error);
+      
+      // Remove thinking message
+      const thinkingEl = this.modal.element.querySelector(`[data-message-id="${thinkingId}"]`);
+      if (thinkingEl) thinkingEl.remove();
+
+      this.addChatMessage('ai', `❌ Chyba Orchestratora: ${error.message}`);
+    }
   }
 
   async sendToCurrentAgent(message) {
