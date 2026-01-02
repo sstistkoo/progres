@@ -36,7 +36,7 @@ export class Modal {
       const closeBtn = createElement('button', {
         className: 'modal-close-btn',
         onClick: () => this.close(),
-        innerHTML: '×'
+        innerHTML: '✕'
       });
       header.appendChild(title);
       header.appendChild(closeBtn);
