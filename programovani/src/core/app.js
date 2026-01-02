@@ -254,6 +254,12 @@ class App {
     state.set('editor.code', code);
     if (this.editor) {
       this.editor.setCode(code);
+      this.editor.focus();
+    }
+    
+    // Update preview
+    if (this.preview) {
+      this.preview.update(code);
     }
 
     toast.success('Nový soubor vytvořen', 2000);
