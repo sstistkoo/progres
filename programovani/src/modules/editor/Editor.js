@@ -17,7 +17,7 @@ export class Editor {
       future: [],
       maxSize: 100,
     };
-    
+
     // Store bound handlers for cleanup
     this.handlers = {
       input: null,
@@ -265,12 +265,12 @@ export class Editor {
         this.textarea.removeEventListener('selectionchange', this.handlers.selectionchange);
       }
     }
-    
+
     // Clean up DOM
     if (this.wrapper && this.wrapper.parentNode) {
       this.wrapper.parentNode.removeChild(this.wrapper);
     }
-    
+
     // Clear references
     this.textarea = null;
     this.lineNumbers = null;
