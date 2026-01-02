@@ -401,6 +401,12 @@ export class AIPanel {
     // Check token on load
     this.checkGitHubConnection();
 
+    // New project button
+    const newProjectBtn = this.modal.element.querySelector('#aiNewProjectBtn');
+    if (newProjectBtn) {
+      newProjectBtn.addEventListener('click', () => this.startNewProject());
+    }
+
     // AI Agents handlers
     this.attachAgentsHandlers();
 
@@ -603,7 +609,7 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
         // Store pending change
         const changeId = `change-${Date.now()}-${index}`;
         const isNewProject = this.detectNewProject(originalMessage, block.code);
-        
+
         this.pendingChanges.set(changeId, {
           code: block.code,
           isNewProject: isNewProject,
@@ -638,56 +644,24 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
         actionsContainer.appendChild(acceptBtn);
         actionsContainer.appendChild(rejectBtn);
 
-        // Auto-apply after 2 seconds (with countdown)
-        this.startAutoApplyCountdown(changeId, actionsContainer, isNewProject);
+        // No auto-apply - user must choose
       }
     });
 
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
-  startAutoApplyCountdown(changeId, actionsContainer, isNewProject) {
-    const countdownEl = document.createElement('span');
-    countdownEl.className = 'auto-apply-countdown';
-    countdownEl.textContent = 'Automaticky za 5s...';
-    actionsContainer.appendChild(countdownEl);
-
-    let seconds = 5;
-    const countdownInterval = setInterval(() => {
-      seconds--;
-      if (seconds > 0) {
-        countdownEl.textContent = `Automaticky za ${seconds}s...`;
-      } else {
-        clearInterval(countdownInterval);
-        // Auto-accept if still pending
-        if (this.pendingChanges.has(changeId)) {
-          this.acceptChange(changeId, actionsContainer, true);
-        }
-      }
-    }, 1000);
-
-    // Store interval for cleanup
-    const change = this.pendingChanges.get(changeId);
-    if (change) {
-      change.countdownInterval = countdownInterval;
-    }
-  }
-
   acceptChange(changeId, actionsContainer, isAuto = false) {
     const change = this.pendingChanges.get(changeId);
     if (!change) return;
 
-    // Clear countdown
+    // Clear countdown if exists
     if (change.countdownInterval) {
       clearInterval(change.countdownInterval);
     }
 
-    // Apply the change
-    if (change.isNewProject) {
-      this.createNewFileWithCode(change.code);
-    } else {
-      this.insertCodeToEditor(change.code);
-    }
+    // Always update current editor (don't create new files)
+    this.insertCodeToEditor(change.code);
 
     // Update UI
     actionsContainer.innerHTML = `
@@ -695,7 +669,7 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
         <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
           <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
         </svg>
-        ${isAuto ? 'Automaticky aplikováno' : 'Změna potvrzena'}
+        Změna potvrzena
       </span>
     `;
 
@@ -736,13 +710,13 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
     // Keywords that indicate user wants a new project
     const newProjectKeywords = ['udělej', 'vytvoř', 'vygeneruj', 'nový', 'kalkulačk', 'formulář', 'stránk', 'web', 'app'];
     const messageLower = userMessage.toLowerCase();
-    
+
     // Check if message contains new project keywords
     const hasKeyword = newProjectKeywords.some(kw => messageLower.includes(kw));
-    
+
     // Check if code is a complete HTML document
     const isCompleteDoc = code.includes('<!DOCTYPE') && code.includes('<html') && code.includes('</html>');
-    
+
     return hasKeyword && isCompleteDoc;
   }
 
@@ -754,15 +728,108 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
   insertCodeToEditor(code) {
     // Store original code for undo
     this.originalCode = state.get('editor.code');
-    
+
     // Insert to current editor
     state.set('editor.code', code);
     eventBus.emit('editor:setCode', { code });
-    
+
     // Show toast
     const toast = document.querySelector('.toast');
     if (toast) {
       toast.textContent = '✅ Kód vložen do editoru';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+  }
+
+  startNewProject() {
+    // Get all open files
+    const tabs = state.get('files.tabs') || [];
+    
+    if (tabs.length === 0) {
+      // No project to save, just reset
+      this.resetToNewProject();
+      return;
+    }
+
+    // Confirm if user wants to save current project
+    const confirmSave = confirm('Chcete uložit a stáhnout aktuální projekt před začátkem nového?');
+    
+    if (confirmSave) {
+      // Download all files as ZIP would be ideal, but for now download active file
+      const activeFileId = state.get('files.active');
+      const activeFile = tabs.find(f => f.id === activeFileId);
+      
+      if (activeFile) {
+        // Download the active file
+        const blob = new Blob([activeFile.content], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = activeFile.name;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      
+      // If multiple files, notify user
+      if (tabs.length > 1) {
+        alert(`Uložen hlavní soubor. Máte ${tabs.length} otevřených souborů. Pro kompletní zálohu použijte GitHub nebo manuální export.`);
+      }
+    }
+    
+    // Reset to new project
+    this.resetToNewProject();
+  }
+
+  resetToNewProject() {
+    // Clear all files
+    state.set('files.tabs', []);
+    state.set('files.active', null);
+    state.set('files.nextId', 1);
+    
+    // Clear editor
+    const defaultCode = `<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nový projekt</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Nový projekt</h1>
+  <p>Začněte psát svůj kód zde...</p>
+</body>
+</html>`;
+    
+    state.set('editor.code', defaultCode);
+    eventBus.emit('editor:setCode', { code: defaultCode });
+    
+    // Clear chat history
+    this.chatHistory = [];
+    const messagesContainer = this.modal?.element?.querySelector('#aiChatMessages');
+    if (messagesContainer) {
+      messagesContainer.innerHTML = `
+        <div class="ai-message system">
+          <p>🎉 Nový projekt vytvořen! Můžu ti pomoct s kódem, vysvětlit koncepty, nebo vytvořit šablony. Co potřebuješ?</p>
+        </div>
+      `;
+    }
+    
+    // Update files list in sidebar
+    eventBus.emit('files:changed');
+    
+    // Show success message
+    const toast = document.querySelector('.toast');
+    if (toast) {
+      toast.textContent = '🎉 Nový projekt vytvořen!';
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 2000);
     }

@@ -165,7 +165,7 @@ class App {
     eventBus.on('file:open', ({ fileId }) => this.openFile(fileId));
     eventBus.on('file:delete', ({ fileId }) => this.deleteFile(fileId));
     eventBus.on('file:createWithCode', ({ code }) => this.createFileWithCode(code));
-    
+
     // Editor actions
     eventBus.on('editor:setCode', ({ code }) => {
       if (this.editor) {
@@ -426,7 +426,7 @@ class App {
     // Extract title from code if possible
     const titleMatch = code.match(/<title>(.*?)<\/title>/i);
     let fileName = 'novy-soubor.html';
-    
+
     if (titleMatch && titleMatch[1]) {
       // Convert title to filename
       fileName = titleMatch[1]
