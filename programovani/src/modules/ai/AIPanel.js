@@ -909,18 +909,23 @@ ${hasCode && hasHistory ?
     state.set('editor.code', code);
     eventBus.emit('editor:setCode', { code });
 
-    // Na mobilu přepnout na editor view aby uživatel viděl vložený kód
+    // Na mobilu - zavřít modal a ukázat preview
     if (window.innerWidth <= 768) {
+      // Zavřít AI modal
+      if (this.modal) {
+        this.modal.close();
+      }
+      
+      // Přepnout na preview aby uživatel viděl výsledek
       const app = document.querySelector('.app');
-      if (app && !app.classList.contains('view-editor')) {
+      if (app) {
         setTimeout(() => {
-          eventBus.emit('view:change', { view: 'editor' });
-        }, 100);
+          eventBus.emit('view:change', { view: 'preview' });
+        }, 150);
       }
     }
 
     // Show toast - jen pokud není historie (nový projekt)
-    const hasHistory = this.chatHistory && this.chatHistory.length > 1;
     const toastMsg = (!hasHistory && isCompleteProject) ? '✅ Nový projekt vytvořen' : '✅ Kód aktualizován';
     if (window.innerWidth <= 768) {
       toast.show(toastMsg + ' - Přepnuto na editor', 'success');
