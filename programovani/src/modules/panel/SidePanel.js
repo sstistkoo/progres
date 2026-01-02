@@ -15,6 +15,7 @@ export class SidePanel {
   show() {
     if (this.panel) {
       this.panel.classList.add('show');
+      document.body.classList.add('sidebar-open');
       this.isVisible = true;
       return;
     }
@@ -25,6 +26,7 @@ export class SidePanel {
   hide() {
     if (this.panel) {
       this.panel.classList.remove('show');
+      document.body.classList.remove('sidebar-open');
       this.isVisible = false;
     }
   }
@@ -104,6 +106,7 @@ export class SidePanel {
     document.body.appendChild(this.panel);
     setTimeout(() => {
       this.panel.classList.add('show');
+      document.body.classList.add('sidebar-open');
       this.isVisible = true;
     }, 10);
   }
