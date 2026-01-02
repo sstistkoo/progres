@@ -3,6 +3,7 @@
  */
 
 import { eventBus } from '@core/events.js';
+import { state } from '@core/state.js';
 import toast from '@ui/components/Toast.js';
 
 export class SidePanel {
@@ -61,8 +62,8 @@ export class SidePanel {
             </svg>
             Otevřené soubory
           </h3>
-          <div id="panelFilesList" style="background: var(--bg-secondary); border-radius: 8px; padding: 12px;">
-            <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">Žádné otevřené soubory</p>
+          <div id="panelFilesList" style="background: var(--bg-secondary); border-radius: 8px; padding: 8px; max-height: 300px; overflow-y: auto;">
+            ${this.renderFilesList()}
           </div>
           <div style="margin-top: 12px; display: flex; gap: 8px;">
             <button class="btn btn-secondary" data-action="newFile" style="flex: 1; padding: 10px; border: none; border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; min-height: 44px;">
@@ -109,6 +110,114 @@ export class SidePanel {
       document.body.classList.add('sidebar-open');
       this.isVisible = true;
     }, 10);
+
+    // Subscribe to file changes
+    this.setupFileListeners();
+  }
+
+  renderFilesList() {
+    const tabs = state.get('files.tabs') || [];
+    const activeId = state.get('files.active');
+
+    if (tabs.length === 0) {
+      return '<p style="color: var(--text-secondary); font-size: 14px; margin: 0; padding: 4px;">Žádné otevřené soubory</p>';
+    }
+
+    return tabs.map(tab => {
+      const isActive = tab.id === activeId;
+      return `
+        <div class="file-item ${isActive ? 'active' : ''}" data-file-id="${tab.id}" style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 12px;
+          margin: 4px 0;
+          border-radius: 6px;
+          cursor: pointer;
+          background: ${isActive ? 'var(--primary)' : 'transparent'};
+          color: ${isActive ? 'white' : 'var(--text-primary)'};
+          transition: background 0.2s;
+        " onmouseover="if(!this.classList.contains('active')) this.style.background='var(--bg-tertiary)'" onmouseout="if(!this.classList.contains('active')) this.style.background='transparent'">
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; flex-shrink: 0;">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+              <path d="M13 2v7h7"/>
+            </svg>
+            <span style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${tab.name}">
+              ${tab.name}${tab.modified ? ' •' : ''}
+            </span>
+          </div>
+          <button class="file-delete-btn" data-file-id="${tab.id}" style="
+            background: transparent;
+            border: none;
+            color: ${isActive ? 'white' : 'var(--text-secondary)'};
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            opacity: 0.7;
+            transition: opacity 0.2s, background 0.2s;
+            flex-shrink: 0;
+          " onmouseover="this.style.opacity='1'; this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.opacity='0.7'; this.style.background='transparent'" title="Smazat soubor">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  updateFilesList() {
+    const filesListEl = this.panel?.querySelector('#panelFilesList');
+    if (filesListEl) {
+      filesListEl.innerHTML = this.renderFilesList();
+      this.attachFileItemEvents();
+    }
+  }
+
+  setupFileListeners() {
+    // Listen for file changes
+    eventBus.on('files:changed', () => {
+      this.updateFilesList();
+    });
+
+    // Subscribe to state changes
+    state.subscribe('files.tabs', () => {
+      this.updateFilesList();
+    });
+
+    state.subscribe('files.active', () => {
+      this.updateFilesList();
+    });
+
+    this.attachFileItemEvents();
+  }
+
+  attachFileItemEvents() {
+    if (!this.panel) return;
+
+    // File item clicks (switch file)
+    this.panel.querySelectorAll('.file-item').forEach(item => {
+      const fileId = parseInt(item.dataset.fileId);
+      item.addEventListener('click', (e) => {
+        // Don't trigger if clicking delete button
+        if (e.target.closest('.file-delete-btn')) return;
+        
+        eventBus.emit('file:open', { fileId });
+      });
+    });
+
+    // Delete button clicks
+    this.panel.querySelectorAll('.file-delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const fileId = parseInt(btn.dataset.fileId);
+        eventBus.emit('file:delete', { fileId });
+      });
+    });
   }
 
   attachEvents() {

@@ -158,6 +158,12 @@ class App {
     eventBus.on('console:toggle', () => this.toggleConsole());
     eventBus.on('console:clear', () => this.clearConsole());
     eventBus.on('preview:refresh', () => this.refreshPreview());
+
+    // File management
+    eventBus.on('file:new', () => this.newTab());
+    eventBus.on('file:save', () => this.saveFile());
+    eventBus.on('file:open', ({ fileId }) => this.openFile(fileId));
+    eventBus.on('file:delete', ({ fileId }) => this.deleteFile(fileId));
   }
 
   setupConsoleListener() {
@@ -293,6 +299,22 @@ class App {
 </body>
 </html>`;
 
+    // Create new tab
+    const tabs = state.get('files.tabs') || [];
+    const nextId = state.get('files.nextId') || 1;
+    const newTab = {
+      id: nextId,
+      name: `dokument-${nextId}.html`,
+      content: code,
+      modified: false,
+      type: 'html'
+    };
+
+    tabs.push(newTab);
+    state.set('files.tabs', tabs);
+    state.set('files.nextId', nextId + 1);
+    state.set('files.active', nextId);
+
     // Set new content
     state.set('editor.code', code);
     if (this.editor) {
@@ -304,6 +326,9 @@ class App {
     if (this.preview) {
       this.preview.update(code);
     }
+
+    // Update file list in sidebar
+    eventBus.emit('files:changed');
 
     toast.success('Nový soubor vytvořen', 2000);
   }
@@ -318,6 +343,72 @@ class App {
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Soubor stažen', 2000);
+  }
+
+  openFile(fileId) {
+    const tabs = state.get('files.tabs') || [];
+    const tab = tabs.find(t => t.id === fileId);
+    
+    if (!tab) {
+      toast.error('Soubor nenalezen', 2000);
+      return;
+    }
+
+    // Set as active file
+    state.set('files.active', fileId);
+
+    // Load content to editor
+    state.set('editor.code', tab.content);
+    if (this.editor) {
+      this.editor.setCode(tab.content);
+    }
+
+    // Update preview
+    if (this.preview) {
+      this.preview.update(tab.content);
+    }
+
+    toast.success(`Otevřen: ${tab.name}`, 1500);
+  }
+
+  deleteFile(fileId) {
+    const tabs = state.get('files.tabs') || [];
+    const tab = tabs.find(t => t.id === fileId);
+    
+    if (!tab) {
+      return;
+    }
+
+    // Confirm deletion
+    if (!confirm(`Opravdu chcete smazat soubor "${tab.name}"?`)) {
+      return;
+    }
+
+    // Remove from tabs
+    const newTabs = tabs.filter(t => t.id !== fileId);
+    state.set('files.tabs', newTabs);
+
+    // If deleted file was active, open another
+    const activeId = state.get('files.active');
+    if (activeId === fileId) {
+      if (newTabs.length > 0) {
+        // Open the first remaining file
+        this.openFile(newTabs[0].id);
+      } else {
+        // No files left, create new one
+        state.set('files.active', null);
+        state.set('editor.code', '');
+        if (this.editor) {
+          this.editor.setCode('');
+        }
+        if (this.preview) {
+          this.preview.clear();
+        }
+      }
+    }
+
+    eventBus.emit('files:changed');
+    toast.success(`Soubor smazán: ${tab.name}`, 2000);
   }
 
   showSearch() {
