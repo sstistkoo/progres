@@ -31,13 +31,12 @@ export class Modal {
 
     if (this.options.title) {
       const header = createElement('div', { className: 'modal-header' });
-      const title = createElement('div', { className: 'modal-title' }, this.options.title);
+      const title = createElement('div', { className: 'modal-title' });
+      title.innerHTML = this.options.title;
       const closeBtn = createElement('button', {
         className: 'modal-close-btn',
         onClick: () => this.close(),
-        innerHTML: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18M6 6l12 12"/>
-        </svg>`
+        innerHTML: '×'
       });
       header.appendChild(title);
       header.appendChild(closeBtn);
