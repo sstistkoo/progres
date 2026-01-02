@@ -918,7 +918,7 @@ ${hasCode && hasHistory ?
       if (this.modal) {
         this.modal.close();
       }
-      
+
       // Přepnout na preview aby uživatel viděl výsledek
       const app = document.querySelector('.app');
       if (app) {
