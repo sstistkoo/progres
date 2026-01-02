@@ -2,14 +2,67 @@
 .ai-panel {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
   max-height: none;
-  overflow-y: visible;
+  overflow-y: auto;
   width: 100%;
   max-width: 100%;
-  padding: 16px;
+  padding: 12px;
   box-sizing: border-box;
   flex: 1;
+}
+
+/* Tab Select Dropdown */
+.ai-tab-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.ai-tab-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Collapsible Settings */
+.ai-settings-collapsible {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.ai-settings-collapsible summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+.ai-settings-collapsible summary::-webkit-details-marker {
+  display: none;
+}
+
+.ai-settings-collapsible summary::before {
+  content: '▶';
+  margin-right: 8px;
+  transition: transform 0.2s;
+}
+
+.ai-settings-collapsible[open] summary::before {
+  transform: rotate(90deg);
 }
 
 /* Tabs */
@@ -49,17 +102,20 @@
 
 .ai-tab-content {
   display: none;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .ai-tab-content.active {
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
 
 .ai-header {
   display: flex;
-  gap: 16px;
-  padding: 8px 16px;
-  background: var(--bg-secondary);
+  gap: 12px;
+  padding: 8px 12px;
+  background: transparent;
   border-radius: 8px;
   align-items: flex-end;
 }
