@@ -49,9 +49,9 @@ export class AIPanel {
           <option value="prompts">📝 Prompty</option>
           <option value="github">🔗 GitHub</option>
         </select>
-        <details class="ai-settings-header" id="aiSettingsHeader">
-          <summary>Nastavení AI</summary>
-          <div class="ai-header-settings">
+        <div class="ai-settings-header" id="aiSettingsHeader">
+          <button class="ai-settings-toggle" type="button">Nastavení AI <span class="toggle-arrow">▼</span></button>
+          <div class="ai-header-settings hidden">
             <div class="ai-provider-selector">
               <label for="aiProvider">Provider:</label>
               <select id="aiProvider" class="ai-select">
@@ -65,7 +65,7 @@ export class AIPanel {
               </select>
             </div>
           </div>
-        </details>
+        </div>
       </div>`,
       content,
       className: 'ai-modal',
@@ -83,6 +83,32 @@ export class AIPanel {
     const providerSelect = this.modal.element.querySelector('#aiProvider');
     if (providerSelect) {
       this.updateModels(providerSelect.value);
+    }
+
+    // Add toggle functionality for settings dropdown
+    const settingsToggle = this.modal.element.querySelector('.ai-settings-toggle');
+    const settingsContent = this.modal.element.querySelector('.ai-header-settings');
+    const toggleArrow = this.modal.element.querySelector('.toggle-arrow');
+
+    console.log('Settings toggle found:', settingsToggle);
+    console.log('Settings content found:', settingsContent);
+    console.log('Toggle arrow found:', toggleArrow);
+
+    if (settingsToggle && settingsContent) {
+      console.log('Adding click listener to settings toggle');
+      settingsToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        console.log('Settings toggle clicked!');
+        console.log('Before toggle - hidden class:', settingsContent.classList.contains('hidden'));
+        settingsContent.classList.toggle('hidden');
+        const isOpen = !settingsContent.classList.contains('hidden');
+        console.log('After toggle - is open:', isOpen);
+        if (toggleArrow) {
+          toggleArrow.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+      });
+    } else {
+      console.error('Settings toggle or content not found!');
     }
   }
 
