@@ -118,6 +118,8 @@ export class Editor {
     this.textarea.value = code;
     this.updateLineNumbers();
     state.set('editor.code', code);
+    // Emit change event to update preview
+    eventBus.emit('editor:change', { code });
   }
 
   insertText(text) {
