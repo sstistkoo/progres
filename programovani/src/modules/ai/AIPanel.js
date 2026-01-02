@@ -2611,7 +2611,7 @@ ODPOVĚZ VE FORMÁTU:
 
     } catch (error) {
       console.error('Orchestrator error:', error);
-      
+
       // Remove thinking message
       const thinkingEl = this.modal.element.querySelector(`[data-message-id="${thinkingId}"]`);
       if (thinkingEl) thinkingEl.remove();
