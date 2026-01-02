@@ -6,6 +6,7 @@
 import { eventBus } from '@core/events.js';
 import { state } from '@core/state.js';
 import { Modal } from '@ui/components/Modal.js';
+import { toast } from '@ui/components/Toast.js';
 
 export class AIPanel {
   constructor() {
@@ -60,6 +61,7 @@ export class AIPanel {
         <div class="ai-tabs">
           <button class="ai-tab active" data-tab="chat">💬 Chat</button>
           <button class="ai-tab" data-tab="agents">🤖 Agenti</button>
+          <button class="ai-tab" data-tab="editor" id="editorTabBtn">📝 Kód</button>
           <button class="ai-tab" data-tab="actions">⚡ Akce</button>
           <button class="ai-tab" data-tab="prompts">📝 Prompty</button>
           <button class="ai-tab" data-tab="github">🔗 GitHub</button>
@@ -340,13 +342,26 @@ export class AIPanel {
 
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
+        const tabName = tab.dataset.tab;
+
+        // Special handling for editor tab - close modal and focus editor
+        if (tabName === 'editor') {
+          Modal.close();
+          // Focus editor
+          const editorTextarea = document.querySelector('#editor');
+          if (editorTextarea) {
+            editorTextarea.focus();
+          }
+          toast.show('📝 Přepnuto na editor', 'info');
+          return;
+        }
+
         // Remove active class from all tabs and contents
         tabs.forEach(t => t.classList.remove('active'));
         tabContents.forEach(c => c.classList.remove('active'));
 
         // Add active class to clicked tab and corresponding content
         tab.classList.add('active');
-        const tabName = tab.dataset.tab;
         const content = this.modal.element.querySelector(`[data-content="${tabName}"]`);
         if (content) {
           content.classList.add('active');
@@ -554,8 +569,35 @@ export class AIPanel {
         ).join('\n')}`;
       }
 
+      // Check if this is orchestrator new project (empty editor + minimal history)
+      const isNewOrchestratorProject = currentCode.trim() === '' && this.chatHistory.length <= 1;
+
       // Build system prompt with context
-      const systemPrompt = `Jsi AI asistent pro HTML editor. Pomáháš s kódem, vysvětluješ koncepty a vytváříš šablony.
+      let systemPrompt;
+
+      if (isNewOrchestratorProject) {
+        // New orchestrator project - NO old code context
+        console.log('🎯 Orchestrator režim: Generuji bez starého kontextu');
+        systemPrompt = `Jsi AI asistent vytvářející NOVÝ projekt od začátku.
+
+⚠️ KRITICKÁ PRAVIDLA (MUSÍŠ DODRŽET!):
+- Editor je prázdný - vytváříš NOVÝ projekt od nuly
+- 🔥 KAŽDÁ PROMĚNNÁ MUSÍ MÍT UNIKÁTNÍ NÁZEV! 🔥
+- NIKDY nedeklaruj stejnou proměnnou vícekrát (let x; ... let x; ❌ ZAKÁZÁNO!)
+- Příklady správně: cislo1, cislo2, hodnota1, hodnota2, vstup1, vstup2
+- Generuj KOMPLETNÍ funkční kód v jednom bloku
+- Kód musí fungovat BEZ CHYB na první spuštění
+- PŘED odesláním ZKONTROLUJ že žádná proměnná není 2x!
+
+⚠️ VALIDACE: Kód bude automaticky kontrolován na duplicity!
+
+Odpovídej česky, kód zabal do \`\`\`html...\`\`\`.`;
+      } else {
+        // Normal mode - include current code context
+        const hasCode = currentCode.trim().length > 100;
+        const hasHistory = this.chatHistory.length > 2;
+
+        systemPrompt = `Jsi AI asistent pro HTML editor. Pomáháš s kódem, vysvětluješ koncepty a vytváříš šablony.
 ${filesContext}
 
 ${activeFile ? `Aktivní soubor: ${activeFile.name}` : 'Žádný aktivní soubor'}
@@ -565,15 +607,37 @@ ${currentCode.substring(0, 800)}${currentCode.length > 800 ? '\n... (zkráceno)'
 \`\`\`
 ${historyContext}
 
-Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\`\`html...\`\`\`.
-PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračovat v projektu, rozšiř/uprav stávající kód.`;
+DŮLEŽITÁ PRAVIDLA:
+- Odpovídej česky, stručně a prakticky
+- Pokud generuješ kód, zabal ho do \`\`\`html...\`\`\`
+- PAMATUJ SI předchozí konverzaci a navazuj na ni
+- NIKDY nepoužívej stejné názvy proměnných vícekrát (žádné duplicitní let/const/var deklarace)
+${hasCode && hasHistory ?
+  '- ⚠️ DŮLEŽITÉ: Editor JIŽ OBSAHUJE KÓD! NEPŘEPISUJ celý projekt, pouze UPRAV existující kód podle požadavku!\n- Zachovej strukturu, pouze přidej/uprav požadovanou část\n- Vrať CELÝ upravený kód (ale zachovej všechno co tam už je)' :
+  '- Pokud uživatel chce NOVÝ projekt, vytvoř kompletní nový kód (<!DOCTYPE html>...)\n- Pokud uživatel chce ÚPRAVU, pouze uprav existující kód'
+}
+- Kontroluj, že všechny proměnné mají unikátní názvy`;
+      }
 
       // Call AI module with history
+      // For normal chat (not agents), use best available model
+      let provider = this.modal.element.querySelector('#aiProvider')?.value;
+      let model = this.modal.element.querySelector('#aiModel')?.value;
+
+      // If user hasn't explicitly selected a model, use the best one
+      if (!model || model === 'null' || model === '') {
+        const bestModel = window.AI.selectBestModel();
+        provider = bestModel.provider;
+        model = bestModel.model;
+        console.log(`✨ Auto-vybrán nejlepší model: ${provider}/${model}`);
+      }
+
       const response = await window.AI.ask(message, {
         provider: provider,
         model: model,
         system: systemPrompt,
         temperature: 0.7,
+        autoFallback: true,  // Auto-switch on rate limit
         history: this.chatHistory.slice(-10) // Send last 10 messages as context
       });
 
@@ -586,8 +650,11 @@ PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračo
       // Update history counter
       this.updateHistoryInfo();
 
+      // Check if this is modification of existing code (has history and code)
+      const isModification = this.chatHistory.length > 3 && currentCode.trim().length > 100;
+
       // Add assistant message with formatted code
-      this.addChatMessageWithCode('assistant', response, message);
+      this.addChatMessageWithCode('assistant', response, message, isModification);
     } catch (error) {
       let errorMsg = error.message;
       if (error.message.includes('API key')) {
@@ -614,7 +681,7 @@ PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračo
     return messageId;
   }
 
-  addChatMessageWithCode(role, content, originalMessage = '') {
+  addChatMessageWithCode(role, content, originalMessage = '', isModification = false) {
     const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
     const messageEl = document.createElement('div');
     messageEl.className = `ai-message ${role}`;
@@ -682,7 +749,7 @@ PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračo
           Accept
         `;
         acceptBtn.onclick = () => {
-          this.acceptChange(changeId, actionsContainer);
+          this.acceptChange(changeId, actionsContainer, false, isModification);
         };
 
         const rejectBtn = document.createElement('button');
@@ -707,7 +774,7 @@ PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračo
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
-  acceptChange(changeId, actionsContainer, isAuto = false) {
+  acceptChange(changeId, actionsContainer, isAuto = false, isModification = false) {
     const change = this.pendingChanges.get(changeId);
     if (!change) return;
 
@@ -717,7 +784,7 @@ PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračo
     }
 
     // Always update current editor (don't create new files)
-    this.insertCodeToEditor(change.code);
+    this.insertCodeToEditor(change.code, isModification);
 
     // Update UI
     actionsContainer.innerHTML = `
@@ -781,25 +848,79 @@ PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračo
     eventBus.emit('file:createWithCode', { code });
   }
 
-  insertCodeToEditor(code) {
+  insertCodeToEditor(code, isModification = false) {
     // Store original code for undo
     this.originalCode = state.get('editor.code');
 
-    // Insert to current editor
+    // Validate code for duplicate variable declarations
+    const duplicates = this.detectDuplicateVariables(code);
+    if (duplicates.length > 0) {
+      console.error('⚠️ Detekované duplicitní proměnné:', duplicates);
+      toast.error(`⚠️ Kód obsahuje duplicitní proměnné: ${duplicates.join(', ')}. Oprav to prosím.`, 5000);
+
+      // Still insert but warn user
+      const confirmed = confirm(`⚠️ VAROVÁNÍ: AI vygenerovala kód s duplicitními proměnnými:\n\n${duplicates.join('\n')}\n\nChcete kód přesto vložit? (bude nefunkční)`);
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    // Check if this is a complete new project (has DOCTYPE and html tags)
+    const isCompleteProject = code.includes('<!DOCTYPE') && code.includes('<html') && code.includes('</html>');
+
+    // Check if current editor has content
+    const currentCode = this.originalCode || '';
+    const hasExistingContent = currentCode.trim().length > 0;
+
+    if (isModification) {
+      // This is a modification of existing project
+      console.log('✏️ Úprava existujícího projektu - aktualizuji editor');
+    } else if (isCompleteProject && hasExistingContent) {
+      // Complete replacement for new projects
+      console.log('📄 Nový kompletní projekt - nahrazuji obsah editoru');
+    } else if (!isCompleteProject && hasExistingContent) {
+      // Partial code - could be snippet or continuation
+      console.log('➕ Částečný kód - vkládám do editoru');
+    }
+
+    // Insert to current editor (always replace, don't append)
     state.set('editor.code', code);
     eventBus.emit('editor:setCode', { code });
 
     // Show toast
     const toast = document.querySelector('.toast');
     if (toast) {
-      toast.textContent = '✅ Kód vložen do editoru';
+      toast.textContent = isCompleteProject ? '✅ Nový projekt vytvořen' : '✅ Kód vložen do editoru';
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 2000);
     }
   }
 
-  startNewProject() {
-    // Get all open files
+  detectDuplicateVariables(code) {
+    const duplicates = [];
+    const variableNames = new Map();
+
+    // Find all let/const/var declarations
+    const declarationRegex = /(?:let|const|var)\s+([a-zA-ZáčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ_$][a-zA-ZáčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ0-9_$]*)/g;
+    let match;
+
+    while ((match = declarationRegex.exec(code)) !== null) {
+      const varName = match[1];
+      if (variableNames.has(varName)) {
+        variableNames.set(varName, variableNames.get(varName) + 1);
+      } else {
+        variableNames.set(varName, 1);
+      }
+    }
+
+    // Find duplicates
+    variableNames.forEach((count, name) => {
+      if (count > 1) {
+        duplicates.push(`${name} (${count}x)`);
+      }
+    });
+
+    return duplicates;
     const tabs = state.get('files.tabs') || [];
 
     if (tabs.length === 0) {
@@ -2129,6 +2250,9 @@ PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračo
           <button class="btn-agent-chat" data-agent-id="${agent.id}" style="${agent.active ? '' : 'display:none;'}">
             💬 Chat
           </button>
+          <button class="btn-agent-prompt" data-agent-id="${agent.id}" title="Předvyplnit prompt">
+            ✨ Prompt
+          </button>
         </div>
       </div>
     `).join('');
@@ -2149,6 +2273,21 @@ PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračo
         e.stopPropagation();
         const agentId = btn.dataset.agentId;
         this.openAgentChat(agentId);
+      });
+    });
+
+    const promptBtns = agentsGrid.querySelectorAll('.btn-agent-prompt');
+    promptBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const agentId = btn.dataset.agentId;
+
+        // Special handling for orchestrator
+        if (agentId === 'orchestrator') {
+          this.openOrchestratorPromptBuilder();
+        } else {
+          this.prefillPromptForAgent(agentId);
+        }
       });
     });
 
@@ -2269,19 +2408,27 @@ PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračo
 
   toggleAgent(agentId) {
     const agent = window.AIAgents.getAgent(agentId);
-    if (!agent) return;
+    if (!agent) {
+      toast.error('Agent nenalezen', 2000);
+      return;
+    }
 
-    if (agent.active) {
-      window.AIAgents.deactivateAgent(agentId);
-    } else {
-      window.AIAgents.activateAgent(agentId);
+    // Use the toggleAgent method from AIAgentsSystem
+    const success = window.AIAgents.toggleAgent(agentId);
+
+    if (!success) {
+      toast.error(`Chyba při přepínání agenta ${agent.name}`, 2000);
+      return;
     }
 
     // Reload grid to update UI
     this.loadAgentsGrid();
+    this.updateActiveAgentsList();
 
+    // Get updated agent state
+    const updatedAgent = window.AIAgents.getAgent(agentId);
     toast.success(
-      agent.active ? `Agent ${agent.name} deaktivován` : `Agent ${agent.name} aktivován`,
+      updatedAgent.active ? `✅ Agent ${agent.name} aktivován` : `🔴 Agent ${agent.name} deaktivován`,
       2000
     );
   }
@@ -2595,6 +2742,672 @@ PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračo
       if (messagesContainer) {
         messagesContainer.innerHTML = '';
       }
+    }
+  }
+
+  prefillPromptForAgent(agentId) {
+    // Get agent details
+    const agent = window.AIAgents?.getAgent(agentId);
+    if (!agent) return;
+
+    // Switch to chat tab
+    const chatTab = this.modal.element.querySelector('[data-tab="chat"]');
+    if (chatTab) {
+      chatTab.click();
+    }
+
+    // Build prompt based on agent
+    let prompt = '';
+    switch (agentId) {
+      case 'code-generator':
+        prompt = `Jako Code Generator, potřebuji vytvořit ${agent.capabilities.includes('HTML') ? 'HTML' : agent.capabilities.includes('JavaScript') ? 'JavaScript' : 'CSS'} kód pro: `;
+        break;
+      case 'code-reviewer':
+        prompt = `Zkontroluj prosím můj kód a navrhni vylepšení z hlediska: ${agent.capabilities.join(', ')}`;
+        break;
+      case 'debugger':
+        prompt = `Pomoz mi najít a opravit chyby v kódu. Zaměř se na: `;
+        break;
+      case 'optimizer':
+        prompt = `Optimalizuj tento kód z hlediska: ${agent.capabilities.join(', ')}. `;
+        break;
+      case 'documenter':
+        prompt = `Vytvoř dokumentaci pro tento kód. Zahrň: ${agent.capabilities.join(', ')}`;
+        break;
+      case 'tester':
+        prompt = `Navrhni testovací případy pro tento kód. Zaměř se na: ${agent.capabilities.join(', ')}`;
+        break;
+      case 'refactorer':
+        prompt = `Refaktoruj tento kód podle principů: ${agent.capabilities.join(', ')}`;
+        break;
+      case 'security':
+        prompt = `Zkontroluj bezpečnost kódu. Zaměř se na: ${agent.capabilities.join(', ')}`;
+        break;
+      case 'accessibility':
+        prompt = `Zkontroluj přístupnost (a11y) a navrhni vylepšení podle: ${agent.capabilities.join(', ')}`;
+        break;
+      default:
+        prompt = `Jako ${agent.name}, pomoz mi s: `;
+    }
+
+    // Fill the chat input
+    const chatInput = this.modal.element.querySelector('#aiChatInput');
+    if (chatInput) {
+      chatInput.value = prompt;
+      chatInput.focus();
+
+      // Move cursor to end
+      chatInput.setSelectionRange(prompt.length, prompt.length);
+
+      // Show notification
+      toast.show(`✨ Prompt předvyplněn pro ${agent.name}`, 'info');
+    }
+  }
+
+  openOrchestratorPromptBuilder() {
+    // Log available agents for debugging
+    if (window.AIAgents) {
+      const allAgents = window.AIAgents.getAgents();
+      console.log('📋 Dostupné agenti pro orchestrátor:', allAgents.map(a => `${a.id} (${a.name})`).join(', '));
+    }
+
+    // Create orchestrator prompt builder modal
+    const orchestratorModal = new Modal({
+      title: '🎯 Orchestrator - Sestavení týmu agentů',
+      content: this.createOrchestratorBuilderContent(),
+      size: 'large'
+    });
+
+    orchestratorModal.open();
+    this.currentOrchestratorModal = orchestratorModal;
+    this.orchestratorChatHistory = [];
+
+    // Attach event handlers
+    setTimeout(() => {
+      this.attachOrchestratorBuilderHandlers(orchestratorModal);
+    }, 100);
+  }
+
+  createOrchestratorBuilderContent() {
+    return `
+      <div class="orchestrator-builder">
+        <div class="orchestrator-prompt-section">
+          <h3>📝 Zadání projektu</h3>
+
+          <div class="complexity-selector">
+            <label>Složitost projektu:</label>
+            <div class="complexity-buttons">
+              <button class="complexity-btn active" data-complexity="1" title="Jedna HTML stránka">
+                <span class="complexity-icon">1️⃣</span>
+                <span class="complexity-label">Základ</span>
+                <span class="complexity-desc">Jedna HTML stránka</span>
+              </button>
+              <button class="complexity-btn" data-complexity="2" title="HTML + CSS + JS v samostatných souborech">
+                <span class="complexity-icon">2️⃣</span>
+                <span class="complexity-label">Menší projekt</span>
+                <span class="complexity-desc">HTML, CSS, JS soubory</span>
+              </button>
+              <button class="complexity-btn" data-complexity="3" title="Rozsáhlejší projekt s více soubory">
+                <span class="complexity-icon">3️⃣</span>
+                <span class="complexity-label">Rozsáhlý projekt</span>
+                <span class="complexity-desc">Více souborů a struktura</span>
+              </button>
+            </div>
+          </div>
+
+          <textarea
+            id="orchestratorPromptInput"
+            class="orchestrator-prompt-textarea"
+            placeholder="Popište co chcete vytvořit... Například: 'Vytvoř responzivní landing page s kontaktním formulářem'"
+            rows="4"
+          ></textarea>
+
+          <div class="orchestrator-ai-help">
+            <h4>💬 AI Asistent pro upřesnění zadání</h4>
+            <div class="orchestrator-chat-messages" id="orchestratorChatMessages">
+              <div class="orchestrator-message system">
+                👋 Jsem AI asistent. Pomohu ti upřesnit zadání a navrhnout optimální tým agentů. Zeptej se mě na cokoliv!
+              </div>
+            </div>
+            <div class="orchestrator-chat-input">
+              <textarea
+                id="orchestratorChatInput"
+                placeholder="Zeptej se AI na upřesnění..."
+                rows="2"
+              ></textarea>
+              <button class="btn-orchestrator-send" id="orchestratorSendBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="orchestrator-team-preview">
+          <h3>👥 Navržený tým (bude vytvořen po aktivaci)</h3>
+          <div id="orchestratorTeamPreview" class="team-preview-list">
+            <div class="team-preview-placeholder">
+              Zadejte projekt a AI navrhne optimální tým agentů...
+            </div>
+          </div>
+        </div>
+
+        <div class="orchestrator-actions">
+          <button class="btn-orchestrator-analyze" id="orchestratorAnalyzeBtn">
+            🔍 Analyzovat a navrhnout tým
+          </button>
+          <button class="btn-orchestrator-activate" id="orchestratorActivateBtn" disabled>
+            ✨ Vytvořit projekt s týmem (0 agentů)
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  attachOrchestratorBuilderHandlers(modal) {
+    const promptInput = modal.element.querySelector('#orchestratorPromptInput');
+    const chatInput = modal.element.querySelector('#orchestratorChatInput');
+    const sendBtn = modal.element.querySelector('#orchestratorSendBtn');
+    const analyzeBtn = modal.element.querySelector('#orchestratorAnalyzeBtn');
+    const activateBtn = modal.element.querySelector('#orchestratorActivateBtn');
+    const complexityBtns = modal.element.querySelectorAll('.complexity-btn');
+
+    // Store selected complexity
+    this.selectedComplexity = 1;
+
+    // Complexity selector
+    complexityBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        complexityBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.selectedComplexity = parseInt(btn.dataset.complexity);
+
+        // Update placeholder based on complexity
+        const placeholders = {
+          1: 'Například: Vytvoř jednoduchou vizitku s kontaktem',
+          2: 'Například: Vytvoř landing page s formulářem a stylovaným designem',
+          3: 'Například: Vytvoř kompletní webovou aplikaci s menu, více stránkami a interaktivními prvky'
+        };
+        promptInput.placeholder = placeholders[this.selectedComplexity];
+      });
+    });
+
+    // Chat with AI
+    const sendMessage = async () => {
+      const message = chatInput.value.trim();
+      if (!message) return;
+
+      this.addOrchestratorMessage('user', message);
+      chatInput.value = '';
+
+      try {
+        const context = promptInput.value.trim();
+        const systemPrompt = `Jsi AI asistent pomáhající s upřesněním projektu pro tým agentů.
+
+Aktuální zadání projektu: "${context || 'Zatím nezadáno'}"
+
+Pomoz uživateli:
+- Upřesnit požadavky
+- Identifikovat potřebné technologie
+- Navrhnout strukturu projektu
+- Určit jaké typy agentů budou potřeba
+
+Odpovídej stručně a prakticky v češtině.`;
+
+        const response = await window.AI.ask(message, {
+          provider: 'groq',
+          system: systemPrompt,
+          temperature: 0.7
+        });
+
+        this.addOrchestratorMessage('assistant', response);
+
+        // Update main prompt if AI suggests improvements
+        if (response.toLowerCase().includes('navrhuji') || response.toLowerCase().includes('mělo by')) {
+          analyzeBtn.style.animation = 'pulse 1s ease-in-out 2';
+        }
+
+      } catch (error) {
+        this.addOrchestratorMessage('system', '❌ Chyba: ' + error.message);
+      }
+    };
+
+    if (sendBtn) {
+      sendBtn.addEventListener('click', sendMessage);
+    }
+
+    if (chatInput) {
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+    }
+
+    // Analyze and suggest team
+    if (analyzeBtn) {
+      analyzeBtn.addEventListener('click', async () => {
+        const projectDescription = promptInput.value.trim();
+        if (!projectDescription) {
+          toast.show('❌ Zadejte popis projektu', 'error');
+          return;
+        }
+
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = '🔄 Analyzuji...';
+
+        try {
+          const teamSuggestion = await this.analyzeProjectAndSuggestTeam(projectDescription);
+          this.displayTeamPreview(teamSuggestion);
+
+          activateBtn.disabled = false;
+          activateBtn.textContent = `✨ Aktivovat tým (${teamSuggestion.agents.length} agentů)`;
+
+          // Store suggestion for activation
+          this.currentTeamSuggestion = teamSuggestion;
+
+        } catch (error) {
+          toast.show('❌ Chyba při analýze: ' + error.message, 'error');
+        } finally {
+          analyzeBtn.disabled = false;
+          analyzeBtn.textContent = '🔍 Analyzovat a navrhnout tým';
+        }
+      });
+    }
+
+    // Activate team
+    if (activateBtn) {
+      activateBtn.addEventListener('click', async () => {
+        if (this.currentTeamSuggestion) {
+          activateBtn.disabled = true;
+          activateBtn.textContent = '🔄 Spouštím agenty...';
+
+          // Close modal immediately to show animation in chat
+          modal.close();
+
+          // Show AI panel with chat tab
+          eventBus.emit('panel:show', { name: 'ai' });
+
+          try {
+            await this.activateOrchestratedTeam(this.currentTeamSuggestion, promptInput.value.trim(), true);
+          } catch (error) {
+            toast.show('❌ Chyba při vytváření projektu: ' + error.message, 'error');
+            console.error('Orchestration error:', error);
+          }
+        }
+      });
+    }
+  }
+
+  addOrchestratorMessage(role, content) {
+    const messagesContainer = this.currentOrchestratorModal?.element?.querySelector('#orchestratorChatMessages');
+    if (!messagesContainer) return;
+
+    const messageEl = document.createElement('div');
+    messageEl.className = `orchestrator-message ${role}`;
+    messageEl.innerHTML = `<p>${this.escapeHtml(content)}</p>`;
+
+    messagesContainer.appendChild(messageEl);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    this.orchestratorChatHistory.push({ role, content });
+  }
+
+  async analyzeProjectAndSuggestTeam(projectDescription) {
+    const systemPrompt = `Analyzuj následující projekt a navrhni optimální tým AI agentů.
+
+Dostupné agenti (POUŽIJ POUZE TATO ID):
+1. orchestrator - Hlavní koordinátor (automaticky aktivní)
+2. architect - Návrh architektury a struktury aplikace
+3. frontend - HTML, CSS, JavaScript a React vývoj
+4. backend - Server-side logika a databáze (Node.js, Python)
+5. fullstack - Kompletní end-to-end vývoj
+6. debugger - Hledání a oprava chyb
+7. reviewer - Review kódu a quality assurance
+8. documentation - Tvorba dokumentace a komentářů
+9. tester - Tvorba testů a QA
+
+Pro každého agenta urči:
+- id: ID agenta z výše uvedeného seznamu (DŮLEŽITÉ: použij přesně tato id)
+- task: Konkrétní úkol co má dělat
+- priority: Priorita (1-5, kde 1 je nejvyšší)
+
+Odpověz POUZE ve formátu JSON:
+{
+  "projectType": "typ projektu",
+  "complexity": "simple/medium/complex",
+  "agents": [
+    {
+      "id": "frontend",
+      "task": "Konkrétní úkol pro tohoto agenta",
+      "priority": 1
+    }
+  ],
+  "workflow": "Stručný popis workflow"
+}`;
+
+    const response = await window.AI.ask(`Projekt: ${projectDescription}`, {
+      provider: 'groq',
+      system: systemPrompt,
+      temperature: 0.3
+    });
+
+    // Parse JSON from response
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('AI nevrátila validní JSON odpověď');
+    }
+
+    return JSON.parse(jsonMatch[0]);
+  }
+
+  displayTeamPreview(teamSuggestion) {
+    const previewContainer = this.currentOrchestratorModal?.element?.querySelector('#orchestratorTeamPreview');
+    if (!previewContainer) return;
+
+    // Get agent info from actual registered agents
+    const getAgentInfo = (agentId) => {
+      const agent = window.AIAgents?.getAgent(agentId);
+      if (agent) {
+        return { icon: agent.icon, name: agent.name };
+      }
+      // Fallback for unknown agents
+      return { icon: '❓', name: agentId };
+    };
+
+    previewContainer.innerHTML = `
+      <div class="team-preview-header">
+        <div class="team-info">
+          <span class="team-type">📊 Typ: ${teamSuggestion.projectType}</span>
+          <span class="team-complexity">🎯 Složitost: ${teamSuggestion.complexity}</span>
+        </div>
+        <div class="team-workflow">
+          <strong>Workflow:</strong> ${teamSuggestion.workflow}
+        </div>
+      </div>
+      ${teamSuggestion.agents.sort((a, b) => a.priority - b.priority).map((agent, index) => {
+        const agentInfo = getAgentInfo(agent.id);
+        return `
+          <div class="team-agent-preview" data-priority="${agent.priority}">
+            <div class="team-agent-number">#${index + 1}</div>
+            <div class="team-agent-icon">${agentInfo.icon}</div>
+            <div class="team-agent-info">
+              <div class="team-agent-name">${agentInfo.name}</div>
+              <div class="team-agent-task">${agent.task}</div>
+            </div>
+            <div class="team-agent-priority priority-${agent.priority}">
+              Priorita: ${agent.priority}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    `;
+  }
+
+  async activateOrchestratedTeam(teamSuggestion, projectDescription, forceNew = false) {
+    if (!window.AIAgents) {
+      toast.error('❌ AI Agents System není k dispozici', 3000);
+      return;
+    }
+
+    // Store tasks for agents
+    if (!this.agentTasks) {
+      this.agentTasks = new Map();
+    }
+
+    // Prepare agent activation data - filter out non-existent agents
+    const agentIds = [];
+    const notFoundAgents = [];
+
+    teamSuggestion.agents.forEach(agentConfig => {
+      const agent = window.AIAgents.getAgent(agentConfig.id);
+      if (agent) {
+        agentIds.push(agentConfig.id);
+        this.agentTasks.set(agentConfig.id, agentConfig.task);
+      } else {
+        notFoundAgents.push(agentConfig.id);
+        console.warn(`⚠️ Agent ${agentConfig.id} nenalezen`);
+      }
+    });
+
+    if (notFoundAgents.length > 0) {
+      console.warn(`⚠️ Nenalezení agenti: ${notFoundAgents.join(', ')}`);
+    }
+
+    if (agentIds.length === 0) {
+      toast.error('❌ Žádný validní agent k aktivaci', 3000);
+      return;
+    }
+
+    // Activate all agents at once
+    const results = window.AIAgents.activateAgents(agentIds);
+    const successCount = results.filter(r => r.success).length;
+
+    if (successCount === 0) {
+      toast.error('❌ Nepodařilo se aktivovat žádného agenta', 3000);
+      return;
+    }
+
+    console.log(`✅ Aktivováno ${successCount}/${agentIds.length} agentů`);
+
+    if (successCount < agentIds.length) {
+      const failed = results.filter(r => !r.success).map(r => r.name).join(', ');
+      toast.warning(`⚠️ Někteří agenti nebyli aktivováni: ${failed}`, 4000);
+    } else {
+      toast.success(`✅ Aktivováno ${successCount} agentů`, 2000);
+    }
+
+    // Update UI
+    this.loadAgentsGrid();
+    this.updateActiveAgentsList();
+
+    // Check if editor already has content from previous orchestration
+    const currentCode = state.get('editor.code') || '';
+    const hasExistingProject = currentCode.trim().length > 100; // More than just basic HTML
+
+    // Only skip orchestration if NOT forced and has existing project
+    if (hasExistingProject && !forceNew) {
+      // User is refining existing project via normal chat - keep the code and context
+      console.log('🔄 Editor obsahuje existující projekt - zachovávám kontext pro úpravy (pokud chceš začít znovu, klikni na orchestrační tlačítka)');
+
+      // Add system message that agents will improve existing code
+      this.addChatMessage('system', '💡 Editor již obsahuje projekt. Pokud chceš začít úplně od začátku, klikni na orchestrační tlačítka v levém panelu.');
+
+      // Keep originalCode for comparison
+      this.originalCode = currentCode;
+
+      // Don't clear chat history - agents need context of what was done before
+      return; // Exit without starting orchestration
+    }
+
+    // Clear editor AND chat history for new project (either empty or forceNew)
+    console.log('🗑️ Mazání editoru a historie pro nový projekt...');
+    this.originalCode = '';
+    state.set('editor.code', '');
+    eventBus.emit('editor:setCode', { code: '' });
+
+    // DŮLEŽITÉ: Vymazat chat historii aby AI neviděla starý kód
+    this.chatHistory = [];
+    this.updateHistoryInfo();
+
+    // Visual feedback for user
+    toast.info('🗑️ Editor a historie vymazány - začínáme nový projekt', 2000);
+
+    // Switch to chat tab
+    const chatTab = this.modal.element.querySelector('[data-tab="chat"]');
+    if (chatTab) {
+      chatTab.click();
+    }
+
+    // Generate project with AI
+    const complexity = this.selectedComplexity || 1;
+    const complexityDescriptions = {
+      1: 'jednoduchý projekt v jednom HTML souboru',
+      2: 'menší projekt s oddělenými HTML, CSS a JS soubory',
+      3: 'rozsáhlý projekt s více soubory a strukturou'
+    };
+
+    const orchestratorPrompt = `🎯 ORCHESTRATOR AKTIVOVÁN - NOVÝ PROJEKT
+
+⚠️ KRITICKÁ INSTRUKCE: Předchozí kontext je SMAZÁN. Editor je prázdný. Začínáš od nuly.
+
+Projekt: ${projectDescription}
+Složitost: ${complexityDescriptions[complexity]}
+
+Aktivovaný tým agentů (${teamSuggestion.agents.length}):
+${teamSuggestion.agents.map((a, i) => `${i + 1}. ${a.id} - ${a.task}`).join('\n')}
+
+Workflow: ${teamSuggestion.workflow}
+
+🚨 KRITICKÁ PRAVIDLA (NESELHEJ!):
+1. Vytvoř KOMPLETNĚ NOVÝ projekt (ignoruj vše předchozí)
+2. ${complexity === 1 ? 'Celý projekt v JEDNOM HTML souboru včetně <style> a <script>.' : complexity === 2 ? 'Rozděl do HTML, CSS a JS souborů.' : 'Kompletní struktura s více soubory.'}
+3. Začni kompletním základním souborem (<!DOCTYPE html>...</html>)
+4. 🔥 KAŽDÁ PROMĚNNÁ MUSÍ MÍT UNIKÁTNÍ NÁZEV! 🔥
+   - NIKDY nedeklaruj stejnou proměnnou 2x (např. let x; ... let x; ❌)
+   - Použij různé názvy: cislo1, cislo2, hodnota1, hodnota2
+   - Kontroluj kód PŘED odesláním!
+5. Kód FUNKČNÍ na první spuštění (bez chyb!)
+
+⚠️ POZOR: Kód bude validován! Duplicitní proměnné = SELHÁNÍ!
+
+Začni vytvořením kompletního základního souboru.`;
+
+    // Add to chat history
+    this.chatHistory.push({
+      role: 'system',
+      content: orchestratorPrompt
+    });
+
+    // Display in chat
+    this.addChatMessage('system', orchestratorPrompt);
+
+    // Use real orchestrated session with agent collaboration
+    try {
+      console.log(`🎯 Spouštím orchestrovanou session s ${teamSuggestion.agents.length} agenty...`);
+
+      // Show animated loading message
+      const loadingMsgId = `loading-${Date.now()}`;
+      const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
+      const loadingEl = document.createElement('div');
+      loadingEl.className = 'ai-message system';
+      loadingEl.id = loadingMsgId;
+      loadingEl.innerHTML = `
+        <div class="orchestrator-loading">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">
+            <strong>🤖 Agenti spolupracují na projektu...</strong>
+            <div class="agent-status" id="agent-status-${loadingMsgId}"></div>
+          </div>
+        </div>
+      `;
+      messagesContainer.appendChild(loadingEl);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      // Call orchestrated session from AIAgents
+      const agentIds = teamSuggestion.agents.map(a => a.id);
+      const taskDescription = `Vytvoř ${complexityDescriptions[complexity]}: ${projectDescription}
+
+Úkoly pro jednotlivé agenty:
+${teamSuggestion.agents.map(a => `- ${a.id}: ${a.task}`).join('\n')}
+
+Každý agent pracuje na své části, výsledky se kombinují do finálního projektu.`;
+
+      const orchestrationResult = await window.AIAgents.orchestratedSession(taskDescription, {
+        complexity: complexity,
+        projectType: teamSuggestion.projectType,
+        onProgress: (status) => {
+          // Update loading status
+          const statusEl = document.getElementById(`agent-status-${loadingMsgId}`);
+          if (statusEl) {
+            statusEl.textContent = status;
+          }
+        }
+      });
+
+      // Remove loading message
+      loadingEl.remove();
+
+      // Process and display results with detailed logging
+      console.log('✅ Orchestrace dokončena, zpracovávám výsledky...');
+      console.log('Struktura výsledků:', JSON.stringify(orchestrationResult, null, 2));
+
+      let finalCode = '';
+      let hasCode = false;
+
+      // Extract code from results
+      for (const phaseResult of orchestrationResult) {
+        console.log(`Zpracovávám fázi: ${phaseResult.phase}`);
+
+        if (phaseResult.phase === 'synthesis' && phaseResult.response) {
+          const synthesisText = phaseResult.response.response || phaseResult.response;
+          console.log('Synthesis odpověď:', synthesisText.substring(0, 200));
+
+          // Try to extract code block
+          const codeMatch = synthesisText.match(/```(?:html|javascript|js)?\s*\n?([\s\S]*?)```/);
+          if (codeMatch) {
+            finalCode = codeMatch[1].trim();
+            hasCode = true;
+            console.log('✅ Nalezen kód v code blocku');
+          } else if (synthesisText.includes('<!DOCTYPE') || synthesisText.includes('<html')) {
+            finalCode = synthesisText;
+            hasCode = true;
+            console.log('✅ Nalezen přímý HTML kód');
+          } else {
+            console.log('⚠️ Synthesis neobsahuje kód, jen text');
+          }
+
+          // Display message
+          this.addChatMessage('assistant', `✅ **Orchestrator:** ${hasCode ? 'Projekt vytvořen' : 'Analýza dokončena'}`);
+
+          if (hasCode) {
+            // Validate
+            const duplicates = this.detectDuplicateVariables(finalCode);
+            if (duplicates.length > 0) {
+              this.addChatMessage('system', `⚠️ Varování: ${duplicates.join(', ')}`);
+            }
+
+            // Display with accept/reject
+            this.addChatMessageWithCode('assistant', `\`\`\`html\n${finalCode}\n\`\`\``, taskDescription);
+          } else {
+            // Show text response
+            this.addChatMessage('assistant', synthesisText);
+          }
+        }
+
+        // Also try execution phase if no code yet
+        if (!hasCode && phaseResult.phase === 'execution' && phaseResult.responses) {
+          console.log('Hledám kód v execution responses...');
+          for (const resp of phaseResult.responses) {
+            const text = resp.response || '';
+            const match = text.match(/```(?:html)?\s*\n?([\s\S]*?)```/);
+            if (match) {
+              finalCode = match[1].trim();
+              hasCode = true;
+              console.log(`✅ Kód nalezen od ${resp.agent}`);
+              this.addChatMessageWithCode('assistant', `\`\`\`html\n${finalCode}\n\`\`\``, taskDescription);
+              break;
+            }
+          }
+        }
+      }
+
+      if (!hasCode) {
+        console.error('❌ Žádný kód nebyl nalezen v odpovědích');
+        this.addChatMessage('system', '⚠️ Agenti nedokončili kód. Zkus to znovu nebo zjednoduš zadání.');
+      }
+
+      toast.show(`✨ Orchestrace dokončena! ${teamSuggestion.agents.length} agentů spolupracovalo`, 'success');
+    } catch (error) {
+      console.error('Error in orchestrated session:', error);
+
+      // Remove loading if exists
+      const loadingEl = this.modal.element.querySelector('[id^="loading-"]');
+      if (loadingEl) loadingEl.remove();
+
+      await this.sendMessage('Vytvoř KOMPLETNĚ NOVÝ projekt podle výše uvedených specifikací. Začni od začátku s prázdným editorem. Vygeneruj celý kód v jednom bloku.');
     }
   }
 }

@@ -544,6 +544,143 @@ const AI = {
         return allModels.sort((a, b) => b.quality - a.quality);
     },
 
+    // ============== NOVÉ METODY PRO VÝBĚR MODELŮ ==============
+
+    /**
+     * Získej nejlepší modely podle kvality myšlení
+     * Pro normální použití bez agentů
+     */
+    getBestModels(limit = 5) {
+        const allProviders = this.getAllProvidersWithModels();
+        const models = [];
+
+        for (const [providerKey, providerData] of Object.entries(allProviders)) {
+            if (!this.getKey(providerKey)) continue;
+
+            providerData.models.forEach(modelData => {
+                if (modelData.quality && modelData.quality >= 90) {
+                    models.push({
+                        provider: providerKey,
+                        model: modelData.value,
+                        name: `${providerData.name} - ${modelData.label}`,
+                        quality: modelData.quality,
+                        rpm: modelData.rpm,
+                        free: modelData.free
+                    });
+                }
+            });
+        }
+
+        return models.sort((a, b) => b.quality - a.quality).slice(0, limit);
+    },
+
+    /**
+     * Získej modely s vysokým RPM a dobrou kvalitou
+     * Pro agenty kde je potřeba rychlost ale i kvalita
+     */
+    getBalancedModels(limit = 5) {
+        const allProviders = this.getAllProvidersWithModels();
+        const models = [];
+
+        for (const [providerKey, providerData] of Object.entries(allProviders)) {
+            if (!this.getKey(providerKey)) continue;
+
+            providerData.models.forEach(modelData => {
+                if (modelData.rpm >= 20 && modelData.quality >= 80) {
+                    models.push({
+                        provider: providerKey,
+                        model: modelData.value,
+                        name: `${providerData.name} - ${modelData.label}`,
+                        quality: modelData.quality,
+                        rpm: modelData.rpm,
+                        free: modelData.free
+                    });
+                }
+            });
+        }
+
+        return models.sort((a, b) => {
+            if (a.free && !b.free) return -1;
+            if (!a.free && b.free) return 1;
+            return b.rpm - a.rpm;
+        }).slice(0, limit);
+    },
+
+    /**
+     * Získej nejrychlejší modely s vysokým RPM
+     * Pro jednoduché agenty (dokumentace, testy)
+     */
+    getFastModels(limit = 5) {
+        const allProviders = this.getAllProvidersWithModels();
+        const models = [];
+
+        for (const [providerKey, providerData] of Object.entries(allProviders)) {
+            if (!this.getKey(providerKey)) continue;
+
+            providerData.models.forEach(modelData => {
+                if (modelData.rpm >= 20) {
+                    models.push({
+                        provider: providerKey,
+                        model: modelData.value,
+                        name: `${providerData.name} - ${modelData.label}`,
+                        quality: modelData.quality || 70,
+                        rpm: modelData.rpm,
+                        speed: modelData.speed || 80,
+                        free: modelData.free
+                    });
+                }
+            });
+        }
+
+        return models.sort((a, b) => {
+            const scoreA = (a.rpm * 2) + a.speed;
+            const scoreB = (b.rpm * 2) + b.speed;
+            return scoreB - scoreA;
+        }).slice(0, limit);
+    },
+
+    /**
+     * Vyber model podle typu agenta
+     * @param {string} agentType - orchestrator|architect|frontend|backend|fullstack|debugger|reviewer|documentation|tester
+     * @returns {object} - {provider, model}
+     */
+    selectModelForAgent(agentType) {
+        // Důležití agenti - potřebují nejlepší AI
+        const criticalAgents = ['orchestrator', 'architect', 'fullstack'];
+
+        // Střední agenti - potřebují dobrou kvalitu a rychlost
+        const mediumAgents = ['frontend', 'backend', 'debugger', 'reviewer'];
+
+        // Jednoduší agenti - rychlost a vysoký RPM
+        const simpleAgents = ['documentation', 'tester'];
+
+        if (criticalAgents.includes(agentType)) {
+            // Nejlepší modely
+            const best = this.getBestModels(1)[0];
+            console.log(`🎯 Agent ${agentType}: Používám nejlepší model - ${best?.name || 'llama-3.3-70b'}`);
+            return best ? { provider: best.provider, model: best.model } : { provider: 'groq', model: 'llama-3.3-70b-versatile' };
+        } else if (mediumAgents.includes(agentType)) {
+            // Vyvážené modely
+            const balanced = this.getBalancedModels(1)[0];
+            console.log(`⚖️ Agent ${agentType}: Používám vyvážený model - ${balanced?.name || 'llama-3.1-70b'}`);
+            return balanced ? { provider: balanced.provider, model: balanced.model } : { provider: 'groq', model: 'llama-3.1-70b-versatile' };
+        } else {
+            // Rychlé modely
+            const fast = this.getFastModels(1)[0];
+            console.log(`⚡ Agent ${agentType}: Používám rychlý model - ${fast?.name || 'mixtral-8x7b'}`);
+            return fast ? { provider: fast.provider, model: fast.model } : { provider: 'groq', model: 'mixtral-8x7b-32768' };
+        }
+    },
+
+    /**
+     * Vyber nejlepší model pro normální chat (ne agenty)
+     */
+    selectBestModel() {
+        const best = this.getBestModels(1)[0];
+        console.log(`✨ Normální chat: Používám nejlepší model - ${best?.name || 'llama-3.3-70b'}`);
+        return best ? { provider: best.provider, model: best.model } : { provider: 'groq', model: 'llama-3.3-70b-versatile' };
+    },
+
     // ============== HELPER FUNKCE ==============
 
     async fetchWithTimeout(url, options, timeoutMs) {
@@ -715,7 +852,10 @@ const AI = {
                         free: true,
                         rpm: 30,
                         context: '128K tokens',
-                        description: 'Nejnovější Llama, výborný pro komplexní úkoly'
+                        performance: 'excellent',  // nejlepší, nejvýkonnější
+                        quality: 95,  // 0-100 kvalita myšlení
+                        speed: 85,    // 0-100 rychlost
+                        description: 'Nejnovější Llama, výborný pro komplexní úkoly - TOP volba'
                     },
                     {
                         value: 'llama-3.1-70b-versatile',
@@ -723,6 +863,9 @@ const AI = {
                         free: true,
                         rpm: 30,
                         context: '128K tokens',
+                        performance: 'excellent',
+                        quality: 92,
+                        speed: 85,
                         description: 'Stabilní, vhodný pro dlouhé konverzace'
                     },
                     {
@@ -731,6 +874,9 @@ const AI = {
                         free: true,
                         rpm: 30,
                         context: '8K tokens',
+                        performance: 'excellent',
+                        quality: 94,
+                        speed: 90,
                         description: 'Preview model, rychlý a kvalitní'
                     },
                     {
@@ -739,7 +885,10 @@ const AI = {
                         free: true,
                         rpm: 30,
                         context: '32K tokens',
-                        description: 'Velmi rychlý, dobrý pro kód'
+                        performance: 'good',
+                        quality: 80,
+                        speed: 95,
+                        description: 'Velmi rychlý, dobrý pro kód a vysoký RPM'
                     },
                     {
                         value: 'gemma2-9b-it',
@@ -747,7 +896,10 @@ const AI = {
                         free: true,
                         rpm: 30,
                         context: '8K tokens',
-                        description: 'Malý a efektivní model'
+                        performance: 'fast',
+                        quality: 70,
+                        speed: 98,
+                        description: 'Malý a efektivní, vysoký RPM pro jednoduché úkoly'
                     }
                 ]
             },
@@ -760,7 +912,10 @@ const AI = {
                         free: true,
                         rpm: 15,
                         context: '1M tokens',
-                        description: 'Extrémně dlouhý kontext, rychlý a free'
+                        performance: 'excellent',
+                        quality: 93,
+                        speed: 90,
+                        description: 'Extrémně dlouhý kontext, rychlý a free - TOP pro dlouhé texty'
                     },
                     {
                         value: 'gemini-1.5-pro',
@@ -768,7 +923,10 @@ const AI = {
                         free: false,
                         rpm: 2,
                         context: '2M tokens',
-                        description: 'Nejchytřejší Gemini, placený'
+                        performance: 'best',  // absolutně nejlepší
+                        quality: 98,
+                        speed: 70,
+                        description: 'Nejchytřejší Gemini, placený - NEJLEPŠÍ kvalita'
                     },
                     {
                         value: 'gemini-1.0-pro',
@@ -776,7 +934,10 @@ const AI = {
                         free: true,
                         rpm: 60,
                         context: '32K tokens',
-                        description: 'Starší verze, stále velmi dobrý'
+                        performance: 'good',
+                        quality: 85,
+                        speed: 92,
+                        description: 'Starší verze, vysoký RPM pro jednoduché úkoly'
                     }
                 ]
             },
@@ -784,36 +945,15 @@ const AI = {
                 name: 'OpenRouter',
                 models: [
                     {
-                        value: 'mistralai/mistral-small-3.1-24b-instruct:free',
-                        label: 'Mistral Small 3.1 24B (Free)',
-                        free: true,
-                        rpm: 20,
-                        context: '32K tokens',
-                        description: 'Malý Mistral, rychlý a free'
-                    },
-                    {
-                        value: 'google/gemini-flash-1.5',
-                        label: 'Gemini Flash 1.5',
-                        free: false,
-                        rpm: 10,
-                        context: '1M tokens',
-                        description: 'Gemini přes OpenRouter'
-                    },
-                    {
-                        value: 'meta-llama/llama-3.1-8b-instruct:free',
-                        label: 'Llama 3.1 8B (Free)',
-                        free: true,
-                        rpm: 20,
-                        context: '128K tokens',
-                        description: 'Malý Llama, free a rychlý'
-                    },
-                    {
                         value: 'anthropic/claude-3.5-sonnet',
                         label: 'Claude 3.5 Sonnet',
                         free: false,
                         rpm: 5,
                         context: '200K tokens',
-                        description: 'Nejchytřejší Claude, placený'
+                        performance: 'best',
+                        quality: 99,  // Claude je nejchytřejší
+                        speed: 75,
+                        description: 'Nejchytřejší AI vůbec, placený - TOP pro kritické úkoly'
                     },
                     {
                         value: 'openai/gpt-4o-mini',
@@ -821,7 +961,43 @@ const AI = {
                         free: false,
                         rpm: 10,
                         context: '128K tokens',
+                        performance: 'excellent',
+                        quality: 91,
+                        speed: 88,
                         description: 'Levný GPT-4, dobrý poměr cena/výkon'
+                    },
+                    {
+                        value: 'google/gemini-flash-1.5',
+                        label: 'Gemini Flash 1.5',
+                        free: false,
+                        rpm: 10,
+                        context: '1M tokens',
+                        performance: 'excellent',
+                        quality: 93,
+                        speed: 90,
+                        description: 'Gemini přes OpenRouter'
+                    },
+                    {
+                        value: 'mistralai/mistral-small-3.1-24b-instruct:free',
+                        label: 'Mistral Small 3.1 24B (Free)',
+                        free: true,
+                        rpm: 20,
+                        context: '32K tokens',
+                        performance: 'good',
+                        quality: 82,
+                        speed: 92,
+                        description: 'Malý Mistral, rychlý a free, vysoký RPM'
+                    },
+                    {
+                        value: 'meta-llama/llama-3.1-8b-instruct:free',
+                        label: 'Llama 3.1 8B (Free)',
+                        free: true,
+                        rpm: 20,
+                        context: '128K tokens',
+                        performance: 'fast',
+                        quality: 75,
+                        speed: 95,
+                        description: 'Malý Llama, free a rychlý pro jednoduché úkoly'
                     }
                 ]
             },
@@ -829,12 +1005,15 @@ const AI = {
                 name: 'Mistral',
                 models: [
                     {
-                        value: 'mistral-small-latest',
-                        label: 'Mistral Small (Latest)',
+                        value: 'mistral-large-latest',
+                        label: 'Mistral Large',
                         free: false,
                         rpm: 5,
-                        context: '32K tokens',
-                        description: 'Rychlý a efektivní, placený'
+                        context: '128K tokens',
+                        performance: 'excellent',
+                        quality: 94,
+                        speed: 80,
+                        description: 'Největší Mistral, velmi chytrý'
                     },
                     {
                         value: 'mistral-medium-latest',
@@ -842,23 +1021,21 @@ const AI = {
                         free: false,
                         rpm: 5,
                         context: '32K tokens',
+                        performance: 'good',
+                        quality: 88,
+                        speed: 85,
                         description: 'Středně velký model, placený'
                     },
                     {
-                        value: 'mistral-large-latest',
-                        label: 'Mistral Large',
+                        value: 'mistral-small-latest',
+                        label: 'Mistral Small (Latest)',
                         free: false,
                         rpm: 5,
-                        context: '128K tokens',
-                        description: 'Největší Mistral, velmi chytrý'
-                    },
-                    {
-                        value: 'open-mistral-7b',
-                        label: 'Open Mistral 7B',
-                        free: true,
-                        rpm: 10,
                         context: '32K tokens',
-                        description: 'Open-source verze, free'
+                        performance: 'good',
+                        quality: 85,
+                        speed: 90,
+                        description: 'Rychlý a efektivní, placený'
                     },
                     {
                         value: 'open-mixtral-8x7b',
@@ -866,7 +1043,21 @@ const AI = {
                         free: true,
                         rpm: 10,
                         context: '32K tokens',
-                        description: 'MoE architektura, rychlý'
+                        performance: 'fast',
+                        quality: 78,
+                        speed: 95,
+                        description: 'MoE architektura, rychlý, vysoký RPM'
+                    },
+                    {
+                        value: 'open-mistral-7b',
+                        label: 'Open Mistral 7B',
+                        free: true,
+                        rpm: 10,
+                        context: '32K tokens',
+                        performance: 'fast',
+                        quality: 72,
+                        speed: 97,
+                        description: 'Open-source verze, free, velmi rychlý'
                     }
                 ]
             },
@@ -879,6 +1070,9 @@ const AI = {
                         free: true,
                         rpm: 20,
                         context: '128K tokens',
+                        performance: 'excellent',
+                        quality: 90,
+                        speed: 85,
                         description: 'Nejnovější Cohere, trial free'
                     },
                     {
@@ -887,6 +1081,9 @@ const AI = {
                         free: false,
                         rpm: 10,
                         context: '128K tokens',
+                        performance: 'excellent',
+                        quality: 92,
+                        speed: 82,
                         description: 'Pokročilý model pro RAG'
                     },
                     {
@@ -895,6 +1092,9 @@ const AI = {
                         free: false,
                         rpm: 10,
                         context: '128K tokens',
+                        performance: 'good',
+                        quality: 86,
+                        speed: 88,
                         description: 'Dobrý pro retrieval úkoly'
                     },
                     {
