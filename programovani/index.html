@@ -245,23 +245,23 @@
       if (lastVersion !== APP_VERSION) {
         console.log('🔄 Detekována nová verze, mazání cache...');
 
-        // Clear all caches
+        // Clear browser cache API (neovlivňuje localStorage!)
         if ('caches' in window) {
           caches.keys().then(names => {
             names.forEach(name => caches.delete(name));
           });
         }
 
-        // Clear localStorage items (except important ones)
-        const preserve = ['github_token', 'github_username'];
-        Object.keys(localStorage).forEach(key => {
-          if (!preserve.includes(key)) {
-            localStorage.removeItem(key);
-          }
-        });
+        // DŮLEŽITÉ: localStorage NEMAZAT - obsahuje důležitá uživatelská data!
+        // Maže se jen browser cache (obrázky, CSS, JS soubory)
+        // localStorage zůstává zachován včetně:
+        // - github_token, github_username
+        // - htmlStudio:state (vaše soubory a nastavení)
+        // - ai_module_* (AI konverzace a nastavení)
+        // - github_repos (seznam repozitářů)
 
         localStorage.setItem('app_version', APP_VERSION);
-        console.log('✅ Cache vymazána, verze aktualizována na', APP_VERSION);
+        console.log('✅ Cache vymazána (localStorage zachován), verze aktualizována na', APP_VERSION);
       }
 
       // Wait for eventBus to be ready
