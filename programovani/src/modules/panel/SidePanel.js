@@ -205,7 +205,7 @@ export class SidePanel {
       item.addEventListener('click', (e) => {
         // Don't trigger if clicking delete button
         if (e.target.closest('.file-delete-btn')) return;
-        
+
         eventBus.emit('file:open', { fileId });
       });
     });

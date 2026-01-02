@@ -491,16 +491,28 @@ export class AIPanel {
 
       // Get current code for context
       const currentCode = state.get('editor.code') || '';
+      const openFiles = state.get('files.tabs') || [];
+      const activeFileId = state.get('files.active');
+      const activeFile = openFiles.find(f => f.id === activeFileId);
+
+      // Build files context
+      let filesContext = '';
+      if (openFiles.length > 0) {
+        filesContext = `\n\nOtevřené soubory:\n${openFiles.map(f => `- ${f.name}${f.id === activeFileId ? ' (aktivní)' : ''}`).join('\n')}`;
+      }
 
       // Build system prompt with context
       const systemPrompt = `Jsi AI asistent pro HTML editor. Pomáháš s kódem, vysvětluješ koncepty a vytváříš šablony.
+${filesContext}
 
-Aktuální kód uživatele:
+${activeFile ? `Aktivní soubor: ${activeFile.name}` : 'Žádný aktivní soubor'}
+Aktuální kód:
 \`\`\`html
-${currentCode.substring(0, 500)}${currentCode.length > 500 ? '...' : ''}
+${currentCode.substring(0, 800)}${currentCode.length > 800 ? '\n... (zkráceno)' : ''}
 \`\`\`
 
-Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\`\`html...\`\`\`.`;
+Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\`\`html...\`\`\`.
+Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vytvoř formulář"), VŽDY nabídni vytvoření nového souboru.`;
 
       // Call AI module
       const response = await window.AI.ask(message, {
@@ -510,31 +522,8 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
         temperature: 0.7
       });
 
-      // Check if response contains code
-      const codeMatch = response.match(/```html\n?([\s\S]*?)```/);
-      if (codeMatch) {
-        const code = codeMatch[1].trim();
-        this.addChatMessage('assistant', response);
-
-        // Offer to insert code
-        const insertBtn = document.createElement('button');
-        insertBtn.className = 'ai-insert-code-btn';
-        insertBtn.textContent = '📝 Vložit do editoru';
-        insertBtn.onclick = () => {
-          eventBus.emit('editor:setContent', { content: code });
-          eventBus.emit('toast:show', {
-            message: 'Kód byl vložen do editoru',
-            type: 'success'
-          });
-        };
-
-        const lastMessage = this.modal.element.querySelector('.ai-message.assistant:last-child');
-        if (lastMessage) {
-          lastMessage.appendChild(insertBtn);
-        }
-      } else {
-        this.addChatMessage('assistant', response);
-      }
+      // Add assistant message with formatted code
+      this.addChatMessageWithCode('assistant', response, message);
     } catch (error) {
       let errorMsg = error.message;
       if (error.message.includes('API key')) {
@@ -559,6 +548,115 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
     return messageId;
+  }
+
+  addChatMessageWithCode(role, content, originalMessage = '') {
+    const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
+    const messageEl = document.createElement('div');
+    messageEl.className = `ai-message ${role}`;
+
+    // Detect code blocks
+    const codeBlockRegex = /```(\w+)?\n?([\s\S]*?)```/g;
+    let lastIndex = 0;
+    let formattedContent = '';
+    let codeBlocks = [];
+    let match;
+
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+      // Add text before code block
+      if (match.index > lastIndex) {
+        formattedContent += `<p>${this.escapeHtml(content.substring(lastIndex, match.index))}</p>`;
+      }
+
+      const language = match[1] || 'html';
+      const code = match[2].trim();
+      codeBlocks.push({ language, code });
+
+      // Add code block with syntax highlighting placeholder
+      formattedContent += `
+        <div class="code-block-wrapper">
+          <div class="code-block-header">
+            <span class="code-language">${language}</span>
+          </div>
+          <pre class="code-block"><code>${this.escapeHtml(code)}</code></pre>
+          <div class="code-block-actions" data-code-index="${codeBlocks.length - 1}"></div>
+        </div>
+      `;
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < content.length) {
+      formattedContent += `<p>${this.escapeHtml(content.substring(lastIndex))}</p>`;
+    }
+
+    messageEl.innerHTML = formattedContent;
+    messagesContainer.appendChild(messageEl);
+
+    // Add action buttons for code blocks
+    codeBlocks.forEach((block, index) => {
+      const actionsContainer = messageEl.querySelector(`[data-code-index="${index}"]`);
+      if (actionsContainer) {
+        // Check if this looks like a new project
+        const isNewProject = this.detectNewProject(originalMessage, block.code);
+
+        if (isNewProject) {
+          // Button for new file
+          const newFileBtn = document.createElement('button');
+          newFileBtn.className = 'code-action-btn primary';
+          newFileBtn.innerHTML = '📄 Vytvořit nový soubor';
+          newFileBtn.onclick = () => {
+            this.createNewFileWithCode(block.code);
+          };
+          actionsContainer.appendChild(newFileBtn);
+        }
+
+        // Button to insert into current editor
+        const insertBtn = document.createElement('button');
+        insertBtn.className = 'code-action-btn';
+        insertBtn.innerHTML = '✏️ Vložit do editoru';
+        insertBtn.onclick = () => {
+          this.insertCodeToEditor(block.code);
+        };
+        actionsContainer.appendChild(insertBtn);
+      }
+    });
+
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  detectNewProject(userMessage, code) {
+    // Keywords that indicate user wants a new project
+    const newProjectKeywords = ['udělej', 'vytvoř', 'vygeneruj', 'nový', 'kalkulačk', 'formulář', 'stránk', 'web', 'app'];
+    const messageLower = userMessage.toLowerCase();
+    
+    // Check if message contains new project keywords
+    const hasKeyword = newProjectKeywords.some(kw => messageLower.includes(kw));
+    
+    // Check if code is a complete HTML document
+    const isCompleteDoc = code.includes('<!DOCTYPE') && code.includes('<html') && code.includes('</html>');
+    
+    return hasKeyword && isCompleteDoc;
+  }
+
+  createNewFileWithCode(code) {
+    // Create new file via event
+    eventBus.emit('file:createWithCode', { code });
+  }
+
+  insertCodeToEditor(code) {
+    // Insert to current editor
+    state.set('editor.code', code);
+    eventBus.emit('editor:setCode', { code });
+    
+    // Show toast
+    const toast = document.querySelector('.toast');
+    if (toast) {
+      toast.textContent = '✅ Kód vložen do editoru';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
   }
 
   removeChatMessage(messageId) {
