@@ -44,7 +44,7 @@ export class AppState {
       },
       ui: {
         theme: 'dark',
-        view: 'split', // 'split', 'editor', 'preview' - default to split
+        view: 'preview', // 'editor', 'preview' - default to preview
         splitRatio: 50,
         toolsPanelOpen: false,
         toolsPanelWidth: 300,
