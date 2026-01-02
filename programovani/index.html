@@ -20,6 +20,44 @@
 
     <link rel="stylesheet" href="src/styles/main.css?v=20260102" />
 
+    <!-- MOBILNÍ TEST - dočasný inline CSS pro debugging -->
+    <style id="mobile-debug-test">
+      /* Test pro mobilní zobrazení */
+      @media (max-width: 768px) {
+        body::before {
+          content: "✅ MOBILNÍ CSS FUNGUJE! Šířka: " attr(data-width) "px";
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          background: green;
+          color: white;
+          padding: 10px;
+          text-align: center;
+          font-size: 16px;
+          font-weight: bold;
+          z-index: 99999;
+        }
+      }
+
+      @media (min-width: 769px) {
+        body::before {
+          content: "⚠️ DESKTOP REŽIM - Šířka: " attr(data-width) "px";
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          background: orange;
+          color: white;
+          padding: 10px;
+          text-align: center;
+          font-size: 16px;
+          font-weight: bold;
+          z-index: 99999;
+        }
+      }
+    </style>
+
     <!-- Import Maps for module resolution -->
     <script type="importmap">
       {
@@ -293,6 +331,15 @@
 
       // Setup basic UI interactions
       document.addEventListener('DOMContentLoaded', () => {
+        // MOBILNÍ DEBUG - zobraz šířku v liště
+        const updateDebugInfo = () => {
+          const width = window.innerWidth;
+          document.body.setAttribute('data-width', width);
+          console.log('📱 Šířka:', width, 'px | Mobilní:', width <= 768);
+        };
+        updateDebugInfo();
+        window.addEventListener('resize', updateDebugInfo);
+
         // Debug info for mobile
         const isMobile = window.innerWidth <= 768;
         console.log('📱 Device info:', {
