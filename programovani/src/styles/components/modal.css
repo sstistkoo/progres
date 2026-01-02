@@ -118,7 +118,8 @@
 }
 
 .ai-settings-header summary {
-  padding: 6px 12px;
+  padding: 6px 12px 6px 12px;
+  padding-right: 28px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -128,6 +129,27 @@
   color: var(--text-primary);
   list-style: none;
   white-space: nowrap;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.ai-settings-header summary::after {
+  content: '▼';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.ai-settings-header[open] summary::after {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.ai-settings-header summary:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
 }
 
 .ai-settings-header summary::-webkit-details-marker {
