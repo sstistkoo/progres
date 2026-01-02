@@ -78,6 +78,12 @@ export class AIPanel {
 
     // Now attach event handlers
     this.attachEventHandlers();
+
+    // Initialize provider/model after DOM is ready
+    const providerSelect = this.modal.element.querySelector('#aiProvider');
+    if (providerSelect) {
+      this.updateModels(providerSelect.value);
+    }
   }
 
   createAIInterface() {
