@@ -2,9 +2,9 @@
  * Simple Side Panel - Levý vysouvací panel s GitHub a soubory
  */
 
-import { eventBus } from '@core/events.js';
-import { state } from '@core/state.js';
-import toast from '@ui/components/Toast.js';
+import { eventBus } from '../../core/events.js';
+import { state } from '../../core/state.js';
+import toast from '../../ui/components/Toast.js';
 
 export class SidePanel {
   constructor() {

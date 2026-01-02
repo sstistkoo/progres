@@ -1,7 +1,7 @@
 /**
  * Toast notification component
  */
-import { createElement } from '@utils/dom.js';
+import { createElement } from '../../utils/dom.js';
 
 class ToastManager {
   constructor() {

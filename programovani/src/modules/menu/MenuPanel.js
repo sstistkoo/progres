@@ -3,7 +3,7 @@
  * Main navigation menu
  */
 
-import { eventBus } from '@core/events.js';
+import { eventBus } from '../../core/events.js';
 
 export class MenuPanel {
   constructor() {

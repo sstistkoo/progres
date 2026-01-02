@@ -1,9 +1,9 @@
 /**
  * Preview Module - Live náhled HTML kódu
  */
-import { state } from '@core/state.js';
-import { eventBus } from '@core/events.js';
-import { debounce } from '@utils/async.js';
+import { state } from '../../core/state.js';
+import { eventBus } from '../../core/events.js';
+import { debounce } from '../../utils/async.js';
 
 export class Preview {
   constructor(container) {

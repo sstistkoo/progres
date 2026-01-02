@@ -1,10 +1,10 @@
 /**
  * Editor Module - Hlavní logika code editoru
  */
-import { state } from '@core/state.js';
-import { eventBus } from '@core/events.js';
-import { debounce } from '@utils/async.js';
-import { countLines } from '@utils/string.js';
+import { state } from '../../core/state.js';
+import { eventBus } from '../../core/events.js';
+import { debounce } from '../../utils/async.js';
+import { countLines } from '../../utils/string.js';
 
 export class Editor {
   constructor(container) {

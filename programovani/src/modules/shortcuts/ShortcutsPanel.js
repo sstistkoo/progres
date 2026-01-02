@@ -3,8 +3,8 @@
  * Command palette and shortcuts reference
  */
 
-import { eventBus } from '@core/events.js';
-import { Modal } from '@ui/components/Modal.js';
+import { eventBus } from '../../core/events.js';
+import { Modal } from '../../ui/components/Modal.js';
 
 export class ShortcutsPanel {
   constructor() {
