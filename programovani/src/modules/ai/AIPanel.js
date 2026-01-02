@@ -85,6 +85,15 @@ export class AIPanel {
 
           <!-- Chat Interface -->
           <div class="ai-chat">
+            <div class="ai-chat-header">
+              <span class="chat-history-info" id="chatHistoryInfo">Historie: 0 zpráv</span>
+              <button class="clear-history-btn" id="clearHistoryBtn" title="Vymazat historii konverzace">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                Vymazat historii
+              </button>
+            </div>
             <div class="ai-chat-messages" id="aiChatMessages">
               <div class="ai-message system">
                 <p>Ahoj! Jsem tvůj AI asistent. Můžu ti pomoct s kódem, vysvětlit koncepty, nebo vytvořit šablony. Co potřebuješ?</p>
@@ -345,6 +354,47 @@ export class AIPanel {
       });
     });
 
+    // Chat Input & Send
+    const chatInput = this.modal.element.querySelector('#aiChatInput');
+    const sendBtn = this.modal.element.querySelector('#aiSendBtn');
+
+    if (chatInput && sendBtn) {
+      const sendMessage = () => {
+        const message = chatInput.value.trim();
+        if (message) {
+          this.sendMessage(message);
+          chatInput.value = '';
+          chatInput.style.height = 'auto';
+        }
+      };
+
+      sendBtn.addEventListener('click', sendMessage);
+
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      // Auto-resize textarea
+      chatInput.addEventListener('input', () => {
+        chatInput.style.height = 'auto';
+        chatInput.style.height = chatInput.scrollHeight + 'px';
+      });
+    }
+
+    // Clear History Button
+    const clearHistoryBtn = this.modal.element.querySelector('#clearHistoryBtn');
+    if (clearHistoryBtn) {
+      clearHistoryBtn.addEventListener('click', () => {
+        this.clearChatHistory();
+      });
+    }
+
+    // Update history info
+    this.updateHistoryInfo();
+
     // Quick actions
     const quickActionBtns = this.modal.element.querySelectorAll('.quick-action-btn');
     quickActionBtns.forEach(btn => {
@@ -410,29 +460,6 @@ export class AIPanel {
     // AI Agents handlers
     this.attachAgentsHandlers();
 
-    // Chat input
-    const chatInput = this.modal.element.querySelector('#aiChatInput');
-    const sendBtn = this.modal.element.querySelector('#aiSendBtn');
-
-    if (sendBtn) {
-      sendBtn.addEventListener('click', () => {
-        const message = chatInput.value.trim();
-        if (message) {
-          this.sendMessage(message);
-          chatInput.value = '';
-        }
-      });
-    }
-
-    if (chatInput) {
-      chatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          sendBtn.click();
-        }
-      });
-    }
-
     // Provider change
     const providerSelect = this.modal.element.querySelector('#aiProvider');
     if (providerSelect) {
@@ -487,6 +514,15 @@ export class AIPanel {
     // Add user message to chat
     this.addChatMessage('user', message);
 
+    // Add to history
+    this.chatHistory.push({
+      role: 'user',
+      content: message
+    });
+
+    // Update history counter
+    this.updateHistoryInfo();
+
     try {
       // Get current provider and model
       const provider = this.modal.element.querySelector('#aiProvider')?.value || 'groq';
@@ -509,6 +545,15 @@ export class AIPanel {
         filesContext = `\n\nOtevřené soubory:\n${openFiles.map(f => `- ${f.name}${f.id === activeFileId ? ' (aktivní)' : ''}`).join('\n')}`;
       }
 
+      // Build chat history context (last 10 messages)
+      let historyContext = '';
+      if (this.chatHistory.length > 1) {
+        const recentHistory = this.chatHistory.slice(-10);
+        historyContext = `\n\nPředchozí konverzace:\n${recentHistory.map(msg =>
+          `${msg.role === 'user' ? 'Uživatel' : 'AI'}: ${msg.content.substring(0, 200)}${msg.content.length > 200 ? '...' : ''}`
+        ).join('\n')}`;
+      }
+
       // Build system prompt with context
       const systemPrompt = `Jsi AI asistent pro HTML editor. Pomáháš s kódem, vysvětluješ koncepty a vytváříš šablony.
 ${filesContext}
@@ -518,17 +563,28 @@ Aktuální kód:
 \`\`\`html
 ${currentCode.substring(0, 800)}${currentCode.length > 800 ? '\n... (zkráceno)' : ''}
 \`\`\`
+${historyContext}
 
 Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\`\`html...\`\`\`.
-Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vytvoř formulář"), VŽDY nabídni vytvoření nového souboru.`;
+PAMATUJ SI předchozí konverzaci a navazuj na ni. Pokud uživatel chce pokračovat v projektu, rozšiř/uprav stávající kód.`;
 
-      // Call AI module
+      // Call AI module with history
       const response = await window.AI.ask(message, {
         provider: provider,
         model: model,
         system: systemPrompt,
-        temperature: 0.7
+        temperature: 0.7,
+        history: this.chatHistory.slice(-10) // Send last 10 messages as context
       });
+
+      // Add to history
+      this.chatHistory.push({
+        role: 'assistant',
+        content: response
+      });
+
+      // Update history counter
+      this.updateHistoryInfo();
 
       // Add assistant message with formatted code
       this.addChatMessageWithCode('assistant', response, message);
@@ -745,7 +801,7 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
   startNewProject() {
     // Get all open files
     const tabs = state.get('files.tabs') || [];
-    
+
     if (tabs.length === 0) {
       // No project to save, just reset
       this.resetToNewProject();
@@ -754,12 +810,12 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
 
     // Confirm if user wants to save current project
     const confirmSave = confirm('Chcete uložit a stáhnout aktuální projekt před začátkem nového?');
-    
+
     if (confirmSave) {
       // Download all files as ZIP would be ideal, but for now download active file
       const activeFileId = state.get('files.active');
       const activeFile = tabs.find(f => f.id === activeFileId);
-      
+
       if (activeFile) {
         // Download the active file
         const blob = new Blob([activeFile.content], { type: 'text/html' });
@@ -770,13 +826,13 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
         a.click();
         URL.revokeObjectURL(url);
       }
-      
+
       // If multiple files, notify user
       if (tabs.length > 1) {
         alert(`Uložen hlavní soubor. Máte ${tabs.length} otevřených souborů. Pro kompletní zálohu použijte GitHub nebo manuální export.`);
       }
     }
-    
+
     // Reset to new project
     this.resetToNewProject();
   }
@@ -786,7 +842,7 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
     state.set('files.tabs', []);
     state.set('files.active', null);
     state.set('files.nextId', 1);
-    
+
     // Clear editor
     const defaultCode = `<!DOCTYPE html>
 <html lang="cs">
@@ -808,30 +864,35 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
   <p>Začněte psát svůj kód zde...</p>
 </body>
 </html>`;
-    
+
     state.set('editor.code', defaultCode);
     eventBus.emit('editor:setCode', { code: defaultCode });
-    
+
     // Clear chat history
+    this.clearChatHistory();
+
+    toast.show('✨ Nový projekt vytvořen!', 'success');
+  }
+
+  clearChatHistory() {
     this.chatHistory = [];
     const messagesContainer = this.modal?.element?.querySelector('#aiChatMessages');
     if (messagesContainer) {
       messagesContainer.innerHTML = `
         <div class="ai-message system">
-          <p>🎉 Nový projekt vytvořen! Můžu ti pomoct s kódem, vysvětlit koncepty, nebo vytvořit šablony. Co potřebuješ?</p>
+          <p>Historie konverzace byla vymazána. Můžeš začít novou konverzaci!</p>
         </div>
       `;
     }
-    
-    // Update files list in sidebar
-    eventBus.emit('files:changed');
-    
-    // Show success message
-    const toast = document.querySelector('.toast');
-    if (toast) {
-      toast.textContent = '🎉 Nový projekt vytvořen!';
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2000);
+    this.updateHistoryInfo();
+    toast.show('🗑️ Historie konverzace vymazána', 'info');
+  }
+
+  updateHistoryInfo() {
+    const historyInfo = this.modal?.element?.querySelector('#chatHistoryInfo');
+    if (historyInfo) {
+      const messageCount = this.chatHistory.length;
+      historyInfo.textContent = `Historie: ${messageCount} ${messageCount === 1 ? 'zpráva' : messageCount < 5 ? 'zprávy' : 'zpráv'}`;
     }
   }
 
