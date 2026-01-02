@@ -41,7 +41,6 @@ export class AIPanel {
 
     this.modal = new Modal({
       title: `<div class="modal-title-wrapper">
-        <span class="modal-title-text">📝 AI Kod</span>
         <select class="ai-tab-select-header" id="aiTabSelectHeader">
           <option value="chat" selected>💬 Chat</option>
           <option value="agents">🤖 Agenti</option>
@@ -50,6 +49,23 @@ export class AIPanel {
           <option value="prompts">📝 Prompty</option>
           <option value="github">🔗 GitHub</option>
         </select>
+        <details class="ai-settings-header" id="aiSettingsHeader">
+          <summary>Nastavení AI</summary>
+          <div class="ai-header-settings">
+            <div class="ai-provider-selector">
+              <label for="aiProvider">Provider:</label>
+              <select id="aiProvider" class="ai-select">
+                ${this.generateProviderOptions()}
+              </select>
+            </div>
+            <div class="ai-model-selector">
+              <label for="aiModel">Model:</label>
+              <select id="aiModel" class="ai-select">
+                <option value="">Načítání...</option>
+              </select>
+            </div>
+          </div>
+        </details>
       </div>`,
       content,
       className: 'ai-modal',
@@ -69,25 +85,6 @@ export class AIPanel {
       <div class="ai-panel">
         <!-- Chat Tab -->
         <div class="ai-tab-content active" data-content="chat">
-          <!-- AI Provider Selection - Collapsible -->
-          <details class="ai-settings-collapsible" open>
-            <summary>Nastavení AI</summary>
-            <div class="ai-header">
-              <div class="ai-provider-selector">
-                <label for="aiProvider">Provider:</label>
-                <select id="aiProvider" class="ai-select">
-                  ${this.generateProviderOptions()}
-                </select>
-              </div>
-              <div class="ai-model-selector">
-                <label for="aiModel">Model:</label>
-                <select id="aiModel" class="ai-select">
-                  <option value="">Načítání...</option>
-                </select>
-              </div>
-            </div>
-          </details>
-
           <!-- Chat Interface -->
           <div class="ai-chat">
             <div class="ai-chat-header">
