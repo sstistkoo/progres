@@ -47,11 +47,6 @@
       <!-- Header -->
       <header class="header">
         <div class="header-left">
-          <button class="nav-btn" id="menuBtn" title="Menu">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
-          </button>
           <div class="logo">
             <span class="logo-icon">⚡</span>
             <span class="logo-text">HTML Studio</span>
@@ -80,6 +75,24 @@
           </button>
 
           <!-- Actions -->
+          <button class="nav-btn" id="refreshBtn" title="Obnovit náhled (F5)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"
+              />
+            </svg>
+          </button>
+          <button class="nav-btn" id="consoleBtn" title="Konzole (Ctrl+`)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 17l6-6-6-6M12 19h8" />
+            </svg>
+          </button>
+          <button class="nav-btn" id="sidebarBtn" title="GitHub a Soubory">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+              <path d="M13 2v7h7" />
+            </svg>
+          </button>
           <button class="nav-btn" id="aiBtn" title="AI asistent">
             <span style="font-size: 18px">🤖</span>
           </button>
@@ -243,9 +256,9 @@
         console.log('🚀 DOM loaded, setting up event listeners');
 
         // Menu button
-        document.getElementById('menuBtn')?.addEventListener('click', () => {
-          console.log('Menu button clicked');
-          safeEmit('menu:toggle');
+        document.getElementById('filesBtn')?.addEventListener('click', () => {
+          console.log('Files button clicked');
+          safeEmit('sidebar:toggle');
         });
 
         // Theme toggle
@@ -293,8 +306,12 @@
         document.getElementById('searchBtn')?.addEventListener('click', () => {
           safeEmit('action:search');
         });
-        document.getElementById('refreshBtn')?.addEventListener('click', () => {
-          safeEmit('preview:refresh');
+        document.getElementById('consoleBtn')?.addEventListener('click', () => {
+          safeEmit('console:toggle');
+        });
+        document.getElementById('sidebarBtn')?.addEventListener('click', () => {
+          console.log('Sidebar button clicked');
+          safeEmit('sidebar:toggle');
         });
         document.getElementById('shortcutsBtn')?.addEventListener('click', () => {
           safeEmit('shortcuts:show');

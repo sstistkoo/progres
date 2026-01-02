@@ -15,6 +15,7 @@ import { AIPanel } from '@modules/ai/AIPanel.js';
 import { ShortcutsPanel } from '@modules/shortcuts/ShortcutsPanel.js';
 import { MenuPanel } from '@modules/menu/MenuPanel.js';
 import { SearchPanel } from '@modules/search/SearchPanel.js';
+import { SidePanel } from '@modules/panel/SidePanel.js';
 
 class App {
   constructor() {
@@ -24,6 +25,7 @@ class App {
     this.shortcutsPanel = null;
     this.menuPanel = null;
     this.searchPanel = null;
+    this.sidePanel = null;
     this.initialized = false;
   }
 
@@ -91,6 +93,10 @@ class App {
     // Search Panel
     this.searchPanel = new SearchPanel();
     console.log('✓ Search Panel initialized');
+
+    // Side Panel
+    this.sidePanel = new SidePanel();
+    console.log('✓ Side Panel initialized');
   }
 
   setupEventListeners() {
@@ -110,6 +116,13 @@ class App {
     // Menu toggle
     eventBus.on('menu:toggle', () => {
       this.menuPanel.toggle();
+    });
+
+    // Sidebar toggle
+    eventBus.on('sidebar:toggle', () => {
+      if (this.sidePanel) {
+        this.sidePanel.toggle();
+      }
     });
 
     // State changes
@@ -269,9 +282,19 @@ class App {
   }
 
   refreshPreview() {
-    if (this.preview) {
+    if (this.preview && typeof this.preview.refresh === 'function') {
       this.preview.refresh();
       toast.success('Náhled obnoven', 2000);
+    } else {
+      // Fallback - refresh iframe manually
+      const previewFrame = document.getElementById('previewFrame');
+      if (previewFrame && previewFrame.contentWindow) {
+        const currentContent = state.get('editor.content') || '';
+        previewFrame.contentWindow.document.open();
+        previewFrame.contentWindow.document.write(currentContent);
+        previewFrame.contentWindow.document.close();
+        toast.success('Náhled obnoven', 2000);
+      }
     }
   }
 
@@ -284,6 +307,7 @@ class App {
   destroy() {
     if (this.editor) this.editor.destroy();
     if (this.preview) this.preview.destroy();
+    if (this.sidePanel) this.sidePanel.destroy();
     eventBus.clear();
   }
 }

@@ -1115,20 +1115,150 @@ Odpovídej česky, stručně a prakticky. Pokud generuješ kód, zabal ho do \`\
       type: 'info'
     });
 
-    // Simulate OAuth flow (in production, this would redirect to GitHub)
-    const username = prompt('GitHub uživatelské jméno (pro demo):');
-    if (!username) return;
+    // Show GitHub login modal instead of prompt
+    const result = await this.showGitHubLoginModal();
+    if (!result || !result.username) return;
 
-    // Store username
-    localStorage.setItem('github_username', username);
+    // Store username and token
+    localStorage.setItem('github_username', result.username);
+    if (result.token) {
+      localStorage.setItem('github_token', result.token);
+    }
 
-    // Simulate getting token (in production, this would come from OAuth callback)
     eventBus.emit('toast:show', {
-      message: 'Připojeno jako @' + username + '. Nezapomeňte nastavit token pro API přístup.',
+      message: 'Připojeno jako @' + result.username + (result.token ? '' : '. Nezapomeňte nastavit token pro API přístup.'),
       type: 'success'
     });
 
     this.checkGitHubConnection();
+  }
+
+  // Show GitHub Login Modal
+  showGitHubLoginModal() {
+    return new Promise((resolve) => {
+      // Prevent multiple modals
+      const existingModal = document.querySelector('.github-login-modal');
+      if (existingModal) {
+        existingModal.remove();
+      }
+
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay github-login-modal';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              </svg>
+              Přihlášení na GitHub
+            </h2>
+            <button class="modal-close" aria-label="Zavřít">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p class="modal-description" style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+              💡 V produkční verzi by se zde otevřelo OAuth okno od GitHubu.
+              Pro demo zadejte své GitHub údaje:
+            </p>
+            <form id="githubLoginForm">
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label for="githubUsername" style="display: block; margin-bottom: 6px; font-weight: 500;">GitHub uživatelské jméno</label>
+                <input
+                  type="text"
+                  id="githubUsername"
+                  name="github-user"
+                  placeholder="např. octocat"
+                  required
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  style="width: 100%; padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 14px;"
+                />
+              </div>
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label for="githubToken" style="display: block; margin-bottom: 6px; font-weight: 500;">Personal Access Token (volitelné)</label>
+                <input
+                  type="password"
+                  id="githubToken"
+                  name="github-token"
+                  placeholder="ghp_xxxxxxxxxxxx"
+                  autocomplete="new-password"
+                  style="width: 100%; padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 14px;"
+                />
+                <small style="display: block; margin-top: 6px; font-size: 12px; color: var(--text-secondary);">
+                  Pro API přístup. <a href="https://github.com/settings/tokens" target="_blank" style="color: var(--primary);">Vytvořit token</a>
+                </small>
+              </div>
+              <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid var(--border);">
+                <button type="button" class="btn btn-secondary" data-action="cancel" style="padding: 10px 20px; border: none; border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; min-width: 44px; min-height: 44px;">Zrušit</button>
+                <button type="submit" class="btn btn-primary" style="padding: 10px 20px; border: none; border-radius: 6px; background: var(--primary); color: white; cursor: pointer; min-width: 44px; min-height: 44px;">Přihlásit</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+
+      const closeModal = (result = null) => {
+        modal.classList.add('closing');
+        setTimeout(() => {
+          modal.remove();
+          document.removeEventListener('keydown', escHandler);
+          resolve(result);
+        }, 300);
+      };
+
+      // Prevent event bubbling on modal content
+      modal.querySelector('.modal-content')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+
+      // Close button
+      modal.querySelector('.modal-close')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeModal();
+      });
+
+      modal.querySelector('[data-action="cancel"]')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeModal();
+      });
+
+      // Close on backdrop click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          closeModal();
+        }
+      });
+
+      // Close on ESC
+      const escHandler = (e) => {
+        if (e.key === 'Escape') {
+          closeModal();
+        }
+      };
+      document.addEventListener('keydown', escHandler);
+
+      // Form submit
+      modal.querySelector('#githubLoginForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = modal.querySelector('#githubUsername').value.trim();
+        const token = modal.querySelector('#githubToken').value.trim();
+        if (username) {
+          closeModal({ username, token });
+        }
+      });
+
+      document.body.appendChild(modal);
+
+      // Trigger animation
+      setTimeout(() => {
+        modal.classList.add('show');
+      }, 10);
+
+      // Focus first input
+      setTimeout(() => modal.querySelector('#githubUsername').focus(), 100);
+    });
   }
 
   // Repository Manager
