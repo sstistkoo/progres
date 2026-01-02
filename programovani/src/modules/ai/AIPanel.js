@@ -57,33 +57,36 @@ export class AIPanel {
   createAIInterface() {
     return `
       <div class="ai-panel">
-        <!-- Tabs -->
-        <div class="ai-tabs">
-          <button class="ai-tab active" data-tab="chat">💬 Chat</button>
-          <button class="ai-tab" data-tab="agents">🤖 Agenti</button>
-          <button class="ai-tab" data-tab="editor" id="editorTabBtn">📝 Kód</button>
-          <button class="ai-tab" data-tab="actions">⚡ Akce</button>
-          <button class="ai-tab" data-tab="prompts">📝 Prompty</button>
-          <button class="ai-tab" data-tab="github">🔗 GitHub</button>
-        </div>
+        <!-- Tab Selector -->
+        <select class="ai-tab-select" id="aiTabSelect">
+          <option value="chat" selected>💬 Chat</option>
+          <option value="agents">🤖 Agenti</option>
+          <option value="editor">📝 Kód</option>
+          <option value="actions">⚡ Akce</option>
+          <option value="prompts">📝 Prompty</option>
+          <option value="github">🔗 GitHub</option>
+        </select>
 
         <!-- Chat Tab -->
         <div class="ai-tab-content active" data-content="chat">
-          <!-- AI Provider Selection -->
-          <div class="ai-header">
-            <div class="ai-provider-selector">
-              <label for="aiProvider">Provider:</label>
-              <select id="aiProvider" class="ai-select">
-                ${this.generateProviderOptions()}
-              </select>
+          <!-- AI Provider Selection - Collapsible -->
+          <details class="ai-settings-collapsible" open>
+            <summary>Nastavení AI</summary>
+            <div class="ai-header">
+              <div class="ai-provider-selector">
+                <label for="aiProvider">Provider:</label>
+                <select id="aiProvider" class="ai-select">
+                  ${this.generateProviderOptions()}
+                </select>
+              </div>
+              <div class="ai-model-selector">
+                <label for="aiModel">Model:</label>
+                <select id="aiModel" class="ai-select">
+                  <option value="">Načítání...</option>
+                </select>
+              </div>
             </div>
-            <div class="ai-model-selector">
-              <label for="aiModel">Model:</label>
-              <select id="aiModel" class="ai-select">
-                <option value="">Načítání...</option>
-              </select>
-            </div>
-          </div>
+          </details>
 
           <!-- Chat Interface -->
           <div class="ai-chat">
@@ -346,13 +349,13 @@ export class AIPanel {
   }
 
   attachEventHandlers() {
-    // Tabs
-    const tabs = this.modal.element.querySelectorAll('.ai-tab');
+    // Tab Select Dropdown
+    const tabSelect = this.modal.element.querySelector('#aiTabSelect');
     const tabContents = this.modal.element.querySelectorAll('.ai-tab-content');
 
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        const tabName = tab.dataset.tab;
+    if (tabSelect) {
+      tabSelect.addEventListener('change', (e) => {
+        const tabName = e.target.value;
 
         // Special handling for editor tab - close modal and focus editor
         if (tabName === 'editor') {
@@ -363,21 +366,21 @@ export class AIPanel {
             editorTextarea.focus();
           }
           toast.show('📝 Přepnuto na editor', 'info');
+          // Reset select to chat
+          tabSelect.value = 'chat';
           return;
         }
 
-        // Remove active class from all tabs and contents
-        tabs.forEach(t => t.classList.remove('active'));
+        // Remove active class from all contents
         tabContents.forEach(c => c.classList.remove('active'));
 
-        // Add active class to clicked tab and corresponding content
-        tab.classList.add('active');
+        // Add active class to corresponding content
         const content = this.modal.element.querySelector(`[data-content="${tabName}"]`);
         if (content) {
           content.classList.add('active');
         }
       });
-    });
+    }
 
     // Chat Input & Send
     const chatInput = this.modal.element.querySelector('#aiChatInput');
