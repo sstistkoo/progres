@@ -71,7 +71,7 @@ export class AppState {
       },
       ui: {
         theme: 'dark',
-        view: 'preview', // 'editor', 'preview' - default to preview
+        view: 'preview',
         splitRatio: 50,
         toolsPanelOpen: false,
         toolsPanelWidth: 300,

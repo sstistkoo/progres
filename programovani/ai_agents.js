@@ -207,8 +207,13 @@ Když dostaneš úkol, odpověz ve formátu JSON:
   activateAgent(agentId) {
     const agent = this.agents.get(agentId);
     if (!agent) {
-      console.error('Agent not found:', agentId);
+      console.error(`❌ Agent "${agentId}" not found`);
       return false;
+    }
+
+    if (agent.active) {
+      console.warn(`⚠️ Agent "${agent.name}" is already active`);
+      return true; // Already active is not an error
     }
 
     agent.active = true;
@@ -216,7 +221,7 @@ Když dostaneš úkol, odpověz ve formátu JSON:
       this.activeAgents.push(agentId);
     }
 
-    console.log(`✅ Agent "${agent.name}" activated`);
+    console.log(`✅ Agent "${agent.name}" (${agent.role}) activated`);
     return true;
   }
 
@@ -225,7 +230,15 @@ Když dostaneš úkol, odpověz ve formátu JSON:
    */
   deactivateAgent(agentId) {
     const agent = this.agents.get(agentId);
-    if (!agent) return false;
+    if (!agent) {
+      console.error(`❌ Agent "${agentId}" not found`);
+      return false;
+    }
+
+    if (!agent.active) {
+      console.warn(`⚠️ Agent "${agent.name}" is already inactive`);
+      return true; // Already inactive is not an error
+    }
 
     agent.active = false;
     this.activeAgents = this.activeAgents.filter(id => id !== agentId);
@@ -235,10 +248,82 @@ Když dostaneš úkol, odpověz ve formátu JSON:
   }
 
   /**
+   * Toggle agent active state
+   */
+  toggleAgent(agentId) {
+    const agent = this.agents.get(agentId);
+    if (!agent) {
+      console.error('Agent not found:', agentId);
+      return false;
+    }
+
+    if (agent.active) {
+      return this.deactivateAgent(agentId);
+    } else {
+      return this.activateAgent(agentId);
+    }
+  }
+
+  /**
+   * Activate multiple agents at once
+   */
+  activateAgents(agentIds) {
+    if (!Array.isArray(agentIds)) {
+      console.error('❌ activateAgents expects an array of agent IDs');
+      return [];
+    }
+
+    const results = [];
+    agentIds.forEach(id => {
+      const agent = this.agents.get(id);
+      const success = this.activateAgent(id);
+      results.push({
+        id,
+        name: agent?.name || 'Unknown',
+        success
+      });
+    });
+
+    const successCount = results.filter(r => r.success).length;
+    console.log(`✨ Activated ${successCount}/${agentIds.length} agents`);
+
+    return results;
+  }
+
+  /**
+   * Deactivate all agents
+   */
+  deactivateAllAgents() {
+    const deactivated = [...this.activeAgents];
+    deactivated.forEach(id => this.deactivateAgent(id));
+    console.log('🔴 All agents deactivated');
+    return deactivated;
+  }
+
+  /**
    * Get all active agents
    */
   getActiveAgents() {
-    return this.activeAgents.map(id => this.agents.get(id));
+    return this.activeAgents.map(id => this.agents.get(id)).filter(Boolean);
+  }
+
+  /**
+   * Check if agent is active
+   */
+  isAgentActive(agentId) {
+    const agent = this.agents.get(agentId);
+    return agent ? agent.active : false;
+  }
+
+  /**
+   * Get agent count statistics
+   */
+  getStats() {
+    return {
+      total: this.agents.size,
+      active: this.activeAgents.length,
+      inactive: this.agents.size - this.activeAgents.length
+    };
   }
 
   /**
@@ -266,9 +351,15 @@ Když dostaneš úkol, odpověz ve formátu JSON:
         throw new Error('AI module not loaded');
       }
 
-      const response = await window.AI.chat(fullPrompt, {
+      // Automatically select best model for this agent type
+      const modelSelection = window.AI.selectModelForAgent(agentId);
+
+      const response = await window.AI.ask(fullPrompt, {
+        provider: modelSelection.provider,
+        model: modelSelection.model,
         temperature: 0.7,
-        maxTokens: 2000
+        maxTokens: 2000,
+        autoFallback: true  // Automatically switch models on rate limit
       });
 
       // Add to conversation history
@@ -302,9 +393,11 @@ Když dostaneš úkol, odpověz ve formátu JSON:
    */
   async orchestratedSession(task, context = {}) {
     const results = [];
+    const onProgress = context.onProgress || (() => {});
 
     // Phase 1: Orchestrator analyzes and distributes tasks
     console.log('🎯 Phase 1: Task Distribution by Orchestrator');
+    onProgress('📋 Orchestrátor analyzuje úkol...');
 
     try {
       const orchestratorResponse = await this.sendToAgent(
@@ -355,11 +448,15 @@ Když dostaneš úkol, odpověz ve formátu JSON:
 
       // Sort by priority
       const sortedTasks = (plan.agents || []).sort((a, b) => a.priority - b.priority);
+      onProgress(`🔨 Spouštím ${sortedTasks.length} agentů...`);
 
       const taskResults = [];
-      for (const agentTask of sortedTasks) {
+      for (let i = 0; i < sortedTasks.length; i++) {
+        const agentTask = sortedTasks[i];
         if (this.agents.has(agentTask.agent) && agentTask.agent !== 'orchestrator') {
+          const agentInfo = this.agents.get(agentTask.agent);
           console.log(`  → ${agentTask.agent}: ${agentTask.task}`);
+          onProgress(`🤖 ${agentInfo.name} pracuje... (${i + 1}/${sortedTasks.length})`);
 
           try {
             const result = await this.sendToAgent(
@@ -368,8 +465,19 @@ Když dostaneš úkol, odpověz ve formátu JSON:
               context
             );
             taskResults.push(result);
+
+            // Add delay between requests to avoid rate limits
+            if (i < sortedTasks.length - 1) {
+              const delay = 2000; // 2 seconds between agents
+              console.log(`⏳ Čekám ${delay/1000}s před dalším agentem...`);
+              onProgress(`⏳ Čekám před dalším agentem... (${i + 1}/${sortedTasks.length} hotovo)`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
           } catch (error) {
             console.error(`Error executing task for ${agentTask.agent}:`, error);
+            onProgress(`⚠️ Chyba u ${agentInfo.name}, pokračuji...`);
+            // Wait even longer after error before continuing
+            await new Promise(resolve => setTimeout(resolve, 5000));
           }
         }
       }
@@ -382,11 +490,26 @@ Když dostaneš úkol, odpověz ve formátu JSON:
 
       // Phase 3: Orchestrator synthesizes results
       console.log('✨ Phase 3: Synthesis by Orchestrator');
+      onProgress('✨ Orchestrátor kombinuje výsledky...');
 
       const allOutputs = taskResults.map(r => `${r.agent}: ${r.response}`).join('\n\n');
       const synthesis = await this.sendToAgent(
         'orchestrator',
-        `Na základě výsledků od agentů vytvoř finální komplexní řešení:\n\nPůvodní úkol: ${task}\n\nVýsledky od agentů:\n${allOutputs}`,
+        `KRITICKÝ ÚKOL: Zkombinuj výsledky od agentů a vytvoř KOMPLETNÍ FUNKČNÍ KÓD.
+
+Původní úkol: ${task}
+
+Výsledky od agentů:
+${allOutputs}
+
+⚠️ DŮLEŽITÉ INSTRUKCE:
+1. MUSÍŠ vytvořit KOMPLETNÍ HTML soubor (od <!DOCTYPE html> do </html>)
+2. KÓD musí být FUNKČNÍ a připravený ke spuštění
+3. Zabal kód do \`\`\`html ... \`\`\`
+4. NIKDY neduplikuj proměnné (každá let/const pouze 1x!)
+5. Nezahrnuj jen popis - potřebuji SKUTEČNÝ SPUSTITELNÝ KÓD
+
+Odpověz pouze s kódem v code blocku!`,
         context
       );
 
