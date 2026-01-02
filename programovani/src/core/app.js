@@ -164,6 +164,17 @@ class App {
     eventBus.on('file:save', () => this.saveFile());
     eventBus.on('file:open', ({ fileId }) => this.openFile(fileId));
     eventBus.on('file:delete', ({ fileId }) => this.deleteFile(fileId));
+    eventBus.on('file:createWithCode', ({ code }) => this.createFileWithCode(code));
+    
+    // Editor actions
+    eventBus.on('editor:setCode', ({ code }) => {
+      if (this.editor) {
+        this.editor.setCode(code);
+      }
+      if (this.preview) {
+        this.preview.update(code);
+      }
+    });
   }
 
   setupConsoleListener() {
@@ -348,7 +359,7 @@ class App {
   openFile(fileId) {
     const tabs = state.get('files.tabs') || [];
     const tab = tabs.find(t => t.id === fileId);
-    
+
     if (!tab) {
       toast.error('Soubor nenalezen', 2000);
       return;
@@ -374,7 +385,7 @@ class App {
   deleteFile(fileId) {
     const tabs = state.get('files.tabs') || [];
     const tab = tabs.find(t => t.id === fileId);
-    
+
     if (!tab) {
       return;
     }
@@ -409,6 +420,53 @@ class App {
 
     eventBus.emit('files:changed');
     toast.success(`Soubor smazán: ${tab.name}`, 2000);
+  }
+
+  createFileWithCode(code) {
+    // Extract title from code if possible
+    const titleMatch = code.match(/<title>(.*?)<\/title>/i);
+    let fileName = 'novy-soubor.html';
+    
+    if (titleMatch && titleMatch[1]) {
+      // Convert title to filename
+      fileName = titleMatch[1]
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') + '.html';
+    }
+
+    // Create new tab
+    const tabs = state.get('files.tabs') || [];
+    const nextId = state.get('files.nextId') || 1;
+    const newTab = {
+      id: nextId,
+      name: fileName,
+      content: code,
+      modified: false,
+      type: 'html'
+    };
+
+    tabs.push(newTab);
+    state.set('files.tabs', tabs);
+    state.set('files.nextId', nextId + 1);
+    state.set('files.active', nextId);
+
+    // Set content in editor
+    state.set('editor.code', code);
+    if (this.editor) {
+      this.editor.setCode(code);
+      this.editor.focus();
+    }
+
+    // Update preview
+    if (this.preview) {
+      this.preview.update(code);
+    }
+
+    // Update file list in sidebar
+    eventBus.emit('files:changed');
+
+    toast.success(`Nový soubor vytvořen: ${fileName}`, 2000);
   }
 
   showSearch() {
