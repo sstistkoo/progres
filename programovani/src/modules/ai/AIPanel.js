@@ -539,10 +539,7 @@ export class AIPanel {
     this.updateHistoryInfo();
 
     try {
-      // Get current provider and model
-      const provider = this.modal.element.querySelector('#aiProvider')?.value || 'groq';
-      const model = this.modal.element.querySelector('#aiModel')?.value || null;
-
+      // Get current provider and model from UI or use auto-selection
       // Check if AI module is available
       if (typeof window.AI === 'undefined') {
         throw new Error('AI modul není načten');
@@ -619,8 +616,7 @@ ${hasCode && hasHistory ?
 - Kontroluj, že všechny proměnné mají unikátní názvy`;
       }
 
-      // Call AI module with history
-      // For normal chat (not agents), use best available model
+      // Get provider and model from UI
       let provider = this.modal.element.querySelector('#aiProvider')?.value;
       let model = this.modal.element.querySelector('#aiModel')?.value;
 

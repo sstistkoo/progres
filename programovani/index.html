@@ -88,7 +88,7 @@
             </svg>
           </button>
           <button class="nav-btn" id="aiBtn" title="AI asistent">
-            <span style="font-size: 18px">🤖</span>
+            <span class="ai-emoji">🤖</span>
           </button>
           <button class="nav-btn" id="shortcutsBtn" title="Rychlé akce (Ctrl+K)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -166,13 +166,13 @@
         <div class="toolbar-spacer"></div>
 
         <div class="toolbar-group">
-          <button class="toolbar-btn" id="viewEditorBtn" title="Editor">
+          <button class="toolbar-btn" id="toolbarEditorBtn" title="Editor">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 17l6-6-6-6M12 19h8" />
             </svg>
             <span>Kód</span>
           </button>
-          <button class="toolbar-btn" id="viewPreviewBtn" title="Náhled">
+          <button class="toolbar-btn" id="toolbarPreviewBtn" title="Náhled">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
               <circle cx="12" cy="12" r="3" />
@@ -266,12 +266,26 @@
           safeEmit('theme:toggle');
         });
 
-        // View switchers
-        document.getElementById('viewEditorBtn')?.addEventListener('click', () => {
-          safeEmit('view:change', { view: 'editor' });
+        // View switchers - both header and toolbar buttons
+        const viewEditorBtns = [
+          document.getElementById('viewEditorBtn'),
+          document.getElementById('toolbarEditorBtn')
+        ];
+        const viewPreviewBtns = [
+          document.getElementById('viewPreviewBtn'),
+          document.getElementById('toolbarPreviewBtn')
+        ];
+
+        viewEditorBtns.forEach(btn => {
+          btn?.addEventListener('click', () => {
+            safeEmit('view:change', { view: 'editor' });
+          });
         });
-        document.getElementById('viewPreviewBtn')?.addEventListener('click', () => {
-          safeEmit('view:change', { view: 'preview' });
+
+        viewPreviewBtns.forEach(btn => {
+          btn?.addEventListener('click', () => {
+            safeEmit('view:change', { view: 'preview' });
+          });
         });
 
         // Refresh preview
