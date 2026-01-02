@@ -125,6 +125,20 @@ class App {
       }
     });
 
+    // AI panel toggle
+    eventBus.on('ai:show', () => {
+      if (this.aiPanel) {
+        this.aiPanel.show();
+      }
+    });
+
+    // Shortcuts panel toggle
+    eventBus.on('shortcuts:show', () => {
+      if (this.shortcutsPanel) {
+        this.shortcutsPanel.show();
+      }
+    });
+
     // State changes
     state.subscribe('ui.theme', theme => {
       this.applyTheme(theme);
@@ -147,6 +161,12 @@ class App {
   }
 
   setupConsoleListener() {
+    // Listen for console messages from preview
+    eventBus.on('console:message', ({ level, message, timestamp }) => {
+      this.addConsoleMessage(level, message, timestamp);
+    });
+
+    // Listen for postMessage from preview iframe
     window.addEventListener('message', e => {
       if (e.data && e.data.type === 'console') {
         const { level, message, timestamp } = e.data;
@@ -156,6 +176,29 @@ class App {
         console[level](`[Preview] ${message}`);
       }
     });
+  }
+
+  addConsoleMessage(level, message, timestamp) {
+    const consoleContent = document.getElementById('consoleContent');
+    if (!consoleContent) return;
+
+    const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `console-message console-${level}`;
+    messageDiv.innerHTML = `
+      <span class="console-timestamp">[${time}]</span>
+      <span class="console-text">${this.escapeHTML(message)}</span>
+    `;
+    consoleContent.appendChild(messageDiv);
+
+    // Auto-scroll to bottom
+    consoleContent.scrollTop = consoleContent.scrollHeight;
+  }
+
+  escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
   }
 
   setupErrorHandling() {
@@ -291,26 +334,14 @@ class App {
   clearConsole() {
     const consoleContent = document.getElementById('consoleContent');
     if (consoleContent) {
-      consoleContent.innerHTML = '<div class="console-message console-info"><span class="console-timestamp">[' +
-        new Date().toLocaleTimeString() +
-        ']</span><span class="console-text">Konzole vymazána</span></div>';
+      consoleContent.innerHTML = '';
     }
   }
 
   refreshPreview() {
-    if (this.preview && typeof this.preview.refresh === 'function') {
+    if (this.preview) {
       this.preview.refresh();
       toast.success('Náhled obnoven', 2000);
-    } else {
-      // Fallback - refresh iframe manually
-      const previewFrame = document.getElementById('previewFrame');
-      if (previewFrame && previewFrame.contentWindow) {
-        const currentContent = state.get('editor.content') || '';
-        previewFrame.contentWindow.document.open();
-        previewFrame.contentWindow.document.write(currentContent);
-        previewFrame.contentWindow.document.close();
-        toast.success('Náhled obnoven', 2000);
-      }
     }
   }
 

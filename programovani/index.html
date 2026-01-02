@@ -200,10 +200,7 @@
           </button>
         </div>
         <div class="console-content" id="consoleContent">
-          <div class="console-message console-info">
-            <span class="console-timestamp">[00:00:00]</span>
-            <span class="console-text">Konzole připravena...</span>
-          </div>
+          <!-- Console messages will appear here -->
         </div>
         <div class="console-footer">
           <button class="console-clear" id="consoleClearBtn" title="Vymazat konzoli">
@@ -217,119 +214,8 @@
     </div>
 
     <!-- Main App Script (Module) -->
-    <script type="module" src="./src/core/app.js" onerror="console.error('❌ Failed to load app.js')"></script>
+    <script type="module" src="./src/core/app.js"></script>
     <script>
-      // Fallback error handling for module loading
-      window.addEventListener('error', (e) => {
-        if (e.filename && e.filename.includes('.js')) {
-          console.error('❌ JavaScript load error:', e.filename, e.message);
-          document.body.insertAdjacentHTML('beforeend',
-            `<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            padding: 20px; background: #f44336; color: white; border-radius: 8px; z-index: 99999;">
-            ⚠️ Chyba načítání: ${e.message}<br>Soubor: ${e.filename}</div>`
-          );
-        }
-      }, true);
-    </script>
-
-    <script>
-      // Debug: Log script loading
-      console.log('📦 Inline script starting...');
-
-      // Clear localStorage on first load (for debugging)
-      if (!sessionStorage.getItem('debugCleared')) {
-        console.log('🗑️ Clearing localStorage for fresh start...');
-        localStorage.clear();
-        sessionStorage.setItem('debugCleared', 'true');
-      }
-
-      // Check if modules are supported
-      if (!('noModule' in HTMLScriptElement.prototype)) {
-        console.warn('⚠️ ES modules may not be supported in this browser');
-      }
-
-      // Debug DOM after app loads
-      setTimeout(() => {
-        console.log('🔍 Checking DOM elements...');
-        const editorContainer = document.getElementById('editorContainer');
-        const previewContainer = document.getElementById('previewContainer');
-        const textarea = document.querySelector('.code-input');
-        const iframe = document.querySelector('.preview-frame');
-
-        console.log('Editor container:', editorContainer);
-        console.log('Preview container:', previewContainer);
-        console.log('Textarea exists:', !!textarea);
-        console.log('Iframe exists:', !!iframe);
-
-        if (textarea) {
-          console.log('Textarea value length:', textarea.value.length);
-          console.log('Textarea first 50 chars:', textarea.value.substring(0, 50));
-        }
-
-        // Check computed styles
-        const editorSection = document.querySelector('.editor-section');
-        const previewSection = document.querySelector('.preview-section');
-        if (editorSection) {
-          const style = window.getComputedStyle(editorSection);
-          console.log('Editor section display:', style.display);
-          console.log('Editor section flex:', style.flex);
-          console.log('Editor section height:', style.height);
-        }
-        if (previewSection) {
-          const style = window.getComputedStyle(previewSection);
-          console.log('Preview section display:', style.display);
-          console.log('Preview section flex:', style.flex);
-          console.log('Preview section height:', style.height);
-        }
-
-        // Check wrapper and frame styles
-        const wrapper = document.querySelector('.editor-wrapper');
-        const frame = document.querySelector('.preview-frame');
-        if (wrapper) {
-          const style = window.getComputedStyle(wrapper);
-          console.log('🎨 Editor wrapper display:', style.display);
-          console.log('🎨 Editor wrapper width:', style.width);
-          console.log('🎨 Editor wrapper height:', style.height);
-          console.log('🎨 Editor wrapper background:', style.backgroundColor);
-        }
-        if (frame) {
-          const style = window.getComputedStyle(frame);
-          console.log('🎨 Preview frame display:', style.display);
-          console.log('🎨 Preview frame width:', style.width);
-          console.log('🎨 Preview frame height:', style.height);
-          console.log('🎨 Preview frame visibility:', style.visibility);
-          console.log('🎨 Preview frame opacity:', style.opacity);
-        }
-
-        // Check main-content position
-        const mainContent = document.querySelector('.main-content');
-        if (mainContent) {
-          const style = window.getComputedStyle(mainContent);
-          const rect = mainContent.getBoundingClientRect();
-          console.log('📐 Main content top:', rect.top);
-          console.log('📐 Main content height:', rect.height);
-          console.log('📐 Main content position:', style.position);
-          console.log('📐 Main content z-index:', style.zIndex);
-        }
-
-        // Check if something is covering the content
-        const header = document.querySelector('.header');
-        const toolbar = document.querySelector('.toolbar');
-        if (header) {
-          const rect = header.getBoundingClientRect();
-          console.log('📐 Header height:', rect.height);
-        }
-        if (toolbar) {
-          const rect = toolbar.getBoundingClientRect();
-          const style = window.getComputedStyle(toolbar);
-          console.log('📐 Toolbar height:', rect.height);
-          console.log('📐 Toolbar position:', style.position);
-          console.log('📐 Toolbar display:', style.display);
-          console.log('📐 Toolbar flex-grow:', style.flexGrow);
-          console.log('📐 Toolbar flex-shrink:', style.flexShrink);
-        }
-      }, 2000);
-
       // Wait for eventBus to be ready
       let eventBusReady = false;
       let pendingEvents = [];
@@ -339,7 +225,6 @@
         if (window.eventBus) {
           eventBusReady = true;
           clearInterval(checkEventBus);
-          console.log('✅ EventBus ready');
 
           // Emit pending events
           pendingEvents.forEach(({ event, data }) => {
@@ -358,19 +243,10 @@
         }
       }
 
-      // Setup basic UI interactions before app loads
+      // Setup basic UI interactions
       document.addEventListener('DOMContentLoaded', () => {
-        console.log('🚀 DOM loaded, setting up event listeners');
-
-        // Menu button
-        document.getElementById('filesBtn')?.addEventListener('click', () => {
-          console.log('Files button clicked');
-          safeEmit('sidebar:toggle');
-        });
-
         // Theme toggle
         document.getElementById('themeBtn')?.addEventListener('click', () => {
-          document.body.classList.toggle('light-theme');
           safeEmit('theme:toggle');
         });
 
@@ -378,11 +254,13 @@
         document.getElementById('viewEditorBtn')?.addEventListener('click', () => {
           safeEmit('view:change', { view: 'editor' });
         });
-        document.getElementById('viewSplitBtn')?.addEventListener('click', () => {
-          safeEmit('view:change', { view: 'split' });
-        });
         document.getElementById('viewPreviewBtn')?.addEventListener('click', () => {
           safeEmit('view:change', { view: 'preview' });
+        });
+
+        // Refresh preview
+        document.getElementById('refreshBtn')?.addEventListener('click', () => {
+          safeEmit('preview:refresh');
         });
 
         // Toolbar actions
@@ -391,9 +269,6 @@
         });
         document.getElementById('saveBtn')?.addEventListener('click', () => {
           safeEmit('action:save');
-        });
-        document.getElementById('formatBtn')?.addEventListener('click', () => {
-          safeEmit('action:format');
         });
         document.getElementById('formatToolbarBtn')?.addEventListener('click', () => {
           safeEmit('action:format');
@@ -413,38 +288,32 @@
         document.getElementById('searchBtn')?.addEventListener('click', () => {
           safeEmit('action:search');
         });
+
+        // Console controls
         document.getElementById('consoleBtn')?.addEventListener('click', () => {
           safeEmit('console:toggle');
         });
-        document.getElementById('sidebarBtn')?.addEventListener('click', () => {
-          console.log('Sidebar button clicked');
-          safeEmit('sidebar:toggle');
-        });
-        document.getElementById('shortcutsBtn')?.addEventListener('click', () => {
-          safeEmit('shortcuts:show');
-        });
-        document.getElementById('aiBtn')?.addEventListener('click', () => {
-          console.log('AI button clicked');
-          safeEmit('ai:show');
-        });
-
-        // Console panel controls
         document.getElementById('consoleCloseBtn')?.addEventListener('click', () => {
-          const consolePanel = document.querySelector('.console-panel');
-          if (consolePanel) {
-            consolePanel.classList.remove('active');
-          }
+          safeEmit('console:toggle');
         });
-
         document.getElementById('consoleClearBtn')?.addEventListener('click', () => {
           safeEmit('console:clear');
         });
 
-        // Auto-open AI panel on first load
-        setTimeout(() => {
-          console.log('Auto-opening AI panel');
+        // Sidebar
+        document.getElementById('sidebarBtn')?.addEventListener('click', () => {
+          safeEmit('sidebar:toggle');
+        });
+
+        // Shortcuts panel
+        document.getElementById('shortcutsBtn')?.addEventListener('click', () => {
+          safeEmit('shortcuts:show');
+        });
+
+        // AI panel
+        document.getElementById('aiBtn')?.addEventListener('click', () => {
           safeEmit('ai:show');
-        }, 1000);
+        });
       });
     </script>
   </body>
