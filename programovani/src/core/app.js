@@ -142,6 +142,7 @@ class App {
     eventBus.on('action:redo', () => this.editor?.redo());
     eventBus.on('action:search', () => this.showSearch());
     eventBus.on('console:toggle', () => this.toggleConsole());
+    eventBus.on('console:clear', () => this.clearConsole());
     eventBus.on('preview:refresh', () => this.refreshPreview());
   }
 
@@ -278,6 +279,15 @@ class App {
     const consolePanel = document.querySelector('.console-panel');
     if (consolePanel) {
       consolePanel.classList.toggle('active');
+    }
+  }
+
+  clearConsole() {
+    const consoleContent = document.getElementById('consoleContent');
+    if (consoleContent) {
+      consoleContent.innerHTML = '<div class="console-message console-info"><span class="console-timestamp">[' +
+        new Date().toLocaleTimeString() +
+        ']</span><span class="console-text">Konzole vymazána</span></div>';
     }
   }
 

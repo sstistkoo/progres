@@ -217,6 +217,32 @@
           <div id="previewContainer" class="preview-container"></div>
         </section>
       </main>
+
+      <!-- Console Panel -->
+      <div class="console-panel">
+        <div class="console-header">
+          <h3>Konzole</h3>
+          <button class="console-close" id="consoleCloseBtn" title="Zavřít konzoli">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="console-content" id="consoleContent">
+          <div class="console-message console-info">
+            <span class="console-timestamp">[00:00:00]</span>
+            <span class="console-text">Konzole připravena...</span>
+          </div>
+        </div>
+        <div class="console-footer">
+          <button class="console-clear" id="consoleClearBtn" title="Vymazat konzoli">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+            Vymazat
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Main App Script (Module) -->
@@ -319,6 +345,18 @@
         document.getElementById('aiBtn')?.addEventListener('click', () => {
           console.log('AI button clicked');
           safeEmit('ai:show');
+        });
+
+        // Console panel controls
+        document.getElementById('consoleCloseBtn')?.addEventListener('click', () => {
+          const consolePanel = document.querySelector('.console-panel');
+          if (consolePanel) {
+            consolePanel.classList.remove('active');
+          }
+        });
+
+        document.getElementById('consoleClearBtn')?.addEventListener('click', () => {
+          safeEmit('console:clear');
         });
 
         // Auto-open AI panel on first load
