@@ -3,9 +3,9 @@
  * Find and replace functionality
  */
 
-import { eventBus } from '@core/events.js';
-import { state } from '@core/state.js';
-import { Modal } from '@ui/components/Modal.js';
+import { eventBus } from '../../core/events.js';
+import { state } from '../../core/state.js';
+import { Modal } from '../../ui/components/Modal.js';
 
 export class SearchPanel {
   constructor() {

@@ -1,7 +1,7 @@
 /**
  * Modal Dialog Component
  */
-import { createElement, $ } from '@utils/dom.js';
+import { createElement, $ } from '../../utils/dom.js';
 
 export class Modal {
   constructor(options = {}) {

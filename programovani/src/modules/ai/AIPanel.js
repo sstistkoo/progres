@@ -3,10 +3,10 @@
  * Provides AI assistant interface with chat, templates, and quick actions
  */
 
-import { eventBus } from '@core/events.js';
-import { state } from '@core/state.js';
-import { Modal } from '@ui/components/Modal.js';
-import { toast } from '@ui/components/Toast.js';
+import { eventBus } from '../../core/events.js';
+import { state } from '../../core/state.js';
+import { Modal } from '../../ui/components/Modal.js';
+import { toast } from '../../ui/components/Toast.js';
 
 export class AIPanel {
   constructor() {

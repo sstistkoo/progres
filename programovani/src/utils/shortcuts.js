@@ -1,7 +1,7 @@
 /**
  * Keyboard shortcuts manager
  */
-import { eventBus } from '@core/events.js';
+import { eventBus } from '../core/events.js';
 
 export class ShortcutManager {
   constructor() {
