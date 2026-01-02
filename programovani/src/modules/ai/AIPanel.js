@@ -11,6 +11,8 @@ export class AIPanel {
   constructor() {
     this.modal = null;
     this.chatHistory = [];
+    this.pendingChanges = new Map(); // Store pending changes for accept/reject
+    this.originalCode = null; // Store original code before changes
     this.setupEventListeners();
   }
 
@@ -598,32 +600,136 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
     codeBlocks.forEach((block, index) => {
       const actionsContainer = messageEl.querySelector(`[data-code-index="${index}"]`);
       if (actionsContainer) {
-        // Check if this looks like a new project
+        // Store pending change
+        const changeId = `change-${Date.now()}-${index}`;
         const isNewProject = this.detectNewProject(originalMessage, block.code);
+        
+        this.pendingChanges.set(changeId, {
+          code: block.code,
+          isNewProject: isNewProject,
+          timestamp: Date.now()
+        });
 
-        if (isNewProject) {
-          // Button for new file
-          const newFileBtn = document.createElement('button');
-          newFileBtn.className = 'code-action-btn primary';
-          newFileBtn.innerHTML = '📄 Vytvořit nový soubor';
-          newFileBtn.onclick = () => {
-            this.createNewFileWithCode(block.code);
-          };
-          actionsContainer.appendChild(newFileBtn);
-        }
-
-        // Button to insert into current editor
-        const insertBtn = document.createElement('button');
-        insertBtn.className = 'code-action-btn';
-        insertBtn.innerHTML = '✏️ Vložit do editoru';
-        insertBtn.onclick = () => {
-          this.insertCodeToEditor(block.code);
+        // Create Accept/Reject buttons (primary action)
+        const acceptBtn = document.createElement('button');
+        acceptBtn.className = 'code-action-btn accept';
+        acceptBtn.innerHTML = `
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+            <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+          </svg>
+          Accept
+        `;
+        acceptBtn.onclick = () => {
+          this.acceptChange(changeId, actionsContainer);
         };
-        actionsContainer.appendChild(insertBtn);
+
+        const rejectBtn = document.createElement('button');
+        rejectBtn.className = 'code-action-btn reject';
+        rejectBtn.innerHTML = `
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+            <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
+          </svg>
+          Reject
+        `;
+        rejectBtn.onclick = () => {
+          this.rejectChange(changeId, actionsContainer);
+        };
+
+        actionsContainer.appendChild(acceptBtn);
+        actionsContainer.appendChild(rejectBtn);
+
+        // Auto-apply after 2 seconds (with countdown)
+        this.startAutoApplyCountdown(changeId, actionsContainer, isNewProject);
       }
     });
 
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  startAutoApplyCountdown(changeId, actionsContainer, isNewProject) {
+    const countdownEl = document.createElement('span');
+    countdownEl.className = 'auto-apply-countdown';
+    countdownEl.textContent = 'Automaticky za 5s...';
+    actionsContainer.appendChild(countdownEl);
+
+    let seconds = 5;
+    const countdownInterval = setInterval(() => {
+      seconds--;
+      if (seconds > 0) {
+        countdownEl.textContent = `Automaticky za ${seconds}s...`;
+      } else {
+        clearInterval(countdownInterval);
+        // Auto-accept if still pending
+        if (this.pendingChanges.has(changeId)) {
+          this.acceptChange(changeId, actionsContainer, true);
+        }
+      }
+    }, 1000);
+
+    // Store interval for cleanup
+    const change = this.pendingChanges.get(changeId);
+    if (change) {
+      change.countdownInterval = countdownInterval;
+    }
+  }
+
+  acceptChange(changeId, actionsContainer, isAuto = false) {
+    const change = this.pendingChanges.get(changeId);
+    if (!change) return;
+
+    // Clear countdown
+    if (change.countdownInterval) {
+      clearInterval(change.countdownInterval);
+    }
+
+    // Apply the change
+    if (change.isNewProject) {
+      this.createNewFileWithCode(change.code);
+    } else {
+      this.insertCodeToEditor(change.code);
+    }
+
+    // Update UI
+    actionsContainer.innerHTML = `
+      <span class="change-status accepted">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+          <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+        </svg>
+        ${isAuto ? 'Automaticky aplikováno' : 'Změna potvrzena'}
+      </span>
+    `;
+
+    // Remove from pending
+    this.pendingChanges.delete(changeId);
+  }
+
+  rejectChange(changeId, actionsContainer) {
+    const change = this.pendingChanges.get(changeId);
+    if (!change) return;
+
+    // Clear countdown
+    if (change.countdownInterval) {
+      clearInterval(change.countdownInterval);
+    }
+
+    // Restore original code if it was modified
+    if (this.originalCode) {
+      state.set('editor.code', this.originalCode);
+      eventBus.emit('editor:setCode', { code: this.originalCode });
+    }
+
+    // Update UI
+    actionsContainer.innerHTML = `
+      <span class="change-status rejected">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+          <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
+        </svg>
+        Změna zamítnuta
+      </span>
+    `;
+
+    // Remove from pending
+    this.pendingChanges.delete(changeId);
   }
 
   detectNewProject(userMessage, code) {
@@ -646,6 +752,9 @@ Pokud uživatel chce vytvořit NOVÝ projekt (např. "udělej kalkulačku", "vyt
   }
 
   insertCodeToEditor(code) {
+    // Store original code for undo
+    this.originalCode = state.get('editor.code');
+    
     // Insert to current editor
     state.set('editor.code', code);
     eventBus.emit('editor:setCode', { code });
