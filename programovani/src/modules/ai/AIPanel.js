@@ -883,12 +883,27 @@ ${hasCode && hasHistory ?
     state.set('editor.code', code);
     eventBus.emit('editor:setCode', { code });
 
+    // Na mobilu přepnout na editor view aby uživatel viděl vložený kód
+    if (window.innerWidth <= 768) {
+      const app = document.querySelector('.app');
+      if (app && !app.classList.contains('view-editor')) {
+        setTimeout(() => {
+          eventBus.emit('view:change', { view: 'editor' });
+        }, 100);
+      }
+    }
+
     // Show toast
-    const toast = document.querySelector('.toast');
-    if (toast) {
-      toast.textContent = isCompleteProject ? '✅ Nový projekt vytvořen' : '✅ Kód vložen do editoru';
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2000);
+    const toastMsg = isCompleteProject ? '✅ Nový projekt vytvořen' : '✅ Kód vložen do editoru';
+    if (window.innerWidth <= 768) {
+      toast.show(toastMsg + ' - Přepnuto na editor', 'success');
+    } else {
+      const toastEl = document.querySelector('.toast');
+      if (toastEl) {
+        toastEl.textContent = toastMsg;
+        toastEl.classList.add('show');
+        setTimeout(() => toastEl.classList.remove('show'), 2000);
+      }
     }
   }
 
