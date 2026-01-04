@@ -101,6 +101,7 @@ export class Editor {
     eventBus.on('action:redo', () => this.redo());
     eventBus.on('editor:insertText', ({ text }) => this.insertText(text));
     eventBus.on('editor:replaceAll', ({ code }) => this.setCode(code));
+    eventBus.on('editor:replace', ({ search, replace, options }) => this.replace(search, replace, options));
   }
 
   handleInput() {
@@ -196,6 +197,55 @@ export class Editor {
     this.setCode(previous);
 
     eventBus.emit('editor:undo', { code: previous });
+  }
+
+  replace(search, replace, options = {}) {
+    const code = this.getCode();
+    let newCode;
+
+    if (options.regex) {
+      try {
+        const flags = options.caseSensitive ? 'g' : 'gi';
+        const regex = new RegExp(search, flags);
+        newCode = code.replace(regex, replace);
+      } catch (error) {
+        console.error('Invalid regex:', error);
+        eventBus.emit('toast:show', {
+          message: '❌ Neplatný regulární výraz',
+          type: 'error'
+        });
+        return;
+      }
+    } else {
+      const searchStr = options.caseSensitive ? search : search.toLowerCase();
+      const codeStr = options.caseSensitive ? code : code.toLowerCase();
+
+      if (codeStr.includes(searchStr)) {
+        if (options.caseSensitive) {
+          newCode = code.split(search).join(replace);
+        } else {
+          // Case insensitive replace
+          const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          newCode = code.replace(regex, replace);
+        }
+      } else {
+        eventBus.emit('toast:show', {
+          message: '🔍 Text nenalezen',
+          type: 'warning'
+        });
+        return;
+      }
+    }
+
+    const count = code.split(search).length - 1;
+    this.setCode(newCode);
+    this.saveToHistory();
+
+    eventBus.emit('toast:show', {
+      message: `✅ Nahrazeno ${count}x`,
+      type: 'success',
+      duration: 2000
+    });
   }
 
   redo() {

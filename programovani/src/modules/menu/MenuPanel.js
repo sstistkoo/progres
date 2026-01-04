@@ -314,15 +314,110 @@ build/
   }
 
   showReplaceDialog() {
-    const searchText = prompt('Hledat text:');
-    if (!searchText) return;
+    // Create modal for replace dialog
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-content replace-dialog">
+        <div class="modal-header">
+          <h3>🔄 Nahradit v kódu</h3>
+          <button class="modal-close" id="replaceClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Hledat:</label>
+            <input type="text" id="replaceSearch" class="form-input" placeholder="Text k nahrazení..." autofocus>
+          </div>
+          <div class="form-group">
+            <label>Nahradit za:</label>
+            <input type="text" id="replaceWith" class="form-input" placeholder="Nový text...">
+          </div>
+          <div class="form-group checkbox-group">
+            <label>
+              <input type="checkbox" id="replaceCaseSensitive">
+              <span>Rozlišovat velikost písmen</span>
+            </label>
+            <label>
+              <input type="checkbox" id="replaceRegex">
+              <span>Použít regulární výraz</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="replaceCancelBtn">Zrušit</button>
+          <button class="btn btn-primary" id="replaceBtn">🔄 Nahradit vše</button>
+        </div>
+      </div>
+    `;
 
-    const replaceText = prompt('Nahradit za:');
-    if (replaceText === null) return;
+    document.body.appendChild(modal);
 
-    eventBus.emit('editor:replace', {
-      search: searchText,
-      replace: replaceText
+    // Event handlers
+    const searchInput = modal.querySelector('#replaceSearch');
+    const replaceInput = modal.querySelector('#replaceWith');
+    const caseSensitive = modal.querySelector('#replaceCaseSensitive');
+    const regex = modal.querySelector('#replaceRegex');
+    const replaceBtn = modal.querySelector('#replaceBtn');
+    const cancelBtn = modal.querySelector('#replaceCancelBtn');
+    const closeBtn = modal.querySelector('#replaceClose');
+
+    const closeModal = () => {
+      modal.remove();
+    };
+
+    const doReplace = () => {
+      const search = searchInput.value;
+      const replace = replaceInput.value;
+
+      if (!search) {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Zadejte text k vyhledání',
+          type: 'warning'
+        });
+        return;
+      }
+
+      eventBus.emit('editor:replace', {
+        search,
+        replace,
+        options: {
+          caseSensitive: caseSensitive.checked,
+          regex: regex.checked
+        }
+      });
+
+      closeModal();
+    };
+
+    replaceBtn.addEventListener('click', doReplace);
+    cancelBtn.addEventListener('click', closeModal);
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    // Enter key to replace
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (e.shiftKey) {
+          doReplace();
+        } else {
+          replaceInput.focus();
+        }
+      }
+    });
+
+    replaceInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doReplace();
+    });
+
+    // ESC to close
+    modal.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
     });
   }
 
