@@ -91,125 +91,35 @@ export class MenuPanel {
 
       <nav class="menu-nav">
         <div class="menu-section">
-          <h3>Otevřené soubory</h3>
+          <h3>📁 Otevřené soubory</h3>
           <div id="openFilesManager" class="open-files-list">
             <!-- Files will be dynamically added here -->
           </div>
         </div>
 
         <div class="menu-section">
-          <h3>Soubor</h3>
-          <button class="menu-item" data-action="newFile">
-            <span class="menu-icon">📄</span>
-            <span>Nový soubor</span>
-            <span class="menu-shortcut">Ctrl+N</span>
-          </button>
-          <button class="menu-item" data-action="save">
-            <span class="menu-icon">💾</span>
-            <span>Uložit</span>
-            <span class="menu-shortcut">Ctrl+S</span>
-          </button>
-          <button class="menu-item" data-action="download">
-            <span class="menu-icon">⬇️</span>
-            <span>Stáhnout</span>
-            <span class="menu-shortcut">Ctrl+D</span>
-          </button>
-          <button class="menu-item" data-action="exportZip">
-            <span class="menu-icon">📦</span>
-            <span>Export ZIP</span>
-          </button>
-          <button class="menu-item" data-action="screenshot">
-            <span class="menu-icon">📸</span>
-            <span>Screenshot stránky</span>
-          </button>
-          <button class="menu-item" data-action="share">
-            <span class="menu-icon">🔗</span>
-            <span>Sdílet odkaz</span>
-          </button>
-        </div>
-
-        <div class="menu-section">
-          <h3>Úpravy</h3>
-          <button class="menu-item" data-action="undo">
-            <span class="menu-icon">↩️</span>
-            <span>Zpět</span>
-            <span class="menu-shortcut">Ctrl+Z</span>
-          </button>
-          <button class="menu-item" data-action="redo">
-            <span class="menu-icon">↪️</span>
-            <span>Vpřed</span>
-            <span class="menu-shortcut">Ctrl+Y</span>
-          </button>
-          <button class="menu-item" data-action="search">
-            <span class="menu-icon">🔍</span>
-            <span>Hledat</span>
-            <span class="menu-shortcut">Ctrl+F</span>
-          </button>
-          <button class="menu-item" data-action="replace">
-            <span class="menu-icon">🔄</span>
-            <span>Nahradit</span>
-            <span class="menu-shortcut">Ctrl+H</span>
-          </button>
-        </div>
-
-        <div class="menu-section">
-          <h3>Nástroje</h3>
-          <button class="menu-item" data-action="format">
-            <span class="menu-icon">✨</span>
-            <span>Formátovat kód</span>
-            <span class="menu-shortcut">Ctrl+Shift+F</span>
-          </button>
-          <button class="menu-item" data-action="validate">
-            <span class="menu-icon">✅</span>
-            <span>Validovat</span>
-            <span class="menu-shortcut">Ctrl+Shift+V</span>
-          </button>
-          <button class="menu-item" data-action="minify">
-            <span class="menu-icon">📦</span>
-            <span>Minifikovat</span>
-            <span class="menu-shortcut">Ctrl+Shift+M</span>
-          </button>
+          <h3>🛠️ Pokročilé nástroje</h3>
           <button class="menu-item" data-action="gridEditor">
             <span class="menu-icon">📐</span>
             <span>CSS Grid/Flex editor</span>
-          </button>
-          <button class="menu-item" data-action="gitignore">
-            <span class="menu-icon">📝</span>
-            <span>Vytvořit .gitignore</span>
           </button>
           <button class="menu-item" data-action="liveServer">
             <span class="menu-icon">🌐</span>
             <span>Živý server</span>
           </button>
-          <button class="menu-item" data-action="seo">
-            <span class="menu-icon">🔧</span>
-            <span>SEO nástroje</span>
-          </button>
-        </div>
-
-        <div class="menu-section">
-          <h3>Zobrazení</h3>
-          <button class="menu-item" data-action="viewEditor">
+          <button class="menu-item" data-action="gitignore">
             <span class="menu-icon">📝</span>
-            <span>Pouze editor</span>
+            <span>Vytvořit .gitignore</span>
           </button>
-          <button class="menu-item" data-action="viewSplit">
-            <span class="menu-icon">⚡</span>
-            <span>Split view</span>
-          </button>
-          <button class="menu-item" data-action="viewPreview">
-            <span class="menu-icon">👁️</span>
-            <span>Pouze náhled</span>
-          </button>
-          <button class="menu-item" data-action="console">
-            <span class="menu-icon">💻</span>
-            <span>Konzole</span>
-            <span class="menu-shortcut">Ctrl+&#96;</span>
+          <button class="menu-item" data-action="replace">
+            <span class="menu-icon">🔄</span>
+            <span>Nahradit v kódu</span>
+            <span class="menu-shortcut">Ctrl+H</span>
           </button>
         </div>
 
         <div class="menu-section">
-          <h3>Obsah</h3>
+          <h3>📋 Obsah</h3>
           <button class="menu-item" data-action="components">
             <span class="menu-icon">🧩</span>
             <span>Komponenty</span>
@@ -225,7 +135,19 @@ export class MenuPanel {
         </div>
 
         <div class="menu-section">
-          <h3>GitHub</h3>
+          <h3>🔗 Sdílení</h3>
+          <button class="menu-item" data-action="exportZip">
+            <span class="menu-icon">📦</span>
+            <span>Export ZIP</span>
+          </button>
+          <button class="menu-item" data-action="share">
+            <span class="menu-icon">🔗</span>
+            <span>Sdílet odkaz</span>
+          </button>
+        </div>
+
+        <div class="menu-section">
+          <h3>🐙 GitHub</h3>
           <button class="menu-item" data-action="github-search">
             <span class="menu-icon">🔍</span>
             <span>Hledat na GitHubu</span>
@@ -234,33 +156,20 @@ export class MenuPanel {
             <span class="menu-icon">🚀</span>
             <span>Deploy projekt</span>
           </button>
-          <button class="menu-item" data-action="publish">
-            <span class="menu-icon">📤</span>
-            <span>Publikovat</span>
-            <span class="menu-shortcut">Ctrl+Shift+P</span>
-          </button>
         </div>
 
         <div class="menu-section">
-          <h3>Nastavení</h3>
-          <button class="menu-item" data-action="settings">
-            <span class="menu-icon">⚙️</span>
-            <span>Nastavení</span>
-            <span class="menu-shortcut">Ctrl+,</span>
-          </button>
+          <h3>⚙️ Nastavení</h3>
           <button class="menu-item" data-action="aiSettings">
             <span class="menu-icon">🤖</span>
             <span>Nastavení AI</span>
           </button>
-          <button class="menu-item" data-action="shortcuts">
-            <span class="menu-icon">⚡</span>
-            <span>Rychlé akce</span>
-            <span class="menu-shortcut">Ctrl+K</span>
-          </button>
-          <button class="menu-item" data-action="theme">
-            <span class="menu-icon">🎨</span>
-            <span>Přepnout téma</span>
-          </button>
+        </div>
+
+        <div class="menu-footer">
+          <small>💡 Pro základní akce použijte <strong>logo ⚡</strong> nebo <strong>Ctrl+K</strong></small>
+        </div>
+          <small>👉 Tip: Použijte <strong>logo ⚡</strong> pro základní akce</small>
         </div>
       </nav>
     `;
