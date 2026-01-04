@@ -1559,12 +1559,6 @@ build/
               <button class="provider-tab active" data-provider="gemini" style="padding: 12px 20px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: 1px solid transparent; border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: white; transition: all 0.2s;">
                 <span style="font-size: 18px;">💎</span> Google Gemini
               </button>
-              <button class="provider-tab" data-provider="openai" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
-                <span style="font-size: 18px;">🧠</span> OpenAI
-              </button>
-              <button class="provider-tab" data-provider="claude" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
-                <span style="font-size: 18px;">🎭</span> Claude
-              </button>
               <button class="provider-tab" data-provider="groq" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
                 <span style="font-size: 18px;">⚡</span> Groq
               </button>
@@ -1573,6 +1567,12 @@ build/
               </button>
               <button class="provider-tab" data-provider="mistral" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
                 <span style="font-size: 18px;">🔥</span> Mistral
+              </button>
+              <button class="provider-tab" data-provider="cohere" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
+                <span style="font-size: 18px;">🧬</span> Cohere
+              </button>
+              <button class="provider-tab" data-provider="huggingface" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
+                <span style="font-size: 18px;">🤗</span> HuggingFace
               </button>
             </div>
 
@@ -1593,26 +1593,79 @@ build/
             <!-- API Keys section -->
             <div style="margin-bottom: 16px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <label style="display: block; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">API Klíče <span id="currentProviderName" style="color: var(--text-primary);">(Gemini)</span></label>
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); cursor: pointer;">
-                  <input type="checkbox" id="useDemoKeys" style="cursor: pointer;">
-                  <span>Použít demo klíče</span>
-                </label>
+                <label style="display: block; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">API Klíče (všichni provideři)</label>
               </div>
-              <div class="keys-grid" id="keysGridCustom" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; max-height: 200px; overflow-y: auto; padding-right: 8px; margin-bottom: 16px;">
-                <!-- Custom keys will be inserted here -->
+              <div class="keys-grid" id="keysGridAll" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 16px;">
+                <div class="key-input-group">
+                  <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">💎 Gemini</label>
+                  <div style="display: flex; gap: 4px;">
+                    <input type="password" id="keyGemini" placeholder="AIza..." style="flex: 1; padding: 10px 36px 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px;">
+                    <button class="key-library-btn" data-provider="gemini" title="Knihovna klíčů" style="width: 36px; height: 36px; padding: 0; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 16px; transition: all 0.2s;">📚</button>
+                  </div>
+                  <span class="key-status" id="statusGemini" style="position: absolute; right: 48px; top: 32px; font-size: 16px;">○</span>
+                </div>
+                <div class="key-input-group">
+                  <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">⚡ Groq</label>
+                  <div style="display: flex; gap: 4px;">
+                    <input type="password" id="keyGroq" placeholder="gsk_..." style="flex: 1; padding: 10px 36px 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px;">
+                    <button class="key-library-btn" data-provider="groq" title="Knihovna klíčů" style="width: 36px; height: 36px; padding: 0; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 16px; transition: all 0.2s;">📚</button>
+                  </div>
+                  <span class="key-status" id="statusGroq" style="position: absolute; right: 48px; top: 32px; font-size: 16px;">○</span>
+                </div>
+                <div class="key-input-group">
+                  <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">🌐 OpenRouter</label>
+                  <div style="display: flex; gap: 4px;">
+                    <input type="password" id="keyOpenRouter" placeholder="sk-or-..." style="flex: 1; padding: 10px 36px 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px;">
+                    <button class="key-library-btn" data-provider="openrouter" title="Knihovna klíčů" style="width: 36px; height: 36px; padding: 0; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 16px; transition: all 0.2s;">📚</button>
+                  </div>
+                  <span class="key-status" id="statusOpenRouter" style="position: absolute; right: 48px; top: 32px; font-size: 16px;">○</span>
+                </div>
+                <div class="key-input-group">
+                  <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">🔥 Mistral</label>
+                  <div style="display: flex; gap: 4px;">
+                    <input type="password" id="keyMistral" placeholder="..." style="flex: 1; padding: 10px 36px 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px;">
+                    <button class="key-library-btn" data-provider="mistral" title="Knihovna klíčů" style="width: 36px; height: 36px; padding: 0; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 16px; transition: all 0.2s;">📚</button>
+                  </div>
+                  <span class="key-status" id="statusMistral" style="position: absolute; right: 48px; top: 32px; font-size: 16px;">○</span>
+                </div>
+                <div class="key-input-group">
+                  <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">🧬 Cohere</label>
+                  <div style="display: flex; gap: 4px;">
+                    <input type="password" id="keyCohere" placeholder="..." style="flex: 1; padding: 10px 36px 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px;">
+                    <button class="key-library-btn" data-provider="cohere" title="Knihovna klíčů" style="width: 36px; height: 36px; padding: 0; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 16px; transition: all 0.2s;">📚</button>
+                  </div>
+                  <span class="key-status" id="statusCohere" style="position: absolute; right: 48px; top: 32px; font-size: 16px;">○</span>
+                </div>
+                <div class="key-input-group">
+                  <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">🤗 HuggingFace</label>
+                  <div style="display: flex; gap: 4px;">
+                    <input type="password" id="keyHuggingFace" placeholder="hf_..." style="flex: 1; padding: 10px 36px 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px;">
+                    <button class="key-library-btn" data-provider="huggingface" title="Knihovna klíčů" style="width: 36px; height: 36px; padding: 0; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 16px; transition: all 0.2s;">📚</button>
+                  </div>
+                  <span class="key-status" id="statusHuggingFace" style="position: absolute; right: 48px; top: 32px; font-size: 16px;">○</span>
+                </div>
               </div>
-              <div style="margin-top: 8px; font-size: 11px; color: var(--text-secondary);">
-                ✅ = vlastní klíč | ⚠️ = demo klíč | ○ = žádný klíč
+              <div style="margin-bottom: 12px; font-size: 11px; color: var(--text-secondary);">
+                ■ = vlastní klíč | △ = demo klíč | ○ = žádný klíč
               </div>
-              <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <button id="addKeyBtn" style="padding: 10px 20px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;">
-                  ➕ Přidat klíč
-                </button>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 <button id="saveKeysBtn" style="padding: 10px 20px; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;">
-                  💾 Uložit nastavení
+                  💾 Uložit klíče
+                </button>
+                <button id="exportTxtBtn" style="padding: 10px 20px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                  📄 Export TXT
+                </button>
+                <button id="importTxtBtn" style="padding: 10px 20px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                  📂 Import TXT
+                </button>
+                <button id="exportKeysBtn" style="padding: 10px 20px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                  📥 Export JSON
+                </button>
+                <button id="apiHelpBtn" style="padding: 10px 20px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; border: 1px solid transparent; border-radius: 10px; cursor: pointer; font-size: 14px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);">
+                  ❓ Nápověda API
                 </button>
               </div>
+              <input type="file" id="importTxtInput" accept=".txt" style="display: none;">
             </div>
           </div>
 
@@ -1634,6 +1687,48 @@ build/
               <button id="chatSendBtn" style="padding: 0 24px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 20px; transition: all 0.2s;">
                 📤
               </button>
+            </div>
+
+            <!-- Chat controls -->
+            <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+              <button id="streamModeBtn" style="padding: 6px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 12px; color: var(--text-primary); transition: all 0.2s;">
+                📡 Stream
+              </button>
+              <button id="retryBtn" style="padding: 6px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 12px; color: var(--text-primary); transition: all 0.2s;">
+                🔄 Retry
+              </button>
+              <button id="clearChatBtn" style="padding: 6px 12px; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; cursor: pointer; font-size: 12px; transition: all 0.2s;">
+                🧹 Vyčistit
+              </button>
+              <button id="uploadFileBtn" style="padding: 6px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 12px; color: var(--text-primary); transition: all 0.2s;">
+                📎 Přiložit soubor
+              </button>
+            </div>
+
+            <!-- Token counter -->
+            <div style="margin-top: 8px; font-size: 11px; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center;">
+              <span id="tokenCount">~0 tokenů</span>
+              <span id="chatStatus" style="color: #22c55e;">● Připraven</span>
+            </div>
+
+            <!-- File upload (hidden) -->
+            <input type="file" id="fileUploadInput" style="display: none;" accept="image/*,text/*,.json,.md,.csv,.txt">
+
+            <!-- File preview -->
+            <div id="filePreview" style="display: none; margin-top: 10px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span id="fileIcon" style="font-size: 20px;">📎</span>
+                  <div>
+                    <div id="fileName" style="font-size: 12px; color: var(--text-primary);"></div>
+                    <div id="fileSize" style="font-size: 10px; color: var(--text-secondary);"></div>
+                  </div>
+                </div>
+                <button id="removeFileBtn" style="padding: 4px 8px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; cursor: pointer; font-size: 11px; color: #ef4444;">
+                  ✕ Odebrat
+                </button>
+              </div>
+              <img id="filePreviewImg" style="display: none; max-width: 200px; max-height: 150px; border-radius: 6px; margin-top: 8px;">
             </div>
           </div>
 
@@ -1664,6 +1759,79 @@ build/
             </div>
           </div>
 
+          <!-- Model Ranking Card -->
+          <div class="ai-settings-card" style="background: var(--bg-secondary); border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+            <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">🏆</span>
+                <span>Pořadí AI Modelů (od nejlepších)</span>
+              </div>
+              <button id="editRankingBtn" style="padding: 6px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 12px; color: var(--text-primary); transition: all 0.2s;">
+                ✏️ Upravit
+              </button>
+            </div>
+
+            <div id="rankingDisplay" style="background: var(--bg-tertiary); border-radius: 10px; padding: 16px; max-height: 400px; overflow-y: auto;">
+              <!-- Ranking list will be rendered here -->
+            </div>
+
+            <!-- Edit modal for ranking -->
+            <div id="rankingEditModal" style="display: none; margin-top: 16px; background: var(--bg-tertiary); border-radius: 10px; padding: 16px; border: 2px solid #3b82f6;">
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                Upravte pořadí modelů přetažením nebo použijte tlačítka ▲▼. Modely nahoře jsou považovány za nejlepší.
+              </div>
+              <div id="rankingEditList" style="max-height: 300px; overflow-y: auto;">
+                <!-- Editable ranking list -->
+              </div>
+              <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button id="saveRankingBtn" style="padding: 8px 16px; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                  💾 Uložit pořadí
+                </button>
+                <button id="resetRankingBtn" style="padding: 8px 16px; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; cursor: pointer; font-size: 13px;">
+                  🔄 Reset na výchozí
+                </button>
+                <button id="cancelRankingBtn" style="padding: 8px 16px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 13px;">
+                  ✖️ Zrušit
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Testing Card -->
+          <div class="ai-settings-card" style="background: var(--bg-secondary); border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; cursor: pointer;" id="advancedToggleHeader">
+              <div style="font-size: 14px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">🔧</span>
+                <span>Pokročilé testování</span>
+              </div>
+              <span style="transition: transform 0.3s;" id="advancedArrow">▼</span>
+            </div>
+
+            <div id="advancedContent" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+                <button id="testFallbackBtn" style="padding: 10px 16px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-primary); transition: all 0.2s;">
+                  🎯 Test Fallback
+                </button>
+                <button id="testAllModelsBtn" style="padding: 10px 16px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-primary); transition: all 0.2s;">
+                  🧪 Test všech modelů
+                </button>
+                <button id="compareModelsBtn" style="padding: 10px 16px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-primary); transition: all 0.2s;">
+                  ⚖️ Porovnat modely
+                </button>
+                <button id="fetchModelsBtn" style="padding: 10px 16px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-primary); transition: all 0.2s;">
+                  🔍 Zjistit dostupné modely
+                </button>
+              </div>
+
+              <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.6;">
+                <strong>Fallback:</strong> Zkouší všechny providery dokud nenajde funkční<br>
+                <strong>Test všech:</strong> Otestuje všechny modely s daným promptem<br>
+                <strong>Porovnat:</strong> Paralelní porovnání vybraných modelů<br>
+                <strong>Zjistit:</strong> Načte nové modely z API providerů
+              </div>
+            </div>
+          </div>
+
           <!-- Info card -->
           <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 16px; font-size: 13px; color: var(--text-primary); margin-top: 20px;">
             <div style="font-weight: bold; margin-bottom: 8px; color: var(--text-primary);">💡 Tipy:</div>
@@ -1672,6 +1840,9 @@ build/
               <li>Pro Gemini získáte klíč zdarma na <a href="https://makersuite.google.com/app/apikey" target="_blank" style="color: #3b82f6; text-decoration: underline;">Google AI Studio</a></li>
               <li>Demo klíče jsou určené pouze pro testování a mají omezený počet volání</li>
               <li>Test chat používá aktuálně vybraný provider a model</li>
+              <li>Pořadí modelů určuje, které budou upřednostňovány při automatickém výběru</li>
+              <li>Stream mode zobrazuje odpověď průběžně, Retry opakuje poslední dotaz</li>
+              <li>Můžete přikládat obrázky (Vision modely) a textové soubory</li>
             </ul>
           </div>
 
@@ -1687,15 +1858,55 @@ build/
     let chatHistory = JSON.parse(localStorage.getItem('ai_chat_history') || '[]');
     let currentConversation = [];
 
-    // DEMO KEYS from AI module
+    // DEMO KEYS from AI module (rozdělené pro GitHub)
     const DEMO_KEYS = {
       gemini: "AIzaSyCXuMvhO_senLS" + "oA_idEuBk_EwnMmIPIhg",
       groq: "gsk_0uZbn9KqiBa3Zsl11ACX" + "WGdyb3FYZddvc6oPIn9HTvJpGgoBbYrJ",
       openrouter: "sk-or-v1-bff66ee4a0845f88" + "428b75d91a35aea63e355a52dc31e6427fcc1f9536c2a8a3",
       mistral: "Tvwm0qcQk71vsUDw" + "VfAAAY5GPKdbvlHj",
-      openai: "",
-      claude: ""
+      cohere: "PeJo8cQwftoZI1Dob0qK" + "1lN445FlOjrfFA3piEuh",
+      huggingface: "hf_UhezIpnumnYWSacKLtja" + "VPfXMxbFemUyMv"
     };
+
+    // Default Model Ranking (od nejlepších k nejhorším)
+    const DEFAULT_MODEL_RANKING = [
+      // Premium tier
+
+
+      // Best FREE models
+      'gemini/gemini-2.5-pro',
+      'gemini/gemini-2.5-flash',
+      'groq/llama-3.3-70b-versatile',
+      'openrouter/deepseek/deepseek-r1-0528:free',
+      'openrouter/xiaomi/mimo-v2-flash:free',
+
+      // Coding specialists
+      'openrouter/mistralai/devstral-2512:free',
+      'openrouter/qwen/qwen3-coder:free',
+      'mistral/codestral-latest',
+
+      // Good general purpose FREE
+      'groq/llama-3.1-8b-instant',
+      'gemini/gemini-2.0-flash',
+      'openrouter/meta-llama/llama-3.3-70b-instruct:free',
+      'cohere/command-r-plus',
+
+      // Multimodal
+      'gemini/gemini-3-flash-preview',
+      'openrouter/nvidia/nemotron-nano-12b-v2-vl:free',
+
+      // Specialized
+      'groq/whisper-large-v3-turbo',
+      'cohere/embed-multilingual-v3.0',
+
+      // Budget options
+      'groq/mixtral-8x7b-32768',
+      'mistral/open-mistral-7b',
+      'huggingface/meta-llama/Llama-3.2-3B-Instruct'
+    ];
+
+    // Load or initialize model ranking
+    let modelRanking = JSON.parse(localStorage.getItem('ai_model_ranking') || 'null') || [...DEFAULT_MODEL_RANKING];
 
     // Load AI module data
     if (typeof window.AI !== 'undefined' && window.AI.getAllProvidersWithModels) {
@@ -1706,43 +1917,84 @@ build/
         gemini: {
           name: 'Google Gemini',
           models: [
-            { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash-exp', rpm: 15, free: true },
-            { label: 'Gemini 1.5 Flash', value: 'gemini-1.5-flash', rpm: 15, free: true },
-            { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro', rpm: 5, free: true }
-          ]
-        },
-        openai: {
-          name: 'OpenAI',
-          models: [
-            { label: 'GPT-4o', value: 'gpt-4o', rpm: 10, free: false },
-            { label: 'GPT-4o Mini', value: 'gpt-4o-mini', rpm: 30, free: false },
-            { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo', rpm: 60, free: false }
-          ]
-        },
-        claude: {
-          name: 'Anthropic Claude',
-          models: [
-            { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20241022', rpm: 5, free: false },
-            { label: 'Claude 3 Opus', value: 'claude-3-opus-20240229', rpm: 5, free: false }
+            { label: 'Gemini 2.5 Flash (🔥 NEW)', value: 'gemini-2.5-flash', rpm: 15, free: true },
+            { label: 'Gemini 2.5 Flash-Lite', value: 'gemini-2.5-flash-lite', rpm: 15, free: true },
+            { label: 'Gemini 2.5 Pro (🏆 Best)', value: 'gemini-2.5-pro', rpm: 5, free: true },
+            { label: 'Gemini 3 Flash Preview', value: 'gemini-3-flash-preview', rpm: 15, free: true },
+            { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash', rpm: 15, free: true },
+            { label: 'Gemini 2.0 Flash-Lite', value: 'gemini-2.0-flash-lite', rpm: 20, free: true },
+            { label: 'Gemma 3 27B (Open)', value: 'gemma-3-27b-it', rpm: 15, free: true },
+            { label: 'Gemini Robotics-ER 1.5', value: 'gemini-robotics-er-1.5-preview', rpm: 5, free: true }
           ]
         },
         groq: {
           name: 'Groq',
           models: [
-            { label: 'Llama 3.3 70B', value: 'llama-3.3-70b-versatile', rpm: 30, free: true },
+            { label: 'Llama 3.3 70B (🏆 Best)', value: 'llama-3.3-70b-versatile', rpm: 30, free: true },
+            { label: 'Llama 3.1 8B Instant', value: 'llama-3.1-8b-instant', rpm: 30, free: true },
+            { label: 'Llama 4 Scout 17B (🔥 NEW)', value: 'meta-llama/llama-4-scout-17b-16e-instruct', rpm: 30, free: true },
+            { label: 'Llama 4 Maverick 17B', value: 'meta-llama/llama-4-maverick-17b-128e-instruct', rpm: 30, free: true },
+            { label: 'Qwen3 32B', value: 'qwen/qwen3-32b', rpm: 60, free: true },
+            { label: 'Kimi K2 Instruct', value: 'moonshotai/kimi-k2-instruct', rpm: 60, free: true },
+            { label: 'GPT-OSS 120B (OpenAI)', value: 'openai/gpt-oss-120b', rpm: 30, free: true },
+            { label: 'Whisper Large v3', value: 'whisper-large-v3', rpm: 20, free: true },
+            { label: 'Whisper Large v3 Turbo', value: 'whisper-large-v3-turbo', rpm: 20, free: true },
+            { label: 'Allam 2 7B (Arabic)', value: 'allam-2-7b', rpm: 30, free: true },
             { label: 'Mixtral 8x7B', value: 'mixtral-8x7b-32768', rpm: 30, free: true }
           ]
         },
         openrouter: {
           name: 'OpenRouter',
           models: [
-            { label: 'Mistral Small', value: 'mistralai/mistral-small-3.1-24b-instruct:free', rpm: 20, free: true }
+            { label: 'Xiaomi MiMo-V2-Flash (🏆 #1)', value: 'xiaomi/mimo-v2-flash:free', rpm: 20, free: true },
+            { label: 'Mistral Devstral 2 (Code)', value: 'mistralai/devstral-2512:free', rpm: 20, free: true },
+            { label: 'Qwen3 Coder 480B (Code)', value: 'qwen/qwen3-coder:free', rpm: 20, free: true },
+            { label: 'DeepSeek R1 0528 (o1-level)', value: 'deepseek/deepseek-r1-0528:free', rpm: 20, free: true },
+            { label: 'Llama 3.3 70B', value: 'meta-llama/llama-3.3-70b-instruct:free', rpm: 20, free: true },
+            { label: 'Gemma 3 27B', value: 'google/gemma-3-27b-it:free', rpm: 20, free: true },
+            { label: 'GPT-OSS 120B (OpenAI)', value: 'openai/gpt-oss-120b:free', rpm: 20, free: true },
+            { label: 'NVIDIA Nemotron 3 Nano 30B', value: 'nvidia/nemotron-3-nano-30b-a3b:free', rpm: 20, free: true },
+            { label: 'NVIDIA Nemotron Nano 12B VL', value: 'nvidia/nemotron-nano-12b-v2-vl:free', rpm: 20, free: true },
+            { label: 'KAT-Coder-Pro V1', value: 'kwaipilot/kat-coder-pro:free', rpm: 20, free: true },
+            { label: 'DeepSeek R1T2 Chimera', value: 'tngtech/deepseek-r1t2-chimera:free', rpm: 20, free: true },
+            { label: 'DeepSeek R1T Chimera', value: 'tngtech/deepseek-r1t-chimera:free', rpm: 20, free: true },
+            { label: 'TNG R1T Chimera', value: 'tngtech/tng-r1t-chimera:free', rpm: 20, free: true },
+            { label: 'DeepSeek V3.1 Nex N1', value: 'nex-agi/deepseek-v3.1-nex-n1:free', rpm: 20, free: true },
+            { label: 'GLM 4.5 Air', value: 'z-ai/glm-4.5-air:free', rpm: 20, free: true },
+            { label: 'Olmo 3.1 32B Think', value: 'allenai/olmo-3.1-32b-think:free', rpm: 20, free: true },
+            { label: 'Mistral Small (OLD)', value: 'mistralai/mistral-small-3.1-24b-instruct:free', rpm: 20, free: true }
           ]
         },
         mistral: {
           name: 'Mistral AI',
           models: [
-            { label: 'Mistral Small', value: 'mistral-small-latest', rpm: 10, free: false }
+            { label: 'Mistral Small', value: 'mistral-small-latest', rpm: 10, free: true },
+            { label: 'Mistral 7B (Open)', value: 'open-mistral-7b', rpm: 10, free: true },
+            { label: 'Codestral (Code)', value: 'codestral-latest', rpm: 10, free: true },
+            { label: 'Mistral Embed', value: 'mistral-embed', rpm: 10, free: true }
+          ]
+        },
+        cohere: {
+          name: 'Cohere',
+          models: [
+            { label: 'Command R+', value: 'command-r-plus', rpm: 20, free: true },
+            { label: 'Command R', value: 'command-r', rpm: 20, free: true },
+            { label: 'Command R7B', value: 'command-r7b-12-2024', rpm: 20, free: true },
+            { label: 'Embed English v3.0', value: 'embed-english-v3.0', rpm: 100, free: true },
+            { label: 'Embed Multilingual v3.0', value: 'embed-multilingual-v3.0', rpm: 100, free: true },
+            { label: 'Rerank English v3.0', value: 'rerank-english-v3.0', rpm: 10, free: true }
+          ]
+        },
+        huggingface: {
+          name: 'HuggingFace',
+          models: [
+            { label: 'Llama 3.2 3B Instruct', value: 'meta-llama/Llama-3.2-3B-Instruct', rpm: 10, free: true },
+            { label: 'Mistral 7B Instruct v0.3', value: 'mistralai/Mistral-7B-Instruct-v0.3', rpm: 10, free: true },
+            { label: 'Phi-3 Mini 4K', value: 'microsoft/Phi-3-mini-4k-instruct', rpm: 10, free: true },
+            { label: 'Gemma 2 9B', value: 'google/gemma-2-9b-it', rpm: 10, free: true },
+            { label: 'Qwen 2.5 7B Instruct', value: 'Qwen/Qwen2.5-7B-Instruct', rpm: 10, free: true },
+            { label: 'Whisper Large v3', value: 'openai/whisper-large-v3', rpm: 10, free: true },
+            { label: 'All-MiniLM-L6-v2 (Embed)', value: 'sentence-transformers/all-MiniLM-L6-v2', rpm: 100, free: true }
           ]
         }
       };
@@ -1752,9 +2004,6 @@ build/
     const providerTabs = modal.querySelectorAll('.provider-tab');
     const modelSelect = modal.querySelector('#aiModelSelect');
     const modelRPM = modal.querySelector('#modelRPM');
-    const keysGrid = modal.querySelector('#keysGridCustom');
-    const useDemoCheckbox = modal.querySelector('#useDemoKeys');
-    const providerNameEl = modal.querySelector('#currentProviderName');
     const chatMessages = modal.querySelector('#chatMessages');
     const chatInput = modal.querySelector('#chatInput');
     const chatSendBtn = modal.querySelector('#chatSendBtn');
@@ -1762,20 +2011,29 @@ build/
     const historyArrow = modal.querySelector('#historyArrow');
     const chatHistoryEl = modal.querySelector('#chatHistory');
 
-    // Provider tab switching
-    const switchProvider = (provider) => {
-      currentProvider = provider;
+    // New control elements
+    const streamModeBtn = modal.querySelector('#streamModeBtn');
+    const retryBtn = modal.querySelector('#retryBtn');
+    const clearChatBtn = modal.querySelector('#clearChatBtn');
+    const uploadFileBtn = modal.querySelector('#uploadFileBtn');
+    const removeFileBtn = modal.querySelector('#removeFileBtn');
+    const fileUploadInput = modal.querySelector('#fileUploadInput');
+    const filePreview = modal.querySelector('#filePreview');
+    const tokenCount = modal.querySelector('#tokenCount');
+    const chatStatus = modal.querySelector('#chatStatus');
 
-      // Update provider name
-      const providerNames = {
-        gemini: 'Gemini',
-        openai: 'OpenAI',
-        claude: 'Claude',
-        groq: 'Groq',
-        openrouter: 'OpenRouter',
-        mistral: 'Mistral'
-      };
-      providerNameEl.textContent = `(${providerNames[provider] || provider})`;
+    // Advanced testing elements
+    const advancedToggleHeader = modal.querySelector('#advancedToggleHeader');
+    const advancedContent = modal.querySelector('#advancedContent');
+    const advancedArrow = modal.querySelector('#advancedArrow');
+    const testFallbackBtn = modal.querySelector('#testFallbackBtn');
+    const testAllModelsBtn = modal.querySelector('#testAllModelsBtn');
+    const compareModelsBtn = modal.querySelector('#compareModelsBtn');
+    const fetchModelsBtn = modal.querySelector('#fetchModelsBtn');
+
+    // Provider tab switching
+    const switchProvider = async (provider) => {
+      currentProvider = provider;
 
       // Update tab styles
       providerTabs.forEach(tab => {
@@ -1792,18 +2050,11 @@ build/
         }
       });
 
-      // Update models
-      updateModels();
-
-      // Update keys
-      updateKeys();
-
-      // Load demo checkbox state
-      const useDemoSaved = localStorage.getItem(`ai_use_demo_${currentProvider}`);
-      useDemoCheckbox.checked = useDemoSaved === 'true';
+      // Update models (with async RPM check)
+      await updateModels();
     };
 
-    const updateModels = () => {
+    const updateModels = async () => {
       const providerData = providers[currentProvider];
       if (providerData && providerData.models) {
         modelSelect.innerHTML = providerData.models.map(m => {
@@ -1817,15 +2068,28 @@ build/
           modelSelect.value = savedModel;
         }
 
-        // Update RPM display
-        updateModelRPM();
+        // Update RPM display (async)
+        await updateModelRPM();
       }
     };
 
-    const updateModelRPM = () => {
+    const updateModelRPM = async () => {
       const selectedOption = modelSelect.options[modelSelect.selectedIndex];
       const rpm = selectedOption?.dataset.rpm;
-      if (rpm) {
+
+      // Pro OpenRouter zkontroluj tier
+      if (currentProvider === 'openrouter' && window.AI && typeof window.AI.checkOpenRouterTier === 'function') {
+        try {
+          const tierInfo = await window.AI.checkOpenRouterTier();
+          const tierLabel = tierInfo.isFreeTier ? 'Free Tier' : 'Paid Tier';
+          const rpdDisplay = tierInfo.rpd;
+          modelRPM.innerHTML = `${rpm} RPM <span style="font-size: 14px; color: ${tierInfo.isFreeTier ? '#f59e0b' : '#10b981'};">(${tierLabel}: ${rpdDisplay} RPD)</span>`;
+          modelRPM.title = `Daily usage: ${tierInfo.usageDaily}/${rpdDisplay}\nTotal usage: ${tierInfo.usage}`;
+        } catch (error) {
+          console.warn('Nepodařilo se načíst OpenRouter tier info:', error);
+          modelRPM.textContent = `${rpm} RPM`;
+        }
+      } else if (rpm) {
         modelRPM.textContent = `${rpm} RPM`;
       }
     };
@@ -1836,34 +2100,107 @@ build/
       }
       const isDemoKey = DEMO_KEYS[provider] && key === DEMO_KEYS[provider];
       if (isDemoKey) {
-        return { icon: '⚠️', class: 'demo', title: 'Demo klíč' };
+        return { icon: '△', class: 'demo', title: 'Demo klíč' };
       }
-      return { icon: '✅', class: 'ok', title: 'Vlastní klíč' };
+      return { icon: '■', class: 'ok', title: 'Vlastní klíč' };
     };
 
-    const updateKeys = () => {
-      // Load keys from localStorage
-      const savedKeys = JSON.parse(localStorage.getItem(`ai_keys_${currentProvider}`) || '[]');
+    const loadAllKeys = () => {
+      const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+      const hasAnyKey = Object.values(allKeys).some(key => key && key.length > 10);
 
-      keysGrid.innerHTML = savedKeys.map((key, index) => {
-        const status = getKeyStatus(key, currentProvider);
-        return `
-          <div class="key-input-group" style="position: relative;">
-            <input type="password" value="${key || ''}" data-index="${index}" placeholder="Zadej API klíč..." style="width: 100%; padding: 12px 14px; padding-right: 40px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px;">
-            <span class="key-status ${status.class}" title="${status.title}" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 16px;">${status.icon}</span>
-          </div>
-        `;
-      }).join('');
-
-      // If no keys, add one empty input
-      if (savedKeys.length === 0) {
-        keysGrid.innerHTML = `
-          <div class="key-input-group" style="position: relative;">
-            <input type="password" value="" data-index="0" placeholder="Zadej API klíč..." style="width: 100%; padding: 12px 14px; padding-right: 40px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px;">
-            <span class="key-status none" title="Žádný klíč" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 16px;">○</span>
-          </div>
-        `;
+      // Auto-load demo keys if no keys are set
+      if (!hasAnyKey && Object.keys(allKeys).length === 0) {
+        // First time - load demo keys automatically
+        Object.entries(DEMO_KEYS).forEach(([provider, key]) => {
+          if (key && !key.includes('placeholder')) {
+            allKeys[provider] = key;
+          }
+        });
+        localStorage.setItem('ai_all_keys', JSON.stringify(allKeys));
       }
+
+      // Provider input ID mapping
+      const providerInputMap = {
+        gemini: 'keyGemini',
+        groq: 'keyGroq',
+        openrouter: 'keyOpenRouter',
+        mistral: 'keyMistral',
+        cohere: 'keyCohere',
+        huggingface: 'keyHuggingFace'
+      };
+
+      // Load all provider keys
+      Object.entries(providerInputMap).forEach(([provider, inputId]) => {
+        const input = modal.querySelector(`#${inputId}`);
+        const statusId = inputId.replace('key', 'status');
+        const statusEl = modal.querySelector(`#${statusId}`);
+
+        if (input && statusEl) {
+          const key = allKeys[provider] || '';
+          input.value = key;
+
+          const status = getKeyStatus(key, provider);
+          statusEl.textContent = status.icon;
+          statusEl.className = `key-status ${status.class}`;
+          statusEl.title = status.title;
+        }
+      });
+    };
+
+    const saveAllKeys = () => {
+      const allKeys = {
+        gemini: modal.querySelector('#keyGemini')?.value.trim() || '',
+        groq: modal.querySelector('#keyGroq')?.value.trim() || '',
+        openrouter: modal.querySelector('#keyOpenRouter')?.value.trim() || '',
+        mistral: modal.querySelector('#keyMistral')?.value.trim() || '',
+
+        cohere: modal.querySelector('#keyCohere')?.value.trim() || '',
+        huggingface: modal.querySelector('#keyHuggingFace')?.value.trim() || ''
+      };
+
+      localStorage.setItem('ai_all_keys', JSON.stringify(allKeys));
+      localStorage.setItem(`ai_model_${currentProvider}`, modelSelect.value);
+
+      // Update AI module if available
+      if (typeof window.AI !== 'undefined') {
+        Object.entries(allKeys).forEach(([provider, key]) => {
+          if (key) {
+            window.AI.setKey(provider, key);
+          }
+        });
+      }
+
+      eventBus.emit('toast:show', {
+        message: '✅ Všechny klíče uloženy',
+        type: 'success',
+        duration: 2000
+      });
+
+      loadAllKeys(); // Refresh status icons
+    };
+
+    const exportKeys = () => {
+      const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+      const settings = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        keys: allKeys
+      };
+
+      const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-keys-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      eventBus.emit('toast:show', {
+        message: '📥 Klíče exportovány',
+        type: 'success',
+        duration: 2000
+      });
     };
 
     // Chat functions
@@ -1891,6 +2228,8 @@ build/
         word-wrap: break-word;
         ${role === 'user'
           ? 'background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border-bottom-right-radius: 4px;'
+          : role === 'system'
+          ? 'background: rgba(245, 158, 11, 0.2); color: var(--text-primary); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px;'
           : 'background: var(--bg-tertiary); color: var(--text-primary); border-bottom-left-radius: 4px;'}
         ${loading ? 'font-style: italic; opacity: 0.7;' : ''}
       `;
@@ -1903,9 +2242,387 @@ build/
       return messageDiv;
     };
 
-    const sendChatMessage = async () => {
+    // Advanced testing functions
+    const testFallback = async () => {
+      if (typeof window.AI?.askWithFallback !== 'function') {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Fallback funkce není dostupná',
+          type: 'warning',
+          duration: 3000
+        });
+        return;
+      }
+
+      const testPrompt = 'Řekni krátký vtip o programování.';
+      updateChatStatus('Testuji fallback...', '#f59e0b');
+
+      try {
+        const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+        Object.entries(allKeys).forEach(([provider, key]) => {
+          if (key) window.AI.setKey(provider, key);
+        });
+
+        const result = await window.AI.askWithFallback(testPrompt);
+
+        addChatMessage('system', `✅ Fallback test úspěšný!\n\nPoužitý model: ${result.model}\nProvider: ${result.provider}\n\nOdpověď: ${result.response}`);
+        updateChatStatus('Hotovo', '#22c55e');
+
+      } catch (error) {
+        addChatMessage('system', `❌ Fallback test selhal: ${error.message}`);
+        updateChatStatus('Chyba', '#ef4444');
+      }
+    };
+
+    const testAllModels = async () => {
+      if (!window.AI?.MODELS) {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Seznam modelů není dostupný',
+          type: 'warning',
+          duration: 3000
+        });
+        return;
+      }
+
+      const testPrompt = 'Řekni: "Test OK"';
+      const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+
+      Object.entries(allKeys).forEach(([provider, key]) => {
+        if (key) window.AI.setKey(provider, key);
+      });
+
+      const models = modelRanking.slice(0, 5); // Test top 5
+      addChatMessage('system', `⏳ Testuji ${models.length} modelů...`);
+      updateChatStatus('Testuji...', '#f59e0b');
+
+      const results = [];
+      for (const model of models) {
+        const startTime = Date.now();
+        try {
+          const response = await window.AI.ask(testPrompt, { model });
+          const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+          results.push({ model, success: true, duration, response: response.substring(0, 50) });
+        } catch (error) {
+          const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+          results.push({ model, success: false, duration, error: error.message });
+        }
+      }
+
+      const summary = results.map(r =>
+        r.success
+          ? `✅ ${r.model}: ${r.duration}s - ${r.response}`
+          : `❌ ${r.model}: ${r.duration}s - ${r.error}`
+      ).join('\n');
+
+      addChatMessage('system', `📊 Výsledky testování:\n\n${summary}`);
+      updateChatStatus('Hotovo', '#22c55e');
+    };
+
+    const compareModels = async () => {
+      const model1 = modelSelect.value;
+      const model2 = modelRanking[1] || modelRanking[0];
+
+      if (!model2 || model1 === model2) {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Nejsou dostupné 2 různé modely k porovnání',
+          type: 'warning',
+          duration: 3000
+        });
+        return;
+      }
+
+      const testPrompt = 'Vysvětli jednoduchým způsobem co je umělá inteligence.';
+      addChatMessage('system', `🔄 Porovnávám: ${model1} vs ${model2}`);
+      updateChatStatus('Porovnávám...', '#f59e0b');
+
+      try {
+        const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+        Object.entries(allKeys).forEach(([provider, key]) => {
+          if (key) window.AI.setKey(provider, key);
+        });
+
+        const [result1, result2] = await Promise.all([
+          window.AI.ask(testPrompt, { model: model1 }).catch(e => ({ error: e.message })),
+          window.AI.ask(testPrompt, { model: model2 }).catch(e => ({ error: e.message }))
+        ]);
+
+        const comparison = `
+📊 Porovnání modelů:
+
+🔹 ${model1}:
+${result1.error ? `❌ Chyba: ${result1.error}` : result1}
+
+🔹 ${model2}:
+${result2.error ? `❌ Chyba: ${result2.error}` : result2}
+        `;
+
+        addChatMessage('system', comparison);
+        updateChatStatus('Hotovo', '#22c55e');
+
+      } catch (error) {
+        addChatMessage('system', `❌ Chyba při porovnávání: ${error.message}`);
+        updateChatStatus('Chyba', '#ef4444');
+      }
+    };
+
+    const fetchAvailableModels = async () => {
+      addChatMessage('system', '⏳ Načítám dostupné modely...');
+      updateChatStatus('Načítám...', '#f59e0b');
+
+      try {
+        const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+        const providers = Object.keys(allKeys).filter(p => allKeys[p]);
+
+        if (providers.length === 0) {
+          throw new Error('Nejsou nastaveny žádné API klíče');
+        }
+
+        const allModels = window.AI?.MODELS ? Object.keys(window.AI.MODELS) : [];
+        const modelsByProvider = {};
+
+        providers.forEach(provider => {
+          modelsByProvider[provider] = allModels.filter(m => m.startsWith(provider + '/')).length;
+        });
+
+        const summary = Object.entries(modelsByProvider)
+          .map(([provider, count]) => `  ${provider}: ${count} modelů`)
+          .join('\n');
+
+        addChatMessage('system', `📋 Dostupné modely:\n\n${summary}\n\nCelkem: ${allModels.length} modelů`);
+        updateChatStatus('Hotovo', '#22c55e');
+
+      } catch (error) {
+        addChatMessage('system', `❌ Chyba: ${error.message}`);
+        updateChatStatus('Chyba', '#ef4444');
+      }
+    };
+
+    // Token estimation
+    const estimateTokens = (text) => {
+      if (!text) return 0;
+      const words = text.split(/\s+/).filter(w => w.length > 0);
+      const chars = text.length;
+      return Math.ceil((chars / 3.5 + words.length) / 2);
+    };
+
+    const updateTokenCount = () => {
+      const message = chatInput?.value || '';
+      const tokens = estimateTokens(message);
+      const tokenCountEl = modal.querySelector('#tokenCount');
+      if (tokenCountEl) {
+        tokenCountEl.textContent = `~${tokens} tokenů`;
+      }
+    };
+
+    const updateChatStatus = (text, color = '#22c55e') => {
+      const statusEl = modal.querySelector('#chatStatus');
+      if (statusEl) {
+        statusEl.textContent = `● ${text}`;
+        statusEl.style.color = color;
+      }
+    };
+
+    // File upload handling
+    let uploadedFile = null;
+    let lastRequest = null;
+
+    const handleFileUpload = (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      if (file.size > 20 * 1024 * 1024) {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Soubor je příliš velký (max 20MB)',
+          type: 'warning',
+          duration: 3000
+        });
+        return;
+      }
+
+      const isImage = file.type.startsWith('image/');
+      const isText = file.type.startsWith('text/') ||
+                     file.name.endsWith('.json') ||
+                     file.name.endsWith('.md') ||
+                     file.name.endsWith('.csv');
+
+      const reader = new FileReader();
+
+      if (isImage) {
+        reader.onload = (e) => {
+          const base64Full = e.target.result;
+          const base64 = base64Full.split(',')[1];
+
+          uploadedFile = {
+            type: 'image',
+            name: file.name,
+            size: file.size,
+            base64: base64,
+            mimeType: file.type,
+            dataUrl: base64Full
+          };
+
+          showFilePreview(file, base64Full);
+        };
+        reader.readAsDataURL(file);
+      } else if (isText) {
+        reader.onload = (e) => {
+          uploadedFile = {
+            type: 'text',
+            name: file.name,
+            size: file.size,
+            content: e.target.result
+          };
+
+          showFilePreview(file);
+        };
+        reader.readAsText(file);
+      } else {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Nepodporovaný typ souboru',
+          type: 'warning',
+          duration: 3000
+        });
+      }
+    };
+
+    const showFilePreview = (file, dataUrl = null) => {
+      const previewEl = modal.querySelector('#filePreview');
+      const fileNameEl = modal.querySelector('#fileName');
+      const fileSizeEl = modal.querySelector('#fileSize');
+      const fileIconEl = modal.querySelector('#fileIcon');
+      const fileImgEl = modal.querySelector('#filePreviewImg');
+
+      if (previewEl) previewEl.style.display = 'block';
+      if (fileNameEl) fileNameEl.textContent = file.name;
+      if (fileSizeEl) fileSizeEl.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+
+      if (dataUrl && fileImgEl) {
+        fileImgEl.src = dataUrl;
+        fileImgEl.style.display = 'block';
+        if (fileIconEl) fileIconEl.textContent = '🖼️';
+      } else {
+        if (fileImgEl) fileImgEl.style.display = 'none';
+        if (fileIconEl) fileIconEl.textContent = '📄';
+      }
+    };
+
+    const removeFile = () => {
+      uploadedFile = null;
+      const previewEl = modal.querySelector('#filePreview');
+      const fileInputEl = modal.querySelector('#fileUploadInput');
+      if (previewEl) previewEl.style.display = 'none';
+      if (fileInputEl) fileInputEl.value = '';
+    };
+
+    // Stream mode
+    const sendStreamMessage = async () => {
       const message = chatInput.value.trim();
-      if (!message) return;
+      if (!message && !uploadedFile) return;
+
+      if (typeof window.AI === 'undefined') {
+        eventBus.emit('toast:show', {
+          message: '⚠️ AI modul není načten',
+          type: 'warning',
+          duration: 3000
+        });
+        return;
+      }
+
+      let finalPrompt = message;
+
+      // Handle file
+      if (uploadedFile?.type === 'text') {
+        const fileContent = uploadedFile.content.substring(0, 10000);
+        finalPrompt = message
+          ? `${message}\n\nObsah souboru "${uploadedFile.name}":\n\`\`\`\n${fileContent}\n\`\`\``
+          : `Analyzuj tento soubor "${uploadedFile.name}":\n\`\`\`\n${fileContent}\n\`\`\``;
+      } else if (uploadedFile?.type === 'image' && !message) {
+        finalPrompt = 'Co vidíš na tomto obrázku? Popiš ho.';
+      }
+
+      addChatMessage('user', message || finalPrompt);
+      lastRequest = { message: finalPrompt, provider: currentProvider, model: modelSelect.value };
+      chatInput.value = '';
+      removeFile();
+      updateTokenCount();
+      updateChatStatus('Streamuji...', '#f59e0b');
+
+      const streamBubble = addChatMessage('assistant', '', true);
+      let fullResponse = '';
+
+      try {
+        const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+        let apiKey = allKeys[currentProvider] || null;
+
+        if (!apiKey) {
+          throw new Error(`Není nastaven API klíč pro ${currentProvider}`);
+        }
+
+        window.AI.setKey(currentProvider, apiKey);
+
+        const options = {
+          provider: currentProvider,
+          model: modelSelect.value
+        };
+
+        if (uploadedFile?.type === 'image' && window.AI.supportsVision?.(modelSelect.value)) {
+          options.imageBase64 = uploadedFile.base64;
+          options.imageMimeType = uploadedFile.mimeType;
+        }
+
+        for await (const chunk of window.AI.askStream(finalPrompt, options)) {
+          fullResponse += chunk;
+          streamBubble.querySelector('.chat-bubble').textContent = fullResponse;
+          streamBubble.querySelector('.chat-bubble').classList.remove('loading');
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        currentConversation.push({ role: 'assistant', content: fullResponse });
+        updateChatStatus('Hotovo', '#22c55e');
+
+        chatHistory.unshift({
+          id: Date.now(),
+          provider: currentProvider,
+          model: modelSelect.value,
+          prompt: message,
+          response: fullResponse,
+          timestamp: new Date().toISOString()
+        });
+        if (chatHistory.length > 50) chatHistory = chatHistory.slice(0, 50);
+        localStorage.setItem('ai_chat_history', JSON.stringify(chatHistory));
+        renderHistory();
+
+      } catch (error) {
+        streamBubble.querySelector('.chat-bubble').textContent = `❌ Chyba: ${error.message}`;
+        streamBubble.querySelector('.chat-bubble').classList.add('error');
+        updateChatStatus('Chyba', '#ef4444');
+      }
+    };
+
+    // Retry last request
+    const retryLastRequest = async () => {
+      if (!lastRequest) {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Žádný předchozí dotaz k opakování',
+          type: 'warning',
+          duration: 2000
+        });
+        return;
+      }
+
+      chatInput.value = lastRequest.message;
+      await sendChatMessage();
+    };
+
+    // Clear chat
+    const clearChat = () => {
+      chatMessages.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-style: italic;">Začni konverzaci...</div>';
+      currentConversation = [];
+      updateChatStatus('Připraven', '#22c55e');
+    };
+
+    const sendChatMessage = async () => {
+      let message = chatInput.value.trim();
+      if (!message && !uploadedFile) return;
 
       // Check if AI module is available
       if (typeof window.AI === 'undefined') {
@@ -1917,53 +2634,76 @@ build/
         return;
       }
 
+      let finalPrompt = message;
+
+      // Handle file
+      if (uploadedFile?.type === 'text') {
+        const fileContent = uploadedFile.content.substring(0, 10000);
+        finalPrompt = message
+          ? `${message}\n\nObsah souboru "${uploadedFile.name}":\n\`\`\`\n${fileContent}\n\`\`\``
+          : `Analyzuj tento soubor "${uploadedFile.name}":\n\`\`\`\n${fileContent}\n\`\`\``;
+      } else if (uploadedFile?.type === 'image' && !message) {
+        finalPrompt = 'Co vidíš na tomto obrázku? Popiš ho.';
+      }
+
       // Add user message
-      addChatMessage('user', message);
-      currentConversation.push({ role: 'user', content: message });
+      addChatMessage('user', message || finalPrompt);
+      currentConversation.push({ role: 'user', content: finalPrompt });
+
+      // Save for retry
+      lastRequest = { message: finalPrompt, provider: currentProvider, model: modelSelect.value };
+
       chatInput.value = '';
+      const fileToProcess = uploadedFile;
+      removeFile();
+      updateTokenCount();
       chatSendBtn.disabled = true;
+      updateChatStatus('Odesílám...', '#f59e0b');
 
       // Add loading message
       const loadingMsg = addChatMessage('assistant', 'Přemýšlím...', true);
 
-      try {
-        // Get keys
-        let apiKey = null;
-        const useDemo = useDemoCheckbox.checked;
+      const startTime = Date.now();
 
-        if (useDemo && DEMO_KEYS[currentProvider]) {
-          apiKey = DEMO_KEYS[currentProvider];
-        } else {
-          const savedKeys = JSON.parse(localStorage.getItem(`ai_keys_${currentProvider}`) || '[]');
-          apiKey = savedKeys[0] || null;
-        }
+      try {
+        // Get API key for current provider
+        const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+        let apiKey = allKeys[currentProvider] || null;
 
         if (!apiKey) {
-          throw new Error('Není nastaven API klíč');
+          throw new Error(`Není nastaven API klíč pro ${currentProvider}`);
         }
 
         // Set key in AI module
         window.AI.setKey(currentProvider, apiKey);
 
         // Send request
-        const startTime = Date.now();
-        const response = await window.AI.ask(message, {
+        const options = {
           provider: currentProvider,
           model: modelSelect.value
-        });
+        };
+
+        // Add image if uploaded and model supports vision
+        if (fileToProcess?.type === 'image' && window.AI.supportsVision?.(modelSelect.value)) {
+          options.imageBase64 = fileToProcess.base64;
+          options.imageMimeType = fileToProcess.mimeType;
+        }
+
+        const response = await window.AI.ask(finalPrompt, options);
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
         // Remove loading, add response
         loadingMsg.remove();
         addChatMessage('assistant', response);
         currentConversation.push({ role: 'assistant', content: response });
+        updateChatStatus('Hotovo', '#22c55e');
 
         // Add to history
         chatHistory.unshift({
           id: Date.now(),
           provider: currentProvider,
           model: modelSelect.value,
-          prompt: message,
+          prompt: message || finalPrompt,
           response: response,
           time: duration,
           timestamp: new Date().toISOString()
@@ -1980,6 +2720,7 @@ build/
       } catch (error) {
         loadingMsg.remove();
         addChatMessage('assistant', `❌ Chyba: ${error.message}`);
+        updateChatStatus('Chyba', '#ef4444');
         eventBus.emit('toast:show', {
           message: `❌ ${error.message}`,
           type: 'error',
@@ -2024,9 +2765,856 @@ build/
       }).join('');
     };
 
+    // Export keys to TXT
+    const showApiHelp = () => {
+      const helpModal = document.createElement('div');
+      helpModal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10001;
+        backdrop-filter: blur(4px);
+      `;
+
+      const providersInfo = [
+        {
+          name: '💎 Google Gemini',
+          icon: '💎',
+          description: 'Nejlepší FREE AI od Googlu s vysokými limity',
+          url: 'https://aistudio.google.com/app/apikey',
+          steps: [
+            '1. Otevřete <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #3b82f6;">Google AI Studio</a>',
+            '2. Přihlaste se svým Google účtem',
+            '3. Klikněte na "Create API Key" nebo "Get API Key"',
+            '4. Vyberte projekt nebo vytvořte nový',
+            '5. Zkopírujte vygenerovaný klíč (začíná "AIza...")'
+          ],
+          limits: '✅ FREE tier: 15 RPM, ~1500 požadavků denně',
+          note: '⚡ Gemini 2.5 Flash je nejlepší volba pro většinu úkolů!'
+        },
+        {
+          name: '⚡ Groq',
+          icon: '⚡',
+          description: 'Nejrychlejší FREE AI s nejvyššími limity',
+          url: 'https://console.groq.com/keys',
+          steps: [
+            '1. Otevřete <a href="https://console.groq.com/keys" target="_blank" style="color: #3b82f6;">Groq Console</a>',
+            '2. Zaregistrujte se nebo se přihlaste',
+            '3. Přejděte do sekce "API Keys"',
+            '4. Klikněte na "Create API Key"',
+            '5. Pojmenujte klíč a zkopírujte ho (začíná "gsk_...")'
+          ],
+          limits: '✅ FREE tier: 30-60 RPM podle modelu, žádný denní limit!',
+          note: '🚀 Llama 3.3 70B má skvělý poměr rychlost/kvalita!'
+        },
+        {
+          name: '🌐 OpenRouter',
+          icon: '🌐',
+          description: 'Přístup k desítkám AI modelů přes jedno API',
+          url: 'https://openrouter.ai/keys',
+          steps: [
+            '1. Otevřete <a href="https://openrouter.ai/keys" target="_blank" style="color: #3b82f6;">OpenRouter Keys</a>',
+            '2. Přihlaste se (podporuje Google, GitHub)',
+            '3. Klikněte na "Create Key"',
+            '4. Pojmenujte klíč a nastavte limity (volitelné)',
+            '5. Zkopírujte klíč (začíná "sk-or-v1-...")'
+          ],
+          limits: '🆓 FREE tier: 50 RPD | 💰 Po nabití $10+: 1000 RPD',
+          note: '💡 Automaticky detekujeme váš tier! 17 FREE modelů k dispozici.'
+        },
+        {
+          name: '🔥 Mistral AI',
+          icon: '🔥',
+          description: 'Evropská AI s kvalitními open-source modely',
+          url: 'https://console.mistral.ai/api-keys/',
+          steps: [
+            '1. Otevřete <a href="https://console.mistral.ai/api-keys/" target="_blank" style="color: #3b82f6;">Mistral Console</a>',
+            '2. Zaregistrujte se nebo se přihlaste',
+            '3. Přejděte do "API Keys"',
+            '4. Klikněte na "Create new key"',
+            '5. Zkopírujte vygenerovaný klíč'
+          ],
+          limits: '✅ FREE tier: Open-source modely zdarma (7B, Mixtral)',
+          note: '💻 Codestral je vynikající pro programování!'
+        },
+        {
+          name: '🧬 Cohere',
+          icon: '🧬',
+          description: 'Pokročilé NLP modely s trial účtem',
+          url: 'https://dashboard.cohere.com/api-keys',
+          steps: [
+            '1. Otevřete <a href="https://dashboard.cohere.com/api-keys" target="_blank" style="color: #3b82f6;">Cohere Dashboard</a>',
+            '2. Zaregistrujte se (podporuje Google, GitHub)',
+            '3. Přejděte do sekce "API Keys"',
+            '4. Použijte Trial klíč nebo vytvořte Production klíč',
+            '5. Zkopírujte klíč'
+          ],
+          limits: '✅ Trial: Omezený free přístup | Command R+ má vysokou kvalitu',
+          note: '📊 Skvělé pro embeddings a reranking!'
+        },
+        {
+          name: '🤗 HuggingFace',
+          icon: '🤗',
+          description: 'Open-source AI komunita s tisíci modely',
+          url: 'https://huggingface.co/settings/tokens',
+          steps: [
+            '1. Otevřete <a href="https://huggingface.co/settings/tokens" target="_blank" style="color: #3b82f6;">HuggingFace Tokens</a>',
+            '2. Zaregistrujte se nebo se přihlaste',
+            '3. Klikněte na "New token"',
+            '4. Pojmenujte token a vyberte práva (read)',
+            '5. Zkopírujte token (začíná "hf_...")'
+          ],
+          limits: '✅ FREE Inference API: Omezené použití, restart každé 72h',
+          note: '🔬 Ideální pro experimentování s open-source modely!'
+        }
+      ];
+
+      const helpContent = document.createElement('div');
+      helpContent.style.cssText = `
+        background: var(--bg-primary);
+        border-radius: 20px;
+        max-width: 900px;
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 30px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        position: relative;
+      `;
+
+      helpContent.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid var(--border-color); padding-bottom: 15px;">
+          <h2 style="color: var(--text-primary); font-size: 28px; margin: 0; font-weight: bold;">
+            ❓ Jak získat API klíče
+          </h2>
+          <button id="closeHelpModal" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 8px 16px; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s;">
+            ✕ Zavřít
+          </button>
+        </div>
+
+        <div style="color: var(--text-secondary); font-size: 15px; margin-bottom: 30px; line-height: 1.6;">
+          📚 Detailní návod pro získání API klíčů ke všem podporovaným AI providerům.
+          Všechny klíče jsou <strong style="color: #22c55e;">100% ZDARMA</strong> s free tier limity!
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+          ${providersInfo.map(provider => `
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; transition: all 0.3s;" onmouseenter="this.style.borderColor='#3b82f6'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color)'; this.style.transform='translateY(0)';">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                <span style="font-size: 32px;">${provider.icon}</span>
+                <div>
+                  <h3 style="color: var(--text-primary); margin: 0; font-size: 20px; font-weight: bold;">${provider.name}</h3>
+                  <p style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: 13px;">${provider.description}</p>
+                </div>
+              </div>
+
+              <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; margin-bottom: 15px;">
+                <div style="color: var(--text-secondary); font-size: 14px; margin-bottom: 10px;">📋 <strong>Postup:</strong></div>
+                ${provider.steps.map(step => `
+                  <div style="color: var(--text-primary); font-size: 13px; margin: 6px 0; padding-left: 10px;">${step}</div>
+                `).join('')}
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px; padding: 10px; font-size: 13px; color: #22c55e;">
+                  ${provider.limits}
+                </div>
+                <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 10px; font-size: 13px; color: #3b82f6;">
+                  ${provider.note}
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px;">
+          <div style="font-size: 16px; font-weight: bold; color: #8b5cf6; margin-bottom: 10px;">💡 Tipy pro správu klíčů:</div>
+          <ul style="color: var(--text-secondary); font-size: 13px; line-height: 1.8; margin: 0; padding-left: 20px;">
+            <li>✅ Používejte <strong>demo klíče</strong> pro rychlé testování</li>
+            <li>🔐 Nikdy nesdílejte své API klíče s nikým</li>
+            <li>📦 Pravidelně exportujte klíče jako zálohu</li>
+            <li>🔄 Pro produkci si vytvořte vlastní klíče u každého providera</li>
+            <li>📊 Sledujte své limity v dashboardech providerů</li>
+            <li>⚡ Groq a Gemini mají nejvyšší FREE limity!</li>
+          </ul>
+        </div>
+      `;
+
+      helpModal.appendChild(helpContent);
+      document.body.appendChild(helpModal);
+
+      // Close handlers
+      const closeBtn = helpModal.querySelector('#closeHelpModal');
+      closeBtn.addEventListener('click', () => {
+        document.body.removeChild(helpModal);
+      });
+
+      helpModal.addEventListener('click', (e) => {
+        if (e.target === helpModal) {
+          document.body.removeChild(helpModal);
+        }
+      });
+
+      // Hover effects for close button
+      closeBtn.addEventListener('mouseenter', () => {
+        closeBtn.style.background = 'rgba(239, 68, 68, 0.3)';
+        closeBtn.style.transform = 'scale(1.05)';
+      });
+      closeBtn.addEventListener('mouseleave', () => {
+        closeBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+        closeBtn.style.transform = 'scale(1)';
+      });
+    };
+
+    const exportKeysToTxt = () => {
+      const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+
+      let txtContent = '# AI API Keys Export\n';
+      txtContent += `# Export Date: ${new Date().toLocaleString('cs-CZ')}\n\n`;
+
+      const providers = ['gemini', 'groq', 'openrouter', 'mistral', 'cohere', 'huggingface'];
+      providers.forEach(provider => {
+        const key = allKeys[provider] || '';
+        const providerName = provider.toUpperCase();
+        txtContent += `${providerName}: ${key}\n`;
+      });
+
+      const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-keys-${Date.now()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      eventBus.emit('toast:show', {
+        message: '📄 Klíče exportovány do TXT',
+        type: 'success',
+        duration: 3000
+      });
+    };
+
+    // Import keys from TXT
+    const importKeysFromTxt = (fileContent) => {
+      try {
+        const lines = fileContent.split('\n');
+        const newKeys = {};
+
+        lines.forEach(line => {
+          line = line.trim();
+          if (!line || line.startsWith('#')) return;
+
+          const match = line.match(/^([A-Z]+):\s*(.+)$/);
+          if (match) {
+            const provider = match[1].toLowerCase();
+            const key = match[2].trim();
+            if (['gemini', 'groq', 'openrouter', 'mistral', 'cohere', 'huggingface'].includes(provider)) {
+              newKeys[provider] = key;
+            }
+          }
+        });
+
+        if (Object.keys(newKeys).length === 0) {
+          throw new Error('Nenalezeny žádné platné klíče v souboru');
+        }
+
+        // Merge with existing keys
+        const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+        Object.assign(allKeys, newKeys);
+        localStorage.setItem('ai_all_keys', JSON.stringify(allKeys));
+
+        loadAllKeys();
+
+        eventBus.emit('toast:show', {
+          message: `📂 Importováno ${Object.keys(newKeys).length} klíčů z TXT`,
+          type: 'success',
+          duration: 3000
+        });
+      } catch (error) {
+        eventBus.emit('toast:show', {
+          message: `❌ Chyba importu: ${error.message}`,
+          type: 'error',
+          duration: 4000
+        });
+      }
+    };
+
+    // Key library management
+    const getKeyLibrary = (provider) => {
+      const libraryKey = `ai_keys_library_${provider}`;
+      return JSON.parse(localStorage.getItem(libraryKey) || '[]');
+    };
+
+    const saveKeyToLibrary = (provider, key, name = null) => {
+      if (!key || key.length < 10) return;
+
+      const library = getKeyLibrary(provider);
+      const keyName = name || `Key ${library.length + 1}`;
+
+      // Check if key already exists
+      if (!library.find(item => item.key === key)) {
+        library.push({ name: keyName, key, timestamp: Date.now() });
+        localStorage.setItem(`ai_keys_library_${provider}`, JSON.stringify(library));
+      }
+    };
+
+    const showKeyLibrary = (provider) => {
+      const library = getKeyLibrary(provider);
+
+      // Provider input ID mapping
+      const providerInputMap = {
+        gemini: 'keyGemini',
+        groq: 'keyGroq',
+        openrouter: 'keyOpenRouter',
+        mistral: 'keyMistral',
+        cohere: 'keyCohere',
+        huggingface: 'keyHuggingFace'
+      };
+
+      const input = document.getElementById(providerInputMap[provider]);
+
+      if (!input) {
+        console.error(`Input not found for provider: ${provider}`);
+        return;
+      }
+
+      // Create dropdown menu
+      const existingMenu = document.querySelector('.key-library-menu');
+      if (existingMenu) existingMenu.remove();
+
+      const menu = document.createElement('div');
+      menu.className = 'key-library-menu';
+      menu.style.cssText = `
+        position: fixed;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        z-index: 100003;
+        min-width: 250px;
+        max-height: 300px;
+        overflow-y: auto;
+      `;
+
+      // Add demo key option
+      const demoKey = DEMO_KEYS[provider];
+      if (demoKey) {
+        const demoOption = document.createElement('div');
+        demoOption.style.cssText = `
+          padding: 8px 12px;
+          cursor: pointer;
+          border-radius: 6px;
+          font-size: 13px;
+          color: var(--text-primary);
+          transition: all 0.2s;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        `;
+        demoOption.innerHTML = `
+          <span>△ Demo klíč</span>
+          <span style="font-family: monospace; color: var(--text-secondary);">••••••</span>
+        `;
+        demoOption.addEventListener('mouseenter', () => {
+          demoOption.style.background = 'rgba(245, 158, 11, 0.2)';
+        });
+        demoOption.addEventListener('mouseleave', () => {
+          demoOption.style.background = 'transparent';
+        });
+        demoOption.addEventListener('click', () => {
+          input.value = demoKey;
+          input.dispatchEvent(new Event('input'));
+          menu.remove();
+        });
+        menu.appendChild(demoOption);
+      }
+
+      // Add saved keys
+      library.forEach((item, index) => {
+        const option = document.createElement('div');
+        option.style.cssText = `
+          padding: 8px 12px;
+          cursor: pointer;
+          border-radius: 6px;
+          font-size: 13px;
+          color: var(--text-primary);
+          transition: all 0.2s;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+        `;
+
+        const keyPreview = item.key.length > 20 ? item.key.substring(0, 20) + '...' : item.key;
+        option.innerHTML = `
+          <span style="flex: 1;">■ ${item.name}</span>
+          <span style="font-family: monospace; color: var(--text-secondary); font-size: 11px;">${keyPreview}</span>
+          <button class="delete-key-btn" data-index="${index}" style="padding: 2px 6px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; color: #ef4444; cursor: pointer; font-size: 11px;">🗑️</button>
+        `;
+
+        option.addEventListener('mouseenter', () => {
+          option.style.background = 'rgba(59, 130, 246, 0.2)';
+        });
+        option.addEventListener('mouseleave', () => {
+          option.style.background = 'transparent';
+        });
+
+        option.addEventListener('click', (e) => {
+          if (!e.target.classList.contains('delete-key-btn')) {
+            input.value = item.key;
+            input.dispatchEvent(new Event('input'));
+            menu.remove();
+          }
+        });
+
+        // Delete button
+        const deleteBtn = option.querySelector('.delete-key-btn');
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (confirm(`Smazat klíč "${item.name}"?`)) {
+            library.splice(index, 1);
+            localStorage.setItem(`ai_keys_library_${provider}`, JSON.stringify(library));
+            showKeyLibrary(provider);
+          }
+        });
+
+        menu.appendChild(option);
+      });
+
+      // Add "Save current" option if input has value
+      if (input.value && input.value.length > 10 && !library.find(item => item.key === input.value) && input.value !== demoKey) {
+        const separator = document.createElement('div');
+        separator.style.cssText = 'border-top: 1px solid var(--border-color); margin: 8px 0;';
+        menu.appendChild(separator);
+
+        const saveOption = document.createElement('div');
+        saveOption.style.cssText = `
+          padding: 8px 12px;
+          cursor: pointer;
+          border-radius: 6px;
+          font-size: 13px;
+          color: #22c55e;
+          transition: all 0.2s;
+        `;
+        saveOption.textContent = '💾 Uložit aktuální klíč';
+        saveOption.addEventListener('mouseenter', () => {
+          saveOption.style.background = 'rgba(34, 197, 94, 0.2)';
+        });
+        saveOption.addEventListener('mouseleave', () => {
+          saveOption.style.background = 'transparent';
+        });
+        saveOption.addEventListener('click', () => {
+          const name = prompt('Název klíče:', `Key ${library.length + 1}`);
+          if (name) {
+            saveKeyToLibrary(provider, input.value, name);
+            menu.remove();
+            eventBus.emit('toast:show', {
+              message: '💾 Klíč uložen do knihovny',
+              type: 'success',
+              duration: 2000
+            });
+          }
+        });
+        menu.appendChild(saveOption);
+      }
+
+      if (library.length === 0 && !demoKey) {
+        menu.innerHTML = '<div style="padding: 12px; text-align: center; color: var(--text-secondary); font-style: italic;">Žádné uložené klíče</div>';
+      }
+
+      // Position menu near button
+      const btn = document.querySelector(`[data-provider="${provider}"]`);
+      const rect = btn.getBoundingClientRect();
+      menu.style.top = (rect.bottom + 5) + 'px';
+      menu.style.left = (rect.left - 200) + 'px';
+
+      document.body.appendChild(menu);
+
+      // Close on click outside
+      setTimeout(() => {
+        const closeMenu = (e) => {
+          if (!menu.contains(e.target) && !btn.contains(e.target)) {
+            menu.remove();
+            document.removeEventListener('click', closeMenu);
+          }
+        };
+        document.addEventListener('click', closeMenu);
+      }, 100);
+    };
+
+    // Model Ranking functions
+    const getModelName = (provider, modelValue) => {
+      const providerData = providers[provider];
+      if (!providerData) return modelValue;
+      const model = providerData.models.find(m => m.value === modelValue);
+      return model ? model.label : modelValue;
+    };
+
+    const getTierBadge = (tier) => {
+      const badges = {
+        premium: '<span style="background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;">👑 PREMIUM</span>',
+        standard: '<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;">💎 STANDARD</span>',
+        free: '<span style="background: rgba(34, 197, 94, 0.2); color: #4ade80; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;">🆓 FREE</span>'
+      };
+      return badges[tier] || '';
+    };
+
+    const getProviderIcon = (provider) => {
+      const icons = {
+        gemini: '💎',
+        openai: '🧠',
+        claude: '🎭',
+        groq: '⚡',
+        openrouter: '🌐',
+        mistral: '🔥'
+      };
+      return icons[provider] || '🤖';
+    };
+
+    const renderModelRanking = () => {
+      const rankingDisplay = modal.querySelector('#rankingDisplay');
+      if (!rankingDisplay) return;
+
+      // Check for missing or invalid models
+      const validModels = [];
+      const invalidModels = [];
+      const availableModels = [];
+
+      // Collect all available models from AI module
+      const allAvailableModels = [];
+      Object.keys(providers).forEach(provider => {
+        if (providers[provider].models) {
+          providers[provider].models.forEach(model => {
+            allAvailableModels.push({
+              provider,
+              model: model.value,
+              name: model.label,
+              tier: model.free ? 'free' : 'standard'
+            });
+          });
+        }
+      });
+
+      // Check each ranking item
+      modelRanking.forEach(item => {
+        const providerExists = providers[item.provider];
+        const modelExists = providerExists && providers[item.provider].models?.find(m => m.value === item.model);
+
+        if (providerExists && modelExists) {
+          validModels.push(item);
+        } else {
+          invalidModels.push(item);
+        }
+      });
+
+      // Find models that exist in AI module but not in ranking
+      allAvailableModels.forEach(availableModel => {
+        const existsInRanking = modelRanking.find(
+          item => item.provider === availableModel.provider && item.model === availableModel.model
+        );
+        if (!existsInRanking) {
+          availableModels.push(availableModel);
+        }
+      });
+
+      let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+
+      // Show invalid models warning
+      if (invalidModels.length > 0) {
+        html += `
+          <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+            <div style="font-weight: 600; color: #ef4444; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              ⚠️ Chybějící modely v seznamu (${invalidModels.length})
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+              Tyto modely nejsou k dispozici v AI modulu:
+            </div>
+        `;
+
+        invalidModels.forEach(item => {
+          const icon = getProviderIcon(item.provider);
+          html += `
+            <div style="background: var(--bg-primary); border-radius: 6px; padding: 8px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(239, 68, 68, 0.3);">
+              <div>
+                <div style="font-size: 12px; color: var(--text-primary);">${icon} ${item.provider} - ${item.model}</div>
+              </div>
+              <button class="remove-invalid-btn" data-provider="${item.provider}" data-model="${item.model}" style="padding: 4px 10px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; cursor: pointer; font-size: 11px; color: #ef4444;">Odebrat</button>
+            </div>
+          `;
+        });
+
+        html += '</div>';
+      }
+
+      // Show available models to add
+      if (availableModels.length > 0) {
+        html += `
+          <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+            <div style="font-weight: 600; color: #3b82f6; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              ➕ Dostupné modely k přidání (${availableModels.length})
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+              Tyto modely můžete přidat do seznamu:
+            </div>
+            <div style="max-height: 200px; overflow-y: auto;">
+        `;
+
+        availableModels.slice(0, 20).forEach(item => {
+          const icon = getProviderIcon(item.provider);
+          const badge = getTierBadge(item.tier);
+          const providerName = providers[item.provider]?.name || item.provider;
+          html += `
+            <div style="background: var(--bg-primary); border-radius: 6px; padding: 8px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(59, 130, 246, 0.3);">
+              <div style="flex: 1;">
+                <div style="font-size: 12px; color: var(--text-primary); margin-bottom: 2px;">${icon} ${item.name}</div>
+                <div style="font-size: 10px; color: var(--text-secondary);">${providerName} • ${item.model}</div>
+              </div>
+              <div style="margin: 0 8px;">${badge}</div>
+              <button class="add-model-btn" data-provider="${item.provider}" data-model="${item.model}" data-name="${item.name}" data-tier="${item.tier}" style="padding: 4px 10px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; cursor: pointer; font-size: 11px; color: #3b82f6;">Přidat</button>
+            </div>
+          `;
+        });
+
+        if (availableModels.length > 20) {
+          html += `<div style="text-align: center; color: var(--text-secondary); font-size: 11px; padding: 8px;">... a ${availableModels.length - 20} dalších</div>`;
+        }
+
+        html += '</div></div>';
+      }
+
+      // Show valid models
+      validModels.forEach((item, index) => {
+        const modelName = getModelName(item.provider, item.model);
+        const providerName = providers[item.provider]?.name || item.provider;
+        const icon = getProviderIcon(item.provider);
+        const badge = getTierBadge(item.tier);
+
+        // Medal for top 3
+        let medal = '';
+        const actualIndex = modelRanking.indexOf(item);
+        if (actualIndex === 0) medal = '🥇';
+        else if (actualIndex === 1) medal = '🥈';
+        else if (actualIndex === 2) medal = '🥉';
+
+        html += `
+          <div style="background: var(--bg-primary); border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border-color); transition: all 0.2s;">
+            <div style="font-size: 20px; min-width: 32px; text-align: center;">${medal || (actualIndex + 1)}</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 500; color: var(--text-primary); font-size: 14px; margin-bottom: 4px;">
+                ${icon} ${modelName}
+              </div>
+              <div style="font-size: 11px; color: var(--text-secondary);">
+                ${providerName} • ${item.model}
+              </div>
+            </div>
+            <div>
+              ${badge}
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+      rankingDisplay.innerHTML = html;
+
+      // Add event listeners for remove invalid buttons
+      rankingDisplay.querySelectorAll('.remove-invalid-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const provider = btn.dataset.provider;
+          const model = btn.dataset.model;
+          modelRanking = modelRanking.filter(item => !(item.provider === provider && item.model === model));
+          localStorage.setItem('ai_model_ranking', JSON.stringify(modelRanking));
+          renderModelRanking();
+          eventBus.emit('toast:show', {
+            message: '🗑️ Model odebrán ze seznamu',
+            type: 'success',
+            duration: 2000
+          });
+        });
+      });
+
+      // Add event listeners for add model buttons
+      rankingDisplay.querySelectorAll('.add-model-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const provider = btn.dataset.provider;
+          const model = btn.dataset.model;
+          const name = btn.dataset.name;
+          const tier = btn.dataset.tier;
+
+          modelRanking.push({ provider, model, tier });
+          localStorage.setItem('ai_model_ranking', JSON.stringify(modelRanking));
+          renderModelRanking();
+          eventBus.emit('toast:show', {
+            message: `✅ ${name} přidán do seznamu`,
+            type: 'success',
+            duration: 2000
+          });
+        });
+      });
+    };
+
+    const renderEditableRanking = () => {
+      const rankingEditList = modal.querySelector('#rankingEditList');
+      if (!rankingEditList) return;
+
+      let html = '<div style="display: flex; flex-direction: column; gap: 6px;">';
+
+      modelRanking.forEach((item, index) => {
+        const modelName = getModelName(item.provider, item.model);
+        const providerName = providers[item.provider]?.name || item.provider;
+        const icon = getProviderIcon(item.provider);
+        const badge = getTierBadge(item.tier);
+
+        html += `
+          <div class="ranking-item" data-index="${index}" draggable="true" style="background: var(--bg-primary); border-radius: 8px; padding: 10px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border-color); cursor: move; transition: all 0.2s;">
+            <div style="font-size: 16px; min-width: 28px; text-align: center; color: var(--text-secondary);">${index + 1}</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 500; color: var(--text-primary); font-size: 13px; margin-bottom: 2px;">
+                ${icon} ${modelName}
+              </div>
+              <div style="font-size: 10px; color: var(--text-secondary);">
+                ${providerName} • ${item.model}
+              </div>
+            </div>
+            <div>
+              ${badge}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <button class="move-up-btn" data-index="${index}" ${index === 0 ? 'disabled' : ''} style="padding: 2px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 12px; ${index === 0 ? 'opacity: 0.3; cursor: not-allowed;' : ''}">▲</button>
+              <button class="move-down-btn" data-index="${index}" ${index === modelRanking.length - 1 ? 'disabled' : ''} style="padding: 2px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 12px; ${index === modelRanking.length - 1 ? 'opacity: 0.3; cursor: not-allowed;' : ''}">▼</button>
+            </div>
+            <button class="remove-item-btn" data-index="${index}" style="padding: 4px 8px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; cursor: pointer; font-size: 11px; color: #ef4444;">🗑️</button>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+      rankingEditList.innerHTML = html;
+
+      // Add drag and drop event listeners
+      const items = rankingEditList.querySelectorAll('.ranking-item');
+      items.forEach(item => {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('dragenter', handleDragEnter);
+        item.addEventListener('dragleave', handleDragLeave);
+        item.addEventListener('drop', handleDrop);
+        item.addEventListener('dragend', handleDragEnd);
+      });
+
+      // Add move button listeners
+      rankingEditList.querySelectorAll('.move-up-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const index = parseInt(e.target.dataset.index);
+          if (index > 0) {
+            [modelRanking[index], modelRanking[index - 1]] = [modelRanking[index - 1], modelRanking[index]];
+            renderEditableRanking();
+          }
+        });
+      });
+
+      rankingEditList.querySelectorAll('.move-down-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const index = parseInt(e.target.dataset.index);
+          if (index < modelRanking.length - 1) {
+            [modelRanking[index], modelRanking[index + 1]] = [modelRanking[index + 1], modelRanking[index]];
+            renderEditableRanking();
+          }
+        });
+      });
+
+      rankingEditList.querySelectorAll('.remove-item-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const index = parseInt(e.target.dataset.index);
+          if (confirm(`Odebrat model "${getModelName(modelRanking[index].provider, modelRanking[index].model)}" ze seznamu?`)) {
+            modelRanking.splice(index, 1);
+            renderEditableRanking();
+          }
+        });
+      });
+    };
+
+    // Drag and drop handlers
+    let draggedIndex = null;
+
+    const handleDragStart = (e) => {
+      draggedIndex = parseInt(e.currentTarget.dataset.index);
+      e.currentTarget.style.opacity = '0.5';
+      e.currentTarget.style.cursor = 'grabbing';
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
+    };
+
+    const handleDragOver = (e) => {
+      if (e.preventDefault) {
+        e.preventDefault();
+      }
+      e.dataTransfer.dropEffect = 'move';
+      return false;
+    };
+
+    const handleDragEnter = (e) => {
+      e.currentTarget.classList.add('drag-over');
+    };
+
+    const handleDragLeave = (e) => {
+      e.currentTarget.classList.remove('drag-over');
+    };
+
+    const handleDrop = (e) => {
+      if (e.stopPropagation) {
+        e.stopPropagation();
+      }
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      const dropIndex = parseInt(e.currentTarget.dataset.index);
+
+      if (draggedIndex !== null && draggedIndex !== dropIndex) {
+        const [removed] = modelRanking.splice(draggedIndex, 1);
+        modelRanking.splice(dropIndex, 0, removed);
+        renderEditableRanking();
+      }
+      return false;
+    };
+
+    const handleDragEnd = (e) => {
+      e.currentTarget.style.opacity = '1';
+      e.currentTarget.style.cursor = 'move';
+      draggedIndex = null;
+      modal.querySelectorAll('.ranking-item').forEach(item => {
+        item.classList.remove('drag-over');
+      });
+    };
+
+    const saveModelRanking = () => {
+      localStorage.setItem('ai_model_ranking', JSON.stringify(modelRanking));
+      renderModelRanking();
+      modal.querySelector('#rankingEditModal').style.display = 'none';
+      eventBus.emit('toast:show', {
+        message: '🏆 Pořadí modelů uloženo',
+        type: 'success',
+        duration: 2000
+      });
+    };
+
+    const resetModelRanking = () => {
+      if (confirm('Opravdu resetovat pořadí modelů na výchozí?')) {
+        modelRanking = [...DEFAULT_MODEL_RANKING];
+        renderEditableRanking();
+      }
+    };
+
     // Event listeners
     providerTabs.forEach(tab => {
-      tab.addEventListener('click', () => switchProvider(tab.dataset.provider));
+      tab.addEventListener('click', async () => {
+        await switchProvider(tab.dataset.provider);
+      });
 
       // Hover effects
       tab.addEventListener('mouseenter', function() {
@@ -2041,38 +3629,68 @@ build/
       });
     });
 
-    modelSelect.addEventListener('change', updateModelRPM);
-
-    useDemoCheckbox.addEventListener('change', (e) => {
-      localStorage.setItem(`ai_use_demo_${currentProvider}`, e.target.checked);
+    modelSelect.addEventListener('change', async () => {
+      await updateModelRPM();
     });
 
-    modal.querySelector('#addKeyBtn').addEventListener('click', () => {
-      const inputs = keysGrid.querySelectorAll('input');
-      const newIndex = inputs.length;
-      const newKeyHtml = `
-        <div class="key-input-group" style="position: relative;">
-          <input type="password" value="" data-index="${newIndex}" placeholder="Zadej API klíč..." style="width: 100%; padding: 12px 14px; padding-right: 40px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px;">
-          <span class="key-status none" title="Žádný klíč" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 16px;">○</span>
-        </div>
-      `;
-      keysGrid.insertAdjacentHTML('beforeend', newKeyHtml);
+    // Keys buttons
+    modal.querySelector('#saveKeysBtn').addEventListener('click', saveAllKeys);
+    modal.querySelector('#exportKeysBtn').addEventListener('click', exportKeys);
+    modal.querySelector('#exportTxtBtn').addEventListener('click', exportKeysToTxt);
+    modal.querySelector('#apiHelpBtn').addEventListener('click', showApiHelp);
+
+    // Import TXT button
+    const importTxtBtn = modal.querySelector('#importTxtBtn');
+    const importTxtInput = modal.querySelector('#importTxtInput');
+
+    importTxtBtn.addEventListener('click', () => {
+      importTxtInput.click();
     });
 
-    modal.querySelector('#saveKeysBtn').addEventListener('click', () => {
-      const inputs = keysGrid.querySelectorAll('input');
-      const keys = Array.from(inputs).map(input => input.value.trim()).filter(k => k);
+    importTxtInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          importKeysFromTxt(event.target.result);
+        };
+        reader.readAsText(file);
+      }
+      importTxtInput.value = ''; // Reset input
+    });
 
-      localStorage.setItem(`ai_keys_${currentProvider}`, JSON.stringify(keys));
-      localStorage.setItem(`ai_model_${currentProvider}`, modelSelect.value);
-
-      eventBus.emit('toast:show', {
-        message: '✅ Nastavení AI uloženo',
-        type: 'success',
-        duration: 2000
+    // Key library buttons
+    modal.querySelectorAll('.key-library-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const provider = btn.dataset.provider;
+        showKeyLibrary(provider);
       });
 
-      updateKeys();
+      // Hover effects
+      btn.addEventListener('mouseenter', function() {
+        this.style.background = 'rgba(59, 130, 246, 0.2)';
+        this.style.borderColor = '#3b82f6';
+      });
+      btn.addEventListener('mouseleave', function() {
+        this.style.background = 'var(--bg-tertiary)';
+        this.style.borderColor = 'var(--border-color)';
+      });
+    });
+
+    // Model Ranking buttons
+    modal.querySelector('#editRankingBtn').addEventListener('click', () => {
+      const editModal = modal.querySelector('#rankingEditModal');
+      editModal.style.display = editModal.style.display === 'none' ? 'block' : 'none';
+      if (editModal.style.display === 'block') {
+        renderEditableRanking();
+      }
+    });
+
+    modal.querySelector('#saveRankingBtn').addEventListener('click', saveModelRanking);
+    modal.querySelector('#resetRankingBtn').addEventListener('click', resetModelRanking);
+    modal.querySelector('#cancelRankingBtn').addEventListener('click', () => {
+      modelRanking = JSON.parse(localStorage.getItem('ai_model_ranking') || 'null') || [...DEFAULT_MODEL_RANKING];
+      modal.querySelector('#rankingEditModal').style.display = 'none';
     });
 
     // Chat listeners
@@ -2083,6 +3701,27 @@ build/
         sendChatMessage();
       }
     });
+
+    // New chat control listeners
+    streamModeBtn.addEventListener('click', sendStreamMessage);
+    retryBtn.addEventListener('click', retryLastRequest);
+    clearChatBtn.addEventListener('click', clearChat);
+    uploadFileBtn.addEventListener('click', () => fileUploadInput.click());
+    removeFileBtn.addEventListener('click', removeFile);
+    fileUploadInput.addEventListener('change', handleFileUpload);
+    chatInput.addEventListener('input', updateTokenCount);
+
+    // Advanced testing listeners
+    advancedToggleHeader.addEventListener('click', () => {
+      const isOpen = advancedContent.style.maxHeight !== '0px' && advancedContent.style.maxHeight !== '';
+      advancedContent.style.maxHeight = isOpen ? '0' : '300px';
+      advancedArrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+    });
+
+    testFallbackBtn.addEventListener('click', testFallback);
+    testAllModelsBtn.addEventListener('click', testAllModels);
+    compareModelsBtn.addEventListener('click', compareModels);
+    fetchModelsBtn.addEventListener('click', fetchAvailableModels);
 
     // History toggle
     modal.querySelector('#historyToggleHeader').addEventListener('click', () => {
@@ -2145,10 +3784,13 @@ build/
       if (e.target === modal) modal.remove();
     });
 
-    // Initialize
-    updateModels();
-    updateKeys();
-    renderHistory();
+    // Initialize (async operations)
+    (async () => {
+      await updateModels();
+      loadAllKeys();
+      renderHistory();
+      renderModelRanking();
+    })();
   }
 
   openDevTools() {
