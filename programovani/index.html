@@ -29,6 +29,16 @@
     <!-- CrewAI Connector -->
     <script src="crewai_connector.js"></script>
 
+    <!-- Eruda DevTools for Mobile -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>
+      // Auto-init Eruda on mobile
+      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        eruda.init();
+        console.log('📱 Eruda DevTools initialized for mobile');
+      }
+    </script>
+
     <!-- Fonts -->
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
@@ -236,7 +246,7 @@
     <script type="module" src="./src/core/app.js"></script>
     <script>
       // Cache buster - force reload on version change
-      const APP_VERSION = '2.1.5-force-tiny-font';
+      const APP_VERSION = '2.1.6-eruda-devtools';
       const lastVersion = localStorage.getItem('app_version');
 
       if (lastVersion !== APP_VERSION) {
