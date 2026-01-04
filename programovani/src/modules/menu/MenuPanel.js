@@ -360,8 +360,32 @@ build/
 
   githubSearch() {
     const query = prompt('Hledat na GitHubu:');
-    if (query) {
-      window.open(`https://github.com/search?q=${encodeURIComponent(query)}&type=repositories`, '_blank');
+    if (query && query.trim()) {
+      try {
+        const url = `https://github.com/search?q=${encodeURIComponent(query.trim())}&type=repositories`;
+        const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+          // Popup was blocked
+          eventBus.emit('toast:show', {
+            message: '⚠️ Povolete vyskakovací okna pro tuto stránku',
+            type: 'warning'
+          });
+          // Fallback - open in same window
+          window.location.href = url;
+        } else {
+          eventBus.emit('toast:show', {
+            message: '🔍 Otevírám GitHub search...',
+            type: 'success'
+          });
+        }
+      } catch (error) {
+        console.error('GitHub search error:', error);
+        eventBus.emit('toast:show', {
+          message: 'Chyba při otevírání GitHub',
+          type: 'error'
+        });
+      }
     }
   }
 

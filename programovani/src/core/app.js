@@ -550,27 +550,45 @@ class App {
     }
 
     try {
-      // Create a simple implementation using Blob and download
-      // For now, export current file as HTML
-      const currentCode = this.editor?.getCode() || state.get('editor.code') || '';
-      const activeTab = tabs.find(t => t.id === state.get('files.active'));
-      const fileName = activeTab?.name || 'index.html';
+      // If only one file, download it directly
+      if (tabs.length === 1) {
+        const tab = tabs[0];
+        const blob = new Blob([tab.content], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = tab.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('✅ Soubor stažen');
+        return;
+      }
 
-      // Create blob and download
-      const blob = new Blob([currentCode], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // For multiple files, download all files with delay
+      toast.info('📦 Stahování ' + tabs.length + ' souborů...');
 
-      toast.success('✅ Soubor stažen');
+      tabs.forEach((tab, index) => {
+        setTimeout(() => {
+          const blob = new Blob([tab.content], { type: 'text/html' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = tab.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          if (index === tabs.length - 1) {
+            toast.success(`✅ ${tabs.length} souborů staženo`);
+          }
+        }, index * 300); // Stagger downloads
+      });
     } catch (error) {
       console.error('Export error:', error);
-      toast.error('Chyba při exportu souboru');
+      toast.error('Chyba při exportu souborů');
     }
   }
 
