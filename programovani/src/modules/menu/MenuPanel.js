@@ -953,10 +953,10 @@ build/
     }
 
     filesContainer.innerHTML = openFiles.map((file, index) => `
-      <div class="open-file-item" data-index="${index}">
+      <div class="open-file-item" data-tab-id="${file.id}" data-index="${index}">
         <span class="file-icon">📄</span>
         <span class="file-name">${file.name}</span>
-        <button class="file-close-btn" data-index="${index}" title="Zavřít">
+        <button class="file-close-btn" data-tab-id="${file.id}" title="Zavřít">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
@@ -968,8 +968,12 @@ build/
     filesContainer.querySelectorAll('.open-file-item').forEach(item => {
       item.addEventListener('click', (e) => {
         if (!e.target.closest('.file-close-btn')) {
-          const index = parseInt(item.dataset.index);
-          eventBus.emit('file:switch', { index });
+          const tabId = item.dataset.tabId;
+          // Find the tab element and trigger click (Editor handles switching)
+          const tabElement = document.querySelector(`.editor-tab[data-tab-id="${tabId}"]`);
+          if (tabElement) {
+            tabElement.click();
+          }
           this.hide();
         }
       });
@@ -979,19 +983,32 @@ build/
     filesContainer.querySelectorAll('.file-close-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const index = parseInt(btn.dataset.index);
-        eventBus.emit('file:close', { index });
+        const tabId = btn.dataset.tabId;
+        // Find the close button in the tab and trigger click
+        const tabElement = document.querySelector(`.editor-tab[data-tab-id="${tabId}"]`);
+        if (tabElement) {
+          const closeBtn = tabElement.querySelector('.editor-tab-close');
+          if (closeBtn) {
+            closeBtn.click();
+            // Update the list after short delay
+            setTimeout(() => this.updateOpenFilesList(), 100);
+          }
+        }
       });
     });
   }
 
   getOpenFiles() {
-    // This would normally come from state or tabs manager
-    // For now, return a simple list
-    const tabs = document.querySelectorAll('.tab');
-    return Array.from(tabs).map((tab, index) => ({
-      name: tab.textContent.trim() || `Soubor ${index + 1}`,
-      index: index
-    }));
+    // Get open files from editor tabs
+    const tabs = document.querySelectorAll('.editor-tab');
+    return Array.from(tabs).map((tab, index) => {
+      const nameSpan = tab.querySelector('.editor-tab-name');
+      const name = nameSpan ? nameSpan.textContent.trim() : `Soubor ${index + 1}`;
+      return {
+        name: name,
+        index: index,
+        id: tab.dataset.tabId
+      };
+    });
   }
 }
