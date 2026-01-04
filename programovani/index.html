@@ -18,7 +18,11 @@
 
     <title>HTML Studio</title>
 
-    <link rel="stylesheet" href="src/styles/main.css?v=20260102" />
+    <script>
+      // Dynamic cache busting for CSS
+      const cssVersion = '2.1.1-' + Date.now();
+      document.write('<link rel="stylesheet" href="src/styles/main.css?v=' + cssVersion + '">');
+    </script>
 
     <!-- AI Module -->
     <script src="ai_module.js"></script>
@@ -236,23 +240,46 @@
     <script type="module" src="./src/core/app.js"></script>
     <script>
       // Cache buster - force reload on version change
-      const APP_VERSION = '2.1.0-components-padding';
+      const APP_VERSION = '2.1.2-mobile-cache-fix';
       const lastVersion = localStorage.getItem('app_version');
 
       if (lastVersion !== APP_VERSION) {
         console.log('🔄 Detekována nová verze, mazání cache...');
 
-        // Clear browser cache API (neovlivňuje localStorage!)
+        // Unregister all service workers
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            registrations.forEach(registration => {
+              console.log('🚫 Unregistering service worker:', registration);
+              registration.unregister();
+            });
+          });
+        }
+
+        // Clear ALL browser cache
         if ('caches' in window) {
           caches.keys().then(names => {
+            console.log('🗑️ Clearing caches:', names);
             names.forEach(name => caches.delete(name));
           });
+        }
+
+        // Clear sessionStorage too
+        try {
+          sessionStorage.clear();
+          console.log('✅ SessionStorage cleared');
+        } catch (e) {
+          console.error('SessionStorage clear failed:', e);
         }
 
         // Force hard reload with cache bypass
         if (lastVersion && lastVersion !== APP_VERSION) {
           console.log('🔄 Vynucený hard reload...');
-          window.location.reload(true);
+          // Add timestamp to URL to force fresh load
+          const url = new URL(window.location.href);
+          url.searchParams.set('_t', Date.now());
+          window.location.href = url.toString();
+          return;
         }
 
         // DŮLEŽITÉ: localStorage NEMAZAT - obsahuje důležitá uživatelská data!
