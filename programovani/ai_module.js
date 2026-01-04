@@ -475,43 +475,144 @@ const AI = {
     // ============== VŠECHNY MODELY (seřazené od nejlepších) ==============
     ALL_MODELS: {
         gemini: [
-            { value: "gemini-2.5-flash", name: "🧠 Gemini 2.5 Flash", rpm: 15, quality: 95 },
-            { value: "gemini-2.5-flash-lite", name: "⚡ Gemini 2.5 Flash-Lite", rpm: 30, quality: 85 },
-            { value: "gemini-3-flash-preview", name: "⚡ Gemini 3.0 Flash (Preview)", rpm: 15, quality: 96 },
-            { value: "gemini-2.5-pro", name: "🧠 Gemini 2.5 Pro", rpm: 5, quality: 97 },
-            { value: "gemini-2.5-pro-exp-03-25", name: "🔬 Gemini 2.5 Pro Experimental", rpm: 15, quality: 98 }
+            { value: "gemini-2.5-flash", name: "🧠 Gemini 2.5 Flash (Hybrid)", rpm: 15, quality: 95, free: true },
+            { value: "gemini-2.5-flash-lite", name: "⚡ Gemini 2.5 Flash-Lite", rpm: 30, quality: 85, free: true },
+            { value: "gemini-2.5-pro", name: "🏆 Gemini 2.5 Pro", rpm: 5, quality: 98, free: true },
+            { value: "gemini-3-flash-preview", name: "🔥 Gemini 3.0 Flash Preview", rpm: 15, quality: 96, free: true },
+            { value: "gemini-2.0-flash", name: "👁️ Gemini 2.0 Flash (Image-Gen)", rpm: 15, quality: 92, free: true },
+            { value: "gemini-2.0-flash-lite", name: "⚡ Gemini 2.0 Flash-Lite", rpm: 20, quality: 82, free: true },
+            { value: "gemma-3-27b-it", name: "🤖 Gemma 3 27B (Open)", rpm: 15, quality: 88, free: true },
+            { value: "gemini-robotics-er-1.5-preview", name: "🤖 Gemini Robotics-ER 1.5", rpm: 5, quality: 85, free: true }
         ],
         groq: [
-            { value: "llama-3.3-70b-versatile", name: "🧠 Llama 3.3 70B (nejchytřejší)", rpm: 30, quality: 90 },
-            { value: "openai/gpt-oss-120b", name: "🧠 GPT OSS 120B", rpm: 30, quality: 88 },
-            { value: "meta-llama/llama-4-maverick-17b-128e-instruct", name: "👁️ Llama 4 Maverick (Vision)", rpm: 30, quality: 85 },
-            { value: "meta-llama/llama-4-scout-17b-16e-instruct", name: "👁️ Llama 4 Scout (Vision)", rpm: 30, quality: 82 },
-            { value: "openai/gpt-oss-20b", name: "⚡ GPT OSS 20B (rychlý)", rpm: 30, quality: 75 },
-            { value: "llama-3.1-8b-instant", name: "⚡ Llama 3.1 8B (nejrychlejší)", rpm: 30, quality: 65 }
-        ],
-        mistral: [
-            { value: "mistral-small-latest", name: "🧠 Mistral Small", rpm: 30, quality: 80 },
-            { value: "codestral-latest", name: "💻 Codestral (kódování)", rpm: 30, quality: 78 }
-        ],
-        cohere: [
-            { value: "command-a-03-2025", name: "🧠 Command A (nejnovější)", rpm: 20, quality: 85 },
-            { value: "command-r-plus-08-2024", name: "💬 Command R+", rpm: 20, quality: 80 },
-            { value: "command-r-08-2024", name: "⚡ Command R (rychlý)", rpm: 20, quality: 70 }
+            { value: "llama-3.3-70b-versatile", name: "🏆 Llama 3.3 70B", rpm: 30, quality: 90, free: true },
+            { value: "llama-3.1-8b-instant", name: "⚡ Llama 3.1 8B Instant", rpm: 30, quality: 75, free: true },
+            { value: "meta-llama/llama-4-scout-17b-16e-instruct", name: "🔥 Llama 4 Scout 17B", rpm: 30, quality: 88, free: true },
+            { value: "meta-llama/llama-4-maverick-17b-128e-instruct", name: "🔥 Llama 4 Maverick 17B", rpm: 30, quality: 90, free: true },
+            { value: "qwen/qwen3-32b", name: "💻 Qwen3 32B", rpm: 60, quality: 85, free: true },
+            { value: "moonshotai/kimi-k2-instruct", name: "🎯 Kimi K2 Instruct", rpm: 60, quality: 82, free: true },
+            { value: "openai/gpt-oss-120b", name: "🧠 GPT-OSS 120B", rpm: 30, quality: 88, free: true },
+            { value: "whisper-large-v3", name: "🎤 Whisper Large v3", rpm: 20, quality: 95, free: true },
+            { value: "whisper-large-v3-turbo", name: "⚡ Whisper Large v3 Turbo", rpm: 20, quality: 92, free: true },
+            { value: "allam-2-7b", name: "🌍 Allam 2 7B (Arabic)", rpm: 30, quality: 70, free: true },
+            { value: "mixtral-8x7b-32768", name: "⚡ Mixtral 8x7B", rpm: 30, quality: 80, free: true }
         ],
         openrouter: [
-            { value: "mistralai/mistral-small-3.1-24b-instruct:free", name: "🔥 Mistral Small 3.1 :free", rpm: 20, quality: 75 }
+            { value: "xiaomi/mimo-v2-flash:free", name: "🏆 Xiaomi MiMo-V2-Flash", rpm: 20, quality: 95, free: true },
+            { value: "mistralai/devstral-2512:free", name: "💻 Mistral Devstral 2", rpm: 20, quality: 93, free: true },
+            { value: "qwen/qwen3-coder:free", name: "💻 Qwen3 Coder 480B", rpm: 20, quality: 94, free: true },
+            { value: "deepseek/deepseek-r1-0528:free", name: "🧠 DeepSeek R1 (o1-level)", rpm: 20, quality: 96, free: true },
+            { value: "meta-llama/llama-3.3-70b-instruct:free", name: "🦙 Llama 3.3 70B", rpm: 20, quality: 88, free: true },
+            { value: "google/gemma-3-27b-it:free", name: "🤖 Gemma 3 27B", rpm: 20, quality: 86, free: true },
+            { value: "openai/gpt-oss-120b:free", name: "🧠 GPT-OSS 120B", rpm: 20, quality: 87, free: true },
+            { value: "nvidia/nemotron-3-nano-30b-a3b:free", name: "⚡ NVIDIA Nemotron 3 Nano", rpm: 20, quality: 85, free: true },
+            { value: "nvidia/nemotron-nano-12b-v2-vl:free", name: "👁️ NVIDIA Nemotron VL", rpm: 20, quality: 83, free: true },
+            { value: "kwaipilot/kat-coder-pro:free", name: "💻 KAT-Coder-Pro", rpm: 20, quality: 90, free: true },
+            { value: "tngtech/deepseek-r1t2-chimera:free", name: "🧬 DeepSeek R1T2 Chimera", rpm: 20, quality: 92, free: true },
+            { value: "tngtech/deepseek-r1t-chimera:free", name: "🧬 DeepSeek R1T Chimera", rpm: 20, quality: 90, free: true },
+            { value: "tngtech/tng-r1t-chimera:free", name: "🎭 TNG R1T Chimera", rpm: 20, quality: 88, free: true },
+            { value: "nex-agi/deepseek-v3.1-nex-n1:free", name: "🤖 DeepSeek V3.1 Nex N1", rpm: 20, quality: 89, free: true },
+            { value: "z-ai/glm-4.5-air:free", name: "💭 GLM 4.5 Air", rpm: 20, quality: 84, free: true },
+            { value: "allenai/olmo-3.1-32b-think:free", name: "🧠 Olmo 3.1 32B Think", rpm: 20, quality: 86, free: true },
+            { value: "mistralai/mistral-small-3.1-24b-instruct:free", name: "🔥 Mistral Small 3.1", rpm: 20, quality: 82, free: true }
+        ],
+        mistral: [
+            { value: "mistral-small-latest", name: "🧠 Mistral Small", rpm: 10, quality: 85, free: true },
+            { value: "open-mistral-7b", name: "🤖 Mistral 7B (Open)", rpm: 10, quality: 75, free: true },
+            { value: "codestral-latest", name: "💻 Codestral", rpm: 10, quality: 88, free: true },
+            { value: "mistral-embed", name: "📊 Mistral Embed", rpm: 10, quality: 80, free: true }
+        ],
+        cohere: [
+            { value: "command-r-plus", name: "🏆 Command R+", rpm: 20, quality: 90, free: true },
+            { value: "command-r", name: "💬 Command R", rpm: 20, quality: 85, free: true },
+            { value: "command-r7b-12-2024", name: "⚡ Command R7B", rpm: 20, quality: 78, free: true },
+            { value: "embed-english-v3.0", name: "📊 Embed English v3", rpm: 100, quality: 85, free: true },
+            { value: "embed-multilingual-v3.0", name: "🌍 Embed Multilingual v3", rpm: 100, quality: 85, free: true },
+            { value: "rerank-english-v3.0", name: "🎯 Rerank English v3", rpm: 10, quality: 88, free: true }
         ],
         huggingface: [
-            { value: "mistralai/Mistral-7B-Instruct-v0.3", name: "🔥 Mistral 7B", rpm: 10, quality: 60 },
-            { value: "microsoft/Phi-3-mini-4k-instruct", name: "🔬 Phi-3 Mini", rpm: 10, quality: 55 },
-            { value: "HuggingFaceH4/zephyr-7b-beta", name: "💨 Zephyr 7B", rpm: 10, quality: 50 },
-            { value: "google/gemma-2-2b-it", name: "🤖 Gemma 2 2B", rpm: 10, quality: 45 },
-            { value: "tiiuae/falcon-7b-instruct", name: "🦅 Falcon 7B", rpm: 10, quality: 40 }
+            { value: "meta-llama/Llama-3.2-3B-Instruct", name: "🦙 Llama 3.2 3B", rpm: 10, quality: 70, free: true },
+            { value: "mistralai/Mistral-7B-Instruct-v0.3", name: "🔥 Mistral 7B v0.3", rpm: 10, quality: 75, free: true },
+            { value: "microsoft/Phi-3-mini-4k-instruct", name: "🔬 Phi-3 Mini", rpm: 10, quality: 72, free: true },
+            { value: "google/gemma-2-9b-it", name: "🤖 Gemma 2 9B", rpm: 10, quality: 73, free: true },
+            { value: "Qwen/Qwen2.5-7B-Instruct", name: "💻 Qwen 2.5 7B", rpm: 10, quality: 76, free: true },
+            { value: "openai/whisper-large-v3", name: "🎤 Whisper Large v3", rpm: 10, quality: 92, free: true },
+            { value: "sentence-transformers/all-MiniLM-L6-v2", name: "📊 All-MiniLM-L6-v2", rpm: 100, quality: 80, free: true }
         ]
     },
 
     // Pořadí providerů od nejlepšího (pro fallback)
-    PROVIDER_PRIORITY: ['groq', 'gemini', 'mistral', 'cohere', 'openrouter', 'huggingface'],
+    PROVIDER_PRIORITY: ['groq', 'gemini', 'openrouter', 'mistral', 'cohere', 'huggingface'],
+
+    // Cache pro OpenRouter tier info
+    _openRouterTierCache: {},
+
+    /**
+     * Zkontroluje OpenRouter API klíč a zjistí RPD limit
+     * @param {string} apiKey - OpenRouter API klíč (volitelný, použije se uložený)
+     * @returns {Promise<{isFreeTier: boolean, rpm: number, rpd: number, usage: number, usageDaily: number}>}
+     */
+    async checkOpenRouterTier(apiKey = null) {
+        const key = apiKey || this.getKey('openrouter');
+        if (!key) {
+            throw new Error('OpenRouter API klíč nenalezen');
+        }
+
+        // Cache check (platnost 5 minut)
+        const cached = this._openRouterTierCache[key];
+        if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) {
+            return cached.data;
+        }
+
+        try {
+            const response = await fetch('https://openrouter.ai/api/v1/key', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${key}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`OpenRouter API error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const data = result.data;
+
+            // is_free_tier: true = nikdy nenabil = 50 RPD
+            // is_free_tier: false = nabil $10+ = 1,000 RPD
+            const tierInfo = {
+                isFreeTier: data.is_free_tier,
+                rpm: data.is_free_tier ? 1 : 20,  // Free: ~1 RPM, Paid: ~20 RPM
+                rpd: data.is_free_tier ? 50 : 1000,
+                usage: data.usage || 0,
+                usageDaily: data.usage_daily || 0,
+                label: data.label || 'Unknown',
+                limit: data.limit,
+                limitRemaining: data.limit_remaining
+            };
+
+            // Cache result
+            this._openRouterTierCache[key] = {
+                timestamp: Date.now(),
+                data: tierInfo
+            };
+
+            return tierInfo;
+        } catch (error) {
+            console.error('Chyba při kontrole OpenRouter tier:', error);
+            // Fallback na free tier limity
+            return {
+                isFreeTier: true,
+                rpm: 1,
+                rpd: 50,
+                usage: 0,
+                usageDaily: 0,
+                error: error.message
+            };
+        }
+    },
 
     // Modely s podporou vision (Groq)
     VISION_MODELS: [
@@ -847,336 +948,37 @@ const AI = {
 
     // Získej všechny providery s jejich modely (pro UI)
     getAllProvidersWithModels() {
-        return {
-            groq: {
-                name: 'Groq',
-                models: [
-                    {
-                        value: 'llama-3.3-70b-versatile',
-                        label: 'Llama 3.3 70B Versatile',
-                        free: true,
-                        rpm: 30,
-                        context: '128K tokens',
-                        performance: 'excellent',  // nejlepší, nejvýkonnější
-                        quality: 95,  // 0-100 kvalita myšlení
-                        speed: 85,    // 0-100 rychlost
-                        description: 'Nejnovější Llama, výborný pro komplexní úkoly - TOP volba'
-                    },
-                    {
-                        value: 'llama-3.1-70b-versatile',
-                        label: 'Llama 3.1 70B Versatile',
-                        free: true,
-                        rpm: 30,
-                        context: '128K tokens',
-                        performance: 'excellent',
-                        quality: 92,
-                        speed: 85,
-                        description: 'Stabilní, vhodný pro dlouhé konverzace'
-                    },
-                    {
-                        value: 'llama-3.2-90b-text-preview',
-                        label: 'Llama 3.2 90B Text',
-                        free: true,
-                        rpm: 30,
-                        context: '8K tokens',
-                        performance: 'excellent',
-                        quality: 94,
-                        speed: 90,
-                        description: 'Preview model, rychlý a kvalitní'
-                    },
-                    {
-                        value: 'mixtral-8x7b-32768',
-                        label: 'Mixtral 8x7B',
-                        free: true,
-                        rpm: 30,
-                        context: '32K tokens',
-                        performance: 'good',
-                        quality: 80,
-                        speed: 95,
-                        description: 'Velmi rychlý, dobrý pro kód a vysoký RPM'
-                    },
-                    {
-                        value: 'gemma2-9b-it',
-                        label: 'Gemma 2 9B',
-                        free: true,
-                        rpm: 30,
-                        context: '8K tokens',
-                        performance: 'fast',
-                        quality: 70,
-                        speed: 98,
-                        description: 'Malý a efektivní, vysoký RPM pro jednoduché úkoly'
-                    }
-                ]
-            },
-            gemini: {
-                name: 'Google Gemini',
-                models: [
-                    {
-                        value: 'gemini-2.5-flash',
-                        label: 'Gemini 2.5 Flash',
-                        free: true,
-                        rpm: 15,
-                        dailyLimit: '~1,500',
-                        context: '1M tokens',
-                        performance: 'excellent',
-                        quality: 95,
-                        speed: 88,
-                        description: 'Nejlepší volba pro většinu použití. Free tier s vysokým limitem.'
-                    },
-                    {
-                        value: 'gemini-2.5-flash-lite',
-                        label: 'Gemini 2.5 Flash-Lite',
-                        free: true,
-                        rpm: 30,
-                        dailyLimit: 'vysoký',
-                        context: '128K tokens',
-                        performance: 'fast',
-                        quality: 85,
-                        speed: 98,
-                        description: 'Optimalizovaný pro rychlost. Nejvyšší RPM v free tier.'
-                    },
-                    {
-                        value: 'gemini-3-flash-preview',
-                        label: 'Gemini 3.0 Flash (Preview)',
-                        free: true,
-                        rpm: 15,
-                        dailyLimit: '~1,500',
-                        context: '1M tokens',
-                        performance: 'excellent',
-                        quality: 96,
-                        speed: 90,
-                        description: 'Nejnovější multimodální model. Preview verze, free tier.'
-                    },
-                    {
-                        value: 'gemini-2.5-pro',
-                        label: 'Gemini 2.5 Pro',
-                        free: true,
-                        rpm: 5,
-                        dailyLimit: '~100',
-                        context: '2M tokens',
-                        performance: 'best',
-                        quality: 97,
-                        speed: 70,
-                        description: 'Nejvyšší kvalita, silně omezený od prosince 2025. Nízké RPM a denní limit.'
-                    },
-                    {
-                        value: 'gemini-2.5-pro-exp-03-25',
-                        label: 'Gemini 2.5 Pro Experimental',
-                        free: true,
-                        rpm: 15,
-                        dailyLimit: 'vyšší',
-                        context: '2M tokens',
-                        performance: 'best',
-                        quality: 98,
-                        speed: 75,
-                        description: 'Experimentální verze Pro s vyššími limity než běžný Pro.'
-                    }
-                ]
-            },
-            openrouter: {
-                name: 'OpenRouter',
-                models: [
-                    {
-                        value: 'anthropic/claude-3.5-sonnet',
-                        label: 'Claude 3.5 Sonnet',
-                        free: false,
-                        rpm: 5,
-                        context: '200K tokens',
-                        performance: 'best',
-                        quality: 99,  // Claude je nejchytřejší
-                        speed: 75,
-                        description: 'Nejchytřejší AI vůbec, placený - TOP pro kritické úkoly'
-                    },
-                    {
-                        value: 'openai/gpt-4o-mini',
-                        label: 'GPT-4o Mini',
-                        free: false,
-                        rpm: 10,
-                        context: '128K tokens',
-                        performance: 'excellent',
-                        quality: 91,
-                        speed: 88,
-                        description: 'Levný GPT-4, dobrý poměr cena/výkon'
-                    },
-                    {
-                        value: 'google/gemini-flash-1.5',
-                        label: 'Gemini Flash 1.5',
-                        free: false,
-                        rpm: 10,
-                        context: '1M tokens',
-                        performance: 'excellent',
-                        quality: 93,
-                        speed: 90,
-                        description: 'Gemini přes OpenRouter'
-                    },
-                    {
-                        value: 'mistralai/mistral-small-3.1-24b-instruct:free',
-                        label: 'Mistral Small 3.1 24B (Free)',
-                        free: true,
-                        rpm: 20,
-                        context: '32K tokens',
-                        performance: 'good',
-                        quality: 82,
-                        speed: 92,
-                        description: 'Malý Mistral, rychlý a free, vysoký RPM'
-                    },
-                    {
-                        value: 'meta-llama/llama-3.1-8b-instruct:free',
-                        label: 'Llama 3.1 8B (Free)',
-                        free: true,
-                        rpm: 20,
-                        context: '128K tokens',
-                        performance: 'fast',
-                        quality: 75,
-                        speed: 95,
-                        description: 'Malý Llama, free a rychlý pro jednoduché úkoly'
-                    }
-                ]
-            },
-            mistral: {
-                name: 'Mistral',
-                models: [
-                    {
-                        value: 'mistral-large-latest',
-                        label: 'Mistral Large',
-                        free: false,
-                        rpm: 5,
-                        context: '128K tokens',
-                        performance: 'excellent',
-                        quality: 94,
-                        speed: 80,
-                        description: 'Největší Mistral, velmi chytrý'
-                    },
-                    {
-                        value: 'mistral-medium-latest',
-                        label: 'Mistral Medium',
-                        free: false,
-                        rpm: 5,
-                        context: '32K tokens',
-                        performance: 'good',
-                        quality: 88,
-                        speed: 85,
-                        description: 'Středně velký model, placený'
-                    },
-                    {
-                        value: 'mistral-small-latest',
-                        label: 'Mistral Small (Latest)',
-                        free: false,
-                        rpm: 5,
-                        context: '32K tokens',
-                        performance: 'good',
-                        quality: 85,
-                        speed: 90,
-                        description: 'Rychlý a efektivní, placený'
-                    },
-                    {
-                        value: 'open-mixtral-8x7b',
-                        label: 'Open Mixtral 8x7B',
-                        free: true,
-                        rpm: 10,
-                        context: '32K tokens',
-                        performance: 'fast',
-                        quality: 78,
-                        speed: 95,
-                        description: 'MoE architektura, rychlý, vysoký RPM'
-                    },
-                    {
-                        value: 'open-mistral-7b',
-                        label: 'Open Mistral 7B',
-                        free: true,
-                        rpm: 10,
-                        context: '32K tokens',
-                        performance: 'fast',
-                        quality: 72,
-                        speed: 97,
-                        description: 'Open-source verze, free, velmi rychlý'
-                    }
-                ]
-            },
-            cohere: {
-                name: 'Cohere',
-                models: [
-                    {
-                        value: 'command-a-03-2025',
-                        label: 'Command A (2025)',
-                        free: true,
-                        rpm: 20,
-                        context: '128K tokens',
-                        performance: 'excellent',
-                        quality: 90,
-                        speed: 85,
-                        description: 'Nejnovější Cohere, trial free'
-                    },
-                    {
-                        value: 'command-r-plus',
-                        label: 'Command R+',
-                        free: false,
-                        rpm: 10,
-                        context: '128K tokens',
-                        performance: 'excellent',
-                        quality: 92,
-                        speed: 82,
-                        description: 'Pokročilý model pro RAG'
-                    },
-                    {
-                        value: 'command-r',
-                        label: 'Command R',
-                        free: false,
-                        rpm: 10,
-                        context: '128K tokens',
-                        performance: 'good',
-                        quality: 86,
-                        speed: 88,
-                        description: 'Dobrý pro retrieval úkoly'
-                    },
-                    {
-                        value: 'command-light',
-                        label: 'Command Light',
-                        free: true,
-                        rpm: 20,
-                        context: '4K tokens',
-                        description: 'Rychlý lightweight model'
-                    }
-                ]
-            },
-            huggingface: {
-                name: 'HuggingFace',
-                models: [
-                    {
-                        value: 'mistralai/Mistral-7B-Instruct-v0.3',
-                        label: 'Mistral 7B Instruct',
-                        free: true,
-                        rpm: 10,
-                        context: '8K tokens',
-                        description: 'Open-source, inference API free'
-                    },
-                    {
-                        value: 'meta-llama/Llama-2-13b-chat-hf',
-                        label: 'Llama 2 13B Chat',
-                        free: true,
-                        rpm: 10,
-                        context: '4K tokens',
-                        description: 'Stabilní Llama 2, free'
-                    },
-                    {
-                        value: 'bigscience/bloom-560m',
-                        label: 'BLOOM 560M',
-                        free: true,
-                        rpm: 30,
-                        context: '2K tokens',
-                        description: 'Velmi malý a rychlý model'
-                    },
-                    {
-                        value: 'google/flan-t5-xxl',
-                        label: 'FLAN-T5 XXL',
-                        free: true,
-                        rpm: 20,
-                        context: '2K tokens',
-                        description: 'Dobrý pro instrukce, free'
-                    }
-                ]
-            }
+        const result = {};
+
+        // Dynamicky generuj z ALL_MODELS
+        for (const [provider, models] of Object.entries(this.ALL_MODELS)) {
+            result[provider] = {
+                name: this.getProviderDisplayName(provider),
+                models: models.map(m => ({
+                    value: m.value,
+                    label: m.name,
+                    free: m.free !== undefined ? m.free : true,
+                    rpm: m.rpm,
+                    quality: m.quality,
+                    description: m.description || ''
+                }))
+            };
+        }
+
+        return result;
+    },
+
+    // Získej zobrazované jméno providera
+    getProviderDisplayName(provider) {
+        const names = {
+            gemini: 'Google Gemini',
+            groq: 'Groq',
+            openrouter: 'OpenRouter',
+            mistral: 'Mistral AI',
+            cohere: 'Cohere',
+            huggingface: 'HuggingFace'
         };
+        return names[provider] || provider;
     },
 
     // ============== GEMINI ==============
