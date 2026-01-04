@@ -764,7 +764,7 @@ build/
             <!-- Buttons -->
             <div class="component-card" data-component="button-primary">
               <div class="component-preview">
-                <button style="padding: 10px 20px; background: #00d4aa; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Hlavní tlačítko</button>
+                <button style="padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Hlavní tlačítko</button>
               </div>
               <div class="component-info">
                 <h4>Primary Button</h4>
@@ -774,7 +774,7 @@ build/
 
             <div class="component-card" data-component="button-secondary">
               <div class="component-preview">
-                <button style="padding: 10px 20px; background: transparent; color: #00d4aa; border: 2px solid #00d4aa; border-radius: 6px; cursor: pointer; font-weight: 500;">Sekundární tlačítko</button>
+                <button style="padding: 10px 20px; background: transparent; color: var(--accent); border: 2px solid var(--accent); border-radius: 6px; cursor: pointer; font-weight: 500;">Sekundární tlačítko</button>
               </div>
               <div class="component-info">
                 <h4>Secondary Button</h4>
@@ -785,9 +785,9 @@ build/
             <!-- Card -->
             <div class="component-card" data-component="card">
               <div class="component-preview">
-                <div style="background: #1a1a1d; border: 1px solid #2a2a2d; border-radius: 8px; padding: 20px; max-width: 250px;">
-                  <h3 style="margin: 0 0 10px 0; color: #e8e8ea;">Titulek karty</h3>
-                  <p style="margin: 0; color: #8a8a8f; font-size: 14px;">Popis obsahu karty zde.</p>
+                <div style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; padding: 20px; max-width: 250px;">
+                  <h3 style="margin: 0 0 10px 0; color: var(--text-primary);">Titulek karty</h3>
+                  <p style="margin: 0; color: var(--text-secondary); font-size: 14px;">Popis obsahu karty zde.</p>
                 </div>
               </div>
               <div class="component-info">
@@ -799,7 +799,7 @@ build/
             <!-- Input -->
             <div class="component-card" data-component="input">
               <div class="component-preview">
-                <input type="text" placeholder="Zadejte text..." style="padding: 10px 12px; background: #111113; border: 1px solid #2a2a2d; border-radius: 6px; color: #e8e8ea; width: 200px;">
+                <input type="text" placeholder="Zadejte text..." style="padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); width: 200px;">
               </div>
               <div class="component-info">
                 <h4>Textové pole</h4>
@@ -810,8 +810,8 @@ build/
             <!-- Alert -->
             <div class="component-card" data-component="alert">
               <div class="component-preview">
-                <div style="background: rgba(81, 207, 102, 0.1); border-left: 4px solid #51cf66; padding: 12px 16px; border-radius: 6px; max-width: 250px;">
-                  <p style="margin: 0; color: #51cf66; font-size: 14px;">✅ Úspěšná zpráva</p>
+                <div style="background: rgba(81, 207, 102, 0.1); border-left: 4px solid var(--success); padding: 12px 16px; border-radius: 6px; max-width: 250px;">
+                  <p style="margin: 0; color: var(--success); font-size: 14px;">✅ Úspěšná zpráva</p>
                 </div>
               </div>
               <div class="component-info">
@@ -823,10 +823,10 @@ build/
             <!-- Navigation -->
             <div class="component-card" data-component="nav">
               <div class="component-preview">
-                <nav style="background: #111113; padding: 12px 20px; border-radius: 6px; display: flex; gap: 20px; max-width: 250px;">
-                  <a href="#" style="color: #00d4aa; text-decoration: none; font-weight: 500;">Domov</a>
-                  <a href="#" style="color: #8a8a8f; text-decoration: none;">O nás</a>
-                  <a href="#" style="color: #8a8a8f; text-decoration: none;">Kontakt</a>
+                <nav style="background: var(--bg-secondary); padding: 12px 20px; border-radius: 6px; display: flex; gap: 20px; max-width: 250px;">
+                  <a href="#" style="color: var(--accent); text-decoration: none; font-weight: 500;">Domov</a>
+                  <a href="#" style="color: var(--text-secondary); text-decoration: none;">O nás</a>
+                  <a href="#" style="color: var(--text-secondary); text-decoration: none;">Kontakt</a>
                 </nav>
               </div>
               <div class="component-info">
@@ -846,17 +846,17 @@ build/
 
     // Component templates
     const components = {
-      'button-primary': '<button class="btn-primary">Tlačítko</button>\n\n<style>\n.btn-primary {\n  padding: 10px 20px;\n  background: #00d4aa;\n  color: white;\n  border: none;\n  border-radius: 6px;\n  cursor: pointer;\n  font-weight: 500;\n  transition: background 0.2s;\n}\n.btn-primary:hover {\n  background: #00a88a;\n}\n</style>',
+      'button-primary': '<button class="btn-primary">Tlačítko</button>\n\n<style>\n.btn-primary {\n  padding: 10px 20px;\n  background: var(--accent);\n  color: white;\n  border: none;\n  border-radius: 6px;\n  cursor: pointer;\n  font-weight: 500;\n  transition: background 0.2s;\n}\n.btn-primary:hover {\n  background: var(--accent-dim);\n}\n</style>',
 
-      'button-secondary': '<button class="btn-secondary">Tlačítko</button>\n\n<style>\n.btn-secondary {\n  padding: 10px 20px;\n  background: transparent;\n  color: #00d4aa;\n  border: 2px solid #00d4aa;\n  border-radius: 6px;\n  cursor: pointer;\n  font-weight: 500;\n  transition: all 0.2s;\n}\n.btn-secondary:hover {\n  background: #00d4aa;\n  color: white;\n}\n</style>',
+      'button-secondary': '<button class="btn-secondary">Tlačítko</button>\n\n<style>\n.btn-secondary {\n  padding: 10px 20px;\n  background: transparent;\n  color: var(--accent);\n  border: 2px solid var(--accent);\n  border-radius: 6px;\n  cursor: pointer;\n  font-weight: 500;\n  transition: all 0.2s;\n}\n.btn-secondary:hover {\n  background: var(--accent);\n  color: white;\n}\n</style>',
 
-      'card': '<div class="card">\n  <h3>Titulek karty</h3>\n  <p>Popis obsahu karty zde.</p>\n</div>\n\n<style>\n.card {\n  background: #1a1a1d;\n  border: 1px solid #2a2a2d;\n  border-radius: 8px;\n  padding: 20px;\n  max-width: 300px;\n}\n.card h3 {\n  margin: 0 0 10px 0;\n  color: #e8e8ea;\n}\n.card p {\n  margin: 0;\n  color: #8a8a8f;\n  font-size: 14px;\n}\n</style>',
+      'card': '<div class="card">\n  <h3>Titulek karty</h3>\n  <p>Popis obsahu karty zde.</p>\n</div>\n\n<style>\n.card {\n  background: var(--bg-tertiary);\n  border: 1px solid var(--border);\n  border-radius: 8px;\n  padding: 20px;\n  max-width: 300px;\n}\n.card h3 {\n  margin: 0 0 10px 0;\n  color: var(--text-primary);\n}\n.card p {\n  margin: 0;\n  color: var(--text-secondary);\n  font-size: 14px;\n}\n</style>',
 
-      'input': '<input type="text" class="input-field" placeholder="Zadejte text...">\n\n<style>\n.input-field {\n  padding: 10px 12px;\n  background: #111113;\n  border: 1px solid #2a2a2d;\n  border-radius: 6px;\n  color: #e8e8ea;\n  font-size: 14px;\n  width: 100%;\n  transition: border-color 0.2s;\n}\n.input-field:focus {\n  outline: none;\n  border-color: #00d4aa;\n}\n</style>',
+      'input': '<input type="text" class="input-field" placeholder="Zadejte text...">\n\n<style>\n.input-field {\n  padding: 10px 12px;\n  background: var(--bg-secondary);\n  border: 1px solid var(--border);\n  border-radius: 6px;\n  color: var(--text-primary);\n  font-size: 14px;\n  width: 100%;\n  transition: border-color 0.2s;\n}\n.input-field:focus {\n  outline: none;\n  border-color: var(--accent);\n}\n</style>',
 
-      'alert': '<div class="alert alert-success">\n  <p>✅ Úspěšná zpráva</p>\n</div>\n\n<style>\n.alert {\n  padding: 12px 16px;\n  border-radius: 6px;\n  border-left: 4px solid;\n  margin: 10px 0;\n}\n.alert p {\n  margin: 0;\n  font-size: 14px;\n}\n.alert-success {\n  background: rgba(81, 207, 102, 0.1);\n  border-color: #51cf66;\n  color: #51cf66;\n}\n</style>',
+      'alert': '<div class="alert alert-success">\n  <p>✅ Úspěšná zpráva</p>\n</div>\n\n<style>\n.alert {\n  padding: 12px 16px;\n  border-radius: 6px;\n  border-left: 4px solid;\n  margin: 10px 0;\n}\n.alert p {\n  margin: 0;\n  font-size: 14px;\n}\n.alert-success {\n  background: rgba(81, 207, 102, 0.1);\n  border-color: var(--success);\n  color: var(--success);\n}\n</style>',
 
-      'nav': '<nav class="navbar">\n  <a href="#">Domov</a>\n  <a href="#">O nás</a>\n  <a href="#">Kontakt</a>\n</nav>\n\n<style>\n.navbar {\n  background: #111113;\n  padding: 12px 20px;\n  border-radius: 6px;\n  display: flex;\n  gap: 20px;\n}\n.navbar a {\n  color: #8a8a8f;\n  text-decoration: none;\n  transition: color 0.2s;\n}\n.navbar a:hover {\n  color: #00d4aa;\n}\n</style>'
+      'nav': '<nav class="navbar">\n  <a href="#">Domov</a>\n  <a href="#">O nás</a>\n  <a href="#">Kontakt</a>\n</nav>\n\n<style>\n.navbar {\n  background: var(--bg-secondary);\n  padding: 12px 20px;\n  border-radius: 6px;\n  display: flex;\n  gap: 20px;\n}\n.navbar a {\n  color: var(--text-secondary);\n  text-decoration: none;\n  transition: color 0.2s;\n}\n.navbar a:hover {\n  color: var(--accent);\n}\n</style>'
     };
 
     // Close handler
@@ -908,7 +908,7 @@ build/
           <div class="components-grid">
             <!-- Blank -->
             <div class="component-card" data-template="blank">
-              <div class="component-preview" style="background: white; color: #333;">
+              <div class="component-preview" style="background: var(--bg-elevated); color: var(--text-primary);">
                 <div style="text-align: center; padding: 20px;">
                   <h3>🎨</h3>
                   <p>Prázdná stránka</p>
@@ -936,12 +936,12 @@ build/
 
             <!-- Portfolio -->
             <div class="component-card" data-template="portfolio">
-              <div class="component-preview" style="background: #1a1a1d; color: white;">
+              <div class="component-preview" style="background: var(--bg-tertiary); color: var(--text-primary);">
                 <div style="padding: 20px; font-size: 10px;">
                   <h3 style="margin: 0 0 5px 0;">💼 Portfolio</h3>
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 8px;">
-                    <div style="background: #2a2a2d; padding: 5px;">Project 1</div>
-                    <div style="background: #2a2a2d; padding: 5px;">Project 2</div>
+                    <div style="background: var(--bg-secondary); padding: 5px;">Project 1</div>
+                    <div style="background: var(--bg-secondary); padding: 5px;">Project 2</div>
                   </div>
                 </div>
               </div>
@@ -953,12 +953,12 @@ build/
 
             <!-- Blog -->
             <div class="component-card" data-template="blog">
-              <div class="component-preview" style="background: #f5f5f7; color: #333;">
+              <div class="component-preview" style="background: var(--bg-secondary); color: var(--text-primary);">
                 <div style="padding: 20px; font-size: 10px;">
                   <h3 style="margin: 0 0 5px 0;">✍️ Blog</h3>
                   <div style="font-size: 8px; line-height: 1.3;">
                     <p style="margin: 0 0 5px 0;"><strong>Titulek článku</strong></p>
-                    <p style="margin: 0; color: #666;">Přehled článku...</p>
+                    <p style="margin: 0; color: var(--text-secondary);">Přehled článku...</p>
                   </div>
                 </div>
               </div>
@@ -1908,97 +1908,20 @@ build/
     // Load or initialize model ranking
     let modelRanking = JSON.parse(localStorage.getItem('ai_model_ranking') || 'null') || [...DEFAULT_MODEL_RANKING];
 
-    // Load AI module data
-    if (typeof window.AI !== 'undefined' && window.AI.getAllProvidersWithModels) {
-      providers = window.AI.getAllProvidersWithModels();
-    } else {
-      // Fallback data
-      providers = {
-        gemini: {
-          name: 'Google Gemini',
-          models: [
-            { label: 'Gemini 2.5 Flash (🔥 NEW)', value: 'gemini-2.5-flash', rpm: 15, free: true },
-            { label: 'Gemini 2.5 Flash-Lite', value: 'gemini-2.5-flash-lite', rpm: 15, free: true },
-            { label: 'Gemini 2.5 Pro (🏆 Best)', value: 'gemini-2.5-pro', rpm: 5, free: true },
-            { label: 'Gemini 3 Flash Preview', value: 'gemini-3-flash-preview', rpm: 15, free: true },
-            { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash', rpm: 15, free: true },
-            { label: 'Gemini 2.0 Flash-Lite', value: 'gemini-2.0-flash-lite', rpm: 20, free: true },
-            { label: 'Gemma 3 27B (Open)', value: 'gemma-3-27b-it', rpm: 15, free: true },
-            { label: 'Gemini Robotics-ER 1.5', value: 'gemini-robotics-er-1.5-preview', rpm: 5, free: true }
-          ]
-        },
-        groq: {
-          name: 'Groq',
-          models: [
-            { label: 'Llama 3.3 70B (🏆 Best)', value: 'llama-3.3-70b-versatile', rpm: 30, free: true },
-            { label: 'Llama 3.1 8B Instant', value: 'llama-3.1-8b-instant', rpm: 30, free: true },
-            { label: 'Llama 4 Scout 17B (🔥 NEW)', value: 'meta-llama/llama-4-scout-17b-16e-instruct', rpm: 30, free: true },
-            { label: 'Llama 4 Maverick 17B', value: 'meta-llama/llama-4-maverick-17b-128e-instruct', rpm: 30, free: true },
-            { label: 'Qwen3 32B', value: 'qwen/qwen3-32b', rpm: 60, free: true },
-            { label: 'Kimi K2 Instruct', value: 'moonshotai/kimi-k2-instruct', rpm: 60, free: true },
-            { label: 'GPT-OSS 120B (OpenAI)', value: 'openai/gpt-oss-120b', rpm: 30, free: true },
-            { label: 'Whisper Large v3', value: 'whisper-large-v3', rpm: 20, free: true },
-            { label: 'Whisper Large v3 Turbo', value: 'whisper-large-v3-turbo', rpm: 20, free: true },
-            { label: 'Allam 2 7B (Arabic)', value: 'allam-2-7b', rpm: 30, free: true },
-            { label: 'Mixtral 8x7B', value: 'mixtral-8x7b-32768', rpm: 30, free: true }
-          ]
-        },
-        openrouter: {
-          name: 'OpenRouter',
-          models: [
-            { label: 'Xiaomi MiMo-V2-Flash (🏆 #1)', value: 'xiaomi/mimo-v2-flash:free', rpm: 20, free: true },
-            { label: 'Mistral Devstral 2 (Code)', value: 'mistralai/devstral-2512:free', rpm: 20, free: true },
-            { label: 'Qwen3 Coder 480B (Code)', value: 'qwen/qwen3-coder:free', rpm: 20, free: true },
-            { label: 'DeepSeek R1 0528 (o1-level)', value: 'deepseek/deepseek-r1-0528:free', rpm: 20, free: true },
-            { label: 'Llama 3.3 70B', value: 'meta-llama/llama-3.3-70b-instruct:free', rpm: 20, free: true },
-            { label: 'Gemma 3 27B', value: 'google/gemma-3-27b-it:free', rpm: 20, free: true },
-            { label: 'GPT-OSS 120B (OpenAI)', value: 'openai/gpt-oss-120b:free', rpm: 20, free: true },
-            { label: 'NVIDIA Nemotron 3 Nano 30B', value: 'nvidia/nemotron-3-nano-30b-a3b:free', rpm: 20, free: true },
-            { label: 'NVIDIA Nemotron Nano 12B VL', value: 'nvidia/nemotron-nano-12b-v2-vl:free', rpm: 20, free: true },
-            { label: 'KAT-Coder-Pro V1', value: 'kwaipilot/kat-coder-pro:free', rpm: 20, free: true },
-            { label: 'DeepSeek R1T2 Chimera', value: 'tngtech/deepseek-r1t2-chimera:free', rpm: 20, free: true },
-            { label: 'DeepSeek R1T Chimera', value: 'tngtech/deepseek-r1t-chimera:free', rpm: 20, free: true },
-            { label: 'TNG R1T Chimera', value: 'tngtech/tng-r1t-chimera:free', rpm: 20, free: true },
-            { label: 'DeepSeek V3.1 Nex N1', value: 'nex-agi/deepseek-v3.1-nex-n1:free', rpm: 20, free: true },
-            { label: 'GLM 4.5 Air', value: 'z-ai/glm-4.5-air:free', rpm: 20, free: true },
-            { label: 'Olmo 3.1 32B Think', value: 'allenai/olmo-3.1-32b-think:free', rpm: 20, free: true },
-            { label: 'Mistral Small (OLD)', value: 'mistralai/mistral-small-3.1-24b-instruct:free', rpm: 20, free: true }
-          ]
-        },
-        mistral: {
-          name: 'Mistral AI',
-          models: [
-            { label: 'Mistral Small', value: 'mistral-small-latest', rpm: 10, free: true },
-            { label: 'Mistral 7B (Open)', value: 'open-mistral-7b', rpm: 10, free: true },
-            { label: 'Codestral (Code)', value: 'codestral-latest', rpm: 10, free: true },
-            { label: 'Mistral Embed', value: 'mistral-embed', rpm: 10, free: true }
-          ]
-        },
-        cohere: {
-          name: 'Cohere',
-          models: [
-            { label: 'Command R+', value: 'command-r-plus', rpm: 20, free: true },
-            { label: 'Command R', value: 'command-r', rpm: 20, free: true },
-            { label: 'Command R7B', value: 'command-r7b-12-2024', rpm: 20, free: true },
-            { label: 'Embed English v3.0', value: 'embed-english-v3.0', rpm: 100, free: true },
-            { label: 'Embed Multilingual v3.0', value: 'embed-multilingual-v3.0', rpm: 100, free: true },
-            { label: 'Rerank English v3.0', value: 'rerank-english-v3.0', rpm: 10, free: true }
-          ]
-        },
-        huggingface: {
-          name: 'HuggingFace',
-          models: [
-            { label: 'Llama 3.2 3B Instruct', value: 'meta-llama/Llama-3.2-3B-Instruct', rpm: 10, free: true },
-            { label: 'Mistral 7B Instruct v0.3', value: 'mistralai/Mistral-7B-Instruct-v0.3', rpm: 10, free: true },
-            { label: 'Phi-3 Mini 4K', value: 'microsoft/Phi-3-mini-4k-instruct', rpm: 10, free: true },
-            { label: 'Gemma 2 9B', value: 'google/gemma-2-9b-it', rpm: 10, free: true },
-            { label: 'Qwen 2.5 7B Instruct', value: 'Qwen/Qwen2.5-7B-Instruct', rpm: 10, free: true },
-            { label: 'Whisper Large v3', value: 'openai/whisper-large-v3', rpm: 10, free: true },
-            { label: 'All-MiniLM-L6-v2 (Embed)', value: 'sentence-transformers/all-MiniLM-L6-v2', rpm: 100, free: true }
-          ]
-        }
-      };
+    // ⚠️ DŮLEŽITÉ: Vždy používat data z AI modulu (single source of truth)
+    // Pokud AI modul není načten, zobrazit chybu
+    if (typeof window.AI === 'undefined' || !window.AI.getAllProvidersWithModels) {
+      console.error('❌ AI modul není načten! Zkontrolujte, zda je ai_module.js správně načten v HTML.');
+      eventBus.emit('toast:show', {
+        message: '⚠️ AI modul není načten. Obnovte stránku.',
+        type: 'error',
+        duration: 5000
+      });
+      return;
     }
+
+    // Načíst providery a modely z AI modulu
+    providers = window.AI.getAllProvidersWithModels();
 
     // Get elements
     const providerTabs = modal.querySelectorAll('.provider-tab');
@@ -2766,211 +2689,6 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
     };
 
     // Export keys to TXT
-    const showApiHelp = () => {
-      const helpModal = document.createElement('div');
-      helpModal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 10001;
-        backdrop-filter: blur(4px);
-      `;
-
-      const providersInfo = [
-        {
-          name: '💎 Google Gemini',
-          icon: '💎',
-          description: 'Nejlepší FREE AI od Googlu s vysokými limity',
-          url: 'https://aistudio.google.com/app/apikey',
-          steps: [
-            '1. Otevřete <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #3b82f6;">Google AI Studio</a>',
-            '2. Přihlaste se svým Google účtem',
-            '3. Klikněte na "Create API Key" nebo "Get API Key"',
-            '4. Vyberte projekt nebo vytvořte nový',
-            '5. Zkopírujte vygenerovaný klíč (začíná "AIza...")'
-          ],
-          limits: '✅ FREE tier: 15 RPM, ~1500 požadavků denně',
-          note: '⚡ Gemini 2.5 Flash je nejlepší volba pro většinu úkolů!'
-        },
-        {
-          name: '⚡ Groq',
-          icon: '⚡',
-          description: 'Nejrychlejší FREE AI s nejvyššími limity',
-          url: 'https://console.groq.com/keys',
-          steps: [
-            '1. Otevřete <a href="https://console.groq.com/keys" target="_blank" style="color: #3b82f6;">Groq Console</a>',
-            '2. Zaregistrujte se nebo se přihlaste',
-            '3. Přejděte do sekce "API Keys"',
-            '4. Klikněte na "Create API Key"',
-            '5. Pojmenujte klíč a zkopírujte ho (začíná "gsk_...")'
-          ],
-          limits: '✅ FREE tier: 30-60 RPM podle modelu, žádný denní limit!',
-          note: '🚀 Llama 3.3 70B má skvělý poměr rychlost/kvalita!'
-        },
-        {
-          name: '🌐 OpenRouter',
-          icon: '🌐',
-          description: 'Přístup k desítkám AI modelů přes jedno API',
-          url: 'https://openrouter.ai/keys',
-          steps: [
-            '1. Otevřete <a href="https://openrouter.ai/keys" target="_blank" style="color: #3b82f6;">OpenRouter Keys</a>',
-            '2. Přihlaste se (podporuje Google, GitHub)',
-            '3. Klikněte na "Create Key"',
-            '4. Pojmenujte klíč a nastavte limity (volitelné)',
-            '5. Zkopírujte klíč (začíná "sk-or-v1-...")'
-          ],
-          limits: '🆓 FREE tier: 50 RPD | 💰 Po nabití $10+: 1000 RPD',
-          note: '💡 Automaticky detekujeme váš tier! 17 FREE modelů k dispozici.'
-        },
-        {
-          name: '🔥 Mistral AI',
-          icon: '🔥',
-          description: 'Evropská AI s kvalitními open-source modely',
-          url: 'https://console.mistral.ai/api-keys/',
-          steps: [
-            '1. Otevřete <a href="https://console.mistral.ai/api-keys/" target="_blank" style="color: #3b82f6;">Mistral Console</a>',
-            '2. Zaregistrujte se nebo se přihlaste',
-            '3. Přejděte do "API Keys"',
-            '4. Klikněte na "Create new key"',
-            '5. Zkopírujte vygenerovaný klíč'
-          ],
-          limits: '✅ FREE tier: Open-source modely zdarma (7B, Mixtral)',
-          note: '💻 Codestral je vynikající pro programování!'
-        },
-        {
-          name: '🧬 Cohere',
-          icon: '🧬',
-          description: 'Pokročilé NLP modely s trial účtem',
-          url: 'https://dashboard.cohere.com/api-keys',
-          steps: [
-            '1. Otevřete <a href="https://dashboard.cohere.com/api-keys" target="_blank" style="color: #3b82f6;">Cohere Dashboard</a>',
-            '2. Zaregistrujte se (podporuje Google, GitHub)',
-            '3. Přejděte do sekce "API Keys"',
-            '4. Použijte Trial klíč nebo vytvořte Production klíč',
-            '5. Zkopírujte klíč'
-          ],
-          limits: '✅ Trial: Omezený free přístup | Command R+ má vysokou kvalitu',
-          note: '📊 Skvělé pro embeddings a reranking!'
-        },
-        {
-          name: '🤗 HuggingFace',
-          icon: '🤗',
-          description: 'Open-source AI komunita s tisíci modely',
-          url: 'https://huggingface.co/settings/tokens',
-          steps: [
-            '1. Otevřete <a href="https://huggingface.co/settings/tokens" target="_blank" style="color: #3b82f6;">HuggingFace Tokens</a>',
-            '2. Zaregistrujte se nebo se přihlaste',
-            '3. Klikněte na "New token"',
-            '4. Pojmenujte token a vyberte práva (read)',
-            '5. Zkopírujte token (začíná "hf_...")'
-          ],
-          limits: '✅ FREE Inference API: Omezené použití, restart každé 72h',
-          note: '🔬 Ideální pro experimentování s open-source modely!'
-        }
-      ];
-
-      const helpContent = document.createElement('div');
-      helpContent.style.cssText = `
-        background: var(--bg-primary);
-        border-radius: 20px;
-        max-width: 900px;
-        max-height: 85vh;
-        overflow-y: auto;
-        padding: 30px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        position: relative;
-      `;
-
-      helpContent.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid var(--border-color); padding-bottom: 15px;">
-          <h2 style="color: var(--text-primary); font-size: 28px; margin: 0; font-weight: bold;">
-            ❓ Jak získat API klíče
-          </h2>
-          <button id="closeHelpModal" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 8px 16px; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s;">
-            ✕ Zavřít
-          </button>
-        </div>
-
-        <div style="color: var(--text-secondary); font-size: 15px; margin-bottom: 30px; line-height: 1.6;">
-          📚 Detailní návod pro získání API klíčů ke všem podporovaným AI providerům.
-          Všechny klíče jsou <strong style="color: #22c55e;">100% ZDARMA</strong> s free tier limity!
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 20px;">
-          ${providersInfo.map(provider => `
-            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; transition: all 0.3s;" onmouseenter="this.style.borderColor='#3b82f6'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color)'; this.style.transform='translateY(0)';">
-              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                <span style="font-size: 32px;">${provider.icon}</span>
-                <div>
-                  <h3 style="color: var(--text-primary); margin: 0; font-size: 20px; font-weight: bold;">${provider.name}</h3>
-                  <p style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: 13px;">${provider.description}</p>
-                </div>
-              </div>
-
-              <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; margin-bottom: 15px;">
-                <div style="color: var(--text-secondary); font-size: 14px; margin-bottom: 10px;">📋 <strong>Postup:</strong></div>
-                ${provider.steps.map(step => `
-                  <div style="color: var(--text-primary); font-size: 13px; margin: 6px 0; padding-left: 10px;">${step}</div>
-                `).join('')}
-              </div>
-
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px; padding: 10px; font-size: 13px; color: #22c55e;">
-                  ${provider.limits}
-                </div>
-                <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 10px; font-size: 13px; color: #3b82f6;">
-                  ${provider.note}
-                </div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-
-        <div style="margin-top: 30px; padding: 20px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px;">
-          <div style="font-size: 16px; font-weight: bold; color: #8b5cf6; margin-bottom: 10px;">💡 Tipy pro správu klíčů:</div>
-          <ul style="color: var(--text-secondary); font-size: 13px; line-height: 1.8; margin: 0; padding-left: 20px;">
-            <li>✅ Používejte <strong>demo klíče</strong> pro rychlé testování</li>
-            <li>🔐 Nikdy nesdílejte své API klíče s nikým</li>
-            <li>📦 Pravidelně exportujte klíče jako zálohu</li>
-            <li>🔄 Pro produkci si vytvořte vlastní klíče u každého providera</li>
-            <li>📊 Sledujte své limity v dashboardech providerů</li>
-            <li>⚡ Groq a Gemini mají nejvyšší FREE limity!</li>
-          </ul>
-        </div>
-      `;
-
-      helpModal.appendChild(helpContent);
-      document.body.appendChild(helpModal);
-
-      // Close handlers
-      const closeBtn = helpModal.querySelector('#closeHelpModal');
-      closeBtn.addEventListener('click', () => {
-        document.body.removeChild(helpModal);
-      });
-
-      helpModal.addEventListener('click', (e) => {
-        if (e.target === helpModal) {
-          document.body.removeChild(helpModal);
-        }
-      });
-
-      // Hover effects for close button
-      closeBtn.addEventListener('mouseenter', () => {
-        closeBtn.style.background = 'rgba(239, 68, 68, 0.3)';
-        closeBtn.style.transform = 'scale(1.05)';
-      });
-      closeBtn.addEventListener('mouseleave', () => {
-        closeBtn.style.background = 'rgba(239, 68, 68, 0.2)';
-        closeBtn.style.transform = 'scale(1)';
-      });
-    };
-
     const exportKeysToTxt = () => {
       const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
 
@@ -3301,23 +3019,41 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
         }
       });
 
-      // Check each ranking item
-      modelRanking.forEach(item => {
-        const providerExists = providers[item.provider];
-        const modelExists = providerExists && providers[item.provider].models?.find(m => m.value === item.model);
+      // Check each ranking item - parse 'provider/model' format
+      modelRanking.forEach(itemString => {
+        // Parse format: 'provider/model' or 'provider/namespace/model'
+        const parts = itemString.split('/');
+        let provider, model;
+
+        if (parts.length >= 2) {
+          provider = parts[0];
+          model = parts.slice(1).join('/'); // Join back for models like 'openrouter/xiaomi/mimo'
+        } else {
+          // Invalid format
+          invalidModels.push({ provider: 'unknown', model: itemString, string: itemString });
+          return;
+        }
+
+        const providerExists = providers[provider];
+        const modelExists = providerExists && providers[provider].models?.find(m => m.value === model);
 
         if (providerExists && modelExists) {
-          validModels.push(item);
+          validModels.push({
+            provider,
+            model,
+            name: modelExists.label,
+            tier: modelExists.free ? 'free' : 'standard',
+            string: itemString
+          });
         } else {
-          invalidModels.push(item);
+          invalidModels.push({ provider, model, string: itemString });
         }
       });
 
       // Find models that exist in AI module but not in ranking
       allAvailableModels.forEach(availableModel => {
-        const existsInRanking = modelRanking.find(
-          item => item.provider === availableModel.provider && item.model === availableModel.model
-        );
+        const modelString = `${availableModel.provider}/${availableModel.model}`;
+        const existsInRanking = modelRanking.includes(modelString);
         if (!existsInRanking) {
           availableModels.push(availableModel);
         }
@@ -3397,7 +3133,7 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
 
         // Medal for top 3
         let medal = '';
-        const actualIndex = modelRanking.indexOf(item);
+        const actualIndex = modelRanking.indexOf(item.string);
         if (actualIndex === 0) medal = '🥇';
         else if (actualIndex === 1) medal = '🥈';
         else if (actualIndex === 2) medal = '🥉';
@@ -3428,7 +3164,8 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
         btn.addEventListener('click', () => {
           const provider = btn.dataset.provider;
           const model = btn.dataset.model;
-          modelRanking = modelRanking.filter(item => !(item.provider === provider && item.model === model));
+          const modelString = `${provider}/${model}`;
+          modelRanking = modelRanking.filter(item => item !== modelString);
           localStorage.setItem('ai_model_ranking', JSON.stringify(modelRanking));
           renderModelRanking();
           eventBus.emit('toast:show', {
@@ -3445,9 +3182,9 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
           const provider = btn.dataset.provider;
           const model = btn.dataset.model;
           const name = btn.dataset.name;
-          const tier = btn.dataset.tier;
 
-          modelRanking.push({ provider, model, tier });
+          const modelString = `${provider}/${model}`;
+          modelRanking.push(modelString);
           localStorage.setItem('ai_model_ranking', JSON.stringify(modelRanking));
           renderModelRanking();
           eventBus.emit('toast:show', {
@@ -3465,11 +3202,24 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
 
       let html = '<div style="display: flex; flex-direction: column; gap: 6px;">';
 
-      modelRanking.forEach((item, index) => {
-        const modelName = getModelName(item.provider, item.model);
-        const providerName = providers[item.provider]?.name || item.provider;
-        const icon = getProviderIcon(item.provider);
-        const badge = getTierBadge(item.tier);
+      modelRanking.forEach((itemString, index) => {
+        // Parse 'provider/model' format
+        const parts = itemString.split('/');
+        const provider = parts[0];
+        const model = parts.slice(1).join('/');
+
+        const providerData = providers[provider];
+        const modelData = providerData?.models?.find(m => m.value === model);
+
+        if (!providerData || !modelData) {
+          // Skip invalid models
+          return;
+        }
+
+        const modelName = modelData.label;
+        const providerName = providerData.name;
+        const icon = getProviderIcon(provider);
+        const badge = getTierBadge(modelData.free ? 'free' : 'standard');
 
         html += `
           <div class="ranking-item" data-index="${index}" draggable="true" style="background: var(--bg-primary); border-radius: 8px; padding: 10px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border-color); cursor: move; transition: all 0.2s;">
@@ -3479,7 +3229,7 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
                 ${icon} ${modelName}
               </div>
               <div style="font-size: 10px; color: var(--text-secondary);">
-                ${providerName} • ${item.model}
+                ${providerName} • ${model}
               </div>
             </div>
             <div>
@@ -3532,7 +3282,14 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
       rankingEditList.querySelectorAll('.remove-item-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const index = parseInt(e.target.dataset.index);
-          if (confirm(`Odebrat model "${getModelName(modelRanking[index].provider, modelRanking[index].model)}" ze seznamu?`)) {
+          const itemString = modelRanking[index];
+          const parts = itemString.split('/');
+          const provider = parts[0];
+          const model = parts.slice(1).join('/');
+          const modelData = providers[provider]?.models?.find(m => m.value === model);
+          const modelName = modelData?.label || model;
+
+          if (confirm(`Odebrat model "${modelName}" ze seznamu?`)) {
             modelRanking.splice(index, 1);
             renderEditableRanking();
           }
@@ -3637,7 +3394,13 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
     modal.querySelector('#saveKeysBtn').addEventListener('click', saveAllKeys);
     modal.querySelector('#exportKeysBtn').addEventListener('click', exportKeys);
     modal.querySelector('#exportTxtBtn').addEventListener('click', exportKeysToTxt);
-    modal.querySelector('#apiHelpBtn').addEventListener('click', showApiHelp);
+    modal.querySelector('#apiHelpBtn').addEventListener('click', () => {
+      if (typeof window.AI !== 'undefined' && typeof window.AI.showApiHelp === 'function') {
+        window.AI.showApiHelp();
+      } else {
+        alert('⚠️ AI modul není načten');
+      }
+    });
 
     // Import TXT button
     const importTxtBtn = modal.querySelector('#importTxtBtn');
