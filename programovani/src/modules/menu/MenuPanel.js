@@ -1180,7 +1180,360 @@ build/
   }
 
   deployProject() {
-    alert('Deploy projekt - Připravujeme! 🚀\n\nAutomatický deploy na GitHub Pages, Netlify nebo Vercel.');
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-container" style="max-width: 700px;">
+        <div class="modal-header">
+          <h2>🚀 Deploy projekt</h2>
+          <button class="modal-close" id="deployClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom: 20px; color: var(--text-secondary);">
+            Vyberte platformu pro nasazení vašeho projektu:
+          </p>
+
+          <!-- GitHub Pages -->
+          <div class="deploy-option" style="border: 2px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 15px; cursor: pointer; transition: all 0.2s;" data-platform="github">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div style="font-size: 40px;">🐙</div>
+              <div style="flex: 1;">
+                <h3 style="margin: 0 0 5px 0;">GitHub Pages</h3>
+                <p style="margin: 0; color: var(--text-secondary); font-size: 14px;">
+                  Hostování zdarma přímo z GitHub repozitáře
+                </p>
+              </div>
+              <div style="color: var(--primary-color); font-weight: bold;">→</div>
+            </div>
+          </div>
+
+          <!-- Netlify -->
+          <div class="deploy-option" style="border: 2px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 15px; cursor: pointer; transition: all 0.2s;" data-platform="netlify">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div style="font-size: 40px;">🌐</div>
+              <div style="flex: 1;">
+                <h3 style="margin: 0 0 5px 0;">Netlify</h3>
+                <p style="margin: 0; color: var(--text-secondary); font-size: 14px;">
+                  Rychlý deploy s automatickým SSL a CDN
+                </p>
+              </div>
+              <div style="color: var(--primary-color); font-weight: bold;">→</div>
+            </div>
+          </div>
+
+          <!-- Vercel -->
+          <div class="deploy-option" style="border: 2px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 15px; cursor: pointer; transition: all 0.2s;" data-platform="vercel">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div style="font-size: 40px;">▲</div>
+              <div style="flex: 1;">
+                <h3 style="margin: 0 0 5px 0;">Vercel</h3>
+                <p style="margin: 0; color: var(--text-secondary); font-size: 14px;">
+                  Optimalizováno pro Next.js a moderní frameworky
+                </p>
+              </div>
+              <div style="color: var(--primary-color); font-weight: bold;">→</div>
+            </div>
+          </div>
+
+          <!-- Manual Deploy -->
+          <div class="deploy-option" style="border: 2px solid var(--border-color); border-radius: 8px; padding: 20px; cursor: pointer; transition: all 0.2s;" data-platform="manual">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div style="font-size: 40px;">📦</div>
+              <div style="flex: 1;">
+                <h3 style="margin: 0 0 5px 0;">Manuální deploy</h3>
+                <p style="margin: 0; color: var(--text-secondary); font-size: 14px;">
+                  Stáhněte ZIP a nahrajte na vlastní hosting
+                </p>
+              </div>
+              <div style="color: var(--primary-color); font-weight: bold;">→</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; font-size: 13px; color: var(--text-secondary);">
+            <strong>💡 Tip:</strong> Před deployem se ujistěte, že váš projekt je kompletní a otestovaný.
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Add hover effects
+    const options = modal.querySelectorAll('.deploy-option');
+    options.forEach(option => {
+      option.addEventListener('mouseenter', () => {
+        option.style.borderColor = 'var(--primary-color)';
+        option.style.background = 'var(--bg-secondary)';
+      });
+      option.addEventListener('mouseleave', () => {
+        option.style.borderColor = 'var(--border-color)';
+        option.style.background = 'transparent';
+      });
+      option.addEventListener('click', () => {
+        const platform = option.dataset.platform;
+        this.handleDeploy(platform);
+        modal.remove();
+      });
+    });
+
+    // Close button
+    modal.querySelector('#deployClose').addEventListener('click', () => {
+      modal.remove();
+    });
+
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+  }
+
+  handleDeploy(platform) {
+    switch (platform) {
+      case 'github':
+        this.deployToGitHub();
+        break;
+      case 'netlify':
+        this.deployToNetlify();
+        break;
+      case 'vercel':
+        this.deployToVercel();
+        break;
+      case 'manual':
+        this.manualDeploy();
+        break;
+    }
+  }
+
+  deployToGitHub() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-container" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>🐙 GitHub Pages Deploy</h2>
+          <button class="modal-close" id="ghDeployClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div style="margin-bottom: 20px;">
+            <h3 style="margin-bottom: 10px;">Krok 1: Vytvořte GitHub repozitář</h3>
+            <ol style="line-height: 1.8; color: var(--text-secondary);">
+              <li>Přejděte na <a href="https://github.com/new" target="_blank" style="color: var(--primary-color);">github.com/new</a></li>
+              <li>Vytvořte nový repozitář (může být public nebo private)</li>
+              <li>Neklikejte na "Initialize repository"</li>
+            </ol>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <h3 style="margin-bottom: 10px;">Krok 2: Nahrajte soubory</h3>
+            <button id="downloadForGH" class="btn-primary" style="width: 100%; padding: 12px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 10px;">
+              📦 Stáhnout projekt jako ZIP
+            </button>
+            <p style="font-size: 14px; color: var(--text-secondary);">
+              Rozbalte ZIP a nahrajte soubory do vašeho repozitáře přes "Upload files"
+            </p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <h3 style="margin-bottom: 10px;">Krok 3: Aktivujte GitHub Pages</h3>
+            <ol style="line-height: 1.8; color: var(--text-secondary);">
+              <li>Jděte do Settings > Pages</li>
+              <li>V "Source" vyberte "main" branch</li>
+              <li>Klikněte na Save</li>
+              <li>Za chvíli bude vaše stránka dostupná na URL, která se zobrazí</li>
+            </ol>
+          </div>
+
+          <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; font-size: 13px;">
+            <strong>💡 Tip:</strong> GitHub Pages může trvat 1-2 minuty, než se stránka publikuje.
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('#ghDeployClose').addEventListener('click', () => modal.remove());
+    modal.querySelector('#downloadForGH').addEventListener('click', () => {
+      this.exportAsZip();
+      modal.remove();
+    });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
+  deployToNetlify() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-container" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>🌐 Netlify Deploy</h2>
+          <button class="modal-close" id="netlifyDeployClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div style="margin-bottom: 20px;">
+            <h3 style="margin-bottom: 10px;">Metoda 1: Drag & Drop (Nejjednodušší)</h3>
+            <ol style="line-height: 1.8; color: var(--text-secondary);">
+              <li>Stáhněte projekt jako ZIP (tlačítko níže)</li>
+              <li>Rozbalte ZIP složku</li>
+              <li>Jděte na <a href="https://app.netlify.com/drop" target="_blank" style="color: var(--primary-color);">app.netlify.com/drop</a></li>
+              <li>Přetáhněte rozbalenou složku do okna prohlížeče</li>
+              <li>Váš web je okamžitě online! 🎉</li>
+            </ol>
+            <button id="downloadForNetlify" class="btn-primary" style="width: 100%; padding: 12px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px;">
+              📦 Stáhnout projekt jako ZIP
+            </button>
+          </div>
+
+          <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+            <h3 style="margin-bottom: 10px;">Metoda 2: Z GitHub repozitáře</h3>
+            <ol style="line-height: 1.8; color: var(--text-secondary);">
+              <li>Nahrajte projekt na GitHub</li>
+              <li>Přihlaste se na <a href="https://app.netlify.com" target="_blank" style="color: var(--primary-color);">Netlify</a></li>
+              <li>Klikněte na "New site from Git"</li>
+              <li>Propojte GitHub a vyberte repozitář</li>
+              <li>Deploy proběhne automaticky při každém commitu</li>
+            </ol>
+          </div>
+
+          <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; font-size: 13px;">
+            <strong>💡 Výhody Netlify:</strong> Automatické HTTPS, globální CDN, okamžitý deploy
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('#netlifyDeployClose').addEventListener('click', () => modal.remove());
+    modal.querySelector('#downloadForNetlify').addEventListener('click', () => {
+      this.exportAsZip();
+      eventBus.emit('toast:show', {
+        message: '📦 Otevírám Netlify Drop...',
+        type: 'info',
+        duration: 2000
+      });
+      setTimeout(() => {
+        window.open('https://app.netlify.com/drop', '_blank');
+      }, 1000);
+      modal.remove();
+    });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
+  deployToVercel() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-container" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>▲ Vercel Deploy</h2>
+          <button class="modal-close" id="vercelDeployClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div style="margin-bottom: 20px;">
+            <h3 style="margin-bottom: 10px;">Deploy pomocí Vercel CLI</h3>
+            <ol style="line-height: 1.8; color: var(--text-secondary);">
+              <li>Stáhněte projekt jako ZIP a rozbalte ho</li>
+              <li>Nainstalujte Vercel CLI:
+                <pre style="background: var(--bg-secondary); padding: 10px; border-radius: 4px; margin: 10px 0; overflow-x: auto;"><code>npm i -g vercel</code></pre>
+              </li>
+              <li>V terminálu přejděte do složky projektu</li>
+              <li>Spusťte:
+                <pre style="background: var(--bg-secondary); padding: 10px; border-radius: 4px; margin: 10px 0; overflow-x: auto;"><code>vercel</code></pre>
+              </li>
+              <li>Postupujte podle instrukcí v terminálu</li>
+            </ol>
+            <button id="downloadForVercel" class="btn-primary" style="width: 100%; padding: 12px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px;">
+              📦 Stáhnout projekt jako ZIP
+            </button>
+          </div>
+
+          <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+            <h3 style="margin-bottom: 10px;">Deploy z GitHub</h3>
+            <ol style="line-height: 1.8; color: var(--text-secondary);">
+              <li>Nahrajte projekt na GitHub</li>
+              <li>Přihlaste se na <a href="https://vercel.com/new" target="_blank" style="color: var(--primary-color);">vercel.com/new</a></li>
+              <li>Importujte GitHub repozitář</li>
+              <li>Vercel automaticky detekuje nastavení</li>
+              <li>Klikněte na Deploy</li>
+            </ol>
+          </div>
+
+          <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; font-size: 13px;">
+            <strong>💡 Vercel je ideální pro:</strong> Next.js, React, Vue, Svelte a další moderní frameworky
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('#vercelDeployClose').addEventListener('click', () => modal.remove());
+    modal.querySelector('#downloadForVercel').addEventListener('click', () => {
+      this.exportAsZip();
+      modal.remove();
+    });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
+  manualDeploy() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-container" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>📦 Manuální Deploy</h2>
+          <button class="modal-close" id="manualDeployClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div style="margin-bottom: 20px;">
+            <h3 style="margin-bottom: 10px;">Postup:</h3>
+            <ol style="line-height: 1.8; color: var(--text-secondary);">
+              <li>Stáhněte projekt jako ZIP (tlačítko níže)</li>
+              <li>Rozbalte ZIP složku</li>
+              <li>Nahrajte soubory na váš hosting pomocí FTP/SFTP</li>
+              <li>Nebo použijte cPanel File Manager</li>
+            </ol>
+          </div>
+
+          <button id="downloadManual" class="btn-primary" style="width: 100%; padding: 12px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 20px;">
+            📦 Stáhnout projekt jako ZIP
+          </button>
+
+          <div style="padding-top: 20px; border-top: 1px solid var(--border-color);">
+            <h3 style="margin-bottom: 10px;">Oblíbené FTP klienty:</h3>
+            <ul style="line-height: 1.8; color: var(--text-secondary);">
+              <li><strong>FileZilla</strong> - zdarma pro Windows/Mac/Linux</li>
+              <li><strong>Cyberduck</strong> - zdarma pro Mac/Windows</li>
+              <li><strong>WinSCP</strong> - zdarma pro Windows</li>
+            </ul>
+          </div>
+
+          <div style="margin-top: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; font-size: 13px;">
+            <strong>💡 Tip:</strong> Ujistěte se, že nahráváte soubory do správné složky (obvykle <code>public_html</code> nebo <code>www</code>)
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('#manualDeployClose').addEventListener('click', () => modal.remove());
+    modal.querySelector('#downloadManual').addEventListener('click', () => {
+      this.exportAsZip();
+      modal.remove();
+    });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
   }
 
   openDevTools() {
