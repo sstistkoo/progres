@@ -7,6 +7,7 @@ import { eventBus } from '../../core/events.js';
 import { state } from '../../core/state.js';
 import { Modal } from '../../ui/components/Modal.js';
 import { toast } from '../../ui/components/Toast.js';
+import { AITester } from './AITester.js';
 
 export class AIPanel {
   constructor() {
@@ -14,6 +15,7 @@ export class AIPanel {
     this.chatHistory = [];
     this.pendingChanges = new Map(); // Store pending changes for accept/reject
     this.originalCode = null; // Store original code before changes
+    this.aiTester = new AITester();
     this.setupEventListeners();
   }
 
@@ -61,6 +63,7 @@ export class AIPanel {
           <option value="editor">📝 Kód</option>
           <option value="actions">⚡ Akce</option>
           <option value="prompts">📝 Prompty</option>
+          <option value="testing">🧪 Testing</option>
           <option value="github">🔗 GitHub</option>
         </select>
         <div class="ai-settings-header" id="aiSettingsHeader">
@@ -135,12 +138,22 @@ export class AIPanel {
           <div class="ai-chat">
             <div class="ai-chat-header">
               <span class="chat-history-info" id="chatHistoryInfo">Historie: 0 zpráv</span>
-              <button class="clear-history-btn" id="clearHistoryBtn" title="Vymazat historii konverzace">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                </svg>
-                Vymazat historii
-              </button>
+              <div class="chat-header-buttons">
+                <button class="export-chat-btn" id="exportChatBtn" title="Exportovat konverzaci">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Export
+                </button>
+                <button class="clear-history-btn" id="clearHistoryBtn" title="Vymazat historii konverzace">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  Vymazat
+                </button>
+              </div>
             </div>
             <div class="ai-chat-messages" id="aiChatMessages">
               <div class="ai-message system">
@@ -317,6 +330,121 @@ export class AIPanel {
           </div>
         </div>
 
+        <!-- Testing Tab -->
+        <div class="ai-tab-content" data-content="testing">
+          <div class="ai-testing">
+            <h3>🧪 Test AI Modelů</h3>
+
+            <div class="testing-header">
+              <p style="margin-bottom: 16px; color: var(--text-secondary);">
+                Automaticky otestuj všechny dostupné AI modely a zjisti, které fungují správně.
+              </p>
+
+              <div class="testing-controls">
+                <button class="btn-primary" id="startAllTestsBtn">
+                  <span class="icon">▶️</span>
+                  <span>Spustit všechny testy</span>
+                </button>
+                <button class="btn-secondary" id="exportResultsBtn" style="display: none;">
+                  <span class="icon">💾</span>
+                  <span>Export výsledků</span>
+                </button>
+                <button class="btn-secondary" id="stopTestsBtn" style="display: none;">
+                  <span class="icon">⏹️</span>
+                  <span>Zastavit</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="testing-progress" id="testingProgress" style="display: none;">
+              <div class="progress-bar">
+                <div class="progress-fill" id="testProgressFill"></div>
+              </div>
+              <div class="progress-text" id="testProgressText">0 / 0 (0%)</div>
+              <div class="progress-status" id="testProgressStatus">Inicializace...</div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="testing-stats" id="testingStats" style="display: none;">
+              <h4>📊 Statistiky</h4>
+              <div class="stats-grid">
+                <div class="stat-item">
+                  <div class="stat-value" id="statTotal">0</div>
+                  <div class="stat-label">Celkem modelů</div>
+                </div>
+                <div class="stat-item success">
+                  <div class="stat-value" id="statSuccess">0</div>
+                  <div class="stat-label">✅ Úspěch</div>
+                </div>
+                <div class="stat-item error">
+                  <div class="stat-value" id="statError">0</div>
+                  <div class="stat-label">❌ Chyba</div>
+                </div>
+                <div class="stat-item warning">
+                  <div class="stat-value" id="statNoKey">0</div>
+                  <div class="stat-label">⚠️ Bez klíče</div>
+                </div>
+                <div class="stat-item info">
+                  <div class="stat-value" id="statAvgTime">0ms</div>
+                  <div class="stat-label">⚡ Průměrná doba</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Provider Tests -->
+            <div class="testing-providers" id="testingProviders">
+              <h4>Test podle providera</h4>
+              <div class="provider-test-grid">
+                <button class="provider-test-btn" data-provider="gemini">
+                  <span class="icon">💎</span>
+                  <span>Google Gemini</span>
+                </button>
+                <button class="provider-test-btn" data-provider="groq">
+                  <span class="icon">⚡</span>
+                  <span>Groq</span>
+                </button>
+                <button class="provider-test-btn" data-provider="openrouter">
+                  <span class="icon">🌐</span>
+                  <span>OpenRouter</span>
+                </button>
+                <button class="provider-test-btn" data-provider="mistral">
+                  <span class="icon">🌊</span>
+                  <span>Mistral AI</span>
+                </button>
+                <button class="provider-test-btn" data-provider="cohere">
+                  <span class="icon">🧠</span>
+                  <span>Cohere</span>
+                </button>
+                <button class="provider-test-btn" data-provider="huggingface">
+                  <span class="icon">🤗</span>
+                  <span>HuggingFace</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Results Table -->
+            <div class="testing-results" id="testingResults" style="display: none;">
+              <h4>📋 Výsledky testů</h4>
+              <div class="results-table-container">
+                <table class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Provider</th>
+                      <th>Model</th>
+                      <th>Status</th>
+                      <th>Doba odezvy</th>
+                      <th>Chyba</th>
+                    </tr>
+                  </thead>
+                  <tbody id="resultsTableBody">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- GitHub Tab -->
         <div class="ai-tab-content" data-content="github">
           <div class="ai-github">
@@ -477,6 +605,24 @@ export class AIPanel {
       });
     }
 
+    // Export Chat Button
+    const exportChatBtn = this.modal.element.querySelector('#exportChatBtn');
+    if (exportChatBtn) {
+      exportChatBtn.addEventListener('click', () => {
+        // Show export options
+        const options = ['💾 JSON', '📝 Markdown'];
+        const choice = confirm('Exportovat jako:\n1 = JSON\n2 = Markdown\n\nZvolte 1 nebo 2 a stiskněte OK');
+        if (choice) {
+          const format = prompt('Zadejte 1 pro JSON nebo 2 pro Markdown:', '1');
+          if (format === '1') {
+            this.exportChatHistory();
+          } else if (format === '2') {
+            this.exportChatAsMarkdown();
+          }
+        }
+      });
+    }
+
     // Update history info
     this.updateHistoryInfo();
 
@@ -555,6 +701,9 @@ export class AIPanel {
       // Initialize models for default provider
       this.updateModels(providerSelect.value);
     }
+
+    // Testing tab handlers
+    this.attachTestingHandlers();
   }
 
   handleQuickAction(action) {
@@ -773,7 +922,27 @@ ${hasCode && hasHistory ?
     const messageEl = document.createElement('div');
     messageEl.className = `ai-message ${role}`;
     messageEl.id = messageId;
-    messageEl.innerHTML = `<p>${this.escapeHtml(content)}</p>`;
+
+    // Render markdown if marked is available and it's not user message
+    if (role === 'assistant' && typeof marked !== 'undefined') {
+      try {
+        // Configure marked
+        marked.setOptions({
+          breaks: true,
+          gfm: true,
+          headerIds: false
+        });
+
+        // Parse markdown
+        const htmlContent = marked.parse(content);
+        messageEl.innerHTML = htmlContent;
+      } catch (error) {
+        console.error('Markdown parsing error:', error);
+        messageEl.innerHTML = `<p>${this.escapeHtml(content)}</p>`;
+      }
+    } else {
+      messageEl.innerHTML = `<p>${this.escapeHtml(content)}</p>`;
+    }
 
     messagesContainer.appendChild(messageEl);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -1134,6 +1303,65 @@ ${hasCode && hasHistory ?
     }
     this.updateHistoryInfo();
     toast.show('🗑️ Historie konverzace vymazána', 'info');
+  }
+
+  exportChatHistory() {
+    if (this.chatHistory.length === 0) {
+      toast.show('⚠️ Žádná konverzace k exportu', 'warning');
+      return;
+    }
+
+    const exportData = {
+      timestamp: new Date().toISOString(),
+      messageCount: this.chatHistory.length,
+      messages: this.chatHistory.map((msg, idx) => ({
+        index: idx + 1,
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp || new Date().toISOString()
+      }))
+    };
+
+    // Export as JSON
+    const json = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ai-chat-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast.show('💾 Konverzace exportována', 'success');
+  }
+
+  exportChatAsMarkdown() {
+    if (this.chatHistory.length === 0) {
+      toast.show('⚠️ Žádná konverzace k exportu', 'warning');
+      return;
+    }
+
+    let markdown = `# AI Chat Export\n\n`;
+    markdown += `**Datum:** ${new Date().toLocaleString('cs-CZ')}\n`;
+    markdown += `**Počet zpráv:** ${this.chatHistory.length}\n\n`;
+    markdown += `---\n\n`;
+
+    this.chatHistory.forEach((msg, idx) => {
+      const role = msg.role === 'user' ? '👤 Uživatel' : '🤖 AI';
+      markdown += `## ${idx + 1}. ${role}\n\n`;
+      markdown += `${msg.content}\n\n`;
+      markdown += `---\n\n`;
+    });
+
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ai-chat-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast.show('💾 Konverzace exportována jako Markdown', 'success');
   }
 
   updateHistoryInfo() {
@@ -3691,6 +3919,175 @@ Každý agent pracuje na své části, výsledky se kombinují do finálního pr
 
       await this.sendMessage('Vytvoř KOMPLETNĚ NOVÝ projekt podle výše uvedených specifikací. Začni od začátku s prázdným editorem. Vygeneruj celý kód v jednom bloku.');
     }
+  }
+
+  // ============== TESTING HANDLERS ==============
+
+  attachTestingHandlers() {
+    // Start all tests button
+    const startAllBtn = this.modal.element.querySelector('#startAllTestsBtn');
+    if (startAllBtn) {
+      startAllBtn.addEventListener('click', () => this.runAllTests());
+    }
+
+    // Stop tests button
+    const stopBtn = this.modal.element.querySelector('#stopTestsBtn');
+    if (stopBtn) {
+      stopBtn.addEventListener('click', () => {
+        this.aiTester.stop();
+        toast.show('Testování zastaveno', 'info');
+      });
+    }
+
+    // Export results button
+    const exportBtn = this.modal.element.querySelector('#exportResultsBtn');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => this.exportTestResults());
+    }
+
+    // Provider test buttons
+    const providerBtns = this.modal.element.querySelectorAll('.provider-test-btn');
+    providerBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const provider = btn.dataset.provider;
+        this.runProviderTest(provider);
+      });
+    });
+  }
+
+  async runAllTests() {
+    const progressDiv = this.modal.element.querySelector('#testingProgress');
+    const progressFill = this.modal.element.querySelector('#testProgressFill');
+    const progressText = this.modal.element.querySelector('#testProgressText');
+    const progressStatus = this.modal.element.querySelector('#testProgressStatus');
+    const statsDiv = this.modal.element.querySelector('#testingStats');
+    const resultsDiv = this.modal.element.querySelector('#testingResults');
+    const startBtn = this.modal.element.querySelector('#startAllTestsBtn');
+    const stopBtn = this.modal.element.querySelector('#stopTestsBtn');
+    const exportBtn = this.modal.element.querySelector('#exportResultsBtn');
+
+    // Show progress, hide buttons
+    progressDiv.style.display = 'block';
+    statsDiv.style.display = 'none';
+    resultsDiv.style.display = 'none';
+    startBtn.style.display = 'none';
+    stopBtn.style.display = 'inline-flex';
+    exportBtn.style.display = 'none';
+
+    try {
+      await this.aiTester.testAllModels((progress) => {
+        // Update progress bar
+        progressFill.style.width = `${progress.progress}%`;
+        progressText.textContent = `${progress.current} / ${progress.total} (${progress.progress}%)`;
+        progressStatus.textContent = `Testování: ${progress.provider} - ${progress.model}`;
+      });
+
+      // Show results
+      const stats = this.aiTester.getStats();
+      this.displayTestStats(stats);
+      this.displayTestResults(this.aiTester.results);
+
+      statsDiv.style.display = 'block';
+      resultsDiv.style.display = 'block';
+      exportBtn.style.display = 'inline-flex';
+
+      toast.show(`✅ Test dokončen: ${stats.success}/${stats.total} úspěšných`, 'success');
+    } catch (error) {
+      toast.show(`❌ Chyba při testování: ${error.message}`, 'error');
+    } finally {
+      stopBtn.style.display = 'none';
+      startBtn.style.display = 'inline-flex';
+    }
+  }
+
+  async runProviderTest(providerId) {
+    const progressDiv = this.modal.element.querySelector('#testingProgress');
+    const progressFill = this.modal.element.querySelector('#testProgressFill');
+    const progressText = this.modal.element.querySelector('#testProgressText');
+    const progressStatus = this.modal.element.querySelector('#testProgressStatus');
+    const statsDiv = this.modal.element.querySelector('#testingStats');
+    const resultsDiv = this.modal.element.querySelector('#testingResults');
+
+    progressDiv.style.display = 'block';
+    progressStatus.textContent = `Testování providera: ${providerId}`;
+
+    try {
+      const results = await this.aiTester.testProvider(providerId, (progress) => {
+        const percent = Math.round((progress.current / progress.total) * 100);
+        progressFill.style.width = `${percent}%`;
+        progressText.textContent = `${progress.current} / ${progress.total} (${percent}%)`;
+        progressStatus.textContent = `Testování: ${providerId} - ${progress.model}`;
+      });
+
+      // Display results
+      this.displayTestResults(results);
+      resultsDiv.style.display = 'block';
+
+      const successCount = results.filter(r => r.status === 'success').length;
+      toast.show(`✅ ${providerId}: ${successCount}/${results.length} úspěšných`, 'success');
+    } catch (error) {
+      toast.show(`❌ Chyba při testování ${providerId}: ${error.message}`, 'error');
+    }
+  }
+
+  displayTestStats(stats) {
+    if (!stats) return;
+
+    this.modal.element.querySelector('#statTotal').textContent = stats.total;
+    this.modal.element.querySelector('#statSuccess').textContent = stats.success;
+    this.modal.element.querySelector('#statError').textContent = stats.error;
+    this.modal.element.querySelector('#statNoKey').textContent = stats.noKey;
+    this.modal.element.querySelector('#statAvgTime').textContent = `${stats.avgResponseTime}ms`;
+  }
+
+  displayTestResults(results) {
+    const tbody = this.modal.element.querySelector('#resultsTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    results.forEach(result => {
+      const row = document.createElement('tr');
+      row.className = `result-row result-${result.status}`;
+
+      const statusIcon = {
+        'success': '✅',
+        'error': '❌',
+        'no-key': '⚠️',
+        'pending': '⏳'
+      }[result.status] || '❓';
+
+      const statusText = {
+        'success': 'Úspěch',
+        'error': 'Chyba',
+        'no-key': 'Bez klíče',
+        'pending': 'Čeká'
+      }[result.status] || result.status;
+
+      row.innerHTML = `
+        <td>${result.provider}</td>
+        <td>${result.model}</td>
+        <td><span class="status-badge status-${result.status}">${statusIcon} ${statusText}</span></td>
+        <td>${result.responseTime}ms</td>
+        <td class="error-cell">${result.error || '-'}</td>
+      `;
+
+      tbody.appendChild(row);
+    });
+  }
+
+  exportTestResults() {
+    const data = this.aiTester.exportResults();
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ai-test-results-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast.show('📥 Výsledky exportovány', 'success');
   }
 }
 
