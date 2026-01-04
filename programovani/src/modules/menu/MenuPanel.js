@@ -1598,8 +1598,8 @@ build/
       <div class="open-file-item" data-tab-id="${file.id}" data-index="${index}">
         <span class="file-icon">📄</span>
         <span class="file-name">${file.name}</span>
-        <button class="file-close-btn" data-tab-id="${file.id}" title="Zavřít">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="file-close-btn" data-tab-id="${file.id}" title="Zavřít" style="width: 16px; height: 16px; padding: 2px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 10px; height: 10px;">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
         </button>
