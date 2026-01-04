@@ -1580,7 +1580,7 @@ build/
             <div class="model-section" style="display: grid; grid-template-columns: 1fr auto; gap: 15px; align-items: end; margin-bottom: 20px;">
               <div>
                 <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Model</label>
-                <select id="aiModelSelect" style="width: 100%; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px;">
+                <select id="aiModelSelect" style="width: 100%; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: 10px; font-size: 14px;">
                   <option value="">Načítání...</option>
                 </select>
               </div>
@@ -1980,6 +1980,15 @@ build/
     const updateModels = async () => {
       const providerData = providers[currentProvider];
       if (providerData && providerData.models) {
+        // Get current theme colors
+        const isLightTheme = document.body.classList.contains('light-theme');
+        const selectBg = isLightTheme ? '#ffffff' : '#1a1a1d';
+        const selectColor = isLightTheme ? '#1a1a1d' : '#e8e8ea';
+
+        // Update select element colors
+        modelSelect.style.background = selectBg;
+        modelSelect.style.color = selectColor;
+
         modelSelect.innerHTML = providerData.models.map(m => {
           const freeLabel = m.free ? '🟢 FREE' : '💰 Paid';
           return `<option value="${m.value}" data-rpm="${m.rpm}">${m.label} (${freeLabel} | ${m.rpm} RPM)</option>`;
