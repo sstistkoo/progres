@@ -265,6 +265,27 @@ class App {
       }
     }
 
+    // Try to extract filename from <title> tag in the HTML code
+    try {
+      const titleMatch = code.match(/<title>([^<]+)<\/title>/i);
+      if (titleMatch && titleMatch[1]) {
+        const pageTitle = titleMatch[1].trim();
+        // Convert page title to valid filename (remove special chars, spaces -> dashes)
+        const sanitizedTitle = pageTitle
+          .toLowerCase()
+          .replace(/[^a-z0-9\u00e1\u010d\u010f\u00e9\u011b\u00ed\u0148\u00f3\u0159\u0161\u0165\u00fa\u016f\u00fd\u017e\s-]/gi, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-+|-+$/g, '');
+
+        if (sanitizedTitle) {
+          filename = sanitizedTitle + '.html';
+        }
+      }
+    } catch (e) {
+      console.log('Could not extract title from HTML:', e);
+    }
+
     // Download file
     try {
       const blob = new Blob([code], { type: 'text/html;charset=utf-8' });

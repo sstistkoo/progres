@@ -198,6 +198,13 @@
         <!-- Editor Section -->
         <section class="editor-section">
           <div class="editor-tabs-container">
+            <div class="editor-tabs-header">
+              <button class="tabs-layout-toggle" id="tabsLayoutToggle" title="Přepínání zobrazení tabů">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12h18M3 6h18M3 18h18"/>
+                </svg>
+              </button>
+            </div>
             <div class="editor-tabs" id="editorTabs">
               <!-- Tabs will be dynamically added here -->
             </div>
@@ -374,6 +381,31 @@
         document.getElementById('shortcutsBtn')?.addEventListener('click', () => {
           safeEmit('shortcuts:show');
         });
+
+        // Tabs layout toggle (vertical/horizontal)
+        document.getElementById('tabsLayoutToggle')?.addEventListener('click', () => {
+          const tabsEl = document.getElementById('editorTabs');
+          const toggleBtn = document.getElementById('tabsLayoutToggle');
+          if (tabsEl && toggleBtn) {
+            tabsEl.classList.toggle('vertical-layout');
+            toggleBtn.classList.toggle('vertical');
+
+            // Save preference
+            const isVertical = tabsEl.classList.contains('vertical-layout');
+            localStorage.setItem('tabs-layout', isVertical ? 'vertical' : 'horizontal');
+          }
+        });
+
+        // Restore tabs layout preference
+        const savedLayout = localStorage.getItem('tabs-layout');
+        if (savedLayout === 'vertical') {
+          const tabsEl = document.getElementById('editorTabs');
+          const toggleBtn = document.getElementById('tabsLayoutToggle');
+          if (tabsEl && toggleBtn) {
+            tabsEl.classList.add('vertical-layout');
+            toggleBtn.classList.add('vertical');
+          }
+        }
 
         // AI panel
         document.getElementById('aiBtn')?.addEventListener('click', () => {
