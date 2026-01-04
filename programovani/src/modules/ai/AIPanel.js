@@ -1031,6 +1031,9 @@ ${hasCode && hasHistory ?
     });
 
     return duplicates;
+  }
+
+  handleNewProjectStart() {
     const tabs = state.get('files.tabs') || [];
 
     if (tabs.length === 0) {

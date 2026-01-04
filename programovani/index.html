@@ -120,6 +120,13 @@
         </div>
 
         <div class="toolbar-group">
+          <button class="toolbar-btn" id="copyCodeBtn" title="Kopírovat kód (Ctrl+Shift+C)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Kopírovat</span>
+          </button>
           <button class="toolbar-btn" id="formatToolbarBtn" title="Formátovat (Ctrl+Shift+F)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 7h16M4 12h16M4 17h10" />
@@ -324,6 +331,9 @@
         });
         document.getElementById('saveBtn')?.addEventListener('click', () => {
           safeEmit('action:save');
+        });
+        document.getElementById('copyCodeBtn')?.addEventListener('click', () => {
+          safeEmit('action:copyCode');
         });
         document.getElementById('formatToolbarBtn')?.addEventListener('click', () => {
           safeEmit('action:format');

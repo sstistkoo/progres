@@ -146,6 +146,7 @@ class App {
 
     // Actions
     eventBus.on('action:save', () => this.saveFile());
+    eventBus.on('action:copyCode', () => this.copyCode());
     eventBus.on('action:format', () => this.formatCode());
     eventBus.on('action:preview', () => this.togglePreview());
     eventBus.on('action:newTab', () => this.newTab());
@@ -292,6 +293,31 @@ class App {
       toast.success('Kód naformátován', 2000);
     } catch (error) {
       toast.error('Chyba při formátování', 3000);
+    }
+  }
+
+  async copyCode() {
+    const code = state.get('editor.code');
+
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success('Kód zkopírován do schránky', 2000);
+    } catch (error) {
+      // Fallback pro starší prohlížeče
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = code;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        toast.success('Kód zkopírován do schránky', 2000);
+      } catch (fallbackError) {
+        console.error('Copy error:', fallbackError);
+        toast.error('Chyba při kopírování do schránky', 3000);
+      }
     }
   }
 
