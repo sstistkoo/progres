@@ -4,11 +4,14 @@
  */
 
 import { eventBus } from '../../core/events.js';
+import { AITester } from '../ai/AITester.js';
+import { Modal } from '../../ui/components/Modal.js';
 
 export class MenuPanel {
   constructor() {
     this.menuElement = null;
     this.isOpen = false;
+    this.aiTester = new AITester();
     this.setupEventListeners();
   }
 
@@ -1648,9 +1651,16 @@ build/
               <div style="margin-bottom: 12px; font-size: 11px; color: var(--text-secondary);">
                 ■ = vlastní klíč | △ = demo klíč | ○ = žádný klíč
               </div>
+              <!-- API Keys Summary -->
+              <div id="keySummary" style="margin-bottom: 12px; padding: 8px 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; font-size: 12px; color: var(--text-primary); display: none;">
+                <span id="keySummaryText"></span>
+              </div>
               <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 <button id="saveKeysBtn" style="padding: 10px 20px; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;">
                   💾 Uložit klíče
+                </button>
+                <button id="loadAllDemoKeysBtn" style="padding: 10px 20px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;">
+                  🔄 Obnovit demo klíče
                 </button>
                 <button id="exportTxtBtn" style="padding: 10px 20px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
                   📄 Export TXT
@@ -2043,13 +2053,27 @@ build/
 
       // Auto-load demo keys if no keys are set
       if (!hasAnyKey && Object.keys(allKeys).length === 0) {
-        // First time - load demo keys automatically
+        // First time - load demo keys automatically for ALL providers
         Object.entries(DEMO_KEYS).forEach(([provider, key]) => {
           if (key && !key.includes('placeholder')) {
             allKeys[provider] = key;
           }
         });
         localStorage.setItem('ai_all_keys', JSON.stringify(allKeys));
+        console.log(`✅ Načteno ${Object.keys(allKeys).length} demo API klíčů:`, Object.keys(allKeys));
+      } else if (Object.keys(allKeys).length > 0) {
+        // Ensure all providers are present (add missing demo keys)
+        let added = 0;
+        Object.entries(DEMO_KEYS).forEach(([provider, key]) => {
+          if (!allKeys[provider]) {
+            allKeys[provider] = key;
+            added++;
+          }
+        });
+        if (added > 0) {
+          localStorage.setItem('ai_all_keys', JSON.stringify(allKeys));
+          console.log(`✅ Doplněno ${added} chybějících demo klíčů`);
+        }
       }
 
       // Provider input ID mapping
@@ -2078,6 +2102,48 @@ build/
           statusEl.title = status.title;
         }
       });
+
+      // Update key summary
+      updateKeySummary();
+    };
+
+    const updateKeySummary = () => {
+      const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+      const keySummaryEl = modal.querySelector('#keySummary');
+      const keySummaryTextEl = modal.querySelector('#keySummaryText');
+
+      if (!keySummaryEl || !keySummaryTextEl) return;
+
+      let demoCount = 0;
+      let customCount = 0;
+      let emptyCount = 0;
+
+      // Count all providers, not just those in localStorage
+      Object.keys(DEMO_KEYS).forEach((provider) => {
+        const key = allKeys[provider] || '';
+        if (!key || key.length < 10) {
+          emptyCount++;
+        } else if (DEMO_KEYS[provider] && key === DEMO_KEYS[provider]) {
+          demoCount++;
+        } else {
+          customCount++;
+        }
+      });
+
+      const totalProviders = Object.keys(DEMO_KEYS).length;
+      const hasKeys = demoCount > 0 || customCount > 0;
+
+      if (hasKeys) {
+        keySummaryEl.style.display = 'block';
+        const parts = [];
+        if (demoCount > 0) parts.push(`${demoCount}× demo klíč`);
+        if (customCount > 0) parts.push(`${customCount}× vlastní klíč`);
+        if (emptyCount > 0) parts.push(`${emptyCount}× bez klíče`);
+
+        keySummaryTextEl.textContent = `📊 Stav klíčů: ${parts.join(' | ')} (celkem ${totalProviders} providerů)`;
+      } else {
+        keySummaryEl.style.display = 'none';
+      }
     };
 
     const saveAllKeys = () => {
@@ -2110,6 +2176,7 @@ build/
       });
 
       loadAllKeys(); // Refresh status icons
+      updateKeySummary(); // Update key summary
     };
 
     const exportKeys = () => {
@@ -2188,6 +2255,10 @@ build/
       const testPrompt = 'Řekni krátký vtip o programování.';
       updateChatStatus('Testuji fallback...', '#f59e0b');
 
+      // Dočasně nastavit maxRetries = 1 pro rychlé testování (přeskočit rate limit waits)
+      const originalMaxRetries = window.AI.config.maxRetries;
+      window.AI.config.maxRetries = 1;
+
       try {
         const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
         Object.entries(allKeys).forEach(([provider, key]) => {
@@ -2202,51 +2273,296 @@ build/
       } catch (error) {
         addChatMessage('system', `❌ Fallback test selhal: ${error.message}`);
         updateChatStatus('Chyba', '#ef4444');
+      } finally {
+        // Obnovit původní maxRetries
+        window.AI.config.maxRetries = originalMaxRetries;
       }
     };
 
     const testAllModels = async () => {
-      if (!window.AI?.MODELS) {
-        eventBus.emit('toast:show', {
-          message: '⚠️ Seznam modelů není dostupný',
-          type: 'warning',
-          duration: 3000
-        });
-        return;
+      // Close AI Settings modal first
+      const aiSettingsModal = document.querySelector('.modal-backdrop');
+      if (aiSettingsModal) {
+        aiSettingsModal.remove();
       }
 
-      const testPrompt = 'Řekni: "Test OK"';
-      const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+      // Create test results modal
+      const testModal = new Modal({
+        title: '🧪 Testování AI Modelů',
+        closeOnOverlay: false,
+        closeOnEscape: false,
+        content: `
+          <div class="testing-container" style="padding: 20px;">
+            <!-- Loading Spinner + Status -->
+            <div id="testLoadingSection" style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: 12px;">
+              <div class="spinner" style="width: 40px; height: 40px; border: 3px solid var(--bg-primary); border-top: 3px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+              <div style="flex: 1;">
+                <div id="testCurrentModel" style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Připravuji test...</div>
+                <div id="testCurrentProvider" style="font-size: 12px; color: var(--text-secondary);">Načítám modely...</div>
+              </div>
+            </div>
 
+            <!-- Progress Bar -->
+            <div class="testing-progress" style="margin-bottom: 20px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary);">
+                <span id="testProgressText">Připravuji test...</span>
+                <span id="testProgressPercent">0%</span>
+              </div>
+              <div style="width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; position: relative;">
+                <div id="testProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent-color), var(--success-color)); transition: width 0.3s ease-out;"></div>
+                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); animation: shimmer 2s infinite;"></div>
+              </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px;">
+              <div style="padding: 12px; background: var(--bg-tertiary); border-radius: 8px; border: 2px solid var(--success-color); transition: transform 0.2s;">
+                <div style="font-size: 24px; font-weight: 600; color: var(--success-color);" id="testStatsSuccess">0</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Úspěšné</div>
+              </div>
+              <div style="padding: 12px; background: var(--bg-tertiary); border-radius: 8px; border: 2px solid var(--error-color); transition: transform 0.2s;">
+                <div style="font-size: 24px; font-weight: 600; color: var(--error-color);" id="testStatsError">0</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Chyby</div>
+              </div>
+              <div style="padding: 12px; background: var(--bg-tertiary); border-radius: 8px; border: 2px solid var(--warning-color); transition: transform 0.2s;">
+                <div style="font-size: 24px; font-weight: 600; color: var(--warning-color);" id="testStatsNoKey">0</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Bez klíče</div>
+              </div>
+              <div style="padding: 12px; background: var(--bg-tertiary); border-radius: 8px; border: 2px solid var(--info-color); transition: transform 0.2s;">
+                <div style="font-size: 24px; font-weight: 600; color: var(--info-color);" id="testStatsTime">0ms</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Průměrný čas</div>
+              </div>
+            </div>
+
+            <div id="testResultsContainer" style="max-height: 400px; overflow-y: auto;"></div>
+
+            <!-- Control Buttons -->
+            <div id="testControls" style="margin-top: 20px; display: flex; gap: 12px; justify-content: center;">
+              <button id="stopTestBtn" style="padding: 10px 20px; background: var(--error-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                ⏹️ Ukončit test
+              </button>
+            </div>
+
+            <div id="testActions" style="display: none; margin-top: 20px; text-align: center;">
+              <button id="exportTestResults" style="padding: 10px 20px; background: var(--accent-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                📥 Exportovat výsledky (JSON)
+              </button>
+            </div>
+          </div>
+
+          <style>
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            @keyframes shimmer {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+            }
+            @keyframes pulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.5; }
+            }
+            .stats-grid > div:hover {
+              transform: scale(1.05);
+            }
+          </style>
+        `,
+        width: '800px',
+        height: 'auto'
+      });
+
+      testModal.open();
+
+      const progressBar = testModal.element.querySelector('#testProgressBar');
+      const progressText = testModal.element.querySelector('#testProgressText');
+      const progressPercent = testModal.element.querySelector('#testProgressPercent');
+      const statsSuccess = testModal.element.querySelector('#testStatsSuccess');
+      const statsError = testModal.element.querySelector('#testStatsError');
+      const statsNoKey = testModal.element.querySelector('#testStatsNoKey');
+      const statsTime = testModal.element.querySelector('#testStatsTime');
+      const resultsContainer = testModal.element.querySelector('#testResultsContainer');
+      const testActions = testModal.element.querySelector('#testActions');
+      const testControls = testModal.element.querySelector('#testControls');
+      const stopTestBtn = testModal.element.querySelector('#stopTestBtn');
+      const exportBtn = testModal.element.querySelector('#exportTestResults');
+      const loadingSection = testModal.element.querySelector('#testLoadingSection');
+      const currentModel = testModal.element.querySelector('#testCurrentModel');
+      const currentProvider = testModal.element.querySelector('#testCurrentProvider');
+
+      // Stop button handler
+      stopTestBtn.addEventListener('click', () => {
+        this.aiTester.stop();
+        stopTestBtn.disabled = true;
+        stopTestBtn.textContent = '⏸️ Zastavuji...';
+        stopTestBtn.style.opacity = '0.6';
+      });
+
+      // Load API keys
+      const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
       Object.entries(allKeys).forEach(([provider, key]) => {
         if (key) window.AI.setKey(provider, key);
       });
 
-      const models = modelRanking.slice(0, 5); // Test top 5
-      addChatMessage('system', `⏳ Testuji ${models.length} modelů...`);
-      updateChatStatus('Testuji...', '#f59e0b');
+      // Start testing
+      try {
+        await this.aiTester.testAllModels((progress) => {
+          // Update spinner section
+          currentModel.textContent = `🔄 Testuji: ${progress.model}`;
+          currentProvider.textContent = `Provider: ${progress.provider} | Model ${progress.current}/${progress.total}`;
 
-      const results = [];
-      for (const model of models) {
-        const startTime = Date.now();
-        try {
-          const response = await window.AI.ask(testPrompt, { model });
-          const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-          results.push({ model, success: true, duration, response: response.substring(0, 50) });
-        } catch (error) {
-          const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-          results.push({ model, success: false, duration, error: error.message });
+          // Update progress bar
+          progressBar.style.width = `${progress.progress}%`;
+          progressPercent.textContent = `${progress.progress}%`;
+          progressText.textContent = `${progress.current}/${progress.total} modelů`;
+
+          // Update stats with animation
+          const stats = this.aiTester.getStats();
+          if (stats) {
+            const updateStat = (element, newValue) => {
+              if (element.textContent !== String(newValue)) {
+                element.style.animation = 'pulse 0.3s ease-in-out';
+                element.textContent = newValue;
+                setTimeout(() => element.style.animation = '', 300);
+              }
+            };
+
+            updateStat(statsSuccess, stats.success);
+            updateStat(statsError, stats.error);
+            updateStat(statsNoKey, stats.noKey);
+
+            // Calculate average time across providers
+            let totalTime = 0;
+            let count = 0;
+            Object.values(stats.providers || {}).forEach(provider => {
+              if (provider.avgResponseTime > 0) {
+                totalTime += provider.avgResponseTime;
+                count++;
+              }
+            });
+            const avgTime = count > 0 ? Math.round(totalTime / count) : 0;
+            updateStat(statsTime, `${avgTime}ms`);
+          }
+        });
+
+        // Hide loading spinner and stop button
+        loadingSection.style.display = 'none';
+        testControls.style.display = 'none';
+
+        // Display results
+        const results = this.aiTester.results;
+        const stats = this.aiTester.getStats();
+
+        if (!stats) {
+          throw new Error('Nelze získat statistiky testování');
         }
+
+        // Update final stats
+        let totalTime = 0;
+        let count = 0;
+        Object.values(stats.providers || {}).forEach(provider => {
+          if (provider.avgResponseTime > 0) {
+            totalTime += provider.avgResponseTime;
+            count++;
+          }
+        });
+        const avgTime = count > 0 ? Math.round(totalTime / count) : 0;
+        statsTime.textContent = `${avgTime}ms`;
+
+        progressText.textContent = '✅ Test dokončen!';
+        progressText.style.color = 'var(--success-color)';
+        progressText.style.fontWeight = '600';
+
+        // Group results by provider
+        const groupedResults = {};
+        results.forEach(result => {
+          if (!groupedResults[result.provider]) {
+            groupedResults[result.provider] = [];
+          }
+          groupedResults[result.provider].push(result);
+        });
+
+        // Display results by provider
+        let resultsHTML = '';
+        Object.entries(groupedResults).forEach(([provider, providerResults]) => {
+          const successCount = providerResults.filter(r => r.status === 'success').length;
+          const totalCount = providerResults.length;
+
+          resultsHTML += `
+            <div style="margin-bottom: 20px;">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">
+                ${provider} (${successCount}/${totalCount})
+              </h3>
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                  <tr style="background: var(--bg-tertiary); text-align: left;">
+                    <th style="padding: 8px; border: 1px solid var(--border-color);">Model</th>
+                    <th style="padding: 8px; border: 1px solid var(--border-color);">Status</th>
+                    <th style="padding: 8px; border: 1px solid var(--border-color);">Čas</th>
+                    <th style="padding: 8px; border: 1px solid var(--border-color);">Odpověď</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+
+          providerResults.forEach(result => {
+            const statusBadge = result.status === 'success'
+              ? '<span style="padding: 2px 8px; background: var(--success-color); color: white; border-radius: 4px; font-size: 11px;">✓ OK</span>'
+              : result.status === 'error'
+              ? '<span style="padding: 2px 8px; background: var(--error-color); color: white; border-radius: 4px; font-size: 11px;">✗ Chyba</span>'
+              : '<span style="padding: 2px 8px; background: var(--warning-color); color: white; border-radius: 4px; font-size: 11px;">⚠ Bez klíče</span>';
+
+            const response = result.status === 'success'
+              ? (result.response?.substring(0, 50) || '') + '...'
+              : result.error || 'Bez API klíče';
+
+            resultsHTML += `
+              <tr>
+                <td style="padding: 8px; border: 1px solid var(--border-color);">${result.model}</td>
+                <td style="padding: 8px; border: 1px solid var(--border-color);">${statusBadge}</td>
+                <td style="padding: 8px; border: 1px solid var(--border-color);">${result.responseTime}ms</td>
+                <td style="padding: 8px; border: 1px solid var(--border-color); max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${response}</td>
+              </tr>
+            `;
+          });
+
+          resultsHTML += `
+                </tbody>
+              </table>
+            </div>
+          `;
+        });
+
+        resultsContainer.innerHTML = resultsHTML;
+        testActions.style.display = 'block';
+
+        // Export handler
+        exportBtn.addEventListener('click', () => {
+          const exportData = this.aiTester.exportResults();
+          const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `ai-test-results-${new Date().toISOString().split('T')[0]}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+
+          eventBus.emit('toast:show', {
+            message: '✅ Výsledky exportovány',
+            type: 'success',
+            duration: 2000
+          });
+        });
+
+      } catch (error) {
+        progressText.textContent = 'Chyba při testování';
+        progressText.style.color = 'var(--error-color)';
+        resultsContainer.innerHTML = `
+          <div style="padding: 20px; text-align: center; color: var(--error-color);">
+            ❌ Chyba: ${error.message}
+          </div>
+        `;
       }
-
-      const summary = results.map(r =>
-        r.success
-          ? `✅ ${r.model}: ${r.duration}s - ${r.response}`
-          : `❌ ${r.model}: ${r.duration}s - ${r.error}`
-      ).join('\n');
-
-      addChatMessage('system', `📊 Výsledky testování:\n\n${summary}`);
-      updateChatStatus('Hotovo', '#22c55e');
     };
 
     const compareModels = async () => {
@@ -2265,6 +2581,10 @@ build/
       const testPrompt = 'Vysvětli jednoduchým způsobem co je umělá inteligence.';
       addChatMessage('system', `🔄 Porovnávám: ${model1} vs ${model2}`);
       updateChatStatus('Porovnávám...', '#f59e0b');
+
+      // Dočasně nastavit maxRetries = 1 pro rychlé testování (přeskočit rate limit waits)
+      const originalMaxRetries = window.AI.config.maxRetries;
+      window.AI.config.maxRetries = 1;
 
       try {
         const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
@@ -2293,6 +2613,9 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
       } catch (error) {
         addChatMessage('system', `❌ Chyba při porovnávání: ${error.message}`);
         updateChatStatus('Chyba', '#ef4444');
+      } finally {
+        // Obnovit původní maxRetries
+        window.AI.config.maxRetries = originalMaxRetries;
       }
     };
 
@@ -3401,6 +3724,27 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
 
     // Keys buttons
     modal.querySelector('#saveKeysBtn').addEventListener('click', saveAllKeys);
+    modal.querySelector('#loadAllDemoKeysBtn').addEventListener('click', () => {
+      const allKeys = JSON.parse(localStorage.getItem('ai_all_keys') || '{}');
+      let loaded = 0;
+
+      // Load all demo keys (overwrite existing)
+      Object.entries(DEMO_KEYS).forEach(([provider, key]) => {
+        if (key && !key.includes('placeholder')) {
+          allKeys[provider] = key;
+          loaded++;
+        }
+      });
+
+      localStorage.setItem('ai_all_keys', JSON.stringify(allKeys));
+      loadAllKeys();
+
+      eventBus.emit('toast:show', {
+        message: `✅ Načteno ${loaded} demo API klíčů`,
+        type: 'success',
+        duration: 2000
+      });
+    });
     modal.querySelector('#exportKeysBtn').addEventListener('click', exportKeys);
     modal.querySelector('#exportTxtBtn').addEventListener('click', exportKeysToTxt);
     modal.querySelector('#apiHelpBtn').addEventListener('click', () => {
