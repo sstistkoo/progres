@@ -606,35 +606,48 @@ class App {
       toast.info('📦 Připravuji ZIP archiv...');
 
       // Create a simple ZIP file using browser APIs
-      // Since we don't have JSZip, we'll create a minimal ZIP structure
       const zip = this.createZipBlob(tabs);
+
+      if (!zip) {
+        throw new Error('Failed to create ZIP blob');
+      }
 
       const url = URL.createObjectURL(zip);
       const a = document.createElement('a');
       a.href = url;
       a.download = 'project.zip';
+      a.style.display = 'none';
       document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+
+      // Force download with timeout for mobile
+      setTimeout(() => {
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      }, 100);
 
       toast.success(`✅ ZIP archiv stažen (${tabs.length} souborů)`);
     } catch (error) {
       console.error('ZIP export error:', error);
-      toast.error('Chyba při vytváření ZIP archivu');
+      toast.error('ZIP selhal, stahování souborů...');
+      // Fallback to individual downloads
+      this.downloadAllFiles();
     }
   }
 
   createZipBlob(files) {
-    // Simple ZIP file creation without external library
-    // This creates a basic ZIP structure that works with standard unzip tools
+    try {
+      // Simple ZIP file creation without external library
+      // This creates a basic ZIP structure that works with standard unzip tools
 
-    const encoder = new TextEncoder();
-    const chunks = [];
-    const centralDirectory = [];
-    let offset = 0;
+      const encoder = new TextEncoder();
+      const chunks = [];
+      const centralDirectory = [];
+      let offset = 0;
 
-    files.forEach(file => {
+      files.forEach(file => {
       const filename = file.name;
       const content = encoder.encode(file.content);
       const crc32 = this.calculateCRC32(content);
@@ -756,7 +769,11 @@ class App {
 
     chunks.push(endRecord);
 
-    return new Blob(chunks, { type: 'application/zip' });
+      return new Blob(chunks, { type: 'application/zip' });
+    } catch (error) {
+      console.error('ZIP creation error:', error);
+      return null;
+    }
   }
 
   calculateCRC32(data) {
