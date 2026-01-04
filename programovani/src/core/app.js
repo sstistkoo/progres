@@ -151,6 +151,7 @@ class App {
     eventBus.on('action:preview', () => this.togglePreview());
     eventBus.on('action:newTab', () => this.newTab());
     eventBus.on('action:download', () => this.downloadFile());
+    eventBus.on('action:downloadAll', () => this.downloadAllFiles());
     eventBus.on('action:downloadZip', () => this.exportProjectAsZip());
     eventBus.on('action:validate', () => this.validateCode());
     eventBus.on('action:minify', () => this.minifyCode());
@@ -540,7 +541,7 @@ class App {
     toast.success(`Nový soubor vytvořen: ${fileName}`, 2000);
   }
 
-  exportProjectAsZip() {
+  downloadAllFiles() {
     // Get all open files
     const tabs = state.get('files.tabs') || [];
 
@@ -567,7 +568,7 @@ class App {
       }
 
       // For multiple files, download all files with delay
-      toast.info('📦 Stahování ' + tabs.length + ' souborů...');
+      toast.info('📥 Stahování ' + tabs.length + ' souborů...');
 
       tabs.forEach((tab, index) => {
         setTimeout(() => {
@@ -590,6 +591,190 @@ class App {
       console.error('Export error:', error);
       toast.error('Chyba při exportu souborů');
     }
+  }
+
+  exportProjectAsZip() {
+    // Get all open files
+    const tabs = state.get('files.tabs') || [];
+
+    if (tabs.length === 0) {
+      toast.error('Nejsou žádné otevřené soubory k exportu');
+      return;
+    }
+
+    try {
+      toast.info('📦 Připravuji ZIP archiv...');
+
+      // Create a simple ZIP file using browser APIs
+      // Since we don't have JSZip, we'll create a minimal ZIP structure
+      const zip = this.createZipBlob(tabs);
+
+      const url = URL.createObjectURL(zip);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'project.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`✅ ZIP archiv stažen (${tabs.length} souborů)`);
+    } catch (error) {
+      console.error('ZIP export error:', error);
+      toast.error('Chyba při vytváření ZIP archivu');
+    }
+  }
+
+  createZipBlob(files) {
+    // Simple ZIP file creation without external library
+    // This creates a basic ZIP structure that works with standard unzip tools
+
+    const encoder = new TextEncoder();
+    const chunks = [];
+    const centralDirectory = [];
+    let offset = 0;
+
+    files.forEach(file => {
+      const filename = file.name;
+      const content = encoder.encode(file.content);
+      const crc32 = this.calculateCRC32(content);
+
+      // Local file header
+      const localHeader = new Uint8Array(30 + filename.length);
+      const view = new DataView(localHeader.buffer);
+
+      // Signature
+      view.setUint32(0, 0x04034b50, true);
+      // Version needed
+      view.setUint16(4, 20, true);
+      // Flags
+      view.setUint16(6, 0, true);
+      // Compression (0 = no compression)
+      view.setUint16(8, 0, true);
+      // Mod time
+      view.setUint16(10, 0, true);
+      // Mod date
+      view.setUint16(12, 0, true);
+      // CRC32
+      view.setUint32(14, crc32, true);
+      // Compressed size
+      view.setUint32(18, content.length, true);
+      // Uncompressed size
+      view.setUint32(22, content.length, true);
+      // Filename length
+      view.setUint16(26, filename.length, true);
+      // Extra field length
+      view.setUint16(28, 0, true);
+
+      // Filename
+      const filenameBytes = encoder.encode(filename);
+      localHeader.set(filenameBytes, 30);
+
+      chunks.push(localHeader);
+      chunks.push(content);
+
+      // Store central directory entry
+      centralDirectory.push({
+        filename,
+        crc32,
+        size: content.length,
+        offset
+      });
+
+      offset += localHeader.length + content.length;
+    });
+
+    // Central directory
+    const centralDirStart = offset;
+    centralDirectory.forEach(entry => {
+      const header = new Uint8Array(46 + entry.filename.length);
+      const view = new DataView(header.buffer);
+
+      // Signature
+      view.setUint32(0, 0x02014b50, true);
+      // Version made by
+      view.setUint16(4, 20, true);
+      // Version needed
+      view.setUint16(6, 20, true);
+      // Flags
+      view.setUint16(8, 0, true);
+      // Compression
+      view.setUint16(10, 0, true);
+      // Mod time
+      view.setUint16(12, 0, true);
+      // Mod date
+      view.setUint16(14, 0, true);
+      // CRC32
+      view.setUint32(16, entry.crc32, true);
+      // Compressed size
+      view.setUint32(20, entry.size, true);
+      // Uncompressed size
+      view.setUint32(24, entry.size, true);
+      // Filename length
+      view.setUint16(28, entry.filename.length, true);
+      // Extra field length
+      view.setUint16(30, 0, true);
+      // Comment length
+      view.setUint16(32, 0, true);
+      // Disk number
+      view.setUint16(34, 0, true);
+      // Internal attributes
+      view.setUint16(36, 0, true);
+      // External attributes
+      view.setUint32(38, 0, true);
+      // Offset
+      view.setUint32(42, entry.offset, true);
+
+      // Filename
+      const filenameBytes = encoder.encode(entry.filename);
+      header.set(filenameBytes, 46);
+
+      chunks.push(header);
+      offset += header.length;
+    });
+
+    // End of central directory
+    const endRecord = new Uint8Array(22);
+    const endView = new DataView(endRecord.buffer);
+
+    // Signature
+    endView.setUint32(0, 0x06054b50, true);
+    // Disk number
+    endView.setUint16(4, 0, true);
+    // Disk with central dir
+    endView.setUint16(6, 0, true);
+    // Number of entries on this disk
+    endView.setUint16(8, centralDirectory.length, true);
+    // Total entries
+    endView.setUint16(10, centralDirectory.length, true);
+    // Central directory size
+    endView.setUint32(12, offset - centralDirStart, true);
+    // Central directory offset
+    endView.setUint32(16, centralDirStart, true);
+    // Comment length
+    endView.setUint16(20, 0, true);
+
+    chunks.push(endRecord);
+
+    return new Blob(chunks, { type: 'application/zip' });
+  }
+
+  calculateCRC32(data) {
+    // Simple CRC32 implementation
+    const table = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let j = 0; j < 8; j++) {
+        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      table[i] = c;
+    }
+
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < data.length; i++) {
+      crc = table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
   }
 
   showSearch() {
