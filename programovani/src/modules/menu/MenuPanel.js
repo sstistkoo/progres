@@ -282,7 +282,296 @@ export class MenuPanel {
 
   // Implementation methods
   showGridEditor() {
-    alert('CSS Grid/Flex Editor - Připravujeme pro vás! 🎨\n\nTato funkce umožní vizuální editaci CSS Grid a Flexbox layoutů.');
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-container" style="max-width: 900px;">
+        <div class="modal-header">
+          <h2>📐 CSS Grid/Flex Editor</h2>
+          <button class="modal-close" id="gridEditorClose">&times;</button>
+        </div>
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+          <!-- Layout Type Selection -->
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 10px; font-weight: bold;">Typ layoutu:</label>
+            <div style="display: flex; gap: 10px;">
+              <button id="gridTypeBtn" class="layout-type-btn active" style="flex: 1; padding: 12px; border: 2px solid var(--primary-color); border-radius: 8px; background: var(--primary-color); color: white; cursor: pointer; font-weight: bold;">
+                CSS Grid
+              </button>
+              <button id="flexTypeBtn" class="layout-type-btn" style="flex: 1; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; background: transparent; color: var(--text-color); cursor: pointer;">
+                Flexbox
+              </button>
+            </div>
+          </div>
+
+          <!-- Grid Settings -->
+          <div id="gridSettings" class="layout-settings">
+            <div class="form-group">
+              <label>Sloupce (columns):</label>
+              <input type="number" id="gridColumns" min="1" max="12" value="3" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color);">
+            </div>
+            <div class="form-group">
+              <label>Řádky (rows):</label>
+              <input type="number" id="gridRows" min="1" max="12" value="3" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color);">
+            </div>
+            <div class="form-group">
+              <label>Mezera (gap):</label>
+              <input type="text" id="gridGap" value="20px" placeholder="např. 20px nebo 1rem" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color);">
+            </div>
+            <div class="form-group">
+              <label>Auto-flow:</label>
+              <select id="gridAutoFlow" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color);">
+                <option value="row">Row (řádky)</option>
+                <option value="column">Column (sloupce)</option>
+                <option value="dense">Dense (husté)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Zarovnání obsahu:</label>
+              <select id="gridAlign" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color);">
+                <option value="start">Start</option>
+                <option value="center">Center</option>
+                <option value="end">End</option>
+                <option value="stretch">Stretch</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Flexbox Settings -->
+          <div id="flexSettings" class="layout-settings" style="display: none;">
+            <div class="form-group">
+              <label>Směr (direction):</label>
+              <select id="flexDirection" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color);">
+                <option value="row">Row (vodorovně)</option>
+                <option value="row-reverse">Row Reverse</option>
+                <option value="column">Column (svisle)</option>
+                <option value="column-reverse">Column Reverse</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Zarovnání hlavní osy (justify-content):</label>
+              <select id="flexJustify" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color);">
+                <option value="flex-start">Flex Start</option>
+                <option value="flex-end">Flex End</option>
+                <option value="center">Center</option>
+                <option value="space-between">Space Between</option>
+                <option value="space-around">Space Around</option>
+                <option value="space-evenly">Space Evenly</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Zarovnání příčné osy (align-items):</label>
+              <select id="flexAlign" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color);">
+                <option value="stretch">Stretch</option>
+                <option value="flex-start">Flex Start</option>
+                <option value="flex-end">Flex End</option>
+                <option value="center">Center</option>
+                <option value="baseline">Baseline</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Zalámání (wrap):</label>
+              <select id="flexWrap" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color);">
+                <option value="nowrap">No Wrap</option>
+                <option value="wrap">Wrap</option>
+                <option value="wrap-reverse">Wrap Reverse</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Mezera (gap):</label>
+              <input type="text" id="flexGap" value="20px" placeholder="např. 20px nebo 1rem" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color);">
+            </div>
+          </div>
+
+          <!-- Preview -->
+          <div style="margin-top: 20px;">
+            <label style="display: block; margin-bottom: 10px; font-weight: bold;">Náhled:</label>
+            <div id="layoutPreview" style="border: 2px dashed var(--border-color); border-radius: 8px; padding: 20px; min-height: 200px; background: var(--bg-secondary);">
+              <!-- Preview will be rendered here -->
+            </div>
+          </div>
+
+          <!-- Generated CSS -->
+          <div style="margin-top: 20px;">
+            <label style="display: block; margin-bottom: 10px; font-weight: bold;">Vygenerovaný CSS kód:</label>
+            <textarea id="generatedCSS" readonly style="width: 100%; height: 150px; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-color); font-family: 'Courier New', monospace; font-size: 13px;"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="insertLayoutBtn" class="btn-primary" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            ✅ Vložit do editoru
+          </button>
+          <button id="copyLayoutBtn" class="btn-secondary" style="padding: 10px 20px; background: var(--bg-secondary); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; margin-left: 10px;">
+            📋 Kopírovat CSS
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // State
+    let currentType = 'grid';
+
+    // Elements
+    const gridTypeBtn = modal.querySelector('#gridTypeBtn');
+    const flexTypeBtn = modal.querySelector('#flexTypeBtn');
+    const gridSettings = modal.querySelector('#gridSettings');
+    const flexSettings = modal.querySelector('#flexSettings');
+    const preview = modal.querySelector('#layoutPreview');
+    const cssOutput = modal.querySelector('#generatedCSS');
+
+    // Type switching
+    const switchType = (type) => {
+      currentType = type;
+      if (type === 'grid') {
+        gridTypeBtn.classList.add('active');
+        gridTypeBtn.style.background = 'var(--primary-color)';
+        gridTypeBtn.style.color = 'white';
+        flexTypeBtn.classList.remove('active');
+        flexTypeBtn.style.background = 'transparent';
+        flexTypeBtn.style.color = 'var(--text-color)';
+        gridSettings.style.display = 'block';
+        flexSettings.style.display = 'none';
+      } else {
+        flexTypeBtn.classList.add('active');
+        flexTypeBtn.style.background = 'var(--primary-color)';
+        flexTypeBtn.style.color = 'white';
+        gridTypeBtn.classList.remove('active');
+        gridTypeBtn.style.background = 'transparent';
+        gridTypeBtn.style.color = 'var(--text-color)';
+        flexSettings.style.display = 'block';
+        gridSettings.style.display = 'none';
+      }
+      updatePreview();
+    };
+
+    gridTypeBtn.addEventListener('click', () => switchType('grid'));
+    flexTypeBtn.addEventListener('click', () => switchType('flex'));
+
+    // Update preview and CSS
+    const updatePreview = () => {
+      if (currentType === 'grid') {
+        const columns = modal.querySelector('#gridColumns').value;
+        const rows = modal.querySelector('#gridRows').value;
+        const gap = modal.querySelector('#gridGap').value;
+        const autoFlow = modal.querySelector('#gridAutoFlow').value;
+        const align = modal.querySelector('#gridAlign').value;
+
+        // Generate preview
+        const itemCount = parseInt(columns) * parseInt(rows);
+        preview.style.display = 'grid';
+        preview.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+        preview.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+        preview.style.gap = gap;
+        preview.style.gridAutoFlow = autoFlow;
+        preview.style.alignItems = align;
+        preview.style.justifyItems = align;
+
+        preview.innerHTML = Array.from({ length: itemCount }, (_, i) =>
+          `<div style="background: var(--primary-color); opacity: 0.7; padding: 20px; border-radius: 4px; text-align: center; color: white; font-weight: bold;">${i + 1}</div>`
+        ).join('');
+
+        // Generate CSS
+        cssOutput.value = `.container {
+  display: grid;
+  grid-template-columns: repeat(${columns}, 1fr);
+  grid-template-rows: repeat(${rows}, 1fr);
+  gap: ${gap};
+  grid-auto-flow: ${autoFlow};
+  align-items: ${align};
+  justify-items: ${align};
+}
+
+.container > * {
+  /* Položka */
+}`;
+
+      } else {
+        const direction = modal.querySelector('#flexDirection').value;
+        const justify = modal.querySelector('#flexJustify').value;
+        const align = modal.querySelector('#flexAlign').value;
+        const wrap = modal.querySelector('#flexWrap').value;
+        const gap = modal.querySelector('#flexGap').value;
+
+        // Generate preview
+        preview.style.display = 'flex';
+        preview.style.flexDirection = direction;
+        preview.style.justifyContent = justify;
+        preview.style.alignItems = align;
+        preview.style.flexWrap = wrap;
+        preview.style.gap = gap;
+
+        preview.innerHTML = Array.from({ length: 6 }, (_, i) =>
+          `<div style="background: var(--primary-color); opacity: 0.7; padding: 20px; border-radius: 4px; text-align: center; color: white; font-weight: bold; min-width: 80px;">${i + 1}</div>`
+        ).join('');
+
+        // Generate CSS
+        cssOutput.value = `.container {
+  display: flex;
+  flex-direction: ${direction};
+  justify-content: ${justify};
+  align-items: ${align};
+  flex-wrap: ${wrap};
+  gap: ${gap};
+}
+
+.container > * {
+  /* Položka */
+}`;
+      }
+    };
+
+    // Add event listeners to all inputs
+    modal.querySelectorAll('input, select').forEach(input => {
+      input.addEventListener('input', updatePreview);
+      input.addEventListener('change', updatePreview);
+    });
+
+    // Initial preview
+    updatePreview();
+
+    // Insert button
+    modal.querySelector('#insertLayoutBtn').addEventListener('click', () => {
+      const css = cssOutput.value;
+      const html = currentType === 'grid'
+        ? `<div class="container">\n  <div>Položka 1</div>\n  <div>Položka 2</div>\n  <div>Položka 3</div>\n  <!-- Přidejte více položek -->\n</div>`
+        : `<div class="container">\n  <div>Položka 1</div>\n  <div>Položka 2</div>\n  <div>Položka 3</div>\n  <!-- Přidejte více položek -->\n</div>`;
+
+      const code = `<!-- ${currentType === 'grid' ? 'CSS Grid' : 'Flexbox'} Layout -->\n<style>\n${css}\n</style>\n\n${html}`;
+
+      eventBus.emit('editor:insertText', { text: code });
+      eventBus.emit('toast:show', {
+        message: '✅ Layout vložen do editoru',
+        type: 'success',
+        duration: 2000
+      });
+      modal.remove();
+    });
+
+    // Copy button
+    modal.querySelector('#copyLayoutBtn').addEventListener('click', () => {
+      const css = cssOutput.value;
+      navigator.clipboard.writeText(css).then(() => {
+        eventBus.emit('toast:show', {
+          message: '📋 CSS zkopírováno',
+          type: 'success',
+          duration: 1500
+        });
+      });
+    });
+
+    // Close button
+    modal.querySelector('#gridEditorClose').addEventListener('click', () => {
+      modal.remove();
+    });
+
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
   }
 
   showLiveServer() {
