@@ -76,6 +76,10 @@ export class ShortcutsPanel {
                 <span class="action-icon">⬇️</span>
                 <span class="action-label">Stáhnout</span>
               </button>
+              <button class="action-btn" data-action="downloadZip" title="Stáhnout ZIP">
+                <span class="action-icon">📦</span>
+                <span class="action-label">Stáhnout ZIP</span>
+              </button>
               <button class="action-btn" data-action="closeTab" title="Zavřít (Ctrl+W)">
                 <span class="action-icon">❌</span>
                 <span class="action-label">Zavřít</span>
@@ -303,6 +307,7 @@ export class ShortcutsPanel {
     const actionMap = {
       save: 'action:save',
       download: 'action:download',
+      downloadZip: 'action:downloadZip',
       newFile: 'action:newTab',
       search: 'action:search',
       format: 'action:format',

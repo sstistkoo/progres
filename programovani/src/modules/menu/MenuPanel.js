@@ -98,6 +98,18 @@ export class MenuPanel {
         </div>
 
         <div class="menu-section">
+          <h3>⚙️ Nastavení</h3>
+          <button class="menu-item" data-action="aiSettings">
+            <span class="menu-icon">🤖</span>
+            <span>Nastavení AI</span>
+          </button>
+          <button class="menu-item" data-action="theme">
+            <span class="menu-icon">🎨</span>
+            <span>Přepnout téma</span>
+          </button>
+        </div>
+
+        <div class="menu-section">
           <h3>🛠️ Pokročilé nástroje</h3>
           <button class="menu-item" data-action="gridEditor">
             <span class="menu-icon">📐</span>
@@ -136,10 +148,6 @@ export class MenuPanel {
 
         <div class="menu-section">
           <h3>🔗 Sdílení</h3>
-          <button class="menu-item" data-action="exportZip">
-            <span class="menu-icon">📦</span>
-            <span>Export ZIP</span>
-          </button>
           <button class="menu-item" data-action="share">
             <span class="menu-icon">🔗</span>
             <span>Sdílet odkaz</span>
@@ -158,18 +166,8 @@ export class MenuPanel {
           </button>
         </div>
 
-        <div class="menu-section">
-          <h3>⚙️ Nastavení</h3>
-          <button class="menu-item" data-action="aiSettings">
-            <span class="menu-icon">🤖</span>
-            <span>Nastavení AI</span>
-          </button>
-        </div>
-
         <div class="menu-footer">
           <small>💡 Pro základní akce použijte <strong>logo ⚡</strong> nebo <strong>Ctrl+K</strong></small>
-        </div>
-          <small>👉 Tip: Použijte <strong>logo ⚡</strong> pro základní akce</small>
         </div>
       </nav>
     `;
@@ -192,52 +190,194 @@ export class MenuPanel {
   }
 
   executeAction(action) {
-    const actionMap = {
-      newFile: 'action:newTab',
-      save: 'action:save',
-      download: 'action:download',
-      exportZip: 'action:exportZip',
-      screenshot: 'action:screenshot',
-      share: 'action:share',
-      undo: 'action:undo',
-      redo: 'action:redo',
-      search: 'action:search',
-      replace: 'action:replace',
-      format: 'action:format',
-      validate: 'action:validate',
-      minify: 'action:minify',
-      gridEditor: 'gridEditor:show',
-      gitignore: 'action:gitignore',
-      liveServer: 'liveServer:show',
-      seo: 'seo:show',
-      viewEditor: 'view:change',
-      viewSplit: 'view:change',
-      viewPreview: 'view:change',
-      console: 'console:toggle',
-      components: 'components:show',
-      templates: 'templates:show',
-      images: 'images:show',
-      'github-search': 'github:search',
-      deploy: 'action:deploy',
-      publish: 'action:publish',
-      settings: 'settings:show',
-      aiSettings: 'aiSettings:show',
-      shortcuts: 'shortcuts:show',
-      theme: 'theme:toggle'
-    };
+    console.log('Menu action:', action);
 
-    const event = actionMap[action];
-    if (event) {
-      if (action === 'viewEditor') {
-        eventBus.emit(event, { view: 'editor' });
-      } else if (action === 'viewSplit') {
-        eventBus.emit(event, { view: 'split' });
-      } else if (action === 'viewPreview') {
-        eventBus.emit(event, { view: 'preview' });
-      } else {
-        eventBus.emit(event);
-      }
+    // Direct implementations for menu actions
+    switch (action) {
+      case 'gridEditor':
+        this.showGridEditor();
+        break;
+
+      case 'liveServer':
+        this.showLiveServer();
+        break;
+
+      case 'gitignore':
+        this.createGitignore();
+        break;
+
+      case 'replace':
+        this.showReplaceDialog();
+        break;
+
+      case 'components':
+        this.showComponents();
+        break;
+
+      case 'templates':
+        this.showTemplates();
+        break;
+
+      case 'images':
+        this.showImages();
+        break;
+
+      case 'exportZip':
+        this.exportAsZip();
+        break;
+
+      case 'share':
+        this.shareProject();
+        break;
+
+      case 'github-search':
+        this.githubSearch();
+        break;
+
+      case 'deploy':
+        this.deployProject();
+        break;
+
+      case 'aiSettings':
+        eventBus.emit('aiSettings:show');
+        break;
+
+      case 'theme':
+        this.toggleTheme();
+        break;
+
+      default:
+        // Fallback to event bus for unimplemented actions
+        const actionMap = {
+          newFile: 'action:newTab',
+          save: 'action:save',
+          download: 'action:download',
+          screenshot: 'action:screenshot',
+          undo: 'action:undo',
+          redo: 'action:redo',
+          search: 'action:search',
+          format: 'action:format',
+          validate: 'action:validate',
+          minify: 'action:minify'
+        };
+
+        const event = actionMap[action];
+        if (event) {
+          eventBus.emit(event);
+        }
     }
+  }
+
+  // Implementation methods
+  showGridEditor() {
+    alert('CSS Grid/Flex Editor - Připravujeme pro vás! 🎨\n\nTato funkce umožní vizuální editaci CSS Grid a Flexbox layoutů.');
+  }
+
+  showLiveServer() {
+    alert('Živý Server - Připravujeme! 🌐\n\nSpustí lokální server pro testování vaší stránky s live reload.');
+  }
+
+  createGitignore() {
+    const gitignoreContent = `# Dependencies
+node_modules/
+bower_components/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+*.log
+
+# Environment
+.env
+.env.local`;
+
+    // Create new file with .gitignore content
+    eventBus.emit('file:create', {
+      name: '.gitignore',
+      content: gitignoreContent
+    });
+
+    eventBus.emit('toast:show', {
+      message: '✅ .gitignore soubor vytvořen',
+      type: 'success'
+    });
+  }
+
+  showReplaceDialog() {
+    const searchText = prompt('Hledat text:');
+    if (!searchText) return;
+
+    const replaceText = prompt('Nahradit za:');
+    if (replaceText === null) return;
+
+    eventBus.emit('editor:replace', {
+      search: searchText,
+      replace: replaceText
+    });
+  }
+
+  showComponents() {
+    alert('Komponenty - Připravujeme! 🧩\n\nKnihovny často používaných HTML komponent (tlačítka, karty, formuláře...)');
+  }
+
+  showTemplates() {
+    alert('Šablony - Připravujeme! 📋\n\nHotové šablony stránek (landing page, portfolio, dashboard...)');
+  }
+
+  showImages() {
+    alert('Obrázky - Připravujeme! 🖼️\n\nNástroj pro správu a optimalizaci obrázků v projektu.');
+  }
+
+  exportAsZip() {
+    eventBus.emit('action:exportZip');
+    eventBus.emit('toast:show', {
+      message: '📦 Připravuji ZIP export...',
+      type: 'info'
+    });
+  }
+
+  shareProject() {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      eventBus.emit('toast:show', {
+        message: '🔗 Odkaz zkopírován do schránky',
+        type: 'success'
+      });
+    }).catch(() => {
+      prompt('Sdílet projekt - zkopírujte odkaz:', url);
+    });
+  }
+
+  githubSearch() {
+    const query = prompt('Hledat na GitHubu:');
+    if (query) {
+      window.open(`https://github.com/search?q=${encodeURIComponent(query)}&type=repositories`, '_blank');
+    }
+  }
+
+  deployProject() {
+    alert('Deploy projekt - Připravujeme! 🚀\n\nAutomatický deploy na GitHub Pages, Netlify nebo Vercel.');
+  }
+
+  toggleTheme() {
+    document.body.classList.toggle('light-theme');
+    const isLight = document.body.classList.contains('light-theme');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+
+    eventBus.emit('toast:show', {
+      message: `${isLight ? '☀️' : '🌙'} Téma změněno`,
+      type: 'success'
+    });
   }
 
   updateOpenFilesList() {
