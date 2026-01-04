@@ -249,8 +249,12 @@
       const APP_VERSION = '2.3.0-full-deploy';
       const lastVersion = localStorage.getItem('app_version');
 
+      // Detect mobile device
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
       if (lastVersion !== APP_VERSION) {
         console.log('🔄 Detekována nová verze, mazání cache...');
+        console.log('📱 Mobilní zařízení:', isMobile);
 
         // Unregister all service workers
         if ('serviceWorker' in navigator) {
@@ -281,11 +285,23 @@
         // Force hard reload with cache bypass
         if (lastVersion && lastVersion !== APP_VERSION) {
           console.log('🔄 Vynucený hard reload...');
-          // Add timestamp to URL to force fresh load
-          const url = new URL(window.location.href);
-          url.searchParams.set('_t', Date.now());
           localStorage.setItem('app_version', APP_VERSION);
-          window.location.href = url.toString();
+
+          // Extra aggressive reload for mobile
+          if (isMobile) {
+            console.log('📱 Mobilní hard reload s cache bypass...');
+            // Add timestamp to URL to force fresh load
+            const url = new URL(window.location.href);
+            url.searchParams.set('_t', Date.now());
+            url.searchParams.set('_v', APP_VERSION);
+            // Use location.replace for harder reload
+            window.location.replace(url.toString());
+          } else {
+            // Add timestamp to URL to force fresh load
+            const url = new URL(window.location.href);
+            url.searchParams.set('_t', Date.now());
+            window.location.href = url.toString();
+          }
           // Stop execution after redirect
         } else {
           // DŮLEŽITÉ: localStorage NEMAZAT - obsahuje důležitá uživatelská data!
