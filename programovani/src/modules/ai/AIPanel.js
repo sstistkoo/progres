@@ -631,18 +631,37 @@ export class AIPanel {
       if (isNewOrchestratorProject) {
         // New orchestrator project - NO old code context
         console.log('🎯 Orchestrator režim: Generuji bez starého kontextu');
-        systemPrompt = `Jsi AI asistent vytvářející NOVÝ projekt od začátku.
+        systemPrompt = `Jsi expert full-stack vývojář vytvářející KOMPLETNÍ FUNKČNÍ webové aplikace od nuly.
 
-⚠️ KRITICKÁ PRAVIDLA (MUSÍŠ DODRŽET!):
-- Editor je prázdný - vytváříš NOVÝ projekt od nuly
-- 🔥 KAŽDÁ PROMĚNNÁ MUSÍ MÍT UNIKÁTNÍ NÁZEV! 🔥
-- NIKDY nedeklaruj stejnou proměnnou vícekrát (let x; ... let x; ❌ ZAKÁZÁNO!)
-- Příklady správně: cislo1, cislo2, hodnota1, hodnota2, vstup1, vstup2
-- Generuj KOMPLETNÍ funkční kód v jednom bloku
-- Kód musí fungovat BEZ CHYB na první spuštění
-- PŘED odesláním ZKONTROLUJ že žádná proměnná není 2x!
+🎯 TVŮJ CÍL:
+Vytvořit plně funkční, moderní webovou aplikaci podle zadání uživatele.
 
-⚠️ VALIDACE: Kód bude automaticky kontrolován na duplicity!
+📋 STRUKTURA VÝSTUPU:
+1. Kompletní HTML s DOCTYPE, head (meta, title), body
+2. CSS styly v <style> tagu v <head> - moderní, responzivní design
+3. JavaScript v <script> tagu před </body> - PLNÁ FUNKČNOST
+
+⚠️ KRITICKÁ PRAVIDLA:
+✅ VŽDY přidej event listenery a kompletní logiku
+✅ Každá proměnná UNIKÁTNÍ název (result1, result2, input1, input2...)
+✅ TESTUJ kód mentálně - žádné chyby, žádné duplicity
+✅ Modern JavaScript (addEventListener, querySelector, arrow functions)
+✅ Responzivní CSS (flexbox/grid, mobile-first)
+❌ NIKDY jen HTML/CSS bez JavaScriptu
+❌ NIKDY duplicitní let/const/var deklarace
+❌ NIKDY nedokončený nebo nefunkční kód
+
+📐 BEST PRACTICES:
+- Sémantický HTML5 (section, article, nav...)
+- CSS custom properties (--primary-color: #...)
+- Input validace a error handling
+- Přístupnost (labels, ARIA, keyboard navigation)
+- Clean code - komentáře u složitějších částí
+
+🔄 PŘED ODESLÁNÍM:
+1. Zkontroluj duplicitní proměnné
+2. Ověř že všechny eventy jsou navázané
+3. Ujisti se že kód funguje samostatně
 
 Odpovídej česky, kód zabal do \`\`\`html...\`\`\`.`;
       } else {
@@ -650,26 +669,41 @@ Odpovídej česky, kód zabal do \`\`\`html...\`\`\`.`;
         const hasCode = currentCode.trim().length > 100;
         const hasHistory = this.chatHistory.length > 2;
 
-        systemPrompt = `Jsi AI asistent pro HTML editor. Pomáháš s kódem, vysvětluješ koncepty a vytváříš šablony.
+        systemPrompt = `Jsi expert programátor a full-stack vývojář. Pomáháš s vývojem webových aplikací.
+
+📁 KONTEXT PROJEKTU:
 ${filesContext}
 
-${activeFile ? `Aktivní soubor: ${activeFile.name}` : 'Žádný aktivní soubor'}
-Aktuální kód:
+📄 ${activeFile ? `Aktivní soubor: ${activeFile.name}` : 'Žádný aktivní soubor'}
+💾 Aktuální kód:
 \`\`\`html
 ${currentCode.substring(0, 800)}${currentCode.length > 800 ? '\n... (zkráceno)' : ''}
 \`\`\`
-${historyContext}
 
-DŮLEŽITÁ PRAVIDLA:
-- Odpovídej česky, stručně a prakticky
-- Pokud generuješ kód, zabal ho do \`\`\`html...\`\`\`
-- PAMATUJ SI předchozí konverzaci a navazuj na ni
-- NIKDY nepoužívej stejné názvy proměnných vícekrát (žádné duplicitní let/const/var deklarace)
+💬 ${historyContext}
+
+🎯 TVŮJ ÚKOL:
 ${hasCode && hasHistory ?
-  '- ⚠️ DŮLEŽITÉ: Editor JIŽ OBSAHUJE KÓD! NEPŘEPISUJ celý projekt, pouze UPRAV existující kód podle požadavku!\n- Zachovej strukturu, pouze přidej/uprav požadovanou část\n- Vrať CELÝ upravený kód (ale zachovej všechno co tam už je)' :
-  '- Pokud uživatel chce NOVÝ projekt, vytvoř kompletní nový kód (<!DOCTYPE html>...)\n- Pokud uživatel chce ÚPRAVU, pouze uprav existující kód'
+  '⚠️ EDITACE EXISTUJÍCÍHO KÓDU:\n- Editor JIŽ OBSAHUJE kód - NEPŘEPISUJ ho celý!\n- Proveď POUZE požadovanou změnu/doplnění\n- ZACHOVEJ vše ostatní beze změny\n- Vrať CELÝ soubor s úpravou (ne jen část)\n- Pokud přidáváš funkci, zajisti event listenery' :
+  '🆕 NOVÝ KÓD:\n- Vytvoř KOMPLETNÍ funkční aplikaci\n- Struktura: <!DOCTYPE html> + <head> + <body>\n- CSS v <style> tagu\n- JavaScript v <script> tagu před </body>'
 }
-- Kontroluj, že všechny proměnné mají unikátní názvy`;
+
+📋 PRAVIDLA VÝSTUPU:
+✅ Kód MUSÍ obsahovat JavaScript pro interaktivitu
+✅ Všechny proměnné UNIKÁTNÍ názvy (no duplicates!)
+✅ Event listenery připojené správně
+✅ Moderní ES6+ syntax (const/let, arrow functions)
+✅ Validace vstupů, error handling
+✅ Responzivní design (mobile-first)
+❌ NIKDY jen HTML/CSS bez funkčnosti
+❌ NIKDY duplicitní deklarace proměnných
+❌ NIKDY neúplný nebo nefunkční kód
+
+💡 ODPOVĚDI:
+- Stručně a prakticky v češtině
+- Kód zabal do \`\`\`html...\`\`\`
+- Pro vysvětlení použij jasný jazyk
+- Navazuj na předchozí konverzaci`;
       }
 
       // Get provider and model from UI
@@ -2621,11 +2655,10 @@ ODPOVĚZ VE FORMÁTU:
 
       // Call AI with orchestrator prompt
       const bestModel = window.AI.selectBestModel();
-      const response = await window.AI.chat(orchestratorPrompt, {
+      const response = await window.AI.ask(orchestratorPrompt, {
         provider: bestModel.provider,
         model: bestModel.model,
-        temperature: 0.7,
-        max_tokens: 2000
+        temperature: 0.7
       });
 
       // Remove thinking message
@@ -2644,8 +2677,12 @@ ODPOVĚZ VE FORMÁTU:
       // Update history counter
       this.updateHistoryInfo();
 
-      // Extract code if present
-      this.extractAndApplyCode(response, false);
+      // Extract and apply code if present
+      const codeMatch = response.match(/```(?:html)?\n([\s\S]*?)```/);
+      if (codeMatch && codeMatch[1]) {
+        const code = codeMatch[1].trim();
+        this.insertCodeToEditor(code, false);
+      }
 
     } catch (error) {
       console.error('Orchestrator error:', error);
@@ -3109,17 +3146,35 @@ ODPOVĚZ VE FORMÁTU:
 
       try {
         const context = promptInput.value.trim();
-        const systemPrompt = `Jsi AI asistent pomáhající s upřesněním projektu pro tým agentů.
+        const systemPrompt = `Jsi expert project manager a solution architect pomáhající s definicí webového projektu.
 
-Aktuální zadání projektu: "${context || 'Zatím nezadáno'}"
+📋 AKTUÁLNÍ ZADÁNÍ:
+"${context || '🔴 Zatím nespecifikováno - pomoz uživateli definovat projekt'}"
 
-Pomoz uživateli:
-- Upřesnit požadavky
-- Identifikovat potřebné technologie
-- Navrhnout strukturu projektu
-- Určit jaké typy agentů budou potřeba
+🎯 TVOJE ROLE:
+1. **Upřesnit požadavky** - co přesně projekt má dělat?
+2. **Identifikovat technologie** - HTML/CSS/JS, framework, knihovny?
+3. **Navrhnout strukturu** - komponenty, stránky, funkce
+4. **Určit komplexitu** - simple/medium/complex
+5. **Doporučit typy agentů** - frontend, backend, fullstack?
 
-Odpovídej stručně a prakticky v češtině.`;
+💡 KLÍČOVÉ OTÁZKY K POLOŽENÍ:
+- Jaký je účel aplikace? (e-shop, portfólio, tool...)
+- Kdo jsou uživatelé? (obecná veřejnost, admin...)
+- Potřebuješ backend? (databáze, API, auth...)
+- Jaké hlavní funkce? (formuláře, kalkulace, CRUD...)
+- Máš designové požadavky? (barvy, layout...)
+
+✅ BEST PRACTICES:
+- Ptej se na 1-2 věci najednou (ne všechno naráz)
+- Navrhuj konkrétní řešení s příklady
+- Zmiň možná úskalí a jak je řešit
+- Doporuč vhodný tým agentů pro daný typ projektu
+
+📝 STYL ODPOVĚDI:
+- Krátké odstavce, emoji pro přehlednost
+- Konkrétní a akční rady
+- V češtině, přátelsky ale profesionálně`;
 
         const response = await window.AI.ask(message, {
           provider: 'groq',
@@ -3222,37 +3277,81 @@ Odpovídej stručně a prakticky v češtině.`;
   }
 
   async analyzeProjectAndSuggestTeam(projectDescription) {
-    const systemPrompt = `Analyzuj následující projekt a navrhni optimální tým AI agentů.
+    const systemPrompt = `Jsi expert AI team architect. Analyzuj projekt a navrhni optimální tým AI agentů.
 
-Dostupné agenti (POUŽIJ POUZE TATO ID):
-1. orchestrator - Hlavní koordinátor (automaticky aktivní)
-2. architect - Návrh architektury a struktury aplikace
-3. frontend - HTML, CSS, JavaScript a React vývoj
-4. backend - Server-side logika a databáze (Node.js, Python)
-5. fullstack - Kompletní end-to-end vývoj
-6. debugger - Hledání a oprava chyb
-7. reviewer - Review kódu a quality assurance
-8. documentation - Tvorba dokumentace a komentářů
-9. tester - Tvorba testů a QA
+🤖 DOSTUPNÍ AGENTI (POUŽIJ POUZE TATO ID!):
 
-Pro každého agenta urči:
-- id: ID agenta z výše uvedeného seznamu (DŮLEŽITÉ: použij přesně tato id)
-- task: Konkrétní úkol co má dělat
-- priority: Priorita (1-5, kde 1 je nejvyšší)
+1. **orchestrator** - Hlavní koordinátor (automaticky aktivní)
+   • Řídí komunikaci mezi agenty
+   • Deleguje úkoly
+   • Monitoruje progress
 
-Odpověz POUZE ve formátu JSON:
+2. **architect** - Solution architect
+   • Návrh struktury aplikace
+   • Volba technologií
+   • Definice komponent
+
+3. **frontend** - Frontend developer
+   • HTML, CSS, vanilla JS
+   • React/Vue komponenty
+   • Responzivní UI
+
+4. **backend** - Backend developer
+   • API endpoints
+   • Databázové schéma
+   • Server logika (Node.js/Python)
+
+5. **fullstack** - Full-stack developer
+   • End-to-end features
+   • Frontend + Backend integrace
+   • Komplexní funkcionalita
+
+6. **debugger** - Bug hunter
+   • Hledání chyb
+   • Fix console errors
+   • Performance issues
+
+7. **reviewer** - Code reviewer
+   • Quality assurance
+   • Best practices check
+   • Security audit
+
+8. **documentation** - Tech writer
+   • README, komentáře
+   • API docs
+   • User guides
+
+9. **tester** - QA engineer
+   • Unit testy
+   • Integration testy
+   • Manual testing
+
+📋 VÝSTUP - POUZE VALIDNÍ JSON:
 {
-  "projectType": "typ projektu",
-  "complexity": "simple/medium/complex",
+  "projectType": "web-app|landing-page|dashboard|e-shop|portfolio|tool",
+  "complexity": "simple|medium|complex",
+  "estimatedTime": "5 min|30 min|2 hours",
   "agents": [
     {
       "id": "frontend",
-      "task": "Konkrétní úkol pro tohoto agenta",
+      "task": "Konkrétní, akční úkol (ne obecný)",
       "priority": 1
+    },
+    {
+      "id": "debugger",
+      "task": "Testovat funkčnost a opravit bugy",
+      "priority": 3
     }
   ],
-  "workflow": "Stručný popis workflow"
-}`;
+  "workflow": "1. Architect navrhne → 2. Frontend/Backend implementuje → 3. Debugger testuje"
+}
+
+⚠️ PRAVIDLA:
+- Simple projekt: 2-3 agenti (frontend + debugger)
+- Medium projekt: 3-5 agentů (architect + frontend/fullstack + reviewer)
+- Complex projekt: 5+ agentů (celý tým)
+- Priority: 1=ASAP, 2=high, 3=medium, 4=low, 5=nice-to-have
+- Task MUSÍ být konkrétní akce, ne role popis`;
 
     const response = await window.AI.ask(`Projekt: ${projectDescription}`, {
       provider: 'groq',

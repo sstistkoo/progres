@@ -54,16 +54,30 @@ export class Preview {
 
   update(code) {
     try {
-      // Inject console capture script
-      const wrappedCode = this.injectConsoleCapture(code);
+      // Completely reload iframe to avoid duplicate variable declarations
+      const oldIframe = this.iframe;
+      const newIframe = document.createElement('iframe');
+      newIframe.className = 'preview-frame';
+      newIframe.id = 'previewFrame';
+      newIframe.sandbox = 'allow-scripts allow-same-origin allow-forms';
 
-      // Write to iframe
-      const doc = this.iframe.contentDocument || this.iframe.contentWindow.document;
-      doc.open();
-      doc.write(wrappedCode);
-      doc.close();
+      // Replace old iframe
+      this.container.replaceChild(newIframe, oldIframe);
+      this.iframe = newIframe;
 
-      eventBus.emit('preview:updated', { code });
+      // Wait for iframe to be ready
+      setTimeout(() => {
+        // Inject console capture script
+        const wrappedCode = this.injectConsoleCapture(code);
+
+        // Write to new iframe
+        const doc = this.iframe.contentDocument || this.iframe.contentWindow.document;
+        doc.open();
+        doc.write(wrappedCode);
+        doc.close();
+
+        eventBus.emit('preview:updated', { code });
+      }, 10);
     } catch (error) {
       console.error('Preview update error:', error);
       this.showError(error);
