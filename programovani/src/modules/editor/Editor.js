@@ -12,6 +12,7 @@ export class Editor {
     this.textarea = null;
     this.lineNumbers = null;
     this.wrapper = null;
+    this.tabsContainer = null;
     this.history = {
       past: [],
       future: [],
@@ -28,6 +29,7 @@ export class Editor {
 
     this.init();
     this.setupEventListeners();
+    this.initTabs();
   }
 
   init() {
@@ -275,7 +277,145 @@ export class Editor {
     this.textarea = null;
     this.lineNumbers = null;
     this.wrapper = null;
+    this.tabsContainer = null;
     this.handlers = null;
+  }
+
+  initTabs() {
+    this.tabsContainer = document.getElementById('editorTabs');
+    if (!this.tabsContainer) return;
+
+    // Listen to state changes for tabs
+    state.subscribe('files.tabs', tabs => {
+      this.renderTabs(tabs);
+    });
+
+    state.subscribe('files.active', activeId => {
+      this.updateActiveTab(activeId);
+    });
+
+    // Initial render
+    const tabs = state.get('files.tabs') || [];
+    this.renderTabs(tabs);
+  }
+
+  renderTabs(tabs) {
+    if (!this.tabsContainer) return;
+
+    this.tabsContainer.innerHTML = '';
+
+    tabs.forEach(tab => {
+      const tabEl = document.createElement('div');
+      tabEl.className = 'editor-tab';
+      tabEl.dataset.tabId = tab.id;
+
+      if (tab.id === state.get('files.active')) {
+        tabEl.classList.add('active');
+      }
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'editor-tab-name';
+      nameSpan.textContent = tab.name;
+
+      tabEl.appendChild(nameSpan);
+
+      // Modified indicator
+      if (tab.modified) {
+        const modifiedDot = document.createElement('span');
+        modifiedDot.className = 'editor-tab-modified';
+        tabEl.appendChild(modifiedDot);
+      }
+
+      // Close button
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'editor-tab-close';
+      closeBtn.innerHTML = `<svg viewBox="0 0 16 16" fill="currentColor">
+        <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/>
+      </svg>`;
+
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeTab(tab.id);
+      });
+
+      tabEl.appendChild(closeBtn);
+
+      // Tab click
+      tabEl.addEventListener('click', () => {
+        this.switchTab(tab.id);
+      });
+
+      this.tabsContainer.appendChild(tabEl);
+    });
+  }
+
+  updateActiveTab(activeId) {
+    if (!this.tabsContainer) return;
+
+    const tabs = this.tabsContainer.querySelectorAll('.editor-tab');
+    tabs.forEach(tab => {
+      if (tab.dataset.tabId === activeId) {
+        tab.classList.add('active');
+        // Scroll into view
+        tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      } else {
+        tab.classList.remove('active');
+      }
+    });
+  }
+
+  switchTab(tabId) {
+    const tabs = state.get('files.tabs') || [];
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    // Save current tab
+    const currentActive = state.get('files.active');
+    if (currentActive) {
+      const currentTab = tabs.find(t => t.id === currentActive);
+      if (currentTab) {
+        currentTab.content = this.getCode();
+        currentTab.modified = true;
+      }
+    }
+
+    // Switch to new tab
+    state.set('files.active', tabId);
+    this.setCode(tab.content || '');
+    eventBus.emit('tab:switched', { tabId });
+  }
+
+  closeTab(tabId) {
+    const tabs = state.get('files.tabs') || [];
+    const tabIndex = tabs.findIndex(t => t.id === tabId);
+    if (tabIndex === -1) return;
+
+    const tab = tabs[tabIndex];
+
+    // Confirm if modified
+    if (tab.modified) {
+      if (!confirm(`Soubor "${tab.name}" má neuložené změny. Opravdu zavřít?`)) {
+        return;
+      }
+    }
+
+    // Remove tab
+    tabs.splice(tabIndex, 1);
+    state.set('files.tabs', tabs);
+
+    // Switch to adjacent tab
+    const activeId = state.get('files.active');
+    if (activeId === tabId) {
+      if (tabs.length > 0) {
+        const newIndex = Math.min(tabIndex, tabs.length - 1);
+        this.switchTab(tabs[newIndex].id);
+      } else {
+        state.set('files.active', null);
+        this.setCode(this.getDefaultCode());
+      }
+    }
+
+    eventBus.emit('tab:closed', { tabId });
   }
 }
 

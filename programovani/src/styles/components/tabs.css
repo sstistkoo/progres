@@ -1,0 +1,133 @@
+/* Editor Tabs */
+.editor-tabs-container {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.editor-tabs {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-light) var(--bg-secondary);
+  padding: 0;
+  min-height: 36px;
+}
+
+.editor-tabs::-webkit-scrollbar {
+  height: 4px;
+}
+
+.editor-tabs::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.editor-tabs::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 2px;
+}
+
+.editor-tabs::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+.editor-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 120px;
+  max-width: 200px;
+  position: relative;
+}
+
+.editor-tab:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.editor-tab.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--accent);
+}
+
+.editor-tab-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-tab-modified {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.editor-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.editor-tab:hover .editor-tab-close {
+  opacity: 1;
+}
+
+.editor-tab-close:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.editor-tab-close svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .editor-tab {
+    min-width: 100px;
+    max-width: 150px;
+    padding: 8px 12px;
+  }
+
+  .editor-tabs-container {
+    min-height: 40px;
+  }
+}
+
+/* Light theme */
+.light-theme .editor-tabs-container {
+  background: #f5f5f5;
+}
+
+.light-theme .editor-tab {
+  background: #f5f5f5;
+}
+
+.light-theme .editor-tab:hover {
+  background: #ebebeb;
+}
+
+.light-theme .editor-tab.active {
+  background: #fff;
+}

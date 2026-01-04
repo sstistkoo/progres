@@ -250,18 +250,35 @@ class App {
     const code = state.get('editor.code');
     const activeFile = state.get('files.active');
 
+    // Get filename
+    let filename = 'untitled.html';
     if (activeFile) {
-      // Update file content
       const tabs = state.get('files.tabs');
       const tab = tabs.find(t => t.id === activeFile);
       if (tab) {
+        filename = tab.name;
+        // Update file content in memory too
         tab.content = code;
         tab.modified = false;
         state.set('files.tabs', tabs);
-        toast.success('Soubor uložen', 2000);
       }
-    } else {
-      toast.info('Žádný aktivní soubor', 2000);
+    }
+
+    // Download file
+    try {
+      const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Soubor ${filename} stažen`, 2000);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Chyba při stahování souboru', 3000);
     }
   }
 

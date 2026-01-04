@@ -84,7 +84,7 @@ const AI = {
 
         // Výchozí modely - nejlepší z každého providera
         models: {
-            gemini: 'gemini-1.5-flash',           // Nejchytřejší Gemini
+            gemini: 'gemini-2.5-flash',           // Gemini 2.5 Flash jako výchozí
             groq: 'llama-3.3-70b-versatile',      // Nejchytřejší Groq
             openrouter: 'mistralai/mistral-small-3.1-24b-instruct:free',
             mistral: 'mistral-small-latest',
@@ -288,11 +288,13 @@ const AI = {
 
         // Získej limit pro providera/model
         _getLimit(provider, model) {
-            // Specifické limity pro modely
+            // Specifické limity pro modely (aktualizováno prosinec 2025)
             const modelLimits = {
-                'gemini-2.5-flash-lite': 15,
-                'gemini-2.5-flash': 10,
-                'gemini-3-pro-preview': 2
+                'gemini-2.5-flash-lite': 30,
+                'gemini-2.5-flash': 15,
+                'gemini-2.5-pro': 5,
+                'gemini-2.5-pro-exp-03-25': 15,
+                'gemini-3-flash-preview': 15
             };
             if (model && modelLimits[model]) {
                 return modelLimits[model];
@@ -473,8 +475,11 @@ const AI = {
     // ============== VŠECHNY MODELY (seřazené od nejlepších) ==============
     ALL_MODELS: {
         gemini: [
-            { value: "gemini-2.5-flash", name: "🧠 Gemini 2.5 Flash", rpm: 10, quality: 95 },
-            { value: "gemini-2.5-flash-lite", name: "⚡ Gemini 2.5 Flash-Lite", rpm: 15, quality: 85 }
+            { value: "gemini-2.5-flash", name: "🧠 Gemini 2.5 Flash", rpm: 15, quality: 95 },
+            { value: "gemini-2.5-flash-lite", name: "⚡ Gemini 2.5 Flash-Lite", rpm: 30, quality: 85 },
+            { value: "gemini-3-flash-preview", name: "⚡ Gemini 3.0 Flash (Preview)", rpm: 15, quality: 96 },
+            { value: "gemini-2.5-pro", name: "🧠 Gemini 2.5 Pro", rpm: 5, quality: 97 },
+            { value: "gemini-2.5-pro-exp-03-25", name: "🔬 Gemini 2.5 Pro Experimental", rpm: 15, quality: 98 }
         ],
         groq: [
             { value: "llama-3.3-70b-versatile", name: "🧠 Llama 3.3 70B (nejchytřejší)", rpm: 30, quality: 90 },
@@ -907,37 +912,64 @@ const AI = {
                 name: 'Google Gemini',
                 models: [
                     {
-                        value: 'gemini-1.5-flash',
-                        label: 'Gemini 1.5 Flash',
+                        value: 'gemini-2.5-flash',
+                        label: 'Gemini 2.5 Flash',
                         free: true,
                         rpm: 15,
+                        dailyLimit: '~1,500',
                         context: '1M tokens',
                         performance: 'excellent',
-                        quality: 93,
-                        speed: 90,
-                        description: 'Extrémně dlouhý kontext, rychlý a free - TOP pro dlouhé texty'
+                        quality: 95,
+                        speed: 88,
+                        description: 'Nejlepší volba pro většinu použití. Free tier s vysokým limitem.'
                     },
                     {
-                        value: 'gemini-1.5-pro',
-                        label: 'Gemini 1.5 Pro',
-                        free: false,
-                        rpm: 2,
-                        context: '2M tokens',
-                        performance: 'best',  // absolutně nejlepší
-                        quality: 98,
-                        speed: 70,
-                        description: 'Nejchytřejší Gemini, placený - NEJLEPŠÍ kvalita'
-                    },
-                    {
-                        value: 'gemini-1.0-pro',
-                        label: 'Gemini 1.0 Pro',
+                        value: 'gemini-2.5-flash-lite',
+                        label: 'Gemini 2.5 Flash-Lite',
                         free: true,
-                        rpm: 60,
-                        context: '32K tokens',
-                        performance: 'good',
+                        rpm: 30,
+                        dailyLimit: 'vysoký',
+                        context: '128K tokens',
+                        performance: 'fast',
                         quality: 85,
-                        speed: 92,
-                        description: 'Starší verze, vysoký RPM pro jednoduché úkoly'
+                        speed: 98,
+                        description: 'Optimalizovaný pro rychlost. Nejvyšší RPM v free tier.'
+                    },
+                    {
+                        value: 'gemini-3-flash-preview',
+                        label: 'Gemini 3.0 Flash (Preview)',
+                        free: true,
+                        rpm: 15,
+                        dailyLimit: '~1,500',
+                        context: '1M tokens',
+                        performance: 'excellent',
+                        quality: 96,
+                        speed: 90,
+                        description: 'Nejnovější multimodální model. Preview verze, free tier.'
+                    },
+                    {
+                        value: 'gemini-2.5-pro',
+                        label: 'Gemini 2.5 Pro',
+                        free: true,
+                        rpm: 5,
+                        dailyLimit: '~100',
+                        context: '2M tokens',
+                        performance: 'best',
+                        quality: 97,
+                        speed: 70,
+                        description: 'Nejvyšší kvalita, silně omezený od prosince 2025. Nízké RPM a denní limit.'
+                    },
+                    {
+                        value: 'gemini-2.5-pro-exp-03-25',
+                        label: 'Gemini 2.5 Pro Experimental',
+                        free: true,
+                        rpm: 15,
+                        dailyLimit: 'vyšší',
+                        context: '2M tokens',
+                        performance: 'best',
+                        quality: 98,
+                        speed: 75,
+                        description: 'Experimentální verze Pro s vyššími limity než běžný Pro.'
                     }
                 ]
             },
