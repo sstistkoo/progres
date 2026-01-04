@@ -251,7 +251,7 @@ export class MenuPanel {
         break;
 
       case 'aiSettings':
-        eventBus.emit('aiSettings:show');
+        this.showAISettings();
         break;
 
       case 'theme':
@@ -1536,6 +1536,621 @@ build/
     });
   }
 
+  showAISettings() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.style.opacity = '1';
+    modal.innerHTML = `
+      <div class="modal-container" style="max-width: 1100px; max-height: 90vh; overflow-y: auto; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 16px;">
+        <div class="modal-header" style="background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
+          <h2 style="color: var(--text-primary);">🤖 Nastavení AI</h2>
+          <button class="modal-close" id="aiSettingsClose" style="color: var(--text-primary);">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 24px;">
+
+          <!-- Provider tabs -->
+          <div class="ai-settings-card" style="background: var(--bg-secondary); border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+            <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 18px;">🔧</span>
+              <span>Vyber AI Providera</span>
+            </div>
+
+            <div class="provider-tabs" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+              <button class="provider-tab active" data-provider="gemini" style="padding: 12px 20px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: 1px solid transparent; border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: white; transition: all 0.2s;">
+                <span style="font-size: 18px;">💎</span> Google Gemini
+              </button>
+              <button class="provider-tab" data-provider="openai" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
+                <span style="font-size: 18px;">🧠</span> OpenAI
+              </button>
+              <button class="provider-tab" data-provider="claude" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
+                <span style="font-size: 18px;">🎭</span> Claude
+              </button>
+              <button class="provider-tab" data-provider="groq" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
+                <span style="font-size: 18px;">⚡</span> Groq
+              </button>
+              <button class="provider-tab" data-provider="openrouter" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
+                <span style="font-size: 18px;">🌐</span> OpenRouter
+              </button>
+              <button class="provider-tab" data-provider="mistral" style="padding: 12px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); transition: all 0.2s;">
+                <span style="font-size: 18px;">🔥</span> Mistral
+              </button>
+            </div>
+
+            <!-- Model selection -->
+            <div class="model-section" style="display: grid; grid-template-columns: 1fr auto; gap: 15px; align-items: end; margin-bottom: 20px;">
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Model</label>
+                <select id="aiModelSelect" style="width: 100%; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px;">
+                  <option value="">Načítání...</option>
+                </select>
+              </div>
+              <div class="model-info" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 10px; padding: 12px 16px; font-size: 12px; color: #3b82f6; white-space: nowrap;">
+                <div style="font-size: 20px; font-weight: bold; color: #3b82f6;" id="modelRPM">15 RPM</div>
+                <div>Rychlost</div>
+              </div>
+            </div>
+
+            <!-- API Keys section -->
+            <div style="margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label style="display: block; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">API Klíče <span id="currentProviderName" style="color: var(--text-primary);">(Gemini)</span></label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); cursor: pointer;">
+                  <input type="checkbox" id="useDemoKeys" style="cursor: pointer;">
+                  <span>Použít demo klíče</span>
+                </label>
+              </div>
+              <div class="keys-grid" id="keysGridCustom" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; max-height: 200px; overflow-y: auto; padding-right: 8px; margin-bottom: 16px;">
+                <!-- Custom keys will be inserted here -->
+              </div>
+              <div style="margin-top: 8px; font-size: 11px; color: var(--text-secondary);">
+                ✅ = vlastní klíč | ⚠️ = demo klíč | ○ = žádný klíč
+              </div>
+              <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button id="addKeyBtn" style="padding: 10px 20px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;">
+                  ➕ Přidat klíč
+                </button>
+                <button id="saveKeysBtn" style="padding: 10px 20px; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;">
+                  💾 Uložit nastavení
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat Box -->
+          <div class="ai-settings-card" style="background: var(--bg-secondary); border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+            <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 18px;">💬</span>
+              <span>Test Chat</span>
+            </div>
+
+            <div id="chatMessages" style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; min-height: 200px; max-height: 300px; overflow-y: auto; margin-bottom: 12px; font-size: 13px; line-height: 1.6;">
+              <div style="text-align: center; color: var(--text-secondary); padding: 40px; font-style: italic;">
+                Začni konverzaci...
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <textarea id="chatInput" placeholder="Napiš zprávu..." style="flex: 1; min-height: 60px; max-height: 120px; resize: vertical; padding: 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px; font-family: inherit;"></textarea>
+              <button id="chatSendBtn" style="padding: 0 24px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 20px; transition: all 0.2s;">
+                📤
+              </button>
+            </div>
+          </div>
+
+          <!-- Historie chatu -->
+          <div class="ai-settings-card" style="background: var(--bg-secondary); border-radius: 16px; padding: 20px; border: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; cursor: pointer;" id="historyToggleHeader">
+              <div style="font-size: 14px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">📜</span>
+                <span>Historie chatu</span>
+              </div>
+              <span style="transition: transform 0.3s;" id="historyArrow">▼</span>
+            </div>
+
+            <div id="historyContent" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+              <div id="chatHistory" style="max-height: 300px; overflow-y: auto; margin-bottom: 12px;">
+                <div style="text-align: center; color: var(--text-secondary); padding: 20px; font-style: italic;">
+                  Zatím žádná historie...
+                </div>
+              </div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button id="clearHistoryBtn" style="padding: 8px 16px; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s;">
+                  🗑️ Smazat historii
+                </button>
+                <button id="exportHistoryBtn" style="padding: 8px 16px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s;">
+                  📥 Export
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Info card -->
+          <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 16px; font-size: 13px; color: var(--text-primary); margin-top: 20px;">
+            <div style="font-weight: bold; margin-bottom: 8px; color: var(--text-primary);">💡 Tipy:</div>
+            <ul style="margin: 0; padding-left: 20px; line-height: 1.8; color: var(--text-primary);">
+              <li>API klíče jsou uloženy lokálně ve vašem prohlížeči</li>
+              <li>Pro Gemini získáte klíč zdarma na <a href="https://makersuite.google.com/app/apikey" target="_blank" style="color: #3b82f6; text-decoration: underline;">Google AI Studio</a></li>
+              <li>Demo klíče jsou určené pouze pro testování a mají omezený počet volání</li>
+              <li>Test chat používá aktuálně vybraný provider a model</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // State
+    let currentProvider = 'gemini';
+    let providers = {};
+    let chatHistory = JSON.parse(localStorage.getItem('ai_chat_history') || '[]');
+    let currentConversation = [];
+
+    // DEMO KEYS from AI module
+    const DEMO_KEYS = {
+      gemini: "AIzaSyCXuMvhO_senLS" + "oA_idEuBk_EwnMmIPIhg",
+      groq: "gsk_0uZbn9KqiBa3Zsl11ACX" + "WGdyb3FYZddvc6oPIn9HTvJpGgoBbYrJ",
+      openrouter: "sk-or-v1-bff66ee4a0845f88" + "428b75d91a35aea63e355a52dc31e6427fcc1f9536c2a8a3",
+      mistral: "Tvwm0qcQk71vsUDw" + "VfAAAY5GPKdbvlHj",
+      openai: "",
+      claude: ""
+    };
+
+    // Load AI module data
+    if (typeof window.AI !== 'undefined' && window.AI.getAllProvidersWithModels) {
+      providers = window.AI.getAllProvidersWithModels();
+    } else {
+      // Fallback data
+      providers = {
+        gemini: {
+          name: 'Google Gemini',
+          models: [
+            { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash-exp', rpm: 15, free: true },
+            { label: 'Gemini 1.5 Flash', value: 'gemini-1.5-flash', rpm: 15, free: true },
+            { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro', rpm: 5, free: true }
+          ]
+        },
+        openai: {
+          name: 'OpenAI',
+          models: [
+            { label: 'GPT-4o', value: 'gpt-4o', rpm: 10, free: false },
+            { label: 'GPT-4o Mini', value: 'gpt-4o-mini', rpm: 30, free: false },
+            { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo', rpm: 60, free: false }
+          ]
+        },
+        claude: {
+          name: 'Anthropic Claude',
+          models: [
+            { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20241022', rpm: 5, free: false },
+            { label: 'Claude 3 Opus', value: 'claude-3-opus-20240229', rpm: 5, free: false }
+          ]
+        },
+        groq: {
+          name: 'Groq',
+          models: [
+            { label: 'Llama 3.3 70B', value: 'llama-3.3-70b-versatile', rpm: 30, free: true },
+            { label: 'Mixtral 8x7B', value: 'mixtral-8x7b-32768', rpm: 30, free: true }
+          ]
+        },
+        openrouter: {
+          name: 'OpenRouter',
+          models: [
+            { label: 'Mistral Small', value: 'mistralai/mistral-small-3.1-24b-instruct:free', rpm: 20, free: true }
+          ]
+        },
+        mistral: {
+          name: 'Mistral AI',
+          models: [
+            { label: 'Mistral Small', value: 'mistral-small-latest', rpm: 10, free: false }
+          ]
+        }
+      };
+    }
+
+    // Get elements
+    const providerTabs = modal.querySelectorAll('.provider-tab');
+    const modelSelect = modal.querySelector('#aiModelSelect');
+    const modelRPM = modal.querySelector('#modelRPM');
+    const keysGrid = modal.querySelector('#keysGridCustom');
+    const useDemoCheckbox = modal.querySelector('#useDemoKeys');
+    const providerNameEl = modal.querySelector('#currentProviderName');
+    const chatMessages = modal.querySelector('#chatMessages');
+    const chatInput = modal.querySelector('#chatInput');
+    const chatSendBtn = modal.querySelector('#chatSendBtn');
+    const historyContent = modal.querySelector('#historyContent');
+    const historyArrow = modal.querySelector('#historyArrow');
+    const chatHistoryEl = modal.querySelector('#chatHistory');
+
+    // Provider tab switching
+    const switchProvider = (provider) => {
+      currentProvider = provider;
+
+      // Update provider name
+      const providerNames = {
+        gemini: 'Gemini',
+        openai: 'OpenAI',
+        claude: 'Claude',
+        groq: 'Groq',
+        openrouter: 'OpenRouter',
+        mistral: 'Mistral'
+      };
+      providerNameEl.textContent = `(${providerNames[provider] || provider})`;
+
+      // Update tab styles
+      providerTabs.forEach(tab => {
+        if (tab.dataset.provider === provider) {
+          tab.style.background = 'linear-gradient(135deg, #3b82f6, #8b5cf6)';
+          tab.style.borderColor = 'transparent';
+          tab.style.color = 'white';
+          tab.classList.add('active');
+        } else {
+          tab.style.background = 'var(--bg-tertiary)';
+          tab.style.borderColor = 'var(--border-color)';
+          tab.style.color = 'var(--text-primary)';
+          tab.classList.remove('active');
+        }
+      });
+
+      // Update models
+      updateModels();
+
+      // Update keys
+      updateKeys();
+
+      // Load demo checkbox state
+      const useDemoSaved = localStorage.getItem(`ai_use_demo_${currentProvider}`);
+      useDemoCheckbox.checked = useDemoSaved === 'true';
+    };
+
+    const updateModels = () => {
+      const providerData = providers[currentProvider];
+      if (providerData && providerData.models) {
+        modelSelect.innerHTML = providerData.models.map(m => {
+          const freeLabel = m.free ? '🟢 FREE' : '💰 Paid';
+          return `<option value="${m.value}" data-rpm="${m.rpm}">${m.label} (${freeLabel} | ${m.rpm} RPM)</option>`;
+        }).join('');
+
+        // Load saved model or use first
+        const savedModel = localStorage.getItem(`ai_model_${currentProvider}`);
+        if (savedModel && modelSelect.querySelector(`option[value="${savedModel}"]`)) {
+          modelSelect.value = savedModel;
+        }
+
+        // Update RPM display
+        updateModelRPM();
+      }
+    };
+
+    const updateModelRPM = () => {
+      const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+      const rpm = selectedOption?.dataset.rpm;
+      if (rpm) {
+        modelRPM.textContent = `${rpm} RPM`;
+      }
+    };
+
+    const getKeyStatus = (key, provider) => {
+      if (!key || key.length < 10) {
+        return { icon: '○', class: 'none', title: 'Žádný klíč' };
+      }
+      const isDemoKey = DEMO_KEYS[provider] && key === DEMO_KEYS[provider];
+      if (isDemoKey) {
+        return { icon: '⚠️', class: 'demo', title: 'Demo klíč' };
+      }
+      return { icon: '✅', class: 'ok', title: 'Vlastní klíč' };
+    };
+
+    const updateKeys = () => {
+      // Load keys from localStorage
+      const savedKeys = JSON.parse(localStorage.getItem(`ai_keys_${currentProvider}`) || '[]');
+
+      keysGrid.innerHTML = savedKeys.map((key, index) => {
+        const status = getKeyStatus(key, currentProvider);
+        return `
+          <div class="key-input-group" style="position: relative;">
+            <input type="password" value="${key || ''}" data-index="${index}" placeholder="Zadej API klíč..." style="width: 100%; padding: 12px 14px; padding-right: 40px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px;">
+            <span class="key-status ${status.class}" title="${status.title}" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 16px;">${status.icon}</span>
+          </div>
+        `;
+      }).join('');
+
+      // If no keys, add one empty input
+      if (savedKeys.length === 0) {
+        keysGrid.innerHTML = `
+          <div class="key-input-group" style="position: relative;">
+            <input type="password" value="" data-index="0" placeholder="Zadej API klíč..." style="width: 100%; padding: 12px 14px; padding-right: 40px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px;">
+            <span class="key-status none" title="Žádný klíč" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 16px;">○</span>
+          </div>
+        `;
+      }
+    };
+
+    // Chat functions
+    const addChatMessage = (role, content, loading = false) => {
+      if (chatMessages.querySelector('.chat-empty')) {
+        chatMessages.innerHTML = '';
+      }
+
+      const messageDiv = document.createElement('div');
+      messageDiv.style.cssText = `
+        display: flex;
+        margin-bottom: 12px;
+        animation: fadeIn 0.3s ease;
+        justify-content: ${role === 'user' ? 'flex-end' : 'flex-start'};
+      `;
+
+      const bubbleDiv = document.createElement('div');
+      bubbleDiv.style.cssText = `
+        max-width: 80%;
+        padding: 12px 16px;
+        border-radius: 16px;
+        font-size: 14px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        ${role === 'user'
+          ? 'background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border-bottom-right-radius: 4px;'
+          : 'background: var(--bg-tertiary); color: var(--text-primary); border-bottom-left-radius: 4px;'}
+        ${loading ? 'font-style: italic; opacity: 0.7;' : ''}
+      `;
+      bubbleDiv.textContent = content;
+
+      messageDiv.appendChild(bubbleDiv);
+      chatMessages.appendChild(messageDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      return messageDiv;
+    };
+
+    const sendChatMessage = async () => {
+      const message = chatInput.value.trim();
+      if (!message) return;
+
+      // Check if AI module is available
+      if (typeof window.AI === 'undefined') {
+        eventBus.emit('toast:show', {
+          message: '⚠️ AI modul není načten',
+          type: 'warning',
+          duration: 3000
+        });
+        return;
+      }
+
+      // Add user message
+      addChatMessage('user', message);
+      currentConversation.push({ role: 'user', content: message });
+      chatInput.value = '';
+      chatSendBtn.disabled = true;
+
+      // Add loading message
+      const loadingMsg = addChatMessage('assistant', 'Přemýšlím...', true);
+
+      try {
+        // Get keys
+        let apiKey = null;
+        const useDemo = useDemoCheckbox.checked;
+
+        if (useDemo && DEMO_KEYS[currentProvider]) {
+          apiKey = DEMO_KEYS[currentProvider];
+        } else {
+          const savedKeys = JSON.parse(localStorage.getItem(`ai_keys_${currentProvider}`) || '[]');
+          apiKey = savedKeys[0] || null;
+        }
+
+        if (!apiKey) {
+          throw new Error('Není nastaven API klíč');
+        }
+
+        // Set key in AI module
+        window.AI.setKey(currentProvider, apiKey);
+
+        // Send request
+        const startTime = Date.now();
+        const response = await window.AI.ask(message, {
+          provider: currentProvider,
+          model: modelSelect.value
+        });
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+        // Remove loading, add response
+        loadingMsg.remove();
+        addChatMessage('assistant', response);
+        currentConversation.push({ role: 'assistant', content: response });
+
+        // Add to history
+        chatHistory.unshift({
+          id: Date.now(),
+          provider: currentProvider,
+          model: modelSelect.value,
+          prompt: message,
+          response: response,
+          time: duration,
+          timestamp: new Date().toISOString()
+        });
+
+        // Keep only last 50
+        if (chatHistory.length > 50) {
+          chatHistory = chatHistory.slice(0, 50);
+        }
+
+        localStorage.setItem('ai_chat_history', JSON.stringify(chatHistory));
+        renderHistory();
+
+      } catch (error) {
+        loadingMsg.remove();
+        addChatMessage('assistant', `❌ Chyba: ${error.message}`);
+        eventBus.emit('toast:show', {
+          message: `❌ ${error.message}`,
+          type: 'error',
+          duration: 4000
+        });
+      } finally {
+        chatSendBtn.disabled = false;
+        chatInput.focus();
+      }
+    };
+
+    const renderHistory = () => {
+      if (chatHistory.length === 0) {
+        chatHistoryEl.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px; font-style: italic;">Zatím žádná historie...</div>';
+        return;
+      }
+
+      chatHistoryEl.innerHTML = chatHistory.map(item => {
+        const date = new Date(item.timestamp);
+        const timeStr = date.toLocaleString('cs-CZ');
+        const shortResponse = item.response.length > 150
+          ? item.response.substring(0, 150) + '...'
+          : item.response;
+
+        return `
+          <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 12px; margin-bottom: 10px; border-left: 3px solid #3b82f6;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">
+              <span>${item.provider}/${item.model.split('/').pop()}</span>
+              <span>${timeStr} • ${item.time}s</span>
+            </div>
+            <div style="color: #93c5fd; font-size: 13px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">
+              💬 ${item.prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+            </div>
+            <div style="color: var(--text-primary); font-size: 13px; white-space: pre-wrap;">
+              ${shortResponse.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+            </div>
+            <div style="margin-top: 8px; display: flex; gap: 6px;">
+              <button onclick="this.closest('.modal-backdrop').querySelector('#chatInput').value = \`${item.prompt.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`" style="padding: 4px 10px; font-size: 11px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); cursor: pointer;">🔄 Znovu</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    // Event listeners
+    providerTabs.forEach(tab => {
+      tab.addEventListener('click', () => switchProvider(tab.dataset.provider));
+
+      // Hover effects
+      tab.addEventListener('mouseenter', function() {
+        if (!this.classList.contains('active')) {
+          this.style.opacity = '0.8';
+        }
+      });
+      tab.addEventListener('mouseleave', function() {
+        if (!this.classList.contains('active')) {
+          this.style.opacity = '1';
+        }
+      });
+    });
+
+    modelSelect.addEventListener('change', updateModelRPM);
+
+    useDemoCheckbox.addEventListener('change', (e) => {
+      localStorage.setItem(`ai_use_demo_${currentProvider}`, e.target.checked);
+    });
+
+    modal.querySelector('#addKeyBtn').addEventListener('click', () => {
+      const inputs = keysGrid.querySelectorAll('input');
+      const newIndex = inputs.length;
+      const newKeyHtml = `
+        <div class="key-input-group" style="position: relative;">
+          <input type="password" value="" data-index="${newIndex}" placeholder="Zadej API klíč..." style="width: 100%; padding: 12px 14px; padding-right: 40px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px;">
+          <span class="key-status none" title="Žádný klíč" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 16px;">○</span>
+        </div>
+      `;
+      keysGrid.insertAdjacentHTML('beforeend', newKeyHtml);
+    });
+
+    modal.querySelector('#saveKeysBtn').addEventListener('click', () => {
+      const inputs = keysGrid.querySelectorAll('input');
+      const keys = Array.from(inputs).map(input => input.value.trim()).filter(k => k);
+
+      localStorage.setItem(`ai_keys_${currentProvider}`, JSON.stringify(keys));
+      localStorage.setItem(`ai_model_${currentProvider}`, modelSelect.value);
+
+      eventBus.emit('toast:show', {
+        message: '✅ Nastavení AI uloženo',
+        type: 'success',
+        duration: 2000
+      });
+
+      updateKeys();
+    });
+
+    // Chat listeners
+    chatSendBtn.addEventListener('click', sendChatMessage);
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMessage();
+      }
+    });
+
+    // History toggle
+    modal.querySelector('#historyToggleHeader').addEventListener('click', () => {
+      const isOpen = historyContent.style.maxHeight !== '0px' && historyContent.style.maxHeight !== '';
+      historyContent.style.maxHeight = isOpen ? '0' : '400px';
+      historyArrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+    });
+
+    modal.querySelector('#clearHistoryBtn').addEventListener('click', () => {
+      if (confirm('Opravdu smazat celou historii?')) {
+        chatHistory = [];
+        localStorage.removeItem('ai_chat_history');
+        renderHistory();
+        eventBus.emit('toast:show', {
+          message: '🗑️ Historie smazána',
+          type: 'info',
+          duration: 2000
+        });
+      }
+    });
+
+    modal.querySelector('#exportHistoryBtn').addEventListener('click', () => {
+      if (chatHistory.length === 0) {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Historie je prázdná',
+          type: 'warning',
+          duration: 2000
+        });
+        return;
+      }
+
+      let text = '# AI Chat Historie\n\n';
+      chatHistory.forEach(item => {
+        const date = new Date(item.timestamp).toLocaleString('cs-CZ');
+        text += `## ${date}\n`;
+        text += `**Model:** ${item.provider}/${item.model}\n`;
+        text += `**Čas:** ${item.time}s\n\n`;
+        text += `**Dotaz:**\n${item.prompt}\n\n`;
+        text += `**Odpověď:**\n${item.response}\n\n`;
+        text += '---\n\n';
+      });
+
+      const blob = new Blob([text], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-chat-history-${new Date().toISOString().split('T')[0]}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      eventBus.emit('toast:show', {
+        message: '📥 Historie exportována',
+        type: 'success',
+        duration: 2000
+      });
+    });
+
+    modal.querySelector('#aiSettingsClose').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+
+    // Initialize
+    updateModels();
+    updateKeys();
+    renderHistory();
+  }
+
   openDevTools() {
     // Check if Eruda is available
     if (typeof eruda !== 'undefined') {
@@ -1546,6 +2161,9 @@ build/
           const isVisible = erudaElement.style.display !== 'none';
           erudaElement.style.display = isVisible ? 'none' : 'block';
 
+          // Update button text
+          this.updateDevToolsButtonText(!isVisible);
+
           eventBus.emit('toast:show', {
             message: isVisible ? '🚫 DevTools skryty' : '🐞 DevTools otevřeny',
             type: 'info',
@@ -1553,10 +2171,12 @@ build/
           });
         } else {
           eruda.show();
+          this.updateDevToolsButtonText(true);
         }
       } else {
         // Initialize Eruda if not already
         eruda.init();
+        this.updateDevToolsButtonText(true);
         eventBus.emit('toast:show', {
           message: '🐞 DevTools inicializovány',
           type: 'success',
@@ -1569,6 +2189,13 @@ build/
         type: 'warning',
         duration: 3000
       });
+    }
+  }
+
+  updateDevToolsButtonText(isOpen) {
+    const devtoolsBtn = this.menuElement?.querySelector('[data-action="devtools"] span:last-child');
+    if (devtoolsBtn) {
+      devtoolsBtn.textContent = isOpen ? 'Zavřít DevTools' : 'Otevřít DevTools';
     }
   }
 
@@ -1602,8 +2229,8 @@ build/
       <div class="open-file-item" data-tab-id="${file.id}" data-index="${index}" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--bg-tertiary); border-radius: 4px; cursor: pointer; margin-bottom: 4px;">
         <span class="file-icon" style="font-size: 1.2em; flex-shrink: 0;">📄</span>
         <span class="file-name" style="flex: 1; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</span>
-        <button class="file-close-btn" data-tab-id="${file.id}" title="Zavřít" style="width: 16px; height: 16px; padding: 2px; background: transparent; border: none; cursor: pointer; opacity: 0.6; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 10px; height: 10px;">
+        <button class="file-close-btn" data-tab-id="${file.id}" title="Zavřít" style="width: 20px; height: 20px; padding: 3px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; cursor: pointer; opacity: 0.8; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" onmouseover="this.style.opacity='1'; this.style.background='rgba(239, 68, 68, 0.4)';" onmouseout="this.style.opacity='0.8'; this.style.background='rgba(239, 68, 68, 0.2)';">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" style="width: 12px; height: 12px;">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
         </button>
