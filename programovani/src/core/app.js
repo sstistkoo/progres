@@ -546,7 +546,7 @@ class App {
     const tabs = state.get('files.tabs') || [];
 
     if (tabs.length === 0) {
-      toast.error('Nejsou žádné otevřené soubory k exportu');
+      toast.error('Nejsou žádné otevřené soubory k exportu', 3000);
       return;
     }
 
@@ -563,12 +563,12 @@ class App {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast.success('✅ Soubor stažen');
+        toast.success('✅ Soubor stažen', 2000);
         return;
       }
 
       // For multiple files, download all files with delay
-      toast.info('📥 Stahování ' + tabs.length + ' souborů...');
+      toast.info('📥 Stahování ' + tabs.length + ' souborů...', 2000);
 
       tabs.forEach((tab, index) => {
         setTimeout(() => {
@@ -583,13 +583,13 @@ class App {
           URL.revokeObjectURL(url);
 
           if (index === tabs.length - 1) {
-            toast.success(`✅ ${tabs.length} souborů staženo`);
+            toast.success(`✅ ${tabs.length} souborů staženo`, 3000);
           }
         }, index * 300); // Stagger downloads
       });
     } catch (error) {
       console.error('Export error:', error);
-      toast.error('Chyba při exportu souborů');
+      toast.error('Chyba při exportu souborů', 3000);
     }
   }
 
@@ -598,14 +598,14 @@ class App {
     const tabs = state.get('files.tabs') || [];
 
     if (tabs.length === 0) {
-      toast.error('Nejsou žádné otevřené soubory k exportu');
+      toast.error('Nejsou žádné otevřené soubory k exportu', 3000);
       return;
     }
 
     console.log('ZIP Export started, files:', tabs.length);
 
     try {
-      toast.info('📦 Připravuji ZIP archiv...');
+      toast.info('📦 Připravuji ZIP archiv...', 2000);
 
       // Create a simple ZIP file using browser APIs
       const zip = this.createZipBlob(tabs);
@@ -632,10 +632,10 @@ class App {
         }, 100);
       }, 100);
 
-      toast.success(`✅ ZIP archiv stažen (${tabs.length} souborů)`);
+      toast.success(`✅ ZIP archiv stažen (${tabs.length} souborů)`, 3000);
     } catch (error) {
       console.error('ZIP export error:', error);
-      toast.error('ZIP selhal, stahování souborů...');
+      toast.error('ZIP selhal, stahování souborů...', 3000);
       // Fallback to individual downloads
       this.downloadAllFiles();
     }
