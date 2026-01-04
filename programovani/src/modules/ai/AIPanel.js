@@ -1273,7 +1273,7 @@ ${hasCode && hasHistory ?
     .cta-button {
       padding: 15px 40px;
       font-size: 1.1rem;
-      background: white;
+      background: var(--bg-elevated, white);
       color: #667eea;
       border: none;
       border-radius: 50px;
@@ -1311,7 +1311,7 @@ ${hasCode && hasHistory ?
     }
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      background: #f5f5f5;
+      background: var(--bg-secondary, #f5f5f5);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1319,7 +1319,7 @@ ${hasCode && hasHistory ?
       padding: 20px;
     }
     .form-container {
-      background: white;
+      background: var(--bg-elevated, white);
       padding: 40px;
       border-radius: 10px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -1397,7 +1397,7 @@ ${hasCode && hasHistory ?
     }
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      background: #f5f5f5;
+      background: var(--bg-secondary, #f5f5f5);
     }
     .dashboard {
       display: grid;
@@ -1406,14 +1406,14 @@ ${hasCode && hasHistory ?
       padding: 20px;
     }
     .card {
-      background: white;
+      background: var(--bg-elevated, white);
       padding: 30px;
       border-radius: 10px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     .card h3 {
       margin-bottom: 10px;
-      color: #333;
+      color: var(--text-primary, #333);
     }
     .card .value {
       font-size: 2rem;

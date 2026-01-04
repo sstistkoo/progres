@@ -981,6 +981,215 @@ const AI = {
         return names[provider] || provider;
     },
 
+    /**
+     * Zobrazí nápovědu pro získání API klíčů
+     * Otevře modální okno s detailními instrukcemi pro každého providera
+     */
+    showApiHelp() {
+        const helpModal = document.createElement('div');
+        helpModal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10001;
+            backdrop-filter: blur(4px);
+        `;
+
+        const providersInfo = [
+            {
+                name: '💎 Google Gemini',
+                icon: '💎',
+                description: 'Nejlepší FREE AI od Googlu s vysokými limity',
+                url: 'https://aistudio.google.com/app/apikey',
+                steps: [
+                    '1. Otevřete <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #3b82f6;">Google AI Studio</a>',
+                    '2. Přihlaste se svým Google účtem',
+                    '3. Klikněte na "Create API Key" nebo "Get API Key"',
+                    '4. Vyberte projekt nebo vytvořte nový',
+                    '5. Zkopírujte vygenerovaný klíč (začíná "AIza...")'
+                ],
+                limits: '✅ FREE tier: 15 RPM, ~1500 požadavků denně',
+                note: '⚡ Gemini 2.5 Flash je nejlepší volba pro většinu úkolů!'
+            },
+            {
+                name: '⚡ Groq',
+                icon: '⚡',
+                description: 'Nejrychlejší FREE AI s nejvyššími limity',
+                url: 'https://console.groq.com/keys',
+                steps: [
+                    '1. Otevřete <a href="https://console.groq.com/keys" target="_blank" style="color: #3b82f6;">Groq Console</a>',
+                    '2. Zaregistrujte se nebo se přihlaste',
+                    '3. Přejděte do sekce "API Keys"',
+                    '4. Klikněte na "Create API Key"',
+                    '5. Pojmenujte klíč a zkopírujte ho (začíná "gsk_...")'
+                ],
+                limits: '✅ FREE tier: 30-60 RPM podle modelu, žádný denní limit!',
+                note: '🚀 Llama 3.3 70B má skvělý poměr rychlost/kvalita!'
+            },
+            {
+                name: '🌐 OpenRouter',
+                icon: '🌐',
+                description: 'Přístup k desítkám AI modelů přes jedno API',
+                url: 'https://openrouter.ai/keys',
+                steps: [
+                    '1. Otevřete <a href="https://openrouter.ai/keys" target="_blank" style="color: #3b82f6;">OpenRouter Keys</a>',
+                    '2. Přihlaste se (podporuje Google, GitHub)',
+                    '3. Klikněte na "Create Key"',
+                    '4. Pojmenujte klíč a nastavte limity (volitelné)',
+                    '5. Zkopírujte klíč (začíná "sk-or-v1-...")'
+                ],
+                limits: '🆓 FREE tier: 50 RPD | 💰 Po nabití $10+: 1000 RPD',
+                note: '💡 Automaticky detekujeme váš tier! 17 FREE modelů k dispozici.'
+            },
+            {
+                name: '🔥 Mistral AI',
+                icon: '🔥',
+                description: 'Evropská AI s kvalitními open-source modely',
+                url: 'https://console.mistral.ai/api-keys/',
+                steps: [
+                    '1. Otevřete <a href="https://console.mistral.ai/api-keys/" target="_blank" style="color: #3b82f6;">Mistral Console</a>',
+                    '2. Zaregistrujte se nebo se přihlaste',
+                    '3. Přejděte do "API Keys"',
+                    '4. Klikněte na "Create new key"',
+                    '5. Zkopírujte vygenerovaný klíč'
+                ],
+                limits: '✅ FREE tier: Open-source modely zdarma (7B, Mixtral)',
+                note: '💻 Codestral je vynikající pro programování!'
+            },
+            {
+                name: '🧬 Cohere',
+                icon: '🧬',
+                description: 'Pokročilé NLP modely s trial účtem',
+                url: 'https://dashboard.cohere.com/api-keys',
+                steps: [
+                    '1. Otevřete <a href="https://dashboard.cohere.com/api-keys" target="_blank" style="color: #3b82f6;">Cohere Dashboard</a>',
+                    '2. Zaregistrujte se (podporuje Google, GitHub)',
+                    '3. Přejděte do sekce "API Keys"',
+                    '4. Použijte Trial klíč nebo vytvořte Production klíč',
+                    '5. Zkopírujte klíč'
+                ],
+                limits: '✅ Trial: Omezený free přístup | Command R+ má vysokou kvalitu',
+                note: '📊 Skvělé pro embeddings a reranking!'
+            },
+            {
+                name: '🤗 HuggingFace',
+                icon: '🤗',
+                description: 'Open-source AI komunita s tisíci modely',
+                url: 'https://huggingface.co/settings/tokens',
+                steps: [
+                    '1. Otevřete <a href="https://huggingface.co/settings/tokens" target="_blank" style="color: #3b82f6;">HuggingFace Tokens</a>',
+                    '2. Zaregistrujte se nebo se přihlaste',
+                    '3. Klikněte na "New token"',
+                    '4. Pojmenujte token a vyberte práva (read)',
+                    '5. Zkopírujte token (začíná "hf_...")'
+                ],
+                limits: '✅ FREE Inference API: Omezené použití, restart každé 72h',
+                note: '🔬 Ideální pro experimentování s open-source modely!'
+            }
+        ];
+
+        const helpContent = document.createElement('div');
+        helpContent.style.cssText = `
+            background: var(--bg-primary);
+            border-radius: 20px;
+            max-width: 900px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+        `;
+
+        helpContent.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid var(--border-color); padding-bottom: 15px;">
+                <h2 style="color: var(--text-primary); font-size: 28px; margin: 0; font-weight: bold;">
+                    ❓ Jak získat API klíče
+                </h2>
+                <button id="closeHelpModal" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 8px 16px; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s;">
+                    ✕ Zavřít
+                </button>
+            </div>
+
+            <div style="color: var(--text-secondary); font-size: 15px; margin-bottom: 30px; line-height: 1.6;">
+                📚 Detailní návod pro získání API klíčů ke všem podporovaným AI providerům.
+                Všechny klíče jsou <strong style="color: #22c55e;">100% ZDARMA</strong> s free tier limity!
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                ${providersInfo.map(provider => `
+                    <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; transition: all 0.3s;" onmouseenter="this.style.borderColor='#3b82f6'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color)'; this.style.transform='translateY(0)';">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                            <span style="font-size: 32px;">${provider.icon}</span>
+                            <div>
+                                <h3 style="color: var(--text-primary); margin: 0; font-size: 20px; font-weight: bold;">${provider.name}</h3>
+                                <p style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: 13px;">${provider.description}</p>
+                            </div>
+                        </div>
+
+                        <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; margin-bottom: 15px;">
+                            <div style="color: var(--text-secondary); font-size: 14px; margin-bottom: 10px;">📋 <strong>Postup:</strong></div>
+                            ${provider.steps.map(step => `
+                                <div style="color: var(--text-primary); font-size: 13px; margin: 6px 0; padding-left: 10px;">${step}</div>
+                            `).join('')}
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px; padding: 10px; font-size: 13px; color: #22c55e;">
+                                ${provider.limits}
+                            </div>
+                            <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 10px; font-size: 13px; color: #3b82f6;">
+                                ${provider.note}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div style="margin-top: 30px; padding: 20px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px;">
+                <div style="font-size: 16px; font-weight: bold; color: #8b5cf6; margin-bottom: 10px;">💡 Tipy pro správu klíčů:</div>
+                <ul style="color: var(--text-secondary); font-size: 13px; line-height: 1.8; margin: 0; padding-left: 20px;">
+                    <li>✅ Používejte <strong>demo klíče</strong> pro rychlé testování</li>
+                    <li>🔐 Nikdy nesdílejte své API klíče s nikým</li>
+                    <li>📦 Pravidelně exportujte klíče jako zálohu</li>
+                    <li>🔄 Pro produkci si vytvořte vlastní klíče u každého providera</li>
+                    <li>📊 Sledujte své limity v dashboardech providerů</li>
+                    <li>⚡ Groq a Gemini mají nejvyšší FREE limity!</li>
+                </ul>
+            </div>
+        `;
+
+        helpModal.appendChild(helpContent);
+        document.body.appendChild(helpModal);
+
+        // Close handlers
+        const closeBtn = helpModal.querySelector('#closeHelpModal');
+        closeBtn.addEventListener('click', () => {
+            document.body.removeChild(helpModal);
+        });
+
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                document.body.removeChild(helpModal);
+            }
+        });
+
+        // Hover effects for close button
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'rgba(239, 68, 68, 0.3)';
+            closeBtn.style.transform = 'scale(1.05)';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+            closeBtn.style.transform = 'scale(1)';
+        });
+    },
+
     // ============== GEMINI ==============
 
     async askGemini(prompt, options = {}) {
