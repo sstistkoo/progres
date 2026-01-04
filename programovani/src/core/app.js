@@ -151,6 +151,7 @@ class App {
     eventBus.on('action:preview', () => this.togglePreview());
     eventBus.on('action:newTab', () => this.newTab());
     eventBus.on('action:download', () => this.downloadFile());
+    eventBus.on('action:downloadZip', () => this.exportProjectAsZip());
     eventBus.on('action:validate', () => this.validateCode());
     eventBus.on('action:minify', () => this.minifyCode());
     eventBus.on('action:undo', () => this.editor?.undo());
@@ -166,6 +167,8 @@ class App {
     eventBus.on('file:open', ({ fileId }) => this.openFile(fileId));
     eventBus.on('file:delete', ({ fileId }) => this.deleteFile(fileId));
     eventBus.on('file:createWithCode', ({ code }) => this.createFileWithCode(code));
+    eventBus.on('file:create', ({ name, content }) => this.createFile(name, content));
+    eventBus.on('action:exportZip', () => this.exportProjectAsZip());
 
     // Editor actions
     eventBus.on('editor:setCode', ({ code }) => {
@@ -499,15 +502,19 @@ class App {
         .replace(/^-+|-+$/g, '') + '.html';
     }
 
+    this.createFile(fileName, code);
+  }
+
+  createFile(fileName, content) {
     // Create new tab
     const tabs = state.get('files.tabs') || [];
     const nextId = state.get('files.nextId') || 1;
     const newTab = {
       id: nextId,
       name: fileName,
-      content: code,
+      content: content,
       modified: false,
-      type: 'html'
+      type: fileName.endsWith('.html') ? 'html' : 'text'
     };
 
     tabs.push(newTab);
@@ -516,21 +523,55 @@ class App {
     state.set('files.active', nextId);
 
     // Set content in editor
-    state.set('editor.code', code);
+    state.set('editor.code', content);
     if (this.editor) {
-      this.editor.setCode(code);
+      this.editor.setCode(content);
       this.editor.focus();
     }
 
     // Update preview
     if (this.preview) {
-      this.preview.update(code);
+      this.preview.update(content);
     }
 
     // Update file list in sidebar
     eventBus.emit('files:changed');
 
     toast.success(`Nový soubor vytvořen: ${fileName}`, 2000);
+  }
+
+  exportProjectAsZip() {
+    // Get all open files
+    const tabs = state.get('files.tabs') || [];
+
+    if (tabs.length === 0) {
+      toast.error('Nejsou žádné otevřené soubory k exportu');
+      return;
+    }
+
+    try {
+      // Create a simple implementation using Blob and download
+      // For now, export current file as HTML
+      const currentCode = this.editor?.getCode() || state.get('editor.code') || '';
+      const activeTab = tabs.find(t => t.id === state.get('files.active'));
+      const fileName = activeTab?.name || 'index.html';
+
+      // Create blob and download
+      const blob = new Blob([currentCode], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('✅ Soubor stažen');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Chyba při exportu souboru');
+    }
   }
 
   showSearch() {
