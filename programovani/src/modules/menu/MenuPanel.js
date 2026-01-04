@@ -135,6 +135,10 @@ export class MenuPanel {
 
         <div class="menu-section">
           <h3>📋 Obsah</h3>
+          <button class="menu-item" data-action="ai-component">
+            <span class="menu-icon">🤖</span>
+            <span>AI Generátor komponent</span>
+          </button>
           <button class="menu-item" data-action="components">
             <span class="menu-icon">🧩</span>
             <span>Komponenty</span>
@@ -219,6 +223,10 @@ export class MenuPanel {
 
       case 'replace':
         this.showReplaceDialog();
+        break;
+
+      case 'ai-component':
+        this.showAIComponentGenerator();
         break;
 
       case 'components':
@@ -893,6 +901,205 @@ build/
     });
   }
 
+  showAIComponentGenerator() {
+    // Create modal for AI component generator
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-content ai-generator-panel">
+        <div class="modal-header">
+          <h3>🤖 AI Generátor komponent</h3>
+          <button class="modal-close" id="aiGenClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="ai-generator-content">
+            <div class="ai-gen-description">
+              <p>Popište komponentu, kterou chcete vytvořit. AI vygeneruje HTML kód podle vašich požadavků.</p>
+            </div>
+
+            <div class="ai-gen-examples">
+              <strong>Příklady požadavků:</strong>
+              <div class="ai-gen-example-chips">
+                <button class="example-chip" data-example="Vytvoř moderní kontaktní formulář s poli pro jméno, email, telefon a zprávu. Použij modrou barvu pro tlačítka.">📧 Kontaktní formulář</button>
+                <button class="example-chip" data-example="Vytvoř responzivní galerii obrázků 3x3 s hover efektem a možností lightbox zobrazení.">🖼️ Galerie obrázků</button>
+                <button class="example-chip" data-example="Vytvoř kartičku produktu s obrázkem, názvem, cenou a tlačítkem koupit. Použij moderní design s stíny.">🛒 Karta produktu</button>
+                <button class="example-chip" data-example="Vytvoř tabulku s třemi sloupci (název, cena, množství) a možností řazení. Použij tmavý režim.">📊 Datová tabulka</button>
+                <button class="example-chip" data-example="Vytvoř responzivní navigační menu s logem vlevo a odkazy vpravo. Pro mobilní zařízení přidej hamburger menu.">🧭 Navigační menu</button>
+                <button class="example-chip" data-example="Vytvoř sekci s referencemi/testimonials - 3 karty vedle sebe s citací, jménem a fotkou autora.">💬 Sekce s referencemi</button>
+              </div>
+            </div>
+
+            <div class="ai-gen-input-group">
+              <label for="aiGenPrompt">Váš požadavek:</label>
+              <textarea
+                id="aiGenPrompt"
+                class="ai-gen-textarea"
+                placeholder="Např: Vytvoř moderní kontaktní formulář s poli pro jméno, email, telefon a zprávu..."
+                rows="4"
+              ></textarea>
+            </div>
+
+            <div class="ai-gen-actions">
+              <button id="aiGenSubmit" class="btn-primary" disabled>
+                <span class="btn-text">🚀 Vygenerovat komponentu</span>
+                <span class="btn-loader" style="display: none;">⏳ Generuji...</span>
+              </button>
+            </div>
+
+            <div id="aiGenResult" class="ai-gen-result" style="display: none;">
+              <div class="ai-gen-result-header">
+                <strong>📋 Vygenerovaný kód:</strong>
+                <button id="aiGenCopy" class="btn-copy">📋 Kopírovat</button>
+              </div>
+              <pre><code id="aiGenCode"></code></pre>
+              <div class="ai-gen-result-actions">
+                <button id="aiGenInsert" class="btn-primary">✅ Vložit do editoru</button>
+                <button id="aiGenRefine" class="btn-secondary">🔄 Vylepšit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const textarea = modal.querySelector('#aiGenPrompt');
+    const submitBtn = modal.querySelector('#aiGenSubmit');
+    const resultDiv = modal.querySelector('#aiGenResult');
+    const codeElement = modal.querySelector('#aiGenCode');
+    let generatedCode = '';
+
+    // Enable submit button when text is entered
+    textarea.addEventListener('input', () => {
+      submitBtn.disabled = textarea.value.trim().length === 0;
+    });
+
+    // Example chip click handlers
+    modal.querySelectorAll('.example-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const exampleText = chip.dataset.example;
+        textarea.value = exampleText;
+        submitBtn.disabled = false;
+        textarea.focus();
+      });
+    });
+
+    // Close handler
+    const closeModal = () => modal.remove();
+    modal.querySelector('#aiGenClose').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    // Generate component with AI
+    submitBtn.addEventListener('click', async () => {
+      const userPrompt = textarea.value.trim();
+      if (!userPrompt) return;
+
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.querySelector('.btn-text').style.display = 'none';
+      submitBtn.querySelector('.btn-loader').style.display = 'inline';
+      resultDiv.style.display = 'none';
+
+      try {
+        // Check if AI is available
+        if (!window.AI || typeof window.AI.ask !== 'function') {
+          throw new Error('AI není k dispozici. Nastavte API klíče v Nastavení AI.');
+        }
+
+        // Construct system prompt for component generation
+        const systemPrompt = `Jsi expert na tvorbu moderního HTML, CSS a JavaScript kódu.
+Vytvoř komponentu podle požadavků uživatele. Komponenta musí být:
+- Samostatná a kompletní (HTML + CSS + případně JS v jednom bloku)
+- Moderní design s použitím CSS variables pro barvy
+- Responzivní pro různé velikosti obrazovek
+- Čistý a dobře strukturovaný kód s komentáři
+- Použij CSS custom properties: --accent, --bg-primary, --bg-secondary, --bg-tertiary, --text-primary, --text-secondary, --border
+
+DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení nebo markdown syntaxe. Bez \`\`\`html nebo jiných značek.`;
+
+        const fullPrompt = `${systemPrompt}\n\nPožadavek uživatele: ${userPrompt}`;
+
+        // Call AI
+        console.log('Calling AI with prompt:', fullPrompt);
+        const response = await window.AI.ask(fullPrompt);
+
+        console.log('AI response:', response);
+
+        // Clean up response - remove markdown code blocks if present
+        generatedCode = response
+          .replace(/```html\n?/g, '')
+          .replace(/```css\n?/g, '')
+          .replace(/```javascript\n?/g, '')
+          .replace(/```js\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim();
+
+        // Display result
+        codeElement.textContent = generatedCode;
+        resultDiv.style.display = 'block';
+
+        eventBus.emit('toast:show', {
+          message: '✅ Komponenta vygenerována',
+          type: 'success',
+          duration: 3000
+        });
+
+      } catch (error) {
+        console.error('AI generation error:', error);
+        eventBus.emit('toast:show', {
+          message: `❌ Chyba při generování: ${error.message}`,
+          type: 'error',
+          duration: 5000
+        });
+      } finally {
+        // Restore button state
+        submitBtn.disabled = false;
+        submitBtn.querySelector('.btn-text').style.display = 'inline';
+        submitBtn.querySelector('.btn-loader').style.display = 'none';
+      }
+    });
+
+    // Copy to clipboard
+    modal.querySelector('#aiGenCopy').addEventListener('click', () => {
+      navigator.clipboard.writeText(generatedCode).then(() => {
+        eventBus.emit('toast:show', {
+          message: '📋 Zkopírováno do schránky',
+          type: 'success',
+          duration: 2000
+        });
+      });
+    });
+
+    // Insert into editor
+    modal.querySelector('#aiGenInsert').addEventListener('click', () => {
+      if (generatedCode) {
+        eventBus.emit('editor:insertText', { text: '\n' + generatedCode + '\n' });
+        eventBus.emit('toast:show', {
+          message: '✅ Kód vložen do editoru',
+          type: 'success',
+          duration: 2000
+        });
+        closeModal();
+      }
+    });
+
+    // Refine/improve button
+    modal.querySelector('#aiGenRefine').addEventListener('click', () => {
+      textarea.value = `Vylepši tento kód:\n\n${generatedCode}\n\nUprav podle požadavku: `;
+      resultDiv.style.display = 'none';
+      textarea.focus();
+      // Move cursor to end
+      textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+    });
+  }
+
   showTemplates() {
     // Create modal for templates library
     const modal = document.createElement('div');
@@ -970,6 +1177,128 @@ build/
                 <p>Blogovací stránka</p>
               </div>
             </div>
+
+            <!-- CNC Production Landing -->
+            <div class="component-card" data-template="cnc-landing">
+              <div class="component-preview" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white;">
+                <div style="text-align: center; padding: 20px; font-size: 10px;">
+                  <h3 style="margin: 0 0 5px 0;">⚙️ CNC Obrábění</h3>
+                  <p style="margin: 0; font-size: 8px;">Přesnost • Kvalita</p>
+                </div>
+              </div>
+              <div class="component-info">
+                <h4>CNC Výroba</h4>
+                <p>Landing page pro CNC</p>
+              </div>
+            </div>
+
+            <!-- CNC Services -->
+            <div class="component-card" data-template="cnc-services">
+              <div class="component-preview" style="background: var(--bg-tertiary); color: var(--text-primary);">
+                <div style="padding: 20px; font-size: 10px;">
+                  <h3 style="margin: 0 0 5px 0;">🔧 Služby</h3>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 7px;">
+                    <div style="background: var(--bg-secondary); padding: 5px;">Frézování</div>
+                    <div style="background: var(--bg-secondary); padding: 5px;">Soustružení</div>
+                  </div>
+                </div>
+              </div>
+              <div class="component-info">
+                <h4>CNC Služby</h4>
+                <p>Přehled služeb</p>
+              </div>
+            </div>
+
+            <!-- CNC Contact & Quote -->
+            <div class="component-card" data-template="cnc-contact">
+              <div class="component-preview" style="background: var(--bg-secondary); color: var(--text-primary);">
+                <div style="padding: 20px; font-size: 10px;">
+                  <h3 style="margin: 0 0 5px 0;">📨 Poptávka</h3>
+                  <div style="font-size: 7px; line-height: 1.5;">
+                    <p style="margin: 0 0 3px 0;">━ Kontakt</p>
+                    <p style="margin: 0;">━ Formulář</p>
+                  </div>
+                </div>
+              </div>
+              <div class="component-info">
+                <h4>Kontakt + Poptávka</h4>
+                <p>Poptávkový formulář</p>
+              </div>
+            </div>
+
+            <!-- CNC Gallery -->
+            <div class="component-card" data-template="cnc-gallery">
+              <div class="component-preview" style="background: var(--bg-tertiary); color: var(--text-primary);">
+                <div style="padding: 20px; font-size: 10px;">
+                  <h3 style="margin: 0 0 5px 0;">📸 Portfolio</h3>
+                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; font-size: 7px;">
+                    <div style="background: var(--bg-secondary); aspect-ratio: 1; border-radius: 3px;"></div>
+                    <div style="background: var(--bg-secondary); aspect-ratio: 1; border-radius: 3px;"></div>
+                    <div style="background: var(--bg-secondary); aspect-ratio: 1; border-radius: 3px;"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="component-info">
+                <h4>Galerie výrobků</h4>
+                <p>Ukázky obráběných dílů</p>
+              </div>
+            </div>
+
+            <!-- Price Calculator -->
+            <div class="component-card" data-template="calc-price">
+              <div class="component-preview" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+                <div style="text-align: center; padding: 20px; font-size: 10px;">
+                  <h3 style="margin: 0 0 5px 0;">💰 Kalkulačka</h3>
+                  <p style="margin: 0; font-size: 8px;">Cena s DPH</p>
+                </div>
+              </div>
+              <div class="component-info">
+                <h4>Cenová kalkulačka</h4>
+                <p>Výpočet ceny s DPH</p>
+              </div>
+            </div>
+
+            <!-- BMI Calculator -->
+            <div class="component-card" data-template="calc-bmi">
+              <div class="component-preview" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white;">
+                <div style="text-align: center; padding: 20px; font-size: 10px;">
+                  <h3 style="margin: 0 0 5px 0;">📊 BMI</h3>
+                  <p style="margin: 0; font-size: 8px;">Body Mass Index</p>
+                </div>
+              </div>
+              <div class="component-info">
+                <h4>BMI kalkulačka</h4>
+                <p>Výpočet tělesného indexu</p>
+              </div>
+            </div>
+
+            <!-- Loan Calculator -->
+            <div class="component-card" data-template="calc-loan">
+              <div class="component-preview" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white;">
+                <div style="text-align: center; padding: 20px; font-size: 10px;">
+                  <h3 style="margin: 0 0 5px 0;">🏦 Úvěr</h3>
+                  <p style="margin: 0; font-size: 8px;">Měsíční splátka</p>
+                </div>
+              </div>
+              <div class="component-info">
+                <h4>Kalkulačka úvěru</h4>
+                <p>Výpočet splátek</p>
+              </div>
+            </div>
+
+            <!-- Tip Calculator -->
+            <div class="component-card" data-template="calc-tip">
+              <div class="component-preview" style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white;">
+                <div style="text-align: center; padding: 20px; font-size: 10px;">
+                  <h3 style="margin: 0 0 5px 0;">🍽️ Spropitné</h3>
+                  <p style="margin: 0; font-size: 8px;">Výpočet</p>
+                </div>
+              </div>
+              <div class="component-info">
+                <h4>Kalkulačka spropitného</h4>
+                <p>Rozdělení účtu</p>
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -988,7 +1317,23 @@ build/
 
       'portfolio': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Portfolio - Jméno</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: system-ui, sans-serif;\n      background: #0a0a0b;\n      color: #e8e8ea;\n      line-height: 1.6;\n    }\n    header {\n      padding: 60px 20px;\n      text-align: center;\n      border-bottom: 1px solid #2a2a2d;\n    }\n    h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }\n    .tagline { color: #8a8a8f; font-size: 1.1rem; }\n    .projects {\n      max-width: 1200px;\n      margin: 0 auto;\n      padding: 60px 20px;\n      display: grid;\n      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));\n      gap: 30px;\n    }\n    .project-card {\n      background: #111113;\n      border: 1px solid #2a2a2d;\n      border-radius: 12px;\n      padding: 30px;\n      transition: transform 0.2s;\n    }\n    .project-card:hover {\n      transform: translateY(-5px);\n      border-color: #00d4aa;\n    }\n    .project-card h3 {\n      margin-bottom: 10px;\n      color: #00d4aa;\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <h1>Vaše Jméno</h1>\n    <p class="tagline">Web Developer & Designer</p>\n  </header>\n  <div class="projects">\n    <div class="project-card">\n      <h3>Projekt 1</h3>\n      <p>Popis projektu a použitých technologií.</p>\n    </div>\n    <div class="project-card">\n      <h3>Projekt 2</h3>\n      <p>Popis projektu a použitých technologií.</p>\n    </div>\n    <div class="project-card">\n      <h3>Projekt 3</h3>\n      <p>Popis projektu a použitých technologií.</p>\n    </div>\n  </div>\n</body>\n</html>`,
 
-      'blog': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Můj Blog</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: Georgia, serif;\n      background: #f5f5f7;\n      color: #1a1a1d;\n      line-height: 1.8;\n    }\n    header {\n      background: white;\n      padding: 40px 20px;\n      text-align: center;\n      border-bottom: 1px solid #e0e0e0;\n    }\n    h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }\n    .container {\n      max-width: 800px;\n      margin: 60px auto;\n      padding: 0 20px;\n    }\n    article {\n      background: white;\n      padding: 40px;\n      margin-bottom: 30px;\n      border-radius: 8px;\n      box-shadow: 0 2px 8px rgba(0,0,0,0.1);\n    }\n    article h2 {\n      margin-bottom: 10px;\n      color: #333;\n    }\n    .meta {\n      color: #666;\n      font-size: 0.9rem;\n      margin-bottom: 20px;\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <h1>Můj Blog</h1>\n    <p>Myšlenky a nápady</p>\n  </header>\n  <div class="container">\n    <article>\n      <h2>Titulek prvního článku</h2>\n      <div class="meta">4. ledna 2026 • 5 min čtení</div>\n      <p>Obsah článku zde. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>\n    </article>\n    <article>\n      <h2>Titulek druhého článku</h2>\n      <div class="meta">3. ledna 2026 • 3 min čtení</div>\n      <p>Obsah článku zde. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>\n    </article>\n  </div>\n</body>\n</html>`
+      'blog': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Můj Blog</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: Georgia, serif;\n      background: #f5f5f7;\n      color: #1a1a1d;\n      line-height: 1.8;\n    }\n    header {\n      background: white;\n      padding: 40px 20px;\n      text-align: center;\n      border-bottom: 1px solid #e0e0e0;\n    }\n    h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }\n    .container {\n      max-width: 800px;\n      margin: 60px auto;\n      padding: 0 20px;\n    }\n    article {\n      background: white;\n      padding: 40px;\n      margin-bottom: 30px;\n      border-radius: 8px;\n      box-shadow: 0 2px 8px rgba(0,0,0,0.1);\n    }\n    article h2 {\n      margin-bottom: 10px;\n      color: #333;\n    }\n    .meta {\n      color: #666;\n      font-size: 0.9rem;\n      margin-bottom: 20px;\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <h1>Můj Blog</h1>\n    <p>Myšlenky a nápady</p>\n  </header>\n  <div class="container">\n    <article>\n      <h2>Titulek prvního článku</h2>\n      <div class="meta">4. ledna 2026 • 5 min čtení</div>\n      <p>Obsah článku zde. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>\n    </article>\n    <article>\n      <h2>Titulek druhého článku</h2>\n      <div class="meta">3. ledna 2026 • 3 min čtení</div>\n      <p>Obsah článku zde. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>\n    </article>\n  </div>\n</body>\n</html>`,
+
+      'cnc-landing': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>CNC Obrábění - Přesné díly na míru</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: 'Segoe UI', system-ui, sans-serif;\n      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);\n      color: white;\n      min-height: 100vh;\n    }\n    header {\n      padding: 20px;\n      background: rgba(0,0,0,0.2);\n    }\n    nav {\n      max-width: 1200px;\n      margin: 0 auto;\n      display: flex;\n      justify-content: space-between;\n      align-items: center;\n    }\n    .logo { font-size: 1.5rem; font-weight: 700; }\n    .nav-links { display: flex; gap: 30px; }\n    .nav-links a { color: white; text-decoration: none; transition: opacity 0.2s; }\n    .nav-links a:hover { opacity: 0.8; }\n    .hero {\n      max-width: 1200px;\n      margin: 0 auto;\n      padding: 100px 20px;\n      text-align: center;\n    }\n    h1 {\n      font-size: 3.5rem;\n      margin-bottom: 1.5rem;\n      line-height: 1.2;\n    }\n    .subtitle {\n      font-size: 1.5rem;\n      margin-bottom: 3rem;\n      opacity: 0.9;\n    }\n    .cta-buttons {\n      display: flex;\n      gap: 20px;\n      justify-content: center;\n      flex-wrap: wrap;\n    }\n    .btn {\n      padding: 15px 40px;\n      border: none;\n      border-radius: 8px;\n      font-size: 1.1rem;\n      font-weight: 600;\n      cursor: pointer;\n      transition: all 0.3s;\n      text-decoration: none;\n      display: inline-block;\n    }\n    .btn-primary {\n      background: white;\n      color: #1e3a8a;\n    }\n    .btn-primary:hover {\n      transform: translateY(-2px);\n      box-shadow: 0 10px 25px rgba(0,0,0,0.2);\n    }\n    .btn-secondary {\n      background: transparent;\n      color: white;\n      border: 2px solid white;\n    }\n    .btn-secondary:hover {\n      background: rgba(255,255,255,0.1);\n    }\n    .features {\n      max-width: 1200px;\n      margin: 0 auto;\n      padding: 80px 20px;\n      display: grid;\n      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));\n      gap: 40px;\n    }\n    .feature {\n      text-align: center;\n    }\n    .feature-icon {\n      font-size: 3rem;\n      margin-bottom: 1rem;\n    }\n    .feature h3 {\n      margin-bottom: 1rem;\n      font-size: 1.5rem;\n    }\n    .feature p {\n      opacity: 0.9;\n      line-height: 1.6;\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <nav>\n      <div class="logo">⚙️ CNC Pro</div>\n      <div class="nav-links">\n        <a href="#sluzby">Služby</a>\n        <a href="#portfolio">Portfolio</a>\n        <a href="#kontakt">Kontakt</a>\n      </div>\n    </nav>\n  </header>\n  \n  <div class="hero">\n    <h1>Přesné CNC obrábění<br>na míru</h1>\n    <p class="subtitle">Kvalitní výroba dílů s maximální přesností</p>\n    <div class="cta-buttons">\n      <a href="#kontakt" class="btn btn-primary">Nezávazná poptávka</a>\n      <a href="#sluzby" class="btn btn-secondary">Naše služby</a>\n    </div>\n  </div>\n\n  <div class="features">\n    <div class="feature">\n      <div class="feature-icon">🎯</div>\n      <h3>Přesnost</h3>\n      <p>Tolerance až 0,01 mm pro dokonalou kvalitu každého dílu</p>\n    </div>\n    <div class="feature">\n      <div class="feature-icon">⚡</div>\n      <h3>Rychlost</h3>\n      <p>Moderní CNC stroje pro efektivní a rychlou výrobu</p>\n    </div>\n    <div class="feature">\n      <div class="feature-icon">✅</div>\n      <h3>Kvalita</h3>\n      <p>Certifikovaná výroba s kontrolou každého vyrobeného kusu</p>\n    </div>\n  </div>\n</body>\n</html>`,
+
+      'cnc-services': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>CNC Služby - Frézování, Soustružení</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: 'Segoe UI', system-ui, sans-serif;\n      background: #f5f5f7;\n      color: #1a1a1d;\n      line-height: 1.6;\n    }\n    header {\n      background: #1e3a8a;\n      color: white;\n      padding: 60px 20px;\n      text-align: center;\n    }\n    h1 { font-size: 3rem; margin-bottom: 1rem; }\n    .container {\n      max-width: 1200px;\n      margin: 0 auto;\n      padding: 80px 20px;\n    }\n    .services-grid {\n      display: grid;\n      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));\n      gap: 40px;\n    }\n    .service-card {\n      background: white;\n      border-radius: 12px;\n      padding: 40px;\n      box-shadow: 0 4px 20px rgba(0,0,0,0.08);\n      transition: transform 0.3s, box-shadow 0.3s;\n    }\n    .service-card:hover {\n      transform: translateY(-5px);\n      box-shadow: 0 8px 30px rgba(0,0,0,0.12);\n    }\n    .service-icon {\n      font-size: 3rem;\n      margin-bottom: 1.5rem;\n    }\n    .service-card h3 {\n      color: #1e3a8a;\n      margin-bottom: 1rem;\n      font-size: 1.5rem;\n    }\n    .service-card ul {\n      margin: 1rem 0;\n      padding-left: 20px;\n    }\n    .service-card li {\n      margin-bottom: 0.5rem;\n      color: #4b5563;\n    }\n    .cta-section {\n      text-align: center;\n      margin-top: 80px;\n      padding: 60px 20px;\n      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);\n      border-radius: 20px;\n      color: white;\n    }\n    .cta-section h2 {\n      font-size: 2.5rem;\n      margin-bottom: 1rem;\n    }\n    .btn {\n      display: inline-block;\n      padding: 15px 40px;\n      background: white;\n      color: #1e3a8a;\n      text-decoration: none;\n      border-radius: 8px;\n      font-weight: 600;\n      font-size: 1.1rem;\n      transition: transform 0.3s;\n      margin-top: 2rem;\n    }\n    .btn:hover {\n      transform: scale(1.05);\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <h1>🔧 Naše služby</h1>\n    <p>Komplexní CNC obrábění pro vaše projekty</p>\n  </header>\n\n  <div class="container">\n    <div class="services-grid">\n      <div class="service-card">\n        <div class="service-icon">⚙️</div>\n        <h3>CNC Frézování</h3>\n        <p>Přesné frézování složitých dílů z různých materiálů</p>\n        <ul>\n          <li>3, 4 a 5-osé frézování</li>\n          <li>Ocel, hliník, plast, bronz</li>\n          <li>Tolerance až 0,01 mm</li>\n          <li>Prototypy i sériová výroba</li>\n        </ul>\n      </div>\n\n      <div class="service-card">\n        <div class="service-icon">🔩</div>\n        <h3>CNC Soustružení</h3>\n        <p>Výroba rotačních dílů s maximální přesností</p>\n        <ul>\n          <li>Klasické i CNC soustružení</li>\n          <li>Průměry od 5 do 500 mm</li>\n          <li>Vnější i vnitřní závity</li>\n          <li>Čelní i podélné obrábění</li>\n        </ul>\n      </div>\n\n      <div class="service-card">\n        <div class="service-icon">✂️</div>\n        <h3>Řezání materiálu</h3>\n        <p>Přesné dělení materiálů dle požadavků</p>\n        <ul>\n          <li>Pásová pila</li>\n          <li>Kotoučová pila</li>\n          <li>Plazma řezání</li>\n          <li>Vodní paprsek</li>\n        </ul>\n      </div>\n\n      <div class="service-card">\n        <div class="service-icon">🎨</div>\n        <h3>Povrchové úpravy</h3>\n        <p>Finální úprava pro dokonalý vzhled</p>\n        <ul>\n          <li>Galvanické pokovení</li>\n          <li>Prášková lakování</li>\n          <li>Eloxování hliníku</li>\n          <li>Broušení a leštění</li>\n        </ul>\n      </div>\n\n      <div class="service-card">\n        <div class="service-icon">📐</div>\n        <h3>Konstrukční návrhy</h3>\n        <p>Pomoc s přípravou výkresů a 3D modelů</p>\n        <ul>\n          <li>3D CAD modelování</li>\n          <li>Optimalizace pro výrobu</li>\n          <li>Technické výkresy</li>\n          <li>Výpočty pevnosti</li>\n        </ul>\n      </div>\n\n      <div class="service-card">\n        <div class="service-icon">🔍</div>\n        <h3>Kontrola kvality</h3>\n        <p>Měření a kontrola každého vyrobeného dílu</p>\n        <ul>\n          <li>3D skener</li>\n          <li>CMM souřadnicový stroj</li>\n          <li>Mikrometr, posuvné měřítko</li>\n          <li>Certifikáty a protokoly</li>\n        </ul>\n      </div>\n    </div>\n\n    <div class="cta-section">\n      <h2>Potřebujete cenovou nabídku?</h2>\n      <p style="font-size: 1.2rem;">Zašlete nám výkres nebo 3D model a my vám připravíme nezávaznou nabídku</p>\n      <a href="#" class="btn">Poslat poptávku</a>\n    </div>\n  </div>\n</body>\n</html>`,
+
+      'cnc-contact': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Kontakt - CNC Obrábění</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: 'Segoe UI', system-ui, sans-serif;\n      background: #f5f5f7;\n      color: #1a1a1d;\n      line-height: 1.6;\n    }\n    .container {\n      max-width: 1200px;\n      margin: 0 auto;\n      padding: 80px 20px;\n    }\n    .header {\n      text-align: center;\n      margin-bottom: 60px;\n    }\n    .header h1 {\n      font-size: 3rem;\n      color: #1e3a8a;\n      margin-bottom: 1rem;\n    }\n    .content-grid {\n      display: grid;\n      grid-template-columns: 1fr 1.5fr;\n      gap: 60px;\n    }\n    .contact-info {\n      background: white;\n      padding: 40px;\n      border-radius: 12px;\n      box-shadow: 0 4px 20px rgba(0,0,0,0.08);\n    }\n    .contact-info h2 {\n      color: #1e3a8a;\n      margin-bottom: 2rem;\n    }\n    .info-item {\n      margin-bottom: 2rem;\n    }\n    .info-item h3 {\n      color: #3b82f6;\n      margin-bottom: 0.5rem;\n      font-size: 1.1rem;\n    }\n    .info-item p {\n      color: #4b5563;\n    }\n    .quote-form {\n      background: white;\n      padding: 40px;\n      border-radius: 12px;\n      box-shadow: 0 4px 20px rgba(0,0,0,0.08);\n    }\n    .quote-form h2 {\n      color: #1e3a8a;\n      margin-bottom: 1.5rem;\n    }\n    .form-group {\n      margin-bottom: 1.5rem;\n    }\n    .form-group label {\n      display: block;\n      margin-bottom: 0.5rem;\n      color: #374151;\n      font-weight: 500;\n    }\n    .form-group input,\n    .form-group textarea,\n    .form-group select {\n      width: 100%;\n      padding: 12px;\n      border: 1px solid #d1d5db;\n      border-radius: 8px;\n      font-size: 1rem;\n      font-family: inherit;\n      transition: border-color 0.2s;\n    }\n    .form-group input:focus,\n    .form-group textarea:focus,\n    .form-group select:focus {\n      outline: none;\n      border-color: #3b82f6;\n    }\n    .form-group textarea {\n      min-height: 120px;\n      resize: vertical;\n    }\n    .form-file {\n      border: 2px dashed #d1d5db;\n      padding: 30px;\n      text-align: center;\n      border-radius: 8px;\n      cursor: pointer;\n      transition: border-color 0.2s;\n    }\n    .form-file:hover {\n      border-color: #3b82f6;\n      background: #f9fafb;\n    }\n    .submit-btn {\n      width: 100%;\n      padding: 15px;\n      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);\n      color: white;\n      border: none;\n      border-radius: 8px;\n      font-size: 1.1rem;\n      font-weight: 600;\n      cursor: pointer;\n      transition: transform 0.2s;\n    }\n    .submit-btn:hover {\n      transform: translateY(-2px);\n    }\n    @media (max-width: 768px) {\n      .content-grid {\n        grid-template-columns: 1fr;\n      }\n    }\n  </style>\n</head>\n<body>\n  <div class="container">\n    <div class="header">\n      <h1>📨 Kontaktujte nás</h1>\n      <p style="font-size: 1.2rem; color: #4b5563;">Rádi zodpovíme vaše dotazy a připravíme cenovou nabídku</p>\n    </div>\n\n    <div class="content-grid">\n      <div class="contact-info">\n        <h2>Kontaktní údaje</h2>\n        \n        <div class="info-item">\n          <h3>📍 Adresa</h3>\n          <p>Průmyslová 123<br>123 45 Praha 4</p>\n        </div>\n\n        <div class="info-item">\n          <h3>📞 Telefon</h3>\n          <p>+420 123 456 789</p>\n        </div>\n\n        <div class="info-item">\n          <h3>📧 Email</h3>\n          <p>info@cnc-obrabeni.cz</p>\n        </div>\n\n        <div class="info-item">\n          <h3>⏰ Otevírací doba</h3>\n          <p>Po - Pá: 7:00 - 16:00<br>So - Ne: Zavřeno</p>\n        </div>\n\n        <div class="info-item">\n          <h3>💼 IČO / DIČ</h3>\n          <p>IČO: 12345678<br>DIČ: CZ12345678</p>\n        </div>\n      </div>\n\n      <div class="quote-form">\n        <h2>Poptávkový formulář</h2>\n        <form>\n          <div class="form-group">\n            <label for="name">Jméno a příjmení *</label>\n            <input type="text" id="name" required>\n          </div>\n\n          <div class="form-group">\n            <label for="email">Email *</label>\n            <input type="email" id="email" required>\n          </div>\n\n          <div class="form-group">\n            <label for="phone">Telefon</label>\n            <input type="tel" id="phone">\n          </div>\n\n          <div class="form-group">\n            <label for="company">Firma</label>\n            <input type="text" id="company">\n          </div>\n\n          <div class="form-group">\n            <label for="service">Požadovaná služba</label>\n            <select id="service">\n              <option>CNC Frézování</option>\n              <option>CNC Soustružení</option>\n              <option>Řezání materiálu</option>\n              <option>Povrchové úpravy</option>\n              <option>Jiná služba</option>\n            </select>\n          </div>\n\n          <div class="form-group">\n            <label for="message">Popis zakázky *</label>\n            <textarea id="message" placeholder="Uveďte počet kusů, materiál, rozměry..." required></textarea>\n          </div>\n\n          <div class="form-group">\n            <label>Příloha (výkres, 3D model)</label>\n            <div class="form-file">\n              <p>📎 Přetáhněte soubor nebo klikněte pro výběr</p>\n              <p style="font-size: 0.9rem; color: #6b7280; margin-top: 10px;">STEP, IGES, DWG, PDF (max 10 MB)</p>\n              <input type="file" style="display: none;">\n            </div>\n          </div>\n\n          <button type="submit" class="submit-btn">Odeslat poptávku</button>\n        </form>\n      </div>\n    </div>\n  </div>\n</body>\n</html>`,
+
+      'cnc-gallery': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Portfolio - Naše výrobky</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: 'Segoe UI', system-ui, sans-serif;\n      background: #0a0a0b;\n      color: #e8e8ea;\n      line-height: 1.6;\n    }\n    header {\n      padding: 80px 20px;\n      text-align: center;\n      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);\n    }\n    h1 {\n      font-size: 3rem;\n      margin-bottom: 1rem;\n    }\n    .tagline {\n      font-size: 1.2rem;\n      opacity: 0.9;\n    }\n    .container {\n      max-width: 1400px;\n      margin: 0 auto;\n      padding: 80px 20px;\n    }\n    .categories {\n      display: flex;\n      gap: 15px;\n      justify-content: center;\n      margin-bottom: 60px;\n      flex-wrap: wrap;\n    }\n    .category-btn {\n      padding: 12px 24px;\n      background: #1a1a1d;\n      border: 1px solid #2a2a2d;\n      border-radius: 8px;\n      color: #e8e8ea;\n      cursor: pointer;\n      transition: all 0.2s;\n    }\n    .category-btn:hover,\n    .category-btn.active {\n      background: #3b82f6;\n      border-color: #3b82f6;\n    }\n    .gallery {\n      display: grid;\n      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));\n      gap: 30px;\n    }\n    .gallery-item {\n      background: #111113;\n      border: 1px solid #2a2a2d;\n      border-radius: 12px;\n      overflow: hidden;\n      transition: all 0.3s;\n      cursor: pointer;\n    }\n    .gallery-item:hover {\n      transform: translateY(-5px);\n      border-color: #3b82f6;\n      box-shadow: 0 10px 40px rgba(59, 130, 246, 0.3);\n    }\n    .image-container {\n      width: 100%;\n      height: 250px;\n      background: #1a1a1d;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      font-size: 4rem;\n      color: #3b82f6;\n    }\n    .item-info {\n      padding: 25px;\n    }\n    .item-info h3 {\n      color: #3b82f6;\n      margin-bottom: 0.5rem;\n      font-size: 1.3rem;\n    }\n    .item-info p {\n      color: #8a8a8f;\n      margin-bottom: 1rem;\n    }\n    .specs {\n      display: flex;\n      gap: 15px;\n      flex-wrap: wrap;\n    }\n    .spec-tag {\n      padding: 6px 12px;\n      background: #1a1a1d;\n      border: 1px solid #2a2a2d;\n      border-radius: 6px;\n      font-size: 0.85rem;\n      color: #b8b8bf;\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <h1>📸 Portfolio výrobků</h1>\n    <p class="tagline">Ukázky našich realizovaných zakázek</p>\n  </header>\n\n  <div class="container">\n    <div class="categories">\n      <button class="category-btn active">Vše</button>\n      <button class="category-btn">Frézování</button>\n      <button class="category-btn">Soustružení</button>\n      <button class="category-btn">Složité díly</button>\n      <button class="category-btn">Prototypy</button>\n    </div>\n\n    <div class="gallery">\n      <div class="gallery-item">\n        <div class="image-container">⚙️</div>\n        <div class="item-info">\n          <h3>Příruba ložiska</h3>\n          <p>CNC frézovaná příruba pro průmyslové ložisko</p>\n          <div class="specs">\n            <span class="spec-tag">Hliník 7075</span>\n            <span class="spec-tag">5-osé frézování</span>\n            <span class="spec-tag">50 ks</span>\n          </div>\n        </div>\n      </div>\n\n      <div class="gallery-item">\n        <div class="image-container">🔩</div>\n        <div class="item-info">\n          <h3>Hřídel převodovky</h3>\n          <p>Precizně soustružená hřídel s drážkami</p>\n          <div class="specs">\n            <span class="spec-tag">Ocel 42CrMo4</span>\n            <span class="spec-tag">Kaleno</span>\n            <span class="spec-tag">200 ks</span>\n          </div>\n        </div>\n      </div>\n\n      <div class="gallery-item">\n        <div class="image-container">🎯</div>\n        <div class="item-info">\n          <h3>Těleso ventilu</h3>\n          <p>Složitý díl s vnitřními kanály</p>\n          <div class="specs">\n            <span class="spec-tag">Mosaz</span>\n            <span class="spec-tag">4-osé frézování</span>\n            <span class="spec-tag">Prototyp</span>\n          </div>\n        </div>\n      </div>\n\n      <div class="gallery-item">\n        <div class="image-container">✂️</div>\n        <div class="item-info">\n          <h3>Adaptér motoru</h3>\n          <p>Adaptérová deska s přesným vrtáním</p>\n          <div class="specs">\n            <span class="spec-tag">Hliník 6061</span>\n            <span class="spec-tag">Eloxováno</span>\n            <span class="spec-tag">30 ks</span>\n          </div>\n        </div>\n      </div>\n\n      <div class="gallery-item">\n        <div class="image-container">🔧</div>\n        <div class="item-info">\n          <h3>Ozubené kolo</h3>\n          <p>Ozubené kolo modulu 3 s 45 zuby</p>\n          <div class="specs">\n            <span class="spec-tag">Ocel C45</span>\n            <span class="spec-tag">Frézování</span>\n            <span class="spec-tag">100 ks</span>\n          </div>\n        </div>\n      </div>\n\n      <div class="gallery-item">\n        <div class="image-container">⚡</div>\n        <div class="item-info">\n          <h3>Kryt elektroniky</h3>\n          <p>Lehký kryt s chladícími žebry</p>\n          <div class="specs">\n            <span class="spec-tag">Hliník</span>\n            <span class="spec-tag">3-osé frézování</span>\n            <span class="spec-tag">Lakováno</span>\n          </div>\n        </div>\n      </div>\n    </div>\n  </div>\n</body>\n</html>`,
+
+      'calc-price': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Cenová kalkulačka - DPH</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: system-ui, sans-serif;\n      background: linear-gradient(135deg, #10b981 0%, #059669 100%);\n      min-height: 100vh;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      padding: 20px;\n    }\n    .calculator {\n      background: white;\n      border-radius: 20px;\n      box-shadow: 0 20px 60px rgba(0,0,0,0.3);\n      padding: 40px;\n      max-width: 500px;\n      width: 100%;\n    }\n    h1 {\n      color: #059669;\n      margin-bottom: 30px;\n      text-align: center;\n      font-size: 2rem;\n    }\n    .input-group {\n      margin-bottom: 25px;\n    }\n    label {\n      display: block;\n      margin-bottom: 8px;\n      color: #374151;\n      font-weight: 500;\n    }\n    input, select {\n      width: 100%;\n      padding: 15px;\n      border: 2px solid #d1d5db;\n      border-radius: 10px;\n      font-size: 1.1rem;\n      transition: border-color 0.2s;\n    }\n    input:focus, select:focus {\n      outline: none;\n      border-color: #10b981;\n    }\n    .result {\n      background: #f0fdf4;\n      border: 2px solid #10b981;\n      border-radius: 10px;\n      padding: 20px;\n      margin-top: 30px;\n      text-align: center;\n    }\n    .result-label {\n      color: #059669;\n      font-size: 0.9rem;\n      margin-bottom: 5px;\n    }\n    .result-value {\n      color: #047857;\n      font-size: 2.5rem;\n      font-weight: 700;\n    }\n    .breakdown {\n      margin-top: 20px;\n      padding-top: 20px;\n      border-top: 1px solid #d1fae5;\n      display: grid;\n      gap: 10px;\n    }\n    .breakdown-item {\n      display: flex;\n      justify-content: space-between;\n      color: #6b7280;\n      font-size: 0.95rem;\n    }\n    .breakdown-item strong {\n      color: #374151;\n    }\n  </style>\n</head>\n<body>\n  <div class="calculator">\n    <h1>💰 Cenová kalkulačka</h1>\n    \n    <div class="input-group">\n      <label for="price">Cena bez DPH (Kč)</label>\n      <input type="number" id="price" placeholder="0" value="1000" step="0.01">\n    </div>\n\n    <div class="input-group">\n      <label for="vat">Sazba DPH</label>\n      <select id="vat">\n        <option value="21">21% (základní)</option>\n        <option value="12">12% (snížená)</option>\n        <option value="0">0% (osvobozeno)</option>\n      </select>\n    </div>\n\n    <div class="result">\n      <div class="result-label">Cena s DPH</div>\n      <div class="result-value" id="totalPrice">1 210 Kč</div>\n      \n      <div class="breakdown">\n        <div class="breakdown-item">\n          <span>Cena bez DPH:</span>\n          <strong id="priceNoDPH">1 000 Kč</strong>\n        </div>\n        <div class="breakdown-item">\n          <span>DPH (<span id="vatPercent">21</span>%):</span>\n          <strong id="vatAmount">210 Kč</strong>\n        </div>\n      </div>\n    </div>\n  </div>\n\n  <script>\n    const priceInput = document.getElementById('price');\n    const vatSelect = document.getElementById('vat');\n    const totalPriceEl = document.getElementById('totalPrice');\n    const priceNoDPHEl = document.getElementById('priceNoDPH');\n    const vatAmountEl = document.getElementById('vatAmount');\n    const vatPercentEl = document.getElementById('vatPercent');\n\n    function calculate() {\n      const price = parseFloat(priceInput.value) || 0;\n      const vatRate = parseFloat(vatSelect.value) / 100;\n      \n      const vatAmount = price * vatRate;\n      const totalPrice = price + vatAmount;\n\n      priceNoDPHEl.textContent = price.toLocaleString('cs-CZ') + ' Kč';\n      vatAmountEl.textContent = vatAmount.toLocaleString('cs-CZ') + ' Kč';\n      totalPriceEl.textContent = totalPrice.toLocaleString('cs-CZ') + ' Kč';\n      vatPercentEl.textContent = vatSelect.value;\n    }\n\n    priceInput.addEventListener('input', calculate);\n    vatSelect.addEventListener('change', calculate);\n    calculate();\n  </script>\n</body>\n</html>`,
+
+      'calc-bmi': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>BMI Kalkulačka</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: system-ui, sans-serif;\n      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);\n      min-height: 100vh;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      padding: 20px;\n    }\n    .calculator {\n      background: white;\n      border-radius: 20px;\n      box-shadow: 0 20px 60px rgba(0,0,0,0.3);\n      padding: 40px;\n      max-width: 500px;\n      width: 100%;\n    }\n    h1 {\n      color: #d97706;\n      margin-bottom: 30px;\n      text-align: center;\n      font-size: 2rem;\n    }\n    .input-group {\n      margin-bottom: 25px;\n    }\n    label {\n      display: block;\n      margin-bottom: 8px;\n      color: #374151;\n      font-weight: 500;\n    }\n    input {\n      width: 100%;\n      padding: 15px;\n      border: 2px solid #d1d5db;\n      border-radius: 10px;\n      font-size: 1.1rem;\n      transition: border-color 0.2s;\n    }\n    input:focus {\n      outline: none;\n      border-color: #f59e0b;\n    }\n    .result {\n      margin-top: 30px;\n      text-align: center;\n    }\n    .bmi-value {\n      font-size: 3rem;\n      font-weight: 700;\n      margin: 20px 0;\n    }\n    .bmi-category {\n      font-size: 1.5rem;\n      font-weight: 600;\n      margin-bottom: 10px;\n    }\n    .bmi-desc {\n      color: #6b7280;\n      margin-bottom: 30px;\n    }\n    .scale {\n      background: #f3f4f6;\n      padding: 20px;\n      border-radius: 10px;\n    }\n    .scale-item {\n      display: flex;\n      justify-content: space-between;\n      padding: 8px 0;\n      border-bottom: 1px solid #e5e7eb;\n    }\n    .scale-item:last-child {\n      border-bottom: none;\n    }\n  </style>\n</head>\n<body>\n  <div class="calculator">\n    <h1>📊 BMI Kalkulačka</h1>\n    \n    <div class="input-group">\n      <label for="weight">Váha (kg)</label>\n      <input type="number" id="weight" placeholder="70" step="0.1">\n    </div>\n\n    <div class="input-group">\n      <label for="height">Výška (cm)</label>\n      <input type="number" id="height" placeholder="175" step="1">\n    </div>\n\n    <div class="result" id="result" style="display: none;">\n      <div class="bmi-value" id="bmiValue"></div>\n      <div class="bmi-category" id="bmiCategory"></div>\n      <div class="bmi-desc" id="bmiDesc"></div>\n      \n      <div class="scale">\n        <div class="scale-item" style="color: #3b82f6;">\n          <span>Podváha</span>\n          <span>&lt; 18.5</span>\n        </div>\n        <div class="scale-item" style="color: #10b981;">\n          <span>Normální váha</span>\n          <span>18.5 - 24.9</span>\n        </div>\n        <div class="scale-item" style="color: #f59e0b;">\n          <span>Nadváha</span>\n          <span>25 - 29.9</span>\n        </div>\n        <div class="scale-item" style="color: #ef4444;">\n          <span>Obezita</span>\n          <span>&gt;= 30</span>\n        </div>\n      </div>\n    </div>\n  </div>\n\n  <script>\n    const weightInput = document.getElementById('weight');\n    const heightInput = document.getElementById('height');\n    const resultDiv = document.getElementById('result');\n    const bmiValueEl = document.getElementById('bmiValue');\n    const bmiCategoryEl = document.getElementById('bmiCategory');\n    const bmiDescEl = document.getElementById('bmiDesc');\n\n    function calculate() {\n      const weight = parseFloat(weightInput.value);\n      const height = parseFloat(heightInput.value) / 100;\n      \n      if (weight > 0 && height > 0) {\n        const bmi = weight / (height * height);\n        \n        let category, desc, color;\n        if (bmi < 18.5) {\n          category = 'Podváha';\n          desc = 'Vaše BMI je pod normálem';\n          color = '#3b82f6';\n        } else if (bmi < 25) {\n          category = 'Normální váha';\n          desc = 'Vaše BMI je v normálním rozmezí';\n          color = '#10b981';\n        } else if (bmi < 30) {\n          category = 'Nadváha';\n          desc = 'Vaše BMI je nad normálem';\n          color = '#f59e0b';\n        } else {\n          category = 'Obezita';\n          desc = 'Vaše BMI značí obezitu';\n          color = '#ef4444';\n        }\n        \n        bmiValueEl.textContent = bmi.toFixed(1);\n        bmiValueEl.style.color = color;\n        bmiCategoryEl.textContent = category;\n        bmiCategoryEl.style.color = color;\n        bmiDescEl.textContent = desc;\n        resultDiv.style.display = 'block';\n      } else {\n        resultDiv.style.display = 'none';\n      }\n    }\n\n    weightInput.addEventListener('input', calculate);\n    heightInput.addEventListener('input', calculate);\n  </script>\n</body>\n</html>`,
+
+      'calc-loan': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Kalkulačka úvěru</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: system-ui, sans-serif;\n      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);\n      min-height: 100vh;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      padding: 20px;\n    }\n    .calculator {\n      background: white;\n      border-radius: 20px;\n      box-shadow: 0 20px 60px rgba(0,0,0,0.3);\n      padding: 40px;\n      max-width: 500px;\n      width: 100%;\n    }\n    h1 {\n      color: #7c3aed;\n      margin-bottom: 30px;\n      text-align: center;\n      font-size: 2rem;\n    }\n    .input-group {\n      margin-bottom: 25px;\n    }\n    label {\n      display: block;\n      margin-bottom: 8px;\n      color: #374151;\n      font-weight: 500;\n    }\n    input {\n      width: 100%;\n      padding: 15px;\n      border: 2px solid #d1d5db;\n      border-radius: 10px;\n      font-size: 1.1rem;\n      transition: border-color 0.2s;\n    }\n    input:focus {\n      outline: none;\n      border-color: #8b5cf6;\n    }\n    .result {\n      background: #f5f3ff;\n      border: 2px solid #8b5cf6;\n      border-radius: 10px;\n      padding: 20px;\n      margin-top: 30px;\n      text-align: center;\n    }\n    .result-label {\n      color: #7c3aed;\n      font-size: 0.9rem;\n      margin-bottom: 5px;\n    }\n    .result-value {\n      color: #6d28d9;\n      font-size: 2.5rem;\n      font-weight: 700;\n    }\n    .breakdown {\n      margin-top: 20px;\n      padding-top: 20px;\n      border-top: 1px solid #ddd6fe;\n      display: grid;\n      gap: 10px;\n    }\n    .breakdown-item {\n      display: flex;\n      justify-content: space-between;\n      color: #6b7280;\n      font-size: 0.95rem;\n    }\n    .breakdown-item strong {\n      color: #374151;\n    }\n  </style>\n</head>\n<body>\n  <div class="calculator">\n    <h1>🏦 Kalkulačka úvěru</h1>\n    \n    <div class="input-group">\n      <label for="amount">Výše úvěru (Kč)</label>\n      <input type="number" id="amount" placeholder="300000" value="300000" step="1000">\n    </div>\n\n    <div class="input-group">\n      <label for="rate">Úroková sazba (% p.a.)</label>\n      <input type="number" id="rate" placeholder="5.5" value="5.5" step="0.1">\n    </div>\n\n    <div class="input-group">\n      <label for="years">Doba splatnosti (roky)</label>\n      <input type="number" id="years" placeholder="5" value="5" step="1">\n    </div>\n\n    <div class="result">\n      <div class="result-label">Měsíční splátka</div>\n      <div class="result-value" id="monthlyPayment"></div>\n      \n      <div class="breakdown">\n        <div class="breakdown-item">\n          <span>Celkem zaplatíte:</span>\n          <strong id="totalPayment"></strong>\n        </div>\n        <div class="breakdown-item">\n          <span>Z toho úroky:</span>\n          <strong id="totalInterest"></strong>\n        </div>\n      </div>\n    </div>\n  </div>\n\n  <script>\n    const amountInput = document.getElementById('amount');\n    const rateInput = document.getElementById('rate');\n    const yearsInput = document.getElementById('years');\n    const monthlyPaymentEl = document.getElementById('monthlyPayment');\n    const totalPaymentEl = document.getElementById('totalPayment');\n    const totalInterestEl = document.getElementById('totalInterest');\n\n    function calculate() {\n      const P = parseFloat(amountInput.value) || 0;\n      const annualRate = parseFloat(rateInput.value) || 0;\n      const years = parseFloat(yearsInput.value) || 0;\n      \n      const monthlyRate = annualRate / 100 / 12;\n      const months = years * 12;\n      \n      if (P > 0 && monthlyRate > 0 && months > 0) {\n        const monthlyPayment = P * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);\n        const totalPayment = monthlyPayment * months;\n        const totalInterest = totalPayment - P;\n        \n        monthlyPaymentEl.textContent = monthlyPayment.toLocaleString('cs-CZ', {maximumFractionDigits: 0}) + ' Kč';\n        totalPaymentEl.textContent = totalPayment.toLocaleString('cs-CZ', {maximumFractionDigits: 0}) + ' Kč';\n        totalInterestEl.textContent = totalInterest.toLocaleString('cs-CZ', {maximumFractionDigits: 0}) + ' Kč';\n      }\n    }\n\n    amountInput.addEventListener('input', calculate);\n    rateInput.addEventListener('input', calculate);\n    yearsInput.addEventListener('input', calculate);\n    calculate();\n  </script>\n</body>\n</html>`,
+
+      'calc-tip': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Kalkulačka spropitného</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: system-ui, sans-serif;\n      background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);\n      min-height: 100vh;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      padding: 20px;\n    }\n    .calculator {\n      background: white;\n      border-radius: 20px;\n      box-shadow: 0 20px 60px rgba(0,0,0,0.3);\n      padding: 40px;\n      max-width: 500px;\n      width: 100%;\n    }\n    h1 {\n      color: #db2777;\n      margin-bottom: 30px;\n      text-align: center;\n      font-size: 2rem;\n    }\n    .input-group {\n      margin-bottom: 25px;\n    }\n    label {\n      display: block;\n      margin-bottom: 8px;\n      color: #374151;\n      font-weight: 500;\n    }\n    input {\n      width: 100%;\n      padding: 15px;\n      border: 2px solid #d1d5db;\n      border-radius: 10px;\n      font-size: 1.1rem;\n      transition: border-color 0.2s;\n    }\n    input:focus {\n      outline: none;\n      border-color: #ec4899;\n    }\n    .tip-options {\n      display: grid;\n      grid-template-columns: repeat(3, 1fr);\n      gap: 10px;\n      margin-bottom: 25px;\n    }\n    .tip-btn {\n      padding: 15px;\n      border: 2px solid #d1d5db;\n      border-radius: 10px;\n      background: white;\n      cursor: pointer;\n      font-size: 1rem;\n      font-weight: 600;\n      transition: all 0.2s;\n    }\n    .tip-btn:hover {\n      border-color: #ec4899;\n    }\n    .tip-btn.active {\n      background: #ec4899;\n      color: white;\n      border-color: #ec4899;\n    }\n    .result {\n      background: #fdf2f8;\n      border: 2px solid #ec4899;\n      border-radius: 10px;\n      padding: 20px;\n      margin-top: 30px;\n    }\n    .result-row {\n      display: flex;\n      justify-content: space-between;\n      padding: 12px 0;\n      border-bottom: 1px solid #fce7f3;\n    }\n    .result-row:last-child {\n      border-bottom: none;\n      font-weight: 700;\n      font-size: 1.2rem;\n      color: #be185d;\n    }\n  </style>\n</head>\n<body>\n  <div class="calculator">\n    <h1>🍽️ Kalkulačka spropitného</h1>\n    \n    <div class="input-group">\n      <label for="bill">Částka účtu (Kč)</label>\n      <input type="number" id="bill" placeholder="500" value="500" step="10">\n    </div>\n\n    <label style="margin-bottom: 10px; display: block;">Spropitné (%)</label>\n    <div class="tip-options">\n      <button class="tip-btn" data-tip="10">10%</button>\n      <button class="tip-btn active" data-tip="15">15%</button>\n      <button class="tip-btn" data-tip="20">20%</button>\n    </div>\n\n    <div class="input-group">\n      <label for="people">Počet osob</label>\n      <input type="number" id="people" placeholder="1" value="1" step="1" min="1">\n    </div>\n\n    <div class="result">\n      <div class="result-row">\n        <span>Účet:</span>\n        <strong id="billAmount">500 Kč</strong>\n      </div>\n      <div class="result-row">\n        <span>Spropitné (<span id="tipPercent">15</span>%):</span>\n        <strong id="tipAmount">75 Kč</strong>\n      </div>\n      <div class="result-row">\n        <span>Celkem:</span>\n        <strong id="totalAmount">575 Kč</strong>\n      </div>\n      <div class="result-row" style="padding-top: 20px; margin-top: 10px; border-top: 2px solid #ec4899;">\n        <span>Na osobu:</span>\n        <strong id="perPerson">575 Kč</strong>\n      </div>\n    </div>\n  </div>\n\n  <script>\n    const billInput = document.getElementById('bill');\n    const peopleInput = document.getElementById('people');\n    const tipBtns = document.querySelectorAll('.tip-btn');\n    \n    let currentTip = 15;\n\n    tipBtns.forEach(btn => {\n      btn.addEventListener('click', () => {\n        tipBtns.forEach(b => b.classList.remove('active'));\n        btn.classList.add('active');\n        currentTip = parseInt(btn.dataset.tip);\n        calculate();\n      });\n    });\n\n    function calculate() {\n      const bill = parseFloat(billInput.value) || 0;\n      const people = parseInt(peopleInput.value) || 1;\n      const tip = bill * (currentTip / 100);\n      const total = bill + tip;\n      const perPerson = total / people;\n\n      document.getElementById('billAmount').textContent = bill.toLocaleString('cs-CZ') + ' Kč';\n      document.getElementById('tipPercent').textContent = currentTip;\n      document.getElementById('tipAmount').textContent = tip.toLocaleString('cs-CZ') + ' Kč';\n      document.getElementById('totalAmount').textContent = total.toLocaleString('cs-CZ') + ' Kč';\n      document.getElementById('perPerson').textContent = perPerson.toLocaleString('cs-CZ') + ' Kč';\n    }\n\n    billInput.addEventListener('input', calculate);\n    peopleInput.addEventListener('input', calculate);\n    calculate();\n  </script>\n</body>\n</html>`
     };
 
     // Close handler

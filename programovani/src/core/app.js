@@ -160,6 +160,7 @@ class App {
     eventBus.on('action:search', () => this.showSearch());
     eventBus.on('console:toggle', () => this.toggleConsole());
     eventBus.on('console:clear', () => this.clearConsole());
+    eventBus.on('console:sendErrorsToAI', () => this.sendAllErrorsToAI());
     eventBus.on('preview:refresh', () => this.refreshPreview());
 
     // File management
@@ -210,11 +211,27 @@ class App {
     messageDiv.innerHTML = `
       <span class="console-timestamp">[${time}]</span>
       <span class="console-text">${this.escapeHTML(message)}</span>
+      ${level === 'error' ? `<button class="console-fix-btn" data-error="${this.escapeHTML(message)}" title="Poslat tuto chybu AI k opravě">🤖 Opravit</button>` : ''}
     `;
     consoleContent.appendChild(messageDiv);
 
+    // Add click handler for fix button
+    if (level === 'error') {
+      const fixBtn = messageDiv.querySelector('.console-fix-btn');
+      if (fixBtn) {
+        fixBtn.addEventListener('click', () => {
+          this.sendErrorToAI(message);
+        });
+      }
+    }
+
     // Auto-scroll to bottom
     consoleContent.scrollTop = consoleContent.scrollHeight;
+
+    // Update error count for AI indicator
+    if (level === 'error') {
+      this.updateErrorCount();
+    }
   }
 
   escapeHTML(str) {
@@ -235,6 +252,80 @@ class App {
     });
   }
 
+  sendErrorToAI(errorMessage) {
+    // Get current code
+    const code = state.get('editor.code') || '';
+    const activeFile = state.get('files.active') || 'untitled.html';
+
+    // Construct AI prompt
+    const prompt = `Prosím, oprav následující chybu v mém kódu:
+
+**Chyba:**
+${errorMessage}
+
+**Soubor:** ${activeFile}
+
+**Aktuální kód:**
+\`\`\`html
+${code}
+\`\`\`
+
+Přepiš celý kód s opravou a vysvětli, co bylo špatně.`;
+
+    // Open AI panel and send message
+    eventBus.emit('ai:show');
+
+    // Wait a bit for AI panel to open, then send message
+    setTimeout(() => {
+      eventBus.emit('ai:sendMessage', { message: prompt });
+      toast.success('Chyba odeslána AI k opravě', 2000);
+    }, 300);
+  }
+
+  sendAllErrorsToAI() {
+    const consoleContent = document.getElementById('consoleContent');
+    if (!consoleContent) return;
+
+    // Collect all error messages
+    const errorMessages = [];
+    const errorElements = consoleContent.querySelectorAll('.console-error .console-text');
+    errorElements.forEach(el => {
+      errorMessages.push(el.textContent);
+    });
+
+    if (errorMessages.length === 0) {
+      toast.info('Žádné chyby k odeslání', 2000);
+      return;
+    }
+
+    // Get current code
+    const code = state.get('editor.code') || '';
+    const activeFile = state.get('files.active') || 'untitled.html';
+
+    // Construct AI prompt with all errors
+    const prompt = `Prosím, oprav následující chyby v mém kódu:
+
+**Nalezené chyby (${errorMessages.length}):**
+${errorMessages.map((err, i) => `${i + 1}. ${err}`).join('\n')}
+
+**Soubor:** ${activeFile}
+
+**Aktuální kód:**
+\`\`\`html
+${code}
+\`\`\`
+
+Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
+
+    // Open AI panel and send message
+    eventBus.emit('ai:show');
+
+    setTimeout(() => {
+      eventBus.emit('ai:sendMessage', { message: prompt });
+      toast.success(`${errorMessages.length} chyb odesláno AI k opravě`, 2000);
+    }, 300);
+  }
+
   switchView(view) {
     const app = document.querySelector('.app');
     if (!app) return;
@@ -248,6 +339,7 @@ class App {
 
   applyTheme(theme) {
     document.body.className = theme === 'light' ? 'light-theme' : '';
+    localStorage.setItem('theme', theme);
     eventBus.emit('theme:changed', { theme });
   }
 
@@ -446,6 +538,9 @@ class App {
     if (this.preview) {
       this.preview.update(tab.content);
     }
+
+    // Add to recent files
+    this.addToRecentFiles(tab.name, fileId);
 
     toast.success(`Otevřen: ${tab.name}`, 1500);
   }
@@ -816,7 +911,98 @@ class App {
     const consoleContent = document.getElementById('consoleContent');
     if (consoleContent) {
       consoleContent.innerHTML = '';
+      this.updateErrorCount();
     }
+  }
+
+  updateErrorCount() {
+    const consoleContent = document.getElementById('consoleContent');
+    if (!consoleContent) return;
+
+    const ignoredErrors = JSON.parse(localStorage.getItem('ignoredErrors') || '[]');
+
+    // Count only non-ignored errors
+    const allErrors = Array.from(consoleContent.querySelectorAll('.console-error .console-text'));
+    const visibleErrorCount = allErrors.filter(el => {
+      const errorText = el.textContent;
+      return !ignoredErrors.some(ignored => errorText.includes(ignored));
+    }).length;
+
+    eventBus.emit('console:errorCountChanged', { count: visibleErrorCount });
+  }
+
+  sendErrorToAI(errorMessage) {
+    // Get current code
+    const code = state.get('editor.code') || '';
+    const activeFile = state.get('files.active') || 'untitled.html';
+
+    // Construct AI prompt
+    const prompt = `Prosím, oprav následující chybu v mém kódu:
+
+**Chyba:**
+${errorMessage}
+
+**Soubor:** ${activeFile}
+
+**Aktuální kód:**
+\`\`\`html
+${code}
+\`\`\`
+
+Přepiš celý kód s opravou a vysvětli, co bylo špatně.`;
+
+    // Open AI panel and send message
+    eventBus.emit('ai:show');
+
+    // Wait a bit for AI panel to open, then send message
+    setTimeout(() => {
+      eventBus.emit('ai:sendMessage', { message: prompt });
+      toast.success('Chyba odeslána AI k opravě', 2000);
+    }, 300);
+  }
+
+  sendAllErrorsToAI() {
+    const consoleContent = document.getElementById('consoleContent');
+    if (!consoleContent) return;
+
+    // Collect all error messages
+    const errorMessages = [];
+    const errorElements = consoleContent.querySelectorAll('.console-error .console-text');
+    errorElements.forEach(el => {
+      errorMessages.push(el.textContent);
+    });
+
+    if (errorMessages.length === 0) {
+      toast.info('Žádné chyby k odeslání', 2000);
+      return;
+    }
+
+    // Get current code
+    const code = state.get('editor.code') || '';
+    const activeFile = state.get('files.active') || 'untitled.html';
+
+    // Construct AI prompt with all errors
+    const prompt = `Prosím, oprav následující chyby v mém kódu:
+
+**Nalezené chyby (${errorMessages.length}):**
+${errorMessages.map((err, i) => `${i + 1}. ${err}`).join('\n')}
+
+**Soubor:** ${activeFile}
+
+**Aktuální kód:**
+\`\`\`html
+${code}
+\`\`\`
+
+Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
+
+    // Open AI panel and send message
+    eventBus.emit('ai:show');
+
+    setTimeout(() => {
+      eventBus.emit('ai:sendMessage', { message: prompt });
+      toast.success(`${errorMessages.length} ${errorMessages.length === 1 ? 'chyba odeslána' : errorMessages.length < 5 ? 'chyby odeslány' : 'chyb odesláno'} AI k opravě`, 2000);
+    }, 300);
   }
 
   refreshPreview() {
@@ -830,6 +1016,30 @@ class App {
     const currentView = state.get('ui.view');
     const newView = currentView === 'split' ? 'editor' : 'split';
     this.switchView(newView);
+  }
+
+  addToRecentFiles(fileName, fileId) {
+    const recentFiles = JSON.parse(localStorage.getItem('recentFiles') || '[]');
+    const fileEntry = {
+      name: fileName,
+      id: fileId,
+      timestamp: Date.now(),
+      date: new Date().toLocaleString('cs-CZ')
+    };
+
+    // Remove duplicate if exists
+    const filtered = recentFiles.filter(f => f.id !== fileId);
+
+    // Add to beginning and limit to 10 items
+    filtered.unshift(fileEntry);
+    const limited = filtered.slice(0, 10);
+
+    localStorage.setItem('recentFiles', JSON.stringify(limited));
+    eventBus.emit('recentFiles:updated', { files: limited });
+  }
+
+  getRecentFiles() {
+    return JSON.parse(localStorage.getItem('recentFiles') || '[]');
   }
 
   destroy() {

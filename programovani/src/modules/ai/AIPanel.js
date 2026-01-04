@@ -24,6 +24,7 @@ export class AIPanel {
     eventBus.on('ai:hide', () => this.hide());
     eventBus.on('ai:sendMessage', (data) => this.sendMessage(data.message));
     eventBus.on('aiSettings:show', () => this.showSettings());
+    eventBus.on('console:errorCountChanged', (data) => this.updateErrorIndicator(data.count));
   }
 
   showSettings() {
@@ -66,6 +67,10 @@ export class AIPanel {
           <option value="testing">🧪 Testing</option>
           <option value="github">🔗 GitHub</option>
         </select>
+        <button class="ai-error-indicator" id="aiErrorIndicator" title="Klikněte pro odeslání chyb AI">
+          <span class="error-icon">✓</span>
+          <span class="error-count">0 chyb</span>
+        </button>
         <div class="ai-settings-header" id="aiSettingsHeader">
           <button class="ai-settings-toggle" type="button">Nastavení AI <span class="toggle-arrow">▼</span></button>
           <div class="ai-header-settings hidden">
@@ -95,6 +100,8 @@ export class AIPanel {
 
     // Now attach event handlers
     this.attachEventHandlers();
+    this.setupErrorIndicator();
+    this.setupTokenCounter();
 
     // Initialize provider/model after DOM is ready
     const providerSelect = this.modal.element.querySelector('#aiProvider');
@@ -161,6 +168,9 @@ export class AIPanel {
               </div>
             </div>
             <div class="ai-chat-input">
+              <div class="token-counter" id="tokenCounter">
+                <span class="token-count">0</span> tokenů (~<span class="char-count">0</span> znaků)
+              </div>
               <textarea
                 id="aiChatInput"
                 placeholder="Napiš zprávu... (Shift+Enter pro nový řádek)"
@@ -520,6 +530,377 @@ export class AIPanel {
     `;
   }
 
+  setupErrorIndicator() {
+    const errorBtn = this.modal?.element?.querySelector('#aiErrorIndicator');
+    if (errorBtn) {
+      errorBtn.addEventListener('click', () => this.sendAllErrorsToAI());
+    }
+    // Initialize with current error count
+    this.updateErrorIndicator(0);
+  }
+
+  updateErrorIndicator(errorCount) {
+    const errorBtn = this.modal?.element?.querySelector('#aiErrorIndicator');
+    if (!errorBtn) return;
+
+    const icon = errorBtn.querySelector('.error-icon');
+    const countText = errorBtn.querySelector('.error-count');
+
+    if (errorCount === 0) {
+      errorBtn.className = 'ai-error-indicator success';
+      icon.textContent = '✓';
+      countText.textContent = '0 chyb';
+      errorBtn.title = 'Žádné chyby v konzoli';
+    } else {
+      errorBtn.className = 'ai-error-indicator error';
+      icon.textContent = '⚠';
+      countText.textContent = `${errorCount} ${errorCount === 1 ? 'chyba' : errorCount < 5 ? 'chyby' : 'chyb'}`;
+      errorBtn.title = `Klikněte pro odeslání ${errorCount} chyb AI k opravě`;
+    }
+  }
+
+  sendAllErrorsToAI() {
+    // Get all errors from console
+    const consoleContent = document.getElementById('consoleContent');
+    if (!consoleContent) return;
+
+    const errorMessages = [];
+    const errorElements = consoleContent.querySelectorAll('.console-error .console-text');
+    errorElements.forEach(el => {
+      const errorText = el.textContent;
+      // Check if error is ignored
+      if (!this.isErrorIgnored(errorText)) {
+        errorMessages.push(errorText);
+      }
+    });
+
+    if (errorMessages.length === 0) {
+      eventBus.emit('toast:show', {
+        message: '✅ Žádné chyby k odeslání',
+        type: 'info',
+        duration: 2000
+      });
+      return;
+    }
+
+    // Show error selection modal
+    this.showErrorSelectionModal(errorMessages);
+  }
+
+  isErrorIgnored(errorText) {
+    const ignoredErrors = JSON.parse(localStorage.getItem('ignoredErrors') || '[]');
+    return ignoredErrors.some(ignored => errorText.includes(ignored));
+  }
+
+  ignoreErrors(errors) {
+    const ignoredErrors = JSON.parse(localStorage.getItem('ignoredErrors') || '[]');
+    errors.forEach(error => {
+      if (!ignoredErrors.includes(error)) {
+        ignoredErrors.push(error);
+      }
+    });
+    localStorage.setItem('ignoredErrors', JSON.stringify(ignoredErrors));
+
+    eventBus.emit('toast:show', {
+      message: `🔕 ${errors.length} chyb ignorováno`,
+      type: 'info',
+      duration: 2000
+    });
+
+    // Update error count
+    const consoleContent = document.getElementById('consoleContent');
+    if (consoleContent) {
+      const visibleErrorCount = Array.from(consoleContent.querySelectorAll('.console-error .console-text'))
+        .filter(el => !this.isErrorIgnored(el.textContent)).length;
+      this.updateErrorIndicator(visibleErrorCount);
+    }
+  }
+
+  showErrorSelectionModal(errorMessages) {
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop error-selection-modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-content error-selection-modal">
+        <div class="modal-header">
+          <h3>🐛 Výběr chyb k odeslání AI</h3>
+          <button class="modal-close" id="errorModalClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body error-selection-body">
+          <p class="error-selection-description">
+            Vyberte chyby, které chcete odeslat AI k opravě, nebo je ignorujte.
+          </p>
+          <div class="error-selection-controls">
+            <button class="select-all-btn" id="selectAllErrors">✓ Vybrat vše</button>
+            <button class="deselect-all-btn" id="deselectAllErrors">✗ Zrušit výběr</button>
+            <button class="manage-ignored-btn" id="manageIgnoredBtn">🔕 Spravovat ignorované</button>
+          </div>
+          <div class="error-list" id="errorList">
+            ${errorMessages.map((error, index) => `
+              <div class="error-item" data-index="${index}">
+                <input type="checkbox" id="error-${index}" checked>
+                <label for="error-${index}" class="error-text">${this.escapeHTML(error)}</label>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        <div class="modal-footer error-selection-footer">
+          <button class="btn-secondary" id="ignoreSelectedBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M1 1l22 22M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+            </svg>
+            Ignorovat vybrané
+          </button>
+          <button class="btn-primary" id="sendSelectedBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+            </svg>
+            Odeslat vybrané do AI
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close handlers
+    const closeModal = () => modal.remove();
+    modal.querySelector('#errorModalClose').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    // Select/Deselect all
+    modal.querySelector('#selectAllErrors').addEventListener('click', () => {
+      modal.querySelectorAll('.error-item input[type="checkbox"]').forEach(cb => cb.checked = true);
+    });
+
+    modal.querySelector('#deselectAllErrors').addEventListener('click', () => {
+      modal.querySelectorAll('.error-item input[type="checkbox"]').forEach(cb => cb.checked = false);
+    });
+
+    // Manage ignored errors
+    modal.querySelector('#manageIgnoredBtn').addEventListener('click', () => {
+      this.showIgnoredErrorsModal();
+    });
+
+    // Ignore selected errors
+    modal.querySelector('#ignoreSelectedBtn').addEventListener('click', () => {
+      const selectedErrors = [];
+      modal.querySelectorAll('.error-item input[type="checkbox"]:checked').forEach(cb => {
+        const index = parseInt(cb.closest('.error-item').dataset.index);
+        selectedErrors.push(errorMessages[index]);
+      });
+
+      if (selectedErrors.length === 0) {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Nevybrali jste žádné chyby',
+          type: 'warning',
+          duration: 2000
+        });
+        return;
+      }
+
+      this.ignoreErrors(selectedErrors);
+      closeModal();
+    });
+
+    // Send selected errors
+    modal.querySelector('#sendSelectedBtn').addEventListener('click', () => {
+      const selectedErrors = [];
+      modal.querySelectorAll('.error-item input[type="checkbox"]:checked').forEach(cb => {
+        const index = parseInt(cb.closest('.error-item').dataset.index);
+        selectedErrors.push(errorMessages[index]);
+      });
+
+      if (selectedErrors.length === 0) {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Nevybrali jste žádné chyby k odeslání',
+          type: 'warning',
+          duration: 2000
+        });
+        return;
+      }
+
+      // Get current code
+      const code = state.get('editor.code') || '';
+      const activeFile = state.get('files.active') || 'untitled.html';
+
+      // Construct prompt
+      const prompt = `Prosím, oprav následující chyby v mém kódu:
+
+**Nalezené chyby (${selectedErrors.length}):**
+${selectedErrors.map((err, i) => `${i + 1}. ${err}`).join('\n')}
+
+**Soubor:** ${activeFile}
+
+**Aktuální kód:**
+\`\`\`html
+${code}
+\`\`\`
+
+Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
+
+      // Send message to chat
+      this.sendMessage(prompt);
+
+      eventBus.emit('toast:show', {
+        message: `✅ ${selectedErrors.length} chyb odesláno AI k opravě`,
+        type: 'success',
+        duration: 2000
+      });
+
+      closeModal();
+    });
+  }
+
+  showIgnoredErrorsModal() {
+    const ignoredErrors = JSON.parse(localStorage.getItem('ignoredErrors') || '[]');
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop error-selection-modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-content error-selection-modal">
+        <div class="modal-header">
+          <h3>🔕 Ignorované chyby</h3>
+          <button class="modal-close" id="ignoredModalClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body error-selection-body">
+          ${ignoredErrors.length === 0 ? `
+            <p class="error-selection-description">
+              Žádné ignorované chyby. Chyby můžete ignorovat při výběru chyb k odeslání AI.
+            </p>
+          ` : `
+            <p class="error-selection-description">
+              Seznam ignorovaných chyb. Klikněte na tlačítko pro odebrání z ignorovaných.
+            </p>
+            <div class="error-list" id="ignoredErrorList">
+              ${ignoredErrors.map((error, index) => `
+                <div class="error-item" data-index="${index}">
+                  <span class="error-text">${this.escapeHTML(error)}</span>
+                  <button class="remove-ignored-btn" data-error="${this.escapeHTML(error)}" title="Přestat ignorovat">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+        <div class="modal-footer error-selection-footer">
+          ${ignoredErrors.length > 0 ? `
+            <button class="btn-secondary" id="clearAllIgnoredBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              Vymazat vše
+            </button>
+          ` : ''}
+          <button class="btn-primary" id="closeIgnoredBtn">Zavřít</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close handlers
+    const closeModal = () => {
+      modal.remove();
+      // Refresh error count after managing ignored errors
+      const consoleContent = document.getElementById('consoleContent');
+      if (consoleContent) {
+        const visibleErrorCount = Array.from(consoleContent.querySelectorAll('.console-error .console-text'))
+          .filter(el => !this.isErrorIgnored(el.textContent)).length;
+        this.updateErrorIndicator(visibleErrorCount);
+      }
+    };
+
+    modal.querySelector('#ignoredModalClose').addEventListener('click', closeModal);
+    modal.querySelector('#closeIgnoredBtn').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    // Remove individual ignored error
+    modal.querySelectorAll('.remove-ignored-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const errorToRemove = btn.dataset.error;
+        const ignoredErrors = JSON.parse(localStorage.getItem('ignoredErrors') || '[]');
+        const updatedErrors = ignoredErrors.filter(err => err !== errorToRemove);
+        localStorage.setItem('ignoredErrors', JSON.stringify(updatedErrors));
+
+        eventBus.emit('toast:show', {
+          message: '✅ Chyba již nebude ignorována',
+          type: 'success',
+          duration: 2000
+        });
+
+        // Refresh modal
+        modal.remove();
+        this.showIgnoredErrorsModal();
+      });
+    });
+
+    // Clear all ignored errors
+    const clearAllBtn = modal.querySelector('#clearAllIgnoredBtn');
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', () => {
+        if (confirm('Opravdu chcete vymazat všechny ignorované chyby?')) {
+          localStorage.setItem('ignoredErrors', JSON.stringify([]));
+
+          eventBus.emit('toast:show', {
+            message: '🗑️ Všechny ignorované chyby vymazány',
+            type: 'success',
+            duration: 2000
+          });
+
+          closeModal();
+        }
+      });
+    }
+  }
+
+  escapeHTML(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  setupTokenCounter() {
+    const chatInput = this.modal?.element?.querySelector('#aiChatInput');
+    const tokenCounter = this.modal?.element?.querySelector('#tokenCounter');
+
+    if (!chatInput || !tokenCounter) return;
+
+    chatInput.addEventListener('input', () => {
+      const text = chatInput.value;
+      const charCount = text.length;
+      // Rough estimation: 1 token ≈ 4 characters
+      const tokenCount = Math.ceil(charCount / 4);
+
+      tokenCounter.querySelector('.token-count').textContent = tokenCount;
+      tokenCounter.querySelector('.char-count').textContent = charCount;
+
+      // Color coding
+      if (tokenCount > 2000) {
+        tokenCounter.style.color = '#ef4444';
+      } else if (tokenCount > 1000) {
+        tokenCounter.style.color = '#f59e0b';
+      } else {
+        tokenCounter.style.color = 'var(--text-secondary)';
+      }
+    });
+  }
+
   attachEventHandlers() {
     // Tab Select Dropdown in Header
     const tabSelect = this.modal.element.querySelector('#aiTabSelectHeader');
@@ -748,6 +1129,9 @@ export class AIPanel {
     // Add user message to chat
     this.addChatMessage('user', message);
 
+    // Start timing
+    const startTime = performance.now();
+
     // Add to history
     this.chatHistory.push({
       role: 'user',
@@ -915,7 +1299,7 @@ ${hasCode && hasHistory ?
     }
   }
 
-  addChatMessage(role, content) {
+  addChatMessage(role, content, responseTime = null) {
     const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
     const messageId = `msg-${Date.now()}-${Math.random()}`;
 
@@ -1417,19 +1801,52 @@ ${hasCode && hasHistory ?
 
     const allProviders = window.AI.getAllProvidersWithModels();
     const providerData = allProviders[provider];
+    const favoriteModels = JSON.parse(localStorage.getItem('favoriteModels') || '[]');
 
     if (providerData && Array.isArray(providerData.models)) {
       modelSelect.innerHTML = providerData.models
         .map(m => {
+          const isFavorite = favoriteModels.includes(`${provider}:${m.value}`);
+          const star = isFavorite ? '⭐ ' : '';
           const freeLabel = m.free ? '🟢 FREE' : '💰 Paid';
           const rpmLabel = `${m.rpm} RPM`;
           const contextLabel = m.context || '';
           const info = `${freeLabel} | ${rpmLabel} | ${contextLabel}`;
-          return `<option value="${m.value}" title="${m.description || ''}">${m.label} (${info})</option>`;
+          return `<option value="${m.value}" title="${m.description || ''}" data-favorite="${isFavorite}">${star}${m.label} (${info})</option>`;
         })
         .join('');
+
+      // Add double-click handler for favoriting
+      modelSelect.addEventListener('dblclick', (e) => {
+        const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+        if (selectedOption) {
+          this.toggleModelFavorite(provider, selectedOption.value);
+        }
+      });
     } else {
       modelSelect.innerHTML = '<option value="">Žádné modely</option>';
+    }
+  }
+
+  toggleModelFavorite(provider, modelValue) {
+    const favoriteModels = JSON.parse(localStorage.getItem('favoriteModels') || '[]');
+    const modelKey = `${provider}:${modelValue}`;
+
+    const index = favoriteModels.indexOf(modelKey);
+    if (index > -1) {
+      favoriteModels.splice(index, 1);
+      toast.success('Model odebrán z oblíbených', 1500);
+    } else {
+      favoriteModels.push(modelKey);
+      toast.success('⭐ Model přidán do oblíbených', 1500);
+    }
+
+    localStorage.setItem('favoriteModels', JSON.stringify(favoriteModels));
+
+    // Refresh model list
+    const providerSelect = this.modal.element.querySelector('#aiProvider');
+    if (providerSelect) {
+      this.updateModels(providerSelect.value);
     }
   }
 
@@ -2910,24 +3327,46 @@ ODPOVĚZ VE FORMÁTU:
       const thinkingEl = this.modal.element.querySelector(`[data-message-id="${thinkingId}"]`);
       if (thinkingEl) thinkingEl.remove();
 
-      // Add orchestrator response
-      this.addChatMessage('ai', response);
-
-      // Add to history
-      this.chatHistory.push({
-        role: 'assistant',
-        content: response
-      });
-
-      // Update history counter
-      this.updateHistoryInfo();
-
       // Extract and apply code if present
       const codeMatch = response.match(/```(?:html)?\n([\s\S]*?)```/);
       if (codeMatch && codeMatch[1]) {
         const code = codeMatch[1].trim();
+
+        // Extract only the description/plan part (before the code)
+        const descriptionMatch = response.match(/([\s\S]*?)```/);
+        const description = descriptionMatch ? descriptionMatch[1].trim() : '✅ Kód byl vygenerován a vložen do editoru.';
+
+        // Add only description to chat, not the full code
+        this.addChatMessage('ai', description);
+
+        // Add to history (without full code)
+        this.chatHistory.push({
+          role: 'assistant',
+          content: description
+        });
+
+        // Insert code to editor
         this.insertCodeToEditor(code, false);
+
+        // Show success toast
+        eventBus.emit('toast:show', {
+          message: '✅ Orchestrator vytvořil projekt a vložil do editoru',
+          type: 'success',
+          duration: 3000
+        });
+      } else {
+        // No code found, show full response
+        this.addChatMessage('ai', response);
+
+        // Add to history
+        this.chatHistory.push({
+          role: 'assistant',
+          content: response
+        });
       }
+
+      // Update history counter
+      this.updateHistoryInfo();
 
     } catch (error) {
       console.error('Orchestrator error:', error);
