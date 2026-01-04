@@ -240,7 +240,7 @@
     <script type="module" src="./src/core/app.js"></script>
     <script>
       // Cache buster - force reload on version change
-      const APP_VERSION = '2.1.3-mobile-tiny-font';
+      const APP_VERSION = '2.1.4-tiny-font-fix';
       const lastVersion = localStorage.getItem('app_version');
 
       if (lastVersion !== APP_VERSION) {
@@ -278,20 +278,21 @@
           // Add timestamp to URL to force fresh load
           const url = new URL(window.location.href);
           url.searchParams.set('_t', Date.now());
+          localStorage.setItem('app_version', APP_VERSION);
           window.location.href = url.toString();
-          return;
+          // Stop execution after redirect
+        } else {
+          // DŮLEŽITÉ: localStorage NEMAZAT - obsahuje důležitá uživatelská data!
+          // Maže se jen browser cache (obrázky, CSS, JS soubory)
+          // localStorage zůstává zachován včetně:
+          // - github_token, github_username
+          // - htmlStudio:state (vaše soubory a nastavení)
+          // - ai_module_* (AI konverzace a nastavení)
+          // - github_repos (seznam repozitářů)
+
+          localStorage.setItem('app_version', APP_VERSION);
+          console.log('✅ Cache vymazána (localStorage zachován), verze aktualizována na', APP_VERSION);
         }
-
-        // DŮLEŽITÉ: localStorage NEMAZAT - obsahuje důležitá uživatelská data!
-        // Maže se jen browser cache (obrázky, CSS, JS soubory)
-        // localStorage zůstává zachován včetně:
-        // - github_token, github_username
-        // - htmlStudio:state (vaše soubory a nastavení)
-        // - ai_module_* (AI konverzace a nastavení)
-        // - github_repos (seznam repozitářů)
-
-        localStorage.setItem('app_version', APP_VERSION);
-        console.log('✅ Cache vymazána (localStorage zachován), verze aktualizována na', APP_VERSION);
       }
 
       // Wait for eventBus to be ready
