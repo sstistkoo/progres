@@ -817,7 +817,7 @@ const AI = {
     },
 
     // Retry s exponenciálním backoff
-    async retryWithBackoff(apiCall, maxRetries = null) {
+    async retryWithBackoff(apiCall, maxRetries = null, providerContext = null) {
         const retries = maxRetries || this.config.maxRetries;
 
         for (let attempt = 0; attempt < retries; attempt++) {
@@ -830,6 +830,16 @@ const AI = {
                     err.message?.includes('RESOURCE_EXHAUSTED');
 
                 if (isRateLimit && attempt < retries - 1) {
+                    // Místo čekání zkusíme jiný model
+                    if (providerContext && attempt === 0) {
+                        console.log('⚠️ Rate limit detekovaná - zkousím jiný model...');
+                        // Vrátíme speciální error pro fallback
+                        const fallbackError = new Error('RATE_LIMIT_FALLBACK');
+                        fallbackError.originalError = err;
+                        throw fallbackError;
+                    }
+
+                    // Pokud už fallback selžal, nebo není context, čekej
                     const retryMatch = err.message?.match(/retry in ([\d.]+)s/i);
                     let delayMs;
 
@@ -1228,7 +1238,7 @@ const AI = {
             }
 
             return resp.json();
-        });
+        }, null, { provider: 'gemini', model });
 
         const text = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
@@ -1539,6 +1549,44 @@ const AI = {
     // ============== UNIVERZÁLNÍ METODY ==============
 
     async ask(prompt, options = {}) {
+        try {
+            return await this.askWithOptions(prompt, options);
+        } catch (error) {
+            // Pokud je to rate limit fallback, zkus jiný model
+            if (error.message === 'RATE_LIMIT_FALLBACK') {
+                console.log('🔄 Fallback na alternativní model...');
+
+                // Získej seznam všech dostupných modelů
+                const allProviders = this.getAllProvidersWithModels();
+                const currentProvider = options.provider;
+
+                // Najdi jiného providera
+                const alternativeProviders = Object.keys(allProviders)
+                    .filter(p => p !== currentProvider && this.getApiKey(p));
+
+                if (alternativeProviders.length > 0) {
+                    const fallbackProvider = alternativeProviders[0];
+                    const fallbackModel = allProviders[fallbackProvider].models[0].value;
+
+                    console.log(`✅ Používám záložní model: ${fallbackProvider} - ${fallbackModel}`);
+
+                    // Zkus znovu s jiným modelem
+                    return await this.askWithOptions(prompt, {
+                        ...options,
+                        provider: fallbackProvider,
+                        model: fallbackModel
+                    });
+                }
+
+                // Žádná alternativa není
+                throw error.originalError || error;
+            }
+
+            throw error;
+        }
+    },
+
+    async askWithOptions(prompt, options = {}) {
         const provider = options.provider || this.config.defaultProvider;
         const model = options.model || this.config.models[provider];
         const startTime = Date.now();
