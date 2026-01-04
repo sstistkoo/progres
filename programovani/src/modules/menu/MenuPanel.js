@@ -440,7 +440,7 @@ build/
             <!-- Buttons -->
             <div class="component-card" data-component="button-primary">
               <div class="component-preview">
-                <button style="padding: 10px 20px; background: #00d4aa; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Primary Button</button>
+                <button style="padding: 10px 20px; background: #00d4aa; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Hlavní tlačítko</button>
               </div>
               <div class="component-info">
                 <h4>Primary Button</h4>
@@ -450,7 +450,7 @@ build/
 
             <div class="component-card" data-component="button-secondary">
               <div class="component-preview">
-                <button style="padding: 10px 20px; background: transparent; color: #00d4aa; border: 2px solid #00d4aa; border-radius: 6px; cursor: pointer; font-weight: 500;">Secondary Button</button>
+                <button style="padding: 10px 20px; background: transparent; color: #00d4aa; border: 2px solid #00d4aa; border-radius: 6px; cursor: pointer; font-weight: 500;">Sekundární tlačítko</button>
               </div>
               <div class="component-info">
                 <h4>Secondary Button</h4>
@@ -462,8 +462,8 @@ build/
             <div class="component-card" data-component="card">
               <div class="component-preview">
                 <div style="background: #1a1a1d; border: 1px solid #2a2a2d; border-radius: 8px; padding: 20px; max-width: 250px;">
-                  <h3 style="margin: 0 0 10px 0; color: #e8e8ea;">Card Title</h3>
-                  <p style="margin: 0; color: #8a8a8f; font-size: 14px;">Card description text goes here.</p>
+                  <h3 style="margin: 0 0 10px 0; color: #e8e8ea;">Titulek karty</h3>
+                  <p style="margin: 0; color: #8a8a8f; font-size: 14px;">Popis obsahu karty zde.</p>
                 </div>
               </div>
               <div class="component-info">
@@ -475,11 +475,11 @@ build/
             <!-- Input -->
             <div class="component-card" data-component="input">
               <div class="component-preview">
-                <input type="text" placeholder="Enter text..." style="padding: 10px 12px; background: #111113; border: 1px solid #2a2a2d; border-radius: 6px; color: #e8e8ea; width: 200px;">
+                <input type="text" placeholder="Zadejte text..." style="padding: 10px 12px; background: #111113; border: 1px solid #2a2a2d; border-radius: 6px; color: #e8e8ea; width: 200px;">
               </div>
               <div class="component-info">
-                <h4>Input Field</h4>
-                <p>Textové pole</p>
+                <h4>Textové pole</h4>
+                <p>Input pro text</p>
               </div>
             </div>
 
@@ -487,12 +487,12 @@ build/
             <div class="component-card" data-component="alert">
               <div class="component-preview">
                 <div style="background: rgba(81, 207, 102, 0.1); border-left: 4px solid #51cf66; padding: 12px 16px; border-radius: 6px; max-width: 250px;">
-                  <p style="margin: 0; color: #51cf66; font-size: 14px;">✅ Success message</p>
+                  <p style="margin: 0; color: #51cf66; font-size: 14px;">✅ Úspěšná zpráva</p>
                 </div>
               </div>
               <div class="component-info">
-                <h4>Alert Box</h4>
-                <p>Oznamovací box</p>
+                <h4>Oznamovací box</h4>
+                <p>Alert box</p>
               </div>
             </div>
 
@@ -500,13 +500,13 @@ build/
             <div class="component-card" data-component="nav">
               <div class="component-preview">
                 <nav style="background: #111113; padding: 12px 20px; border-radius: 6px; display: flex; gap: 20px; max-width: 250px;">
-                  <a href="#" style="color: #00d4aa; text-decoration: none; font-weight: 500;">Home</a>
-                  <a href="#" style="color: #8a8a8f; text-decoration: none;">About</a>
-                  <a href="#" style="color: #8a8a8f; text-decoration: none;">Contact</a>
+                  <a href="#" style="color: #00d4aa; text-decoration: none; font-weight: 500;">Domov</a>
+                  <a href="#" style="color: #8a8a8f; text-decoration: none;">O nás</a>
+                  <a href="#" style="color: #8a8a8f; text-decoration: none;">Kontakt</a>
                 </nav>
               </div>
               <div class="component-info">
-                <h4>Navigation</h4>
+                <h4>Navigace</h4>
                 <p>Navigační menu</p>
               </div>
             </div>
@@ -522,17 +522,17 @@ build/
 
     // Component templates
     const components = {
-      'button-primary': '<button class="btn-primary">Button</button>\n\n<style>\n.btn-primary {\n  padding: 10px 20px;\n  background: #00d4aa;\n  color: white;\n  border: none;\n  border-radius: 6px;\n  cursor: pointer;\n  font-weight: 500;\n  transition: background 0.2s;\n}\n.btn-primary:hover {\n  background: #00a88a;\n}\n</style>',
+      'button-primary': '<button class="btn-primary">Tlačítko</button>\n\n<style>\n.btn-primary {\n  padding: 10px 20px;\n  background: #00d4aa;\n  color: white;\n  border: none;\n  border-radius: 6px;\n  cursor: pointer;\n  font-weight: 500;\n  transition: background 0.2s;\n}\n.btn-primary:hover {\n  background: #00a88a;\n}\n</style>',
 
-      'button-secondary': '<button class="btn-secondary">Button</button>\n\n<style>\n.btn-secondary {\n  padding: 10px 20px;\n  background: transparent;\n  color: #00d4aa;\n  border: 2px solid #00d4aa;\n  border-radius: 6px;\n  cursor: pointer;\n  font-weight: 500;\n  transition: all 0.2s;\n}\n.btn-secondary:hover {\n  background: #00d4aa;\n  color: white;\n}\n</style>',
+      'button-secondary': '<button class="btn-secondary">Tlačítko</button>\n\n<style>\n.btn-secondary {\n  padding: 10px 20px;\n  background: transparent;\n  color: #00d4aa;\n  border: 2px solid #00d4aa;\n  border-radius: 6px;\n  cursor: pointer;\n  font-weight: 500;\n  transition: all 0.2s;\n}\n.btn-secondary:hover {\n  background: #00d4aa;\n  color: white;\n}\n</style>',
 
-      'card': '<div class="card">\n  <h3>Card Title</h3>\n  <p>Card description text goes here.</p>\n</div>\n\n<style>\n.card {\n  background: #1a1a1d;\n  border: 1px solid #2a2a2d;\n  border-radius: 8px;\n  padding: 20px;\n  max-width: 300px;\n}\n.card h3 {\n  margin: 0 0 10px 0;\n  color: #e8e8ea;\n}\n.card p {\n  margin: 0;\n  color: #8a8a8f;\n  font-size: 14px;\n}\n</style>',
+      'card': '<div class="card">\n  <h3>Titulek karty</h3>\n  <p>Popis obsahu karty zde.</p>\n</div>\n\n<style>\n.card {\n  background: #1a1a1d;\n  border: 1px solid #2a2a2d;\n  border-radius: 8px;\n  padding: 20px;\n  max-width: 300px;\n}\n.card h3 {\n  margin: 0 0 10px 0;\n  color: #e8e8ea;\n}\n.card p {\n  margin: 0;\n  color: #8a8a8f;\n  font-size: 14px;\n}\n</style>',
 
-      'input': '<input type="text" class="input-field" placeholder="Enter text...">\n\n<style>\n.input-field {\n  padding: 10px 12px;\n  background: #111113;\n  border: 1px solid #2a2a2d;\n  border-radius: 6px;\n  color: #e8e8ea;\n  font-size: 14px;\n  width: 100%;\n  transition: border-color 0.2s;\n}\n.input-field:focus {\n  outline: none;\n  border-color: #00d4aa;\n}\n</style>',
+      'input': '<input type="text" class="input-field" placeholder="Zadejte text...">\n\n<style>\n.input-field {\n  padding: 10px 12px;\n  background: #111113;\n  border: 1px solid #2a2a2d;\n  border-radius: 6px;\n  color: #e8e8ea;\n  font-size: 14px;\n  width: 100%;\n  transition: border-color 0.2s;\n}\n.input-field:focus {\n  outline: none;\n  border-color: #00d4aa;\n}\n</style>',
 
-      'alert': '<div class="alert alert-success">\n  <p>✅ Success message</p>\n</div>\n\n<style>\n.alert {\n  padding: 12px 16px;\n  border-radius: 6px;\n  border-left: 4px solid;\n  margin: 10px 0;\n}\n.alert p {\n  margin: 0;\n  font-size: 14px;\n}\n.alert-success {\n  background: rgba(81, 207, 102, 0.1);\n  border-color: #51cf66;\n  color: #51cf66;\n}\n</style>',
+      'alert': '<div class="alert alert-success">\n  <p>✅ Úspěšná zpráva</p>\n</div>\n\n<style>\n.alert {\n  padding: 12px 16px;\n  border-radius: 6px;\n  border-left: 4px solid;\n  margin: 10px 0;\n}\n.alert p {\n  margin: 0;\n  font-size: 14px;\n}\n.alert-success {\n  background: rgba(81, 207, 102, 0.1);\n  border-color: #51cf66;\n  color: #51cf66;\n}\n</style>',
 
-      'nav': '<nav class="navbar">\n  <a href="#">Home</a>\n  <a href="#">About</a>\n  <a href="#">Contact</a>\n</nav>\n\n<style>\n.navbar {\n  background: #111113;\n  padding: 12px 20px;\n  border-radius: 6px;\n  display: flex;\n  gap: 20px;\n}\n.navbar a {\n  color: #8a8a8f;\n  text-decoration: none;\n  transition: color 0.2s;\n}\n.navbar a:hover {\n  color: #00d4aa;\n}\n</style>'
+      'nav': '<nav class="navbar">\n  <a href="#">Domov</a>\n  <a href="#">O nás</a>\n  <a href="#">Kontakt</a>\n</nav>\n\n<style>\n.navbar {\n  background: #111113;\n  padding: 12px 20px;\n  border-radius: 6px;\n  display: flex;\n  gap: 20px;\n}\n.navbar a {\n  color: #8a8a8f;\n  text-decoration: none;\n  transition: color 0.2s;\n}\n.navbar a:hover {\n  color: #00d4aa;\n}\n</style>'
     };
 
     // Close handler
@@ -549,7 +549,11 @@ build/
         const componentId = card.dataset.component;
         const code = components[componentId];
 
+        console.log('Component clicked:', componentId);
+        console.log('Code to insert:', code);
+
         if (code) {
+          console.log('Emitting editor:insertText event');
           eventBus.emit('editor:insertText', { text: '\n' + code + '\n' });
           eventBus.emit('toast:show', {
             message: '✅ Komponenta vložena',
