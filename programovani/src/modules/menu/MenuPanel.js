@@ -154,7 +154,23 @@ export class MenuPanel {
         </div>
 
         <div class="menu-section">
-          <h3>🔗 Sdílení</h3>
+          <h3>� Export projektu</h3>
+          <button class="menu-item" data-action="exportZip">
+            <span class="menu-icon">📦</span>
+            <span>Stáhnout jako ZIP</span>
+          </button>
+          <button class="menu-item" data-action="saveTemplate">
+            <span class="menu-icon">💾</span>
+            <span>Uložit jako šablonu</span>
+          </button>
+          <button class="menu-item" data-action="manageTemplates">
+            <span class="menu-icon">📚</span>
+            <span>Moje šablony</span>
+          </button>
+        </div>
+
+        <div class="menu-section">
+          <h3>�🔗 Sdílení</h3>
           <button class="menu-item" data-action="share">
             <span class="menu-icon">🔗</span>
             <span>Sdílet odkaz</span>
@@ -243,6 +259,14 @@ export class MenuPanel {
 
       case 'exportZip':
         this.exportAsZip();
+        break;
+
+      case 'saveTemplate':
+        this.saveAsTemplate();
+        break;
+
+      case 'manageTemplates':
+        this.manageTemplates();
         break;
 
       case 'share':
@@ -1482,6 +1506,302 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
       message: '📦 Připravuji ZIP export...',
       type: 'info'
     });
+  }
+
+  saveAsTemplate() {
+    const tabs = window.state?.get('files.tabs') || [];
+
+    if (tabs.length === 0) {
+      eventBus.emit('toast:show', {
+        message: '⚠️ Nejsou žádné soubory k uložení',
+        type: 'warning'
+      });
+      return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-container" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>💾 Uložit jako šablonu</h2>
+          <button class="modal-close" id="saveTemplateClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom: 20px; color: var(--text-secondary);">
+            Uložte svůj projekt jako šablonu pro rychlé použití později.
+          </p>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 500;">
+              📝 Název šablony:
+            </label>
+            <input
+              type="text"
+              id="templateName"
+              placeholder="Např. Vizitka, Portfolio, Landing page..."
+              style="width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);"
+            />
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 500;">
+              📄 Popis (volitelný):
+            </label>
+            <textarea
+              id="templateDescription"
+              placeholder="Krátký popis šablony..."
+              rows="3"
+              style="width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary); resize: vertical;"
+            ></textarea>
+          </div>
+
+          <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
+              📊 Počet souborů: <strong>${tabs.length}</strong>
+            </p>
+          </div>
+
+          <div style="display: flex; gap: 10px;">
+            <button
+              id="saveTemplateCancel"
+              class="btn-secondary"
+              style="flex: 1; padding: 12px; background: var(--bg-secondary); color: var(--text-primary); border: none; border-radius: 8px; cursor: pointer; font-weight: 500;"
+            >
+              Zrušit
+            </button>
+            <button
+              id="saveTemplateConfirm"
+              class="btn-primary"
+              style="flex: 1; padding: 12px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;"
+            >
+              💾 Uložit šablonu
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeModal = () => {
+      modal.remove();
+    };
+
+    modal.querySelector('#saveTemplateClose').addEventListener('click', closeModal);
+    modal.querySelector('#saveTemplateCancel').addEventListener('click', closeModal);
+    modal.querySelector('.modal-overlay').addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    modal.querySelector('#saveTemplateConfirm').addEventListener('click', () => {
+      const name = modal.querySelector('#templateName').value.trim();
+      const description = modal.querySelector('#templateDescription').value.trim();
+
+      if (!name) {
+        eventBus.emit('toast:show', {
+          message: '⚠️ Zadejte název šablony',
+          type: 'warning'
+        });
+        return;
+      }
+
+      // Get all tabs data
+      const templateData = {
+        id: Date.now().toString(),
+        name,
+        description,
+        files: tabs.map(tab => ({
+          name: tab.name,
+          content: tab.content,
+          language: tab.language || 'html'
+        })),
+        createdAt: new Date().toISOString(),
+        filesCount: tabs.length
+      };
+
+      // Save to localStorage
+      const templates = JSON.parse(localStorage.getItem('userTemplates') || '[]');
+      templates.unshift(templateData);
+      localStorage.setItem('userTemplates', JSON.stringify(templates));
+
+      closeModal();
+      eventBus.emit('toast:show', {
+        message: `✅ Šablona "${name}" uložena`,
+        type: 'success'
+      });
+    });
+  }
+
+  manageTemplates() {
+    const templates = JSON.parse(localStorage.getItem('userTemplates') || '[]');
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-container" style="max-width: 800px;">
+        <div class="modal-header">
+          <h2>📚 Moje šablony</h2>
+          <button class="modal-close" id="manageTemplatesClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          ${templates.length === 0 ? `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+              <div style="font-size: 64px; margin-bottom: 20px;">📚</div>
+              <h3 style="margin: 0 0 10px 0;">Zatím nemáte žádné šablony</h3>
+              <p style="margin: 0;">
+                Vytvořte projekt a uložte ho jako šablonu pomocí<br>
+                <strong>Menu → Export projektu → Uložit jako šablonu</strong>
+              </p>
+            </div>
+          ` : `
+            <div style="margin-bottom: 20px;">
+              <p style="color: var(--text-secondary); margin: 0;">
+                Celkem šablon: <strong>${templates.length}</strong>
+              </p>
+            </div>
+            <div id="templatesList" style="display: grid; gap: 15px;">
+              ${templates.map(template => `
+                <div class="template-card" data-template-id="${template.id}" style="border: 2px solid var(--border-color); border-radius: 12px; padding: 20px; transition: all 0.2s; cursor: pointer;">
+                  <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                    <div style="flex: 1;">
+                      <h3 style="margin: 0 0 8px 0; font-size: 18px;">${template.name}</h3>
+                      ${template.description ? `
+                        <p style="margin: 0 0 12px 0; color: var(--text-secondary); font-size: 14px;">
+                          ${template.description}
+                        </p>
+                      ` : ''}
+                    </div>
+                    <button
+                      class="delete-template"
+                      data-template-id="${template.id}"
+                      style="padding: 8px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 10px;"
+                      title="Smazat šablonu"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                  <div style="display: flex; gap: 15px; align-items: center; font-size: 13px; color: var(--text-secondary);">
+                    <span>📄 ${template.filesCount} souborů</span>
+                    <span>📅 ${new Date(template.createdAt).toLocaleDateString('cs-CZ')}</span>
+                  </div>
+                  <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                    <button
+                      class="load-template"
+                      data-template-id="${template.id}"
+                      style="width: 100%; padding: 10px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;"
+                    >
+                      📂 Načíst šablonu
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeModal = () => {
+      modal.remove();
+    };
+
+    modal.querySelector('#manageTemplatesClose').addEventListener('click', closeModal);
+    modal.querySelector('.modal-overlay').addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    // Load template buttons
+    modal.querySelectorAll('.load-template').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const templateId = btn.dataset.templateId;
+        const template = templates.find(t => t.id === templateId);
+
+        if (template) {
+          this.loadTemplate(template);
+          closeModal();
+        }
+      });
+    });
+
+    // Delete template buttons
+    modal.querySelectorAll('.delete-template').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const templateId = btn.dataset.templateId;
+        const template = templates.find(t => t.id === templateId);
+
+        if (template && confirm(`Opravdu smazat šablonu "${template.name}"?`)) {
+          const updatedTemplates = templates.filter(t => t.id !== templateId);
+          localStorage.setItem('userTemplates', JSON.stringify(updatedTemplates));
+          closeModal();
+          eventBus.emit('toast:show', {
+            message: `🗑️ Šablona "${template.name}" smazána`,
+            type: 'success'
+          });
+          // Reopen modal with updated list
+          setTimeout(() => this.manageTemplates(), 100);
+        }
+      });
+    });
+
+    // Hover effects for template cards
+    modal.querySelectorAll('.template-card').forEach(card => {
+      card.addEventListener('mouseenter', () => {
+        card.style.borderColor = 'var(--primary-color)';
+        card.style.transform = 'translateY(-2px)';
+        card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.borderColor = 'var(--border-color)';
+        card.style.transform = 'translateY(0)';
+        card.style.boxShadow = 'none';
+      });
+    });
+  }
+
+  loadTemplate(template) {
+    if (!template || !template.files || template.files.length === 0) {
+      eventBus.emit('toast:show', {
+        message: '⚠️ Šablona je prázdná',
+        type: 'warning'
+      });
+      return;
+    }
+
+    // Ask for confirmation if there are open files
+    const currentTabs = window.state?.get('files.tabs') || [];
+    if (currentTabs.length > 0) {
+      if (!confirm('Načtení šablony zavře všechny otevřené soubory. Pokračovat?')) {
+        return;
+      }
+    }
+
+    // Close all tabs first
+    eventBus.emit('tabs:closeAll');
+
+    // Wait a bit and load template files
+    setTimeout(() => {
+      template.files.forEach((file, index) => {
+        setTimeout(() => {
+          eventBus.emit('file:create', {
+            name: file.name,
+            content: file.content,
+            language: file.language || 'html'
+          });
+        }, index * 50); // Small delay between files
+      });
+
+      setTimeout(() => {
+        eventBus.emit('toast:show', {
+          message: `✅ Šablona "${template.name}" načtena (${template.files.length} souborů)`,
+          type: 'success'
+        });
+      }, template.files.length * 50 + 100);
+    }, 100);
   }
 
   shareProject() {
