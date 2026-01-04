@@ -236,7 +236,7 @@
     <script type="module" src="./src/core/app.js"></script>
     <script>
       // Cache buster - force reload on version change
-      const APP_VERSION = '2.0.7-mobile-font-fix';
+      const APP_VERSION = '2.0.8-hard-reload';
       const lastVersion = localStorage.getItem('app_version');
 
       if (lastVersion !== APP_VERSION) {
@@ -247,6 +247,12 @@
           caches.keys().then(names => {
             names.forEach(name => caches.delete(name));
           });
+        }
+
+        // Force hard reload with cache bypass
+        if (lastVersion && lastVersion !== APP_VERSION) {
+          console.log('🔄 Vynucený hard reload...');
+          window.location.reload(true);
         }
 
         // DŮLEŽITÉ: localStorage NEMAZAT - obsahuje důležitá uživatelská data!
