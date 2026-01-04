@@ -568,7 +568,7 @@ class App {
       }
 
       // For multiple files, download all files with delay
-      toast.info('📥 Stahování ' + tabs.length + ' souborů...', 2000);
+      const downloadToast = toast.info('📥 Stahování ' + tabs.length + ' souborů...', 0);
 
       tabs.forEach((tab, index) => {
         setTimeout(() => {
@@ -583,7 +583,8 @@ class App {
           URL.revokeObjectURL(url);
 
           if (index === tabs.length - 1) {
-            toast.success(`✅ ${tabs.length} souborů staženo`, 3000);
+            if (downloadToast && downloadToast.hide) downloadToast.hide();
+            toast.success(`✅ ${tabs.length} souborů staženo`, 1500);
           }
         }, index * 300); // Stagger downloads
       });
@@ -605,7 +606,7 @@ class App {
     console.log('ZIP Export started, files:', tabs.length);
 
     try {
-      toast.info('📦 Připravuji ZIP archiv...', 2000);
+      const zipToast = toast.info('📦 Připravuji ZIP archiv...', 0);
 
       // Create a simple ZIP file using browser APIs
       const zip = this.createZipBlob(tabs);
@@ -632,10 +633,12 @@ class App {
         }, 100);
       }, 100);
 
-      toast.success(`✅ ZIP archiv stažen (${tabs.length} souborů)`, 3000);
+      if (zipToast && zipToast.hide) zipToast.hide();
+      toast.success(`✅ ZIP archiv stažen (${tabs.length} souborů)`, 1500);
     } catch (error) {
       console.error('ZIP export error:', error);
-      toast.error('ZIP selhal, stahování souborů...', 3000);
+      if (zipToast && zipToast.hide) zipToast.hide();
+      toast.error('ZIP selhal, stahování souborů...', 2000);
       // Fallback to individual downloads
       this.downloadAllFiles();
     }
