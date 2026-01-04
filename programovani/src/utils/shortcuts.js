@@ -151,6 +151,10 @@ export function registerDefaultShortcuts() {
     eventBus.emit('action:save');
   }, 'Uložit');
 
+  shortcuts.register('Ctrl+Shift+C', () => {
+    eventBus.emit('action:copyCode');
+  }, 'Kopírovat kód');
+
   shortcuts.register('Ctrl+Shift+F', () => {
     eventBus.emit('action:format');
   }, 'Formátovat kód');
