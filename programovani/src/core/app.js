@@ -602,11 +602,15 @@ class App {
       return;
     }
 
+    console.log('ZIP Export started, files:', tabs.length);
+
     try {
       toast.info('📦 Připravuji ZIP archiv...');
 
       // Create a simple ZIP file using browser APIs
       const zip = this.createZipBlob(tabs);
+
+      console.log('ZIP blob created:', zip ? zip.size + ' bytes' : 'null');
 
       if (!zip) {
         throw new Error('Failed to create ZIP blob');
@@ -648,9 +652,9 @@ class App {
       let offset = 0;
 
       files.forEach(file => {
-      const filename = file.name;
-      const content = encoder.encode(file.content);
-      const crc32 = this.calculateCRC32(content);
+        const filename = file.name;
+        const content = encoder.encode(file.content);
+        const crc32 = this.calculateCRC32(content);
 
       // Local file header
       const localHeader = new Uint8Array(30 + filename.length);

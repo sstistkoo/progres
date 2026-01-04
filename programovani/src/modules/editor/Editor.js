@@ -302,7 +302,9 @@ export class Editor {
   renderTabs(tabs) {
     if (!this.tabsContainer) return;
 
-    this.tabsContainer.innerHTML = '';
+    // Remove only existing tabs, keep the toggle button
+    const existingTabs = this.tabsContainer.querySelectorAll('.editor-tab');
+    existingTabs.forEach(tab => tab.remove());
 
     tabs.forEach(tab => {
       const tabEl = document.createElement('div');
