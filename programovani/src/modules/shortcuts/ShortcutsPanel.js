@@ -44,8 +44,8 @@ export class ShortcutsPanel {
     this.modal = new Modal({
       title: '⚡ Rychlé akce',
       content,
-      className: 'shortcuts-modal',
-      size: 'large',
+      className: 'shortcuts-modal compact-modal',
+      size: 'medium',
       onClose: () => this.hide()
     });
 
@@ -58,67 +58,101 @@ export class ShortcutsPanel {
 
   createShortcutsInterface() {
     return `
-      <div class="shortcuts-panel">
-        <!-- Search -->
-        <div class="shortcuts-search">
-          <input
-            type="text"
-            id="shortcutsSearch"
-            placeholder="Hledat akci... (začni psát)"
-            class="shortcuts-search-input"
-          />
-        </div>
-
-        <!-- Actions Grid -->
-        <div class="shortcuts-grid" id="shortcutsGrid">
-          ${this.renderShortcuts()}
-        </div>
-
-        <!-- Help Section -->
-        <div class="shortcuts-help">
-          <h3>💡 Klávesové zkratky</h3>
-          <div class="shortcuts-list">
-            <div class="shortcut-item">
-              <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>K</kbd></span>
-              <span class="shortcut-desc">Otevřít rychlé akce</span>
-            </div>
-            <div class="shortcut-item">
-              <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></span>
-              <span class="shortcut-desc">Uložit</span>
-            </div>
-            <div class="shortcut-item">
-              <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>N</kbd></span>
-              <span class="shortcut-desc">Nový soubor</span>
-            </div>
-            <div class="shortcut-item">
-              <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></span>
-              <span class="shortcut-desc">Formátovat</span>
-            </div>
-            <div class="shortcut-item">
-              <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd></span>
-              <span class="shortcut-desc">Validovat</span>
-            </div>
-            <div class="shortcut-item">
-              <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>F</kbd></span>
-              <span class="shortcut-desc">Hledat</span>
-            </div>
-            <div class="shortcut-item">
-              <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Z</kbd></span>
-              <span class="shortcut-desc">Zpět</span>
-            </div>
-            <div class="shortcut-item">
-              <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Y</kbd></span>
-              <span class="shortcut-desc">Vpřed</span>
-            </div>
-            <div class="shortcut-item">
-              <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>&#96;</kbd></span>
-              <span class="shortcut-desc">Konzole</span>
-            </div>
-            <div class="shortcut-item">
-              <span class="shortcut-keys"><kbd>F5</kbd></span>
-              <span class="shortcut-desc">Obnovit náhled</span>
+      <div class="shortcuts-panel compact-actions">
+        <!-- Actions Grid - Compact -->
+        <div class="shortcuts-compact-grid">
+          <div class="action-category">
+            <h4>Soubor</h4>
+            <div class="action-row">
+              <button class="action-btn" data-action="newFile" title="Nový soubor (Ctrl+N)">
+                <span class="action-icon">📄</span>
+                <span class="action-label">Nový</span>
+              </button>
+              <button class="action-btn" data-action="save" title="Uložit (Ctrl+S)">
+                <span class="action-icon">💾</span>
+                <span class="action-label">Uložit</span>
+              </button>
+              <button class="action-btn" data-action="download" title="Stáhnout (Ctrl+D)">
+                <span class="action-icon">⬇️</span>
+                <span class="action-label">Stáhnout</span>
+              </button>
+              <button class="action-btn" data-action="closeTab" title="Zavřít (Ctrl+W)">
+                <span class="action-icon">❌</span>
+                <span class="action-label">Zavřít</span>
+              </button>
             </div>
           </div>
+
+          <div class="action-category">
+            <h4>Úpravy</h4>
+            <div class="action-row">
+              <button class="action-btn" data-action="undo" title="Zpět (Ctrl+Z)">
+                <span class="action-icon">↩️</span>
+                <span class="action-label">Zpět</span>
+              </button>
+              <button class="action-btn" data-action="redo" title="Vpřed (Ctrl+Y)">
+                <span class="action-icon">↪️</span>
+                <span class="action-label">Vpřed</span>
+              </button>
+              <button class="action-btn" data-action="search" title="Hledat (Ctrl+F)">
+                <span class="action-icon">🔍</span>
+                <span class="action-label">Hledat</span>
+              </button>
+              <button class="action-btn" data-action="format" title="Formátovat (Ctrl+Shift+F)">
+                <span class="action-icon">✨</span>
+                <span class="action-label">Formátovat</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="action-category">
+            <h4>Nástroje</h4>
+            <div class="action-row">
+              <button class="action-btn" data-action="validate" title="Validovat (Ctrl+Shift+V)">
+                <span class="action-icon">✅</span>
+                <span class="action-label">Validovat</span>
+              </button>
+              <button class="action-btn" data-action="minify" title="Minifikovat (Ctrl+Shift+M)">
+                <span class="action-icon">📦</span>
+                <span class="action-label">Minify</span>
+              </button>
+              <button class="action-btn" data-action="screenshot" title="Screenshot">
+                <span class="action-icon">📸</span>
+                <span class="action-label">Screenshot</span>
+              </button>
+              <button class="action-btn" data-action="seo" title="SEO">
+                <span class="action-icon">🔧</span>
+                <span class="action-label">SEO</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="action-category">
+            <h4>Nastavení</h4>
+            <div class="action-row">
+              <button class="action-btn" data-action="colorScheme" title="Téma">
+                <span class="action-icon">🎨</span>
+                <span class="action-label">Téma</span>
+              </button>
+              <button class="action-btn" data-action="devices" title="Zařízení">
+                <span class="action-icon">📱</span>
+                <span class="action-label">Zařízení</span>
+              </button>
+              <button class="action-btn" data-action="settings" title="Nastavení (Ctrl+,)">
+                <span class="action-icon">⚙️</span>
+                <span class="action-label">Nastavení</span>
+              </button>
+              <button class="action-btn" data-action="publish" title="Publikovat (Ctrl+Shift+P)">
+                <span class="action-icon">🚀</span>
+                <span class="action-label">Publikovat</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Shortcuts Reference -->
+        <div class="shortcuts-footer">
+          <small>👉 Tip: Použijte <kbd>Ctrl+K</kbd> pro rychlý přístup odkudkoliv</small>
         </div>
       </div>
     `;
@@ -254,31 +288,11 @@ export class ShortcutsPanel {
   }
 
   attachEventHandlers() {
-    // Search functionality
-    const searchInput = this.modal.element.querySelector('#shortcutsSearch');
-    const grid = this.modal.element.querySelector('#shortcutsGrid');
-
-    searchInput.addEventListener('input', (e) => {
-      const query = e.target.value.toLowerCase();
-      const cards = grid.querySelectorAll('.shortcut-card');
-
-      cards.forEach(card => {
-        const title = card.querySelector('.shortcut-title').textContent.toLowerCase();
-        const desc = card.querySelector('.shortcut-description').textContent.toLowerCase();
-
-        if (title.includes(query) || desc.includes(query)) {
-          card.style.display = '';
-        } else {
-          card.style.display = 'none';
-        }
-      });
-    });
-
-    // Action cards
-    const cards = this.modal.element.querySelectorAll('.shortcut-card');
-    cards.forEach(card => {
-      card.addEventListener('click', () => {
-        const action = card.dataset.action;
+    // Action buttons
+    const actionBtns = this.modal.element.querySelectorAll('.action-btn');
+    actionBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action;
         this.executeAction(action);
         this.hide();
       });

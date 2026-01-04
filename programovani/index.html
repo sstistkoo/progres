@@ -41,10 +41,10 @@
       <!-- Header -->
       <header class="header">
         <div class="header-left">
-          <div class="logo">
+          <button class="logo" id="logoBtn" title="Rychlé akce">
             <span class="logo-icon">⚡</span>
             <span class="logo-text">HTML Studio</span>
-          </div>
+          </button>
         </div>
 
         <div class="header-right">
@@ -84,7 +84,7 @@
           <button class="nav-btn" id="aiBtn" title="AI asistent">
             <span class="ai-emoji">🤖</span>
           </button>
-          <button class="nav-btn" id="shortcutsBtn" title="Rychlé akce (Ctrl+K)">
+          <button class="nav-btn" id="shortcutsBtn" title="Menu (Ctrl+K)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
@@ -198,14 +198,12 @@
         <!-- Editor Section -->
         <section class="editor-section">
           <div class="editor-tabs-container">
-            <div class="editor-tabs-header">
-              <button class="tabs-layout-toggle" id="tabsLayoutToggle" title="Přepínání zobrazení tabů">
+            <div class="editor-tabs" id="editorTabs">
+              <button class="tabs-layout-toggle" id="tabsLayoutToggle" title="Přepínání zobrazení tabů (horizontálně/vertikálně)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M3 12h18M3 6h18M3 18h18"/>
                 </svg>
               </button>
-            </div>
-            <div class="editor-tabs" id="editorTabs">
               <!-- Tabs will be dynamically added here -->
             </div>
           </div>
@@ -379,6 +377,11 @@
 
         // Shortcuts panel
         document.getElementById('shortcutsBtn')?.addEventListener('click', () => {
+          safeEmit('shortcuts:show');
+        });
+
+        // Logo button - Quick Actions
+        document.getElementById('logoBtn')?.addEventListener('click', () => {
           safeEmit('shortcuts:show');
         });
 
