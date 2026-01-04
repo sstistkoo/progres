@@ -1585,9 +1585,13 @@ build/
 
   updateOpenFilesList() {
     const filesContainer = this.menuElement?.querySelector('#openFilesManager');
-    if (!filesContainer) return;
+    if (!filesContainer) {
+      console.warn('📁 Open files container not found');
+      return;
+    }
 
     const openFiles = this.getOpenFiles();
+    console.log('📁 Open files:', openFiles.length, openFiles);
 
     if (openFiles.length === 0) {
       filesContainer.innerHTML = '<div class="no-files-message">Žádné otevřené soubory</div>';
@@ -1595,10 +1599,10 @@ build/
     }
 
     filesContainer.innerHTML = openFiles.map((file, index) => `
-      <div class="open-file-item" data-tab-id="${file.id}" data-index="${index}">
-        <span class="file-icon">📄</span>
-        <span class="file-name">${file.name}</span>
-        <button class="file-close-btn" data-tab-id="${file.id}" title="Zavřít" style="width: 16px; height: 16px; padding: 2px;">
+      <div class="open-file-item" data-tab-id="${file.id}" data-index="${index}" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--bg-tertiary); border-radius: 4px; cursor: pointer; margin-bottom: 4px;">
+        <span class="file-icon" style="font-size: 1.2em; flex-shrink: 0;">📄</span>
+        <span class="file-name" style="flex: 1; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</span>
+        <button class="file-close-btn" data-tab-id="${file.id}" title="Zavřít" style="width: 16px; height: 16px; padding: 2px; background: transparent; border: none; cursor: pointer; opacity: 0.6; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 10px; height: 10px;">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>

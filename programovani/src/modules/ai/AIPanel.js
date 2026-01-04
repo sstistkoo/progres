@@ -21,6 +21,20 @@ export class AIPanel {
     eventBus.on('ai:show', () => this.show());
     eventBus.on('ai:hide', () => this.hide());
     eventBus.on('ai:sendMessage', (data) => this.sendMessage(data.message));
+    eventBus.on('aiSettings:show', () => this.showSettings());
+  }
+
+  showSettings() {
+    // Open AI modal and automatically expand settings
+    this.show();
+    // Wait for modal to be created and opened
+    setTimeout(() => {
+      const settingsToggle = this.modal?.element?.querySelector('.ai-settings-toggle');
+      const settingsContent = this.modal?.element?.querySelector('.ai-header-settings');
+      if (settingsToggle && settingsContent && settingsContent.classList.contains('hidden')) {
+        settingsToggle.click();
+      }
+    }, 100);
   }
 
   show() {
