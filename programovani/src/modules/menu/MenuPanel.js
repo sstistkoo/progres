@@ -169,6 +169,10 @@ export class MenuPanel {
 
         <div class="menu-section">
           <h3>🔧 Vývojářské nástroje</h3>
+          <button class="menu-item" data-action="audit">
+            <span class="menu-icon">📊</span>
+            <span>Audit projektu</span>
+          </button>
           <button class="menu-item" data-action="devtools">
             <span class="menu-icon">🐞</span>
             <span>Otevřít DevTools</span>
@@ -253,6 +257,10 @@ export class MenuPanel {
 
       case 'devtools':
         this.openDevTools();
+        break;
+
+      case 'audit':
+        this.showAuditReport();
         break;
 
       case 'aiSettings':
@@ -5205,5 +5213,75 @@ ${result2.error ? `❌ Chyba: ${result2.error}` : result2}
         id: tab.dataset.tabId
       };
     });
+  }
+
+  async showAuditReport() {
+    try {
+      // Fetch audit report
+      const response = await fetch('/AUDIT_REPORT.md');
+      const markdown = await response.text();
+
+      // Convert markdown to HTML (basic conversion)
+      const html = this.markdownToHtml(markdown);
+
+      const modal = new Modal({
+        title: '📊 Audit Report - HTML Studio v2.0',
+        content: `
+          <div style="max-height: 70vh; overflow-y: auto; padding: 20px; line-height: 1.6;">
+            ${html}
+          </div>
+        `,
+        width: '90%',
+        maxWidth: '1000px'
+      });
+
+      modal.show();
+    } catch (error) {
+      console.error('Error loading audit report:', error);
+      const modal = new Modal({
+        title: '❌ Chyba',
+        content: '<p>Nepodařilo se načíst audit report.</p>'
+      });
+      modal.show();
+    }
+  }
+
+  markdownToHtml(markdown) {
+    let html = markdown
+      // Headers
+      .replace(/^### (.*$)/gim, '<h3 style="color: var(--primary-color); margin-top: 24px; margin-bottom: 12px;">$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2 style="color: var(--primary-color); margin-top: 32px; margin-bottom: 16px; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1 style="color: var(--primary-color); margin-bottom: 20px;">$1</h1>')
+
+      // Bold
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+
+      // Code blocks
+      .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; overflow-x: auto; border: 1px solid var(--border-color);"><code>$2</code></pre>')
+
+      // Inline code
+      .replace(/`([^`]+)`/g, '<code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-family: monospace;">$1</code>')
+
+      // Lists
+      .replace(/^\- (.*$)/gim, '<li style="margin-left: 20px;">$1</li>')
+      .replace(/^(\d+)\. (.*$)/gim, '<li style="margin-left: 20px;">$2</li>')
+
+      // Links
+      .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" style="color: var(--primary-color); text-decoration: underline;">$1</a>')
+
+      // Horizontal rule
+      .replace(/^---$/gim, '<hr style="border: none; border-top: 1px solid var(--border-color); margin: 24px 0;">')
+
+      // Paragraphs (simple)
+      .split('\n\n')
+      .map(para => para.trim())
+      .filter(para => para && !para.startsWith('<'))
+      .map(para => `<p style="margin-bottom: 12px;">${para}</p>`)
+      .join('');
+
+    // Wrap lists in ul
+    html = html.replace(/(<li.*?<\/li>\s*)+/g, (match) => `<ul style="margin: 12px 0;">${match}</ul>`);
+
+    return html;
   }
 }
