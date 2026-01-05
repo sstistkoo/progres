@@ -92,7 +92,7 @@ export class Editor {
     // State changes
     state.subscribe('editor.code', code => {
       if (code !== this.getCode()) {
-        this.setCode(code);
+        this.setCode(code, true); // Skip state update to prevent loop
       }
     });
 

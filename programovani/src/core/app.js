@@ -532,15 +532,44 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       return;
     }
 
-    // Zakázat otevírání binárních souborů
-    if (tab.content && tab.content.startsWith('[Binary file:')) {
-      toast.warning('Binární soubory nelze editovat', 2000);
-      state.set('files.active', fileId);
+    // Set as active file
+    state.set('files.active', fileId);
+
+    // Zobrazit obrázky v preview
+    if (tab.content && tab.content.startsWith('[Image:')) {
+      const base64 = tab.content.replace('[Image:', '').replace(']', '');
+      if (this.preview) {
+        const imageHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { margin: 0; padding: 20px; background: #f0f0f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    img { max-width: 100%; max-height: 90vh; box-shadow: 0 4px 20px rgba(0,0,0,0.1); background: white; padding: 10px; }
+  </style>
+</head>
+<body>
+  <img src="${base64}" alt="${tab.name}">
+</body>
+</html>`;
+        this.preview.update(imageHtml);
+      }
+
+      // Vyčistit editor
+      if (this.editor) {
+        this.editor.setCode(`// Obrázek: ${tab.name}\n// Zobrazeno v náhledu →`, true);
+      }
       return;
     }
 
-    // Set as active file
-    state.set('files.active', fileId);
+    // Zakázat otevírání ostatních binárních souborů
+    if (tab.content && tab.content.startsWith('[Binary file:')) {
+      toast.warning('Binární soubory nelze editovat', 2000);
+      if (this.editor) {
+        this.editor.setCode(`// Binární soubor: ${tab.name}\n// Tento typ souboru nelze editovat`, true);
+      }
+      return;
+    }
 
     // Load content to editor (pouze pokud se změnil)
     const currentCode = state.get('editor.code');

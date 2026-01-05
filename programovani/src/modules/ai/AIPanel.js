@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI Panel Module
  * Provides AI assistant interface with chat, templates, and quick actions
  */
@@ -1243,18 +1243,15 @@ Odpovídej česky, kód zabal do \`\`\`html...\`\`\`.`;
 ${filesContext}
 
 📄 ${activeFile ? `Aktivní soubor: ${activeFile.name}` : 'Žádný aktivní soubor'}
-💾 Aktuální kód:
+💾 Aktuální kód v editoru (${currentCode.split('\n').length} řádků):
 \`\`\`html
-${currentCode.substring(0, 800)}${currentCode.length > 800 ? '\n... (zkráceno)' : ''}
+${this.addLineNumbers(currentCode.substring(0, 1500))}${currentCode.length > 1500 ? '\n... (zkráceno, celkem ' + currentCode.split('\n').length + ' řádků)' : ''}
 \`\`\`
 
 💬 ${historyContext}
 
 🎯 TVŮJ ÚKOL:
-${hasCode && hasHistory ?
-  '⚠️ EDITACE EXISTUJÍCÍHO KÓDU:\n- Editor JIŽ OBSAHUJE kód - NEPŘEPISUJ ho celý!\n- Proveď POUZE požadovanou změnu/doplnění\n- ZACHOVEJ vše ostatní beze změny\n- Vrať CELÝ soubor s úpravou (ne jen část)\n- Pokud přidáváš funkci, zajisti event listenery' :
-  '🆕 NOVÝ KÓD:\n- Vytvoř KOMPLETNÍ funkční aplikaci\n- Struktura: <!DOCTYPE html> + <head> + <body>\n- CSS v <style> tagu\n- JavaScript v <script> tagu před </body>'
-}
+${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
 
 📋 PRAVIDLA VÝSTUPU:
 ✅ Kód MUSÍ obsahovat JavaScript pro interaktivitu
@@ -1267,11 +1264,29 @@ ${hasCode && hasHistory ?
 ❌ NIKDY duplicitní deklarace proměnných
 ❌ NIKDY neúplný nebo nefunkční kód
 
+🗂️ MULTI-FILE PROJEKTY:
+- Projekt může obsahovat VÍCE souborů (.html, .css, .js, .png...)
+- Vidíš seznam všech otevřených souborů výše v KONTEXT PROJEKTU
+- ⚠️ NEPOTŘEBUJEŠ vždy VŠECHNY soubory! Zaměř se jen na relevantní
+- 🧠 CHÁPEJ KONTEXT a NAJDI SPRÁVNÝ SOUBOR:
+  • Změna barev, fontů, layoutu → Hledej .css soubor (styles.css, style.css, main.css)
+  • Nová funkce, event handler → Hledej .js soubor (script.js, main.js, app.js)
+  • Struktura HTML, přidání elementů → Hledej .html soubor (index.html)
+  • ❌ NIKDY nepřidávej CSS do HTML pokud existuje samostatný .css soubor!
+  • ❌ NIKDY nepřidávaj JS do HTML pokud existuje samostatný .js soubor!
+- 📍 OZNAČENÍ SOUBORU: Vždy jasně řekni: "Otevři soubor **styles.css** a změň..."
+- CSS a JS soubory se AUTOMATICKY injektují do HTML preview
+- Obrázky (.png, .jpg) se stahují jako base64 a zobrazují v preview
+- Pokud příslušný soubor NEEXISTUJE, doporuč vytvořit: "Vytvoř nový soubor **styles.css** s tímto obsahem:"
+- Pro úpravy více souborů najednou uveď každý zvlášť se správným code blokem (\\\`\\\`\\\`html, \\\`\\\`\\\`css, \\\`\\\`\\\`javascript)
+- Relativní cesty v HTML fungují automaticky díky injection systému
+
 💡 ODPOVĚDI:
 - Stručně a prakticky v češtině
-- Kód zabal do \`\`\`html...\`\`\`
+- Kód zabal do \\\`\\\`\\\`html...\\\`\\\`\\\` (nebo \\\`\\\`\\\`css\\\`\\\`\\\`, \\\`\\\`\\\`javascript\\\`\\\`\\\`)
 - Pro vysvětlení použij jasný jazyk
-- Navazuj na předchozí konverzaci`;
+- Navazuj na předchozí konverzaci
+- Pokud doporučuješ více souborů, jasně to označ`;
       }
 
       // Get provider and model from UI
@@ -1307,14 +1322,50 @@ ${hasCode && hasHistory ?
       // Update history counter
       this.updateHistoryInfo();
 
-      // Check if this is modification of existing code (has history and code)
-      const isModification = this.chatHistory.length > 3 && currentCode.trim().length > 100;
-
       // Odstranit loading animaci
       const loadingElement = document.getElementById(loadingId);
       if (loadingElement) loadingElement.remove();
 
-      // Add assistant message with formatted code
+      // First check if response contains EDIT:LINES instructions
+      const editInstructions = this.parseEditInstructions(response);
+
+      if (editInstructions.length > 0) {
+        console.log(`🔧 Detekováno ${editInstructions.length} EDIT:LINES instrukcí`);
+
+        // Show preview of changes
+        const preview = editInstructions.map(e =>
+          `📝 Řádky ${e.startLine}-${e.endLine}:\n❌ Původní: ${e.oldCode.substring(0, 60)}...\n✅ Nový: ${e.newCode.substring(0, 60)}...`
+        ).join('\n\n');
+
+        console.log('📋 Náhled změn:\n' + preview);
+
+        // Apply edits automatically (no user confirmation for speed)
+        const applied = this.applyLineEdits(editInstructions);
+
+        if (applied) {
+          // Add success message with summary
+          const summary = editInstructions.map((e, i) =>
+            `${i + 1}. Řádky ${e.startLine}-${e.endLine}: ✅`
+          ).join('\n');
+
+          this.addChatMessage('assistant', `✅ Automaticky aplikováno ${editInstructions.length} změn:\n\n${summary}\n\n${response}`);
+
+          // Close modal on success
+          if (this.modal) {
+            setTimeout(() => this.modal.close(), 500);
+          }
+          return;
+        } else {
+          // Show response anyway if edits failed
+          this.addChatMessage('assistant', `⚠️ Nepodařilo se aplikovat změny automaticky.\n\n${response}`);
+          return;
+        }
+      }
+
+      // Check if this is modification of existing code (has history and code)
+      const isModification = this.chatHistory.length > 3 && currentCode.trim().length > 100;
+
+      // Add assistant message with formatted code (fallback for full code)
       this.addChatMessageWithCode('assistant', response, message, isModification);
     } catch (error) {
       // Odstranit loading animaci při chybě
@@ -1632,6 +1683,132 @@ ${hasCode && hasHistory ?
     eventBus.emit('file:createWithCode', { code });
   }
 
+  /**
+   * Parse EDIT:LINES instructions from AI response
+   * Format: ```EDIT:LINES:5-10
+   *         OLD:
+   *         <old code>
+   *         NEW:
+   *         <new code>
+   *         ```
+   *
+   * @param {string} response - AI response text
+   * @returns {Array} Array of edit objects with {startLine, endLine, oldCode, newCode}
+   */
+  parseEditInstructions(response) {
+    // Parse EDIT:LINES blocks from AI response
+    const editPattern = /```EDIT:LINES:(\d+)-(\d+)\s+OLD:\s*([\s\S]*?)\s*NEW:\s*([\s\S]*?)\s*```/g;
+    const edits = [];
+    let match;
+
+    while ((match = editPattern.exec(response)) !== null) {
+      edits.push({
+        startLine: parseInt(match[1]),
+        endLine: parseInt(match[2]),
+        oldCode: match[3].trim(),
+        newCode: match[4].trim()
+      });
+    }
+
+    return edits;
+  }
+
+  /**
+   * Apply line-based edits to current editor code
+   * Validates OLD code matches before applying NEW code
+   * Sorts edits in reverse order to prevent line number shifts
+   *
+   * @param {Array} edits - Array of {startLine, endLine, oldCode, newCode}
+   * @returns {boolean} True if at least one edit was applied
+   */
+  applyLineEdits(edits) {
+    const currentCode = state.get('editor.code');
+    if (!currentCode) {
+      toast.error('Editor je prázdný - nelze aplikovat změny');
+      return false;
+    }
+
+    const lines = currentCode.split('\n');
+    let appliedCount = 0;
+    let failedEdits = [];
+
+    // Sort edits by line number (descending) to avoid line number shifts
+    edits.sort((a, b) => b.startLine - a.startLine);
+
+    for (const edit of edits) {
+      const { startLine, endLine, oldCode, newCode } = edit;
+
+      // Validate line numbers
+      if (startLine < 1 || endLine > lines.length || startLine > endLine) {
+        failedEdits.push(`Řádky ${startLine}-${endLine}: Neplatný rozsah`);
+        continue;
+      }
+
+      // Get current code at those lines
+      const actualCode = lines.slice(startLine - 1, endLine).join('\n');
+
+      // Verify OLD code matches
+      if (actualCode.trim() !== oldCode.trim()) {
+        failedEdits.push(`Řádky ${startLine}-${endLine}: OLD kód nesedí\nOčekáváno: ${oldCode.substring(0, 50)}...\nSkutečnost: ${actualCode.substring(0, 50)}...`);
+        continue;
+      }
+
+      // Apply change
+      const newLines = newCode.split('\n');
+      lines.splice(startLine - 1, endLine - startLine + 1, ...newLines);
+      appliedCount++;
+    }
+
+    if (failedEdits.length > 0) {
+      console.warn('⚠️ Některé změny selhaly:', failedEdits);
+      const message = `Aplikováno ${appliedCount}/${edits.length} změn\n\nChyby:\n${failedEdits.join('\n\n')}`;
+
+      if (appliedCount === 0) {
+        toast.error(message, 8000);
+        return false;
+      } else {
+        toast.warning(message, 8000);
+      }
+    } else if (appliedCount > 0) {
+      toast.success(`✅ Aplikováno ${appliedCount} změn automaticky`, 3000);
+    }
+
+    // Update editor with undo support
+    const newCode = lines.join('\n');
+    const editor = document.querySelector('.editor-container')?.__editor;
+
+    if (editor) {
+      // Save current state to history BEFORE making changes
+      const currentEditorCode = editor.getCode();
+      if (currentEditorCode && editor.history) {
+        const last = editor.history.past[editor.history.past.length - 1];
+        if (currentEditorCode !== last) {
+          editor.history.past.push(currentEditorCode);
+          if (editor.history.past.length > editor.history.maxSize) {
+            editor.history.past.shift();
+          }
+          editor.history.future = [];
+        }
+      }
+
+      // Apply new code without triggering state update loop
+      if (editor.setCode) {
+        editor.setCode(newCode, true);
+      }
+
+      console.log(`💾 Undo historie: ${editor.history.past.length} kroků`);
+    }
+
+    state.set('editor.code', newCode);
+
+    return appliedCount > 0;
+  }
+
+  addLineNumbers(code) {
+    const lines = code.split('\n');
+    return lines.map((line, i) => `${String(i + 1).padStart(4, ' ')}| ${line}`).join('\n');
+  }
+
   insertCodeToEditor(code, isModification = false) {
     // Store original code for undo
     this.originalCode = state.get('editor.code');
@@ -1670,9 +1847,14 @@ ${hasCode && hasHistory ?
       console.log('➕ Částečný kód - vkládám do editoru');
     }
 
-    // Insert to current editor (always replace, don't append)
+    // Get editor instance and use skipStateUpdate to prevent loop
+    const editor = document.querySelector('.editor-container')?.__editor;
+    if (editor && editor.setCode) {
+      editor.setCode(code, true); // Skip state update first
+    }
+
+    // Then update state after editor is set
     state.set('editor.code', code);
-    eventBus.emit('editor:setCode', { code });
 
     // Zavřít AI modal po vložení kódu
     if (this.modal) {

@@ -33,12 +33,26 @@ export class Preview {
     // Listen to editor changes
     if (state.get('settings.livePreview')) {
       eventBus.on('editor:change', debounce(({ code }) => {
+        // Nektualizovat preview pokud je otevřený obrázek
+        const activeFileId = state.get('files.active');
+        const tabs = state.get('files.tabs') || [];
+        const activeTab = tabs.find(t => t.id === activeFileId);
+        if (activeTab && activeTab.content && activeTab.content.startsWith('[Image:')) {
+          return; // Ignorovat změny editoru pro obrázky
+        }
         this.update(code);
       }, 500));
     }
 
     // Manual refresh
     eventBus.on('preview:refresh', () => {
+      // Nektualizovat preview pokud je otevřený obrázek
+      const activeFileId = state.get('files.active');
+      const tabs = state.get('files.tabs') || [];
+      const activeTab = tabs.find(t => t.id === activeFileId);
+      if (activeTab && activeTab.content && activeTab.content.startsWith('[Image:')) {
+        return; // Ignorovat refresh pro obrázky
+      }
       const code = state.get('editor.code');
       this.update(code);
     });
@@ -46,6 +60,13 @@ export class Preview {
     // Listen to settings changes
     state.subscribe('settings.livePreview', enabled => {
       if (enabled) {
+        // Nektualizovat preview pokud je otevřený obrázek
+        const activeFileId = state.get('files.active');
+        const tabs = state.get('files.tabs') || [];
+        const activeTab = tabs.find(t => t.id === activeFileId);
+        if (activeTab && activeTab.content && activeTab.content.startsWith('[Image:')) {
+          return; // Ignorovat pro obrázky
+        }
         const code = state.get('editor.code');
         this.update(code);
       }
@@ -94,6 +115,137 @@ export class Preview {
     // Find all CSS files and inject them
     const cssFiles = tabs.filter(tab => tab.type === 'css' || tab.name.endsWith('.css'));
     const jsFiles = tabs.filter(tab => tab.type === 'javascript' || tab.name.endsWith('.js'));
+    const imageFiles = tabs.filter(tab => tab.content && tab.content.startsWith('[Image:'));
+
+    if (imageFiles.length > 0) {
+      console.log('🖼️ Preview: Preparing', imageFiles.length, 'images for injection');
+
+      // Build image map for dynamic loading
+      const imageMap = {};
+      imageFiles.forEach(imageTab => {
+        const base64Data = imageTab.content.replace('[Image:', '').replace(']', '');
+        const fileName = imageTab.name;
+        imageMap[fileName] = base64Data;
+
+        // Also add without extension for partial matches
+        const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+        imageMap[fileNameWithoutExt] = base64Data;
+
+        // Replace static img tags in HTML
+        const regex = new RegExp(`(<img[^>]*src=["'])([^"']*${fileName})["']`, 'gi');
+        modifiedCode = modifiedCode.replace(regex, `$1${base64Data}"`);
+
+        const simpleRegex = new RegExp(`src=["']${fileName}["']`, 'gi');
+        modifiedCode = modifiedCode.replace(simpleRegex, `src="${base64Data}"`);
+      });
+
+      // Inject image resolver script BEFORE any other scripts
+      const imageResolverScript = `
+<script id="image-resolver">
+(function() {
+  const IMAGE_MAP = ${JSON.stringify(imageMap)};
+  console.log('🖼️ Image Resolver: Ready with', Object.keys(IMAGE_MAP).length / 2, 'images');
+
+  // Function to fix image src
+  function fixImageSrc(img) {
+    const src = img.getAttribute('src');
+    if (!src) return;
+
+    const fileName = src.split('/').pop().split('?')[0];
+    if (IMAGE_MAP[fileName]) {
+      img.src = IMAGE_MAP[fileName];
+    }
+  }
+
+  // Override Image constructor
+  const OriginalImage = window.Image;
+  window.Image = function() {
+    const img = new OriginalImage();
+
+    // Intercept src property
+    let currentSrc = '';
+    Object.defineProperty(img, 'src', {
+      set: function(value) {
+        const fileName = value.split('/').pop().split('?')[0];
+        if (IMAGE_MAP[fileName]) {
+          currentSrc = IMAGE_MAP[fileName];
+        } else {
+          currentSrc = value;
+        }
+        img.setAttribute('src', currentSrc);
+      },
+      get: function() {
+        return currentSrc || img.getAttribute('src');
+      }
+    });
+
+    return img;
+  };
+
+  // Override setAttribute
+  const originalSetAttribute = Element.prototype.setAttribute;
+  Element.prototype.setAttribute = function(name, value) {
+    if (name === 'src' && this.tagName === 'IMG') {
+      const fileName = value.split('/').pop().split('?')[0];
+      if (IMAGE_MAP[fileName]) {
+        return originalSetAttribute.call(this, name, IMAGE_MAP[fileName]);
+      }
+    }
+    return originalSetAttribute.call(this, name, value);
+  };
+
+  // MutationObserver to catch all img elements
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      // Check added nodes
+      mutation.addedNodes.forEach(node => {
+        if (node.tagName === 'IMG') {
+          fixImageSrc(node);
+        } else if (node.querySelectorAll) {
+          node.querySelectorAll('img').forEach(fixImageSrc);
+        }
+      });
+
+      // Check attribute changes
+      if (mutation.type === 'attributes' && mutation.target.tagName === 'IMG') {
+        fixImageSrc(mutation.target);
+      }
+    });
+  });
+
+  // Start observing when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['src']
+      });
+      // Fix existing images
+      document.querySelectorAll('img').forEach(fixImageSrc);
+    });
+  } else {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['src']
+    });
+    document.querySelectorAll('img').forEach(fixImageSrc);
+  }
+})();
+</script>`;
+
+      // Inject at the very beginning of <head> or before first script
+      if (modifiedCode.includes('<head>')) {
+        modifiedCode = modifiedCode.replace('<head>', `<head>\n${imageResolverScript}`);
+      } else if (modifiedCode.includes('<script')) {
+        modifiedCode = modifiedCode.replace('<script', `${imageResolverScript}\n<script`);
+      } else {
+        modifiedCode = imageResolverScript + '\n' + modifiedCode;
+      }
+    }
 
     // Build CSS inline styles
     if (cssFiles.length > 0) {
