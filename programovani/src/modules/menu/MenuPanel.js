@@ -1760,6 +1760,16 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
           <div id="githubSearchResults" style="margin-top: 30px; display: none;">
             <h4 style="margin-bottom: 15px; color: var(--text-primary, #fff);">Výsledky hledání:</h4>
             <div id="githubResultsList" style="display: grid; gap: 10px; max-height: 400px; overflow-y: auto;"></div>
+            <div id="githubPagination" style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 15px; padding: 10px;">
+              <button id="githubPrevPage" style="padding: 6px 12px; background: var(--bg-secondary, #2d2d2d); border: 1px solid var(--border-color, #444); color: var(--text-primary, #fff); border-radius: 4px; cursor: pointer; font-size: 13px;">
+                ← Předchozí
+              </button>
+              <div id="githubPageNumbers" style="display: flex; gap: 4px; align-items: center;"></div>
+              <button id="githubNextPage" style="padding: 6px 12px; background: var(--bg-secondary, #2d2d2d); border: 1px solid var(--border-color, #444); color: var(--text-primary, #fff); border-radius: 4px; cursor: pointer; font-size: 13px;">
+                Další →
+              </button>
+            </div>
+            <div id="githubResultsInfo" style="text-align: center; color: var(--text-secondary, #999); font-size: 12px; margin-top: 8px;"></div>
           </div>
           <div id="githubSearchLoading" style="display: none; text-align: center; padding: 40px;">
             <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--border-color, #444); border-top-color: var(--accent, #007acc); border-radius: 50%; animation: spin 1s linear infinite;"></div>
@@ -1796,98 +1806,202 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
       const loadingDiv = modal.querySelector('#githubSearchLoading');
       const resultsDiv = modal.querySelector('#githubSearchResults');
       const resultsList = modal.querySelector('#githubResultsList');
+      const paginationDiv = modal.querySelector('#githubPagination');
+      const prevPageBtn = modal.querySelector('#githubPrevPage');
+      const nextPageBtn = modal.querySelector('#githubNextPage');
+      const pageNumbersDiv = modal.querySelector('#githubPageNumbers');
+      const resultsInfoDiv = modal.querySelector('#githubResultsInfo');
 
-      loadingDiv.style.display = 'block';
-      resultsDiv.style.display = 'none';
-      resultsList.innerHTML = '';
+      let currentSearchQuery = '';
+      let currentPage = 1;
+      let totalPages = 1;
+      let totalResults = 0;
 
-      try {
-        // Hledat GitHub repozitáře
-        const allResults = await this.searchGitHubRepos(query);
-        allResults.forEach(r => r.source = 'GitHub');
+      const performSearch = async (page = 1) => {
+        loadingDiv.style.display = 'block';
+        resultsDiv.style.display = 'none';
+        resultsList.innerHTML = '';
 
-        loadingDiv.style.display = 'none';
-        resultsDiv.style.display = 'block';
+        try {
+          // Hledat GitHub repozitáře
+          const searchResult = await this.searchGitHubRepos(currentSearchQuery, page);
+          const allResults = searchResult.results;
+          currentPage = searchResult.currentPage;
+          totalPages = searchResult.totalPages;
+          totalResults = searchResult.totalCount;
 
-        if (allResults.length === 0) {
-          resultsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenalezeny žádné výsledky</p>';
-          return;
-        }
+          allResults.forEach(r => r.source = 'GitHub');
 
-        allResults.forEach(result => {
-          const resultCard = document.createElement('div');
-          resultCard.style.cssText = 'padding: 15px; background: var(--bg-secondary, #2d2d2d); border: 1px solid var(--border-color, #444); border-radius: 8px; transition: all 0.2s;';
+          loadingDiv.style.display = 'none';
+          resultsDiv.style.display = 'block';
 
-          const sourceIcon = result.source === 'GitHub' ? '🐙' : result.source === 'CodePen' ? '✏️' : '📝';
-          const sourceLabel = result.source;
+          if (allResults.length === 0) {
+            resultsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenalezeny žádné výsledky</p>';
+            paginationDiv.style.display = 'none';
+            return;
+          }
 
-          resultCard.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
-              <div style="flex: 1;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-                  <h5 style="margin: 0; color: var(--accent, #007acc); font-size: 14px;">${result.name}</h5>
-                  <a href="${result.url}" target="_blank" rel="noopener noreferrer" style="color: var(--text-secondary, #999); text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; background: var(--bg-tertiary, #3d3d3d); border-radius: 4px; transition: all 0.2s;" title="Otevřít na ${sourceLabel}">
-                    ${sourceIcon} ${sourceLabel}
-                  </a>
+          // Zobrazit výsledky
+          allResults.forEach(result => {
+            const resultCard = document.createElement('div');
+            resultCard.style.cssText = 'padding: 15px; background: var(--bg-secondary, #2d2d2d); border: 1px solid var(--border-color, #444); border-radius: 8px; transition: all 0.2s;';
+
+            const sourceIcon = result.source === 'GitHub' ? '🐙' : result.source === 'CodePen' ? '✏️' : '📝';
+            const sourceLabel = result.source;
+
+            resultCard.innerHTML = `
+              <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
+                <div style="flex: 1;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                    <h5 style="margin: 0; color: var(--accent, #007acc); font-size: 14px;">${result.name}</h5>
+                    <a href="${result.url}" target="_blank" rel="noopener noreferrer" style="color: var(--text-secondary, #999); text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; background: var(--bg-tertiary, #3d3d3d); border-radius: 4px; transition: all 0.2s;" title="Otevřít na ${sourceLabel}">
+                      ${sourceIcon} ${sourceLabel}
+                    </a>
+                  </div>
+                  <p style="margin: 0 0 8px 0; font-size: 12px; color: var(--text-secondary, #999);">${result.description || 'Bez popisu'}</p>
+                  <div style="display: flex; gap: 15px; font-size: 11px; color: var(--text-secondary, #999);">
+                    <span>⭐ ${result.stars || 0}</span>
+                    <span>🍴 ${result.forks || 0}</span>
+                  </div>
                 </div>
-                <p style="margin: 0 0 8px 0; font-size: 12px; color: var(--text-secondary, #999);">${result.description || 'Bez popisu'}</p>
-                <div style="display: flex; gap: 15px; font-size: 11px; color: var(--text-secondary, #999);">
-                  <span>⭐ ${result.stars || 0}</span>
-                  <span>🍴 ${result.forks || 0}</span>
-                </div>
+                <button class="load-github-code" data-url="${result.url}" data-name="${result.name}" style="padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                  📥 Načíst kód
+                </button>
               </div>
-              <button class="load-github-code" data-url="${result.url}" data-name="${result.name}" style="padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
-                📥 Načíst kód
-              </button>
-            </div>
-          `;
+            `;
 
-          resultCard.querySelector('.load-github-code').addEventListener('click', async (e) => {
-            e.stopPropagation();
+            resultCard.querySelector('.load-github-code').addEventListener('click', async (e) => {
+              e.stopPropagation();
 
-            // Varovná hláška
-            const currentFiles = state.get('files.tabs') || [];
-            if (currentFiles.length > 0) {
-              const confirmed = confirm(
-                `⚠️ VAROVÁNÍ\n\n` +
-                `Načtení projektu z GitHub smaže všechny aktuálně otevřené soubory (${currentFiles.length}).\n\n` +
-                `Chcete pokračovat?`
-              );
+              // Varovná hláška
+              const currentFiles = state.get('files.tabs') || [];
+              if (currentFiles.length > 0) {
+                const confirmed = confirm(
+                  `⚠️ VAROVÁNÍ\n\n` +
+                  `Načtení projektu z GitHub smaže všechny aktuálně otevřené soubory (${currentFiles.length}).\n\n` +
+                  `Chcete pokračovat?`
+                );
 
-              if (!confirmed) {
-                return;
+                if (!confirmed) {
+                  return;
+                }
               }
-            }
 
-            const btn = e.currentTarget;
-            btn.disabled = true;
-            btn.textContent = '⏳ Načítání...';
+              const btn = e.currentTarget;
+              btn.disabled = true;
+              btn.textContent = '⏳ Načítání...';
 
-            try {
-              await this.loadGitHubCode(result.url, result.name, false, result.downloadUrl);
-              closeModal();
-              eventBus.emit('toast:show', {
-                message: '✅ Kód načten z GitHub',
-                type: 'success',
-                duration: 2000
-              });
-            } catch (error) {
-              alert('Chyba při načítání kódu: ' + error.message);
-              btn.disabled = false;
-              btn.textContent = '📥 Načíst kód';
-            }
-          });
+              try {
+                await this.loadGitHubCode(result.url, result.name, false, result.downloadUrl);
+                closeModal();
+                eventBus.emit('toast:show', {
+                  message: '✅ Kód načten z GitHub',
+                  type: 'success',
+                  duration: 2000
+                });
+              } catch (error) {
+                alert('Chyba při načítání kódu: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = '📥 Načíst kód';
+              }
+            });
 
           resultsList.appendChild(resultCard);
         });
+
+        // Update pagination
+        paginationDiv.style.display = 'flex';
+
+        // Update info
+        const startIdx = (currentPage - 1) * 10 + 1;
+        const endIdx = Math.min(currentPage * 10, totalResults);
+        resultsInfoDiv.textContent = `Zobrazeno ${startIdx}-${endIdx} z ${totalResults} výsledků`;
+
+        // Update buttons
+        prevPageBtn.disabled = currentPage === 1;
+        nextPageBtn.disabled = currentPage === totalPages;
+        prevPageBtn.style.opacity = currentPage === 1 ? '0.5' : '1';
+        nextPageBtn.style.opacity = currentPage === totalPages ? '0.5' : '1';
+        prevPageBtn.style.cursor = currentPage === 1 ? 'not-allowed' : 'pointer';
+        nextPageBtn.style.cursor = currentPage === totalPages ? 'not-allowed' : 'pointer';
+
+        // Render page numbers
+        pageNumbersDiv.innerHTML = '';
+        const maxVisiblePages = 5;
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+        if (endPage - startPage < maxVisiblePages - 1) {
+          startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+
+        if (startPage > 1) {
+          const firstPageBtn = document.createElement('button');
+          firstPageBtn.textContent = '1';
+          firstPageBtn.style.cssText = 'padding: 6px 10px; background: var(--bg-secondary, #2d2d2d); border: 1px solid var(--border-color, #444); color: var(--text-primary, #fff); border-radius: 4px; cursor: pointer; font-size: 12px;';
+          firstPageBtn.addEventListener('click', () => performSearch(1));
+          pageNumbersDiv.appendChild(firstPageBtn);
+
+          if (startPage > 2) {
+            const dots = document.createElement('span');
+            dots.textContent = '...';
+            dots.style.cssText = 'color: var(--text-secondary, #999); padding: 0 4px;';
+            pageNumbersDiv.appendChild(dots);
+          }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+          const pageBtn = document.createElement('button');
+          pageBtn.textContent = i;
+          const isActive = i === currentPage;
+          pageBtn.style.cssText = `padding: 6px 10px; background: ${isActive ? 'var(--accent, #007acc)' : 'var(--bg-secondary, #2d2d2d)'}; border: 1px solid ${isActive ? 'var(--accent, #007acc)' : 'var(--border-color, #444)'}; color: var(--text-primary, #fff); border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: ${isActive ? '600' : '400'};`;
+          if (!isActive) {
+            pageBtn.addEventListener('click', () => performSearch(i));
+          }
+          pageNumbersDiv.appendChild(pageBtn);
+        }
+
+        if (endPage < totalPages) {
+          if (endPage < totalPages - 1) {
+            const dots = document.createElement('span');
+            dots.textContent = '...';
+            dots.style.cssText = 'color: var(--text-secondary, #999); padding: 0 4px;';
+            pageNumbersDiv.appendChild(dots);
+          }
+
+          const lastPageBtn = document.createElement('button');
+          lastPageBtn.textContent = totalPages;
+          lastPageBtn.style.cssText = 'padding: 6px 10px; background: var(--bg-secondary, #2d2d2d); border: 1px solid var(--border-color, #444); color: var(--text-primary, #fff); border-radius: 4px; cursor: pointer; font-size: 12px;';
+          lastPageBtn.addEventListener('click', () => performSearch(totalPages));
+          pageNumbersDiv.appendChild(lastPageBtn);
+        }
 
       } catch (error) {
         loadingDiv.style.display = 'none';
         resultsDiv.style.display = 'block';
         resultsList.innerHTML = `<p style="text-align: center; color: #ef4444; padding: 20px;">Chyba: ${error.message}</p>`;
+        paginationDiv.style.display = 'none';
+      }
+    };
+
+    // Pagination handlers
+    prevPageBtn.addEventListener('click', () => {
+      if (currentPage > 1) {
+        performSearch(currentPage - 1);
       }
     });
-  }
+
+    nextPageBtn.addEventListener('click', () => {
+      if (currentPage < totalPages) {
+        performSearch(currentPage + 1);
+      }
+    });
+
+    // Initial search
+    currentSearchQuery = query;
+    performSearch(1);
+  });
+}
 
   async searchGitHubFiles(query) {
     // Hledat HTML, CSS a JS soubory
@@ -1911,26 +2025,33 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
     }));
   }
 
-  async searchGitHubRepos(query) {
+  async searchGitHubRepos(query, page = 1) {
     const searchQuery = encodeURIComponent(`${query} language:html`);
-    const response = await fetch(`https://api.github.com/search/repositories?q=${searchQuery}&sort=stars&per_page=10`);
+    const response = await fetch(`https://api.github.com/search/repositories?q=${searchQuery}&sort=stars&per_page=10&page=${page}`);
 
     if (!response.ok) {
       throw new Error('GitHub API chyba: ' + response.statusText);
     }
 
     const data = await response.json();
+    const totalCount = data.total_count;
+    const totalPages = Math.ceil(totalCount / 10);
 
-    return data.items.map(repo => ({
-      name: repo.name,
-      description: repo.description,
-      url: repo.html_url,
-      cloneUrl: repo.clone_url,
-      stars: repo.stargazers_count,
-      forks: repo.forks_count,
-      defaultBranch: repo.default_branch,
-      fullName: repo.full_name
-    }));
+    return {
+      results: data.items.map(repo => ({
+        name: repo.name,
+        description: repo.description,
+        url: repo.html_url,
+        cloneUrl: repo.clone_url,
+        stars: repo.stargazers_count,
+        forks: repo.forks_count,
+        defaultBranch: repo.default_branch,
+        fullName: repo.full_name
+      })),
+      totalCount,
+      totalPages,
+      currentPage: page
+    };
   }
 
   async loadGitHubCode(url, name, isSingleFile, downloadUrl) {
@@ -1987,29 +2108,74 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
 
       console.log(`📂 Nalezeno ${files.length} souborů ke stažení`);
 
+      // Zobrazit progress toast
+      const progressToast = document.createElement('div');
+      progressToast.className = 'toast toast-info';
+      progressToast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #007acc; color: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000; min-width: 250px;';
+      progressToast.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <div>
+            <div style="font-weight: 600; margin-bottom: 4px;">Stahuji z GitHub</div>
+            <div id="github-progress" style="font-size: 12px; opacity: 0.9;">0 / ${files.length} souborů</div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(progressToast);
+
       // Stáhnout všechny soubory
       const filesToCreate = [];
+      let downloadedCount = 0;
 
       for (const file of files) {
         try {
           const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${file.path}`;
           const response = await fetch(rawUrl);
           if (response.ok) {
-            // Pro textové soubory použít text(), pro binární blob
+            // Pro textové soubory použít text(), pro binární soubory base64
             const isTextFile = ['.html', '.htm', '.css', '.js', '.json', '.txt', '.md', '.xml', '.svg'].some(ext =>
               file.path.toLowerCase().endsWith(ext)
             );
 
-            const content = isTextFile ? await response.text() : await response.blob();
+            const isImage = ['.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.bmp'].some(ext =>
+              file.path.toLowerCase().endsWith(ext)
+            );
+
+            let content;
+            if (isTextFile) {
+              content = await response.text();
+            } else if (isImage) {
+              // Stáhnout obrázek jako blob a převést na base64
+              const blob = await response.blob();
+              const base64 = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+              });
+              content = `[Image:${base64}]`;
+            } else {
+              content = `[Binary file: ${file.path}]`;
+            }
+
             filesToCreate.push({
               name: file.path,
-              content: isTextFile ? content : `[Binary file: ${file.path}]`
+              content: content
             });
+
+            // Update progress
+            downloadedCount++;
+            const progressEl = document.getElementById('github-progress');
+            if (progressEl) {
+              progressEl.textContent = `${downloadedCount} / ${files.length} souborů`;
+            }
           }
         } catch (e) {
           console.warn(`Nepodařilo se načíst: ${file.path}`);
         }
       }
+
+      // Remove progress toast
+      setTimeout(() => progressToast.remove(), 500);
 
       // Vytvořit všechny soubory najednou
       eventBus.emit('github:project:loaded', {
