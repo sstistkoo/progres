@@ -18,6 +18,7 @@ export class Editor {
       future: [],
       maxSize: 100,
     };
+    this.isUndoRedoInProgress = false; // Flag to prevent history save during undo/redo
 
     // Store bound handlers for cleanup
     this.handlers = {
@@ -107,8 +108,10 @@ export class Editor {
   handleInput() {
     const code = this.getCode();
 
-    // Save to history
-    this.saveToHistory();
+    // Save to history (skip if undo/redo is in progress)
+    if (!this.isUndoRedoInProgress) {
+      this.saveToHistory();
+    }
 
     // Update state
     state.set('editor.code', code);
@@ -210,11 +213,15 @@ export class Editor {
       return;
     }
 
+    this.isUndoRedoInProgress = true; // Set flag to prevent history save
+
     const current = this.getCode();
     const previous = this.history.past.pop();
 
     this.history.future.unshift(current);
     this.setCode(previous);
+
+    this.isUndoRedoInProgress = false; // Reset flag
 
     eventBus.emit('toast:show', {
       message: '⬅️ Vráceno zpět',
@@ -235,11 +242,15 @@ export class Editor {
       return;
     }
 
+    this.isUndoRedoInProgress = true; // Set flag to prevent history save
+
     const current = this.getCode();
     const next = this.history.future.shift();
 
     this.history.past.push(current);
     this.setCode(next);
+
+    this.isUndoRedoInProgress = false; // Reset flag
 
     eventBus.emit('toast:show', {
       message: '➡️ Obnoveno',
@@ -297,18 +308,6 @@ export class Editor {
       type: 'success',
       duration: 2000
     });
-  }
-
-  redo() {
-    if (this.history.future.length === 0) return;
-
-    const current = this.getCode();
-    const next = this.history.future.shift();
-
-    this.history.past.push(current);
-    this.setCode(next);
-
-    eventBus.emit('editor:redo', { code: next });
   }
 
   autoSave() {

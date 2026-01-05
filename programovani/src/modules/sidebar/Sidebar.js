@@ -19,8 +19,7 @@ export class Sidebar {
   init() {
     this.createSidebar();
     this.setupEventListeners();
-    // Show sidebar by default
-    this.show();
+    // Sidebar is hidden by default - user can show it with Ctrl+B or logo button
   }
 
   setupEventListeners() {

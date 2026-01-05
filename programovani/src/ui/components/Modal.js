@@ -11,10 +11,12 @@ export class Modal {
       className: '',
       closeOnEscape: true,
       closeOnOverlay: true,
+      isDraggable: false,
       ...options,
     };
     this.element = null;
     this.isOpen = false;
+    this.dragState = { isDragging: false, startX: 0, startY: 0, offsetX: 0, offsetY: 0 };
   }
 
   create() {
@@ -27,7 +29,8 @@ export class Modal {
       },
     });
 
-    const modal = createElement('div', { className: 'modal' });
+    const modal = createElement('div', { className: `modal ${this.options.isDraggable ? 'draggable' : ''}` });
+    let headerElement = null;
 
     if (this.options.title) {
       const header = createElement('div', { className: 'modal-header' });
@@ -41,6 +44,7 @@ export class Modal {
       header.appendChild(title);
       header.appendChild(closeBtn);
       modal.appendChild(header);
+      headerElement = header;
     }
 
     if (this.options.content) {
@@ -74,7 +78,58 @@ export class Modal {
 
     overlay.appendChild(modal);
     this.element = overlay;
+
+    if (this.options.isDraggable && headerElement) {
+      this.makeDraggable(modal, headerElement);
+    }
+
     return overlay;
+  }
+
+  makeDraggable(modal, header) {
+    if (!header) return;
+
+    header.style.cursor = 'move';
+
+    const onMouseDown = (e) => {
+      if (e.target.classList.contains('modal-close-btn')) return;
+
+      this.dragState.isDragging = true;
+      this.dragState.startX = e.clientX;
+      this.dragState.startY = e.clientY;
+
+      const rect = modal.getBoundingClientRect();
+      this.dragState.offsetX = rect.left;
+      this.dragState.offsetY = rect.top;
+
+      modal.style.position = 'fixed';
+      modal.style.margin = '0';
+      modal.style.left = rect.left + 'px';
+      modal.style.top = rect.top + 'px';
+
+      e.preventDefault();
+    };
+
+    const onMouseMove = (e) => {
+      if (!this.dragState.isDragging) return;
+
+      const deltaX = e.clientX - this.dragState.startX;
+      const deltaY = e.clientY - this.dragState.startY;
+
+      const newX = this.dragState.offsetX + deltaX;
+      const newY = this.dragState.offsetY + deltaY;
+
+      modal.style.left = Math.max(0, Math.min(window.innerWidth - modal.offsetWidth, newX)) + 'px';
+      modal.style.top = Math.max(0, Math.min(window.innerHeight - modal.offsetHeight, newY)) + 'px';
+    };
+
+    const onMouseUp = () => {
+      this.dragState.isDragging = false;
+    };
+
+    header.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
   }
 
   open() {
