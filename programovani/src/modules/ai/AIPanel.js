@@ -12,7 +12,7 @@ import { AITester } from './AITester.js';
 export class AIPanel {
   constructor() {
     this.modal = null;
-    this.chatHistory = [];
+    this.chatHistory = state.get('ai.chatHistory') || [];
     this.pendingChanges = new Map(); // Store pending changes for accept/reject
     this.originalCode = null; // Store original code before changes
     this.aiTester = new AITester();
@@ -45,6 +45,7 @@ export class AIPanel {
       this.createModal();
     }
     this.modal.open();
+    this.restoreChatMessages();
   }
 
   hide() {
@@ -1129,6 +1130,23 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     // Add user message to chat
     this.addChatMessage('user', message);
 
+    // Přidat loading animaci
+    const loadingId = 'ai-loading-' + Date.now();
+    const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'ai-message assistant loading';
+    loadingMsg.id = loadingId;
+    loadingMsg.innerHTML = `
+      <div class="ai-thinking">
+        <div class="thinking-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <p>AI přemýšlí a generuje kód...</p>
+      </div>
+    `;
+    messagesContainer.appendChild(loadingMsg);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
     // Start timing
     const startTime = performance.now();
 
@@ -1137,6 +1155,9 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       role: 'user',
       content: message
     });
+
+    // Uložit historii do state
+    state.set('ai.chatHistory', this.chatHistory);
 
     // Update history counter
     this.updateHistoryInfo();
@@ -1280,15 +1301,25 @@ ${hasCode && hasHistory ?
         content: response
       });
 
+      // Uložit historii do state
+      state.set('ai.chatHistory', this.chatHistory);
+
       // Update history counter
       this.updateHistoryInfo();
 
       // Check if this is modification of existing code (has history and code)
       const isModification = this.chatHistory.length > 3 && currentCode.trim().length > 100;
 
+      // Odstranit loading animaci
+      const loadingElement = document.getElementById(loadingId);
+      if (loadingElement) loadingElement.remove();
+
       // Add assistant message with formatted code
       this.addChatMessageWithCode('assistant', response, message, isModification);
     } catch (error) {
+      // Odstranit loading animaci při chybě
+      const loadingElement = document.getElementById(loadingId);
+      if (loadingElement) loadingElement.remove();
       let errorMsg = error.message;
       if (error.message.includes('API key')) {
         errorMsg = 'Chybí API klíč. Nastavte klíč v ai_module.js nebo použijte demo klíče.';
@@ -1334,7 +1365,7 @@ ${hasCode && hasHistory ?
     return messageId;
   }
 
-  addChatMessageWithCode(role, content, originalMessage = '', isModification = false) {
+  addChatMessageWithCode(role, content, originalMessage = '', isModification = false, codeStatus = {}) {
     const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
     const messageEl = document.createElement('div');
     messageEl.className = `ai-message ${role}`;
@@ -1356,14 +1387,17 @@ ${hasCode && hasHistory ?
       const code = match[2].trim();
       codeBlocks.push({ language, code });
 
-      // Add code block with syntax highlighting placeholder
+      // Add code block with collapsible wrapper and actions on top
       formattedContent += `
         <div class="code-block-wrapper">
-          <div class="code-block-header">
-            <span class="code-language">${language}</span>
-          </div>
-          <pre class="code-block"><code>${this.escapeHtml(code)}</code></pre>
           <div class="code-block-actions" data-code-index="${codeBlocks.length - 1}"></div>
+          <details class="code-block-collapsible">
+            <summary class="code-block-header">
+              <span class="code-language">${language}</span>
+              <span class="toggle-icon">▼</span>
+            </summary>
+            <pre class="code-block"><code>${this.escapeHtml(code)}</code></pre>
+          </details>
         </div>
       `;
 
@@ -1384,6 +1418,83 @@ ${hasCode && hasHistory ?
       if (actionsContainer) {
         // Store pending change
         const changeId = `change-${Date.now()}-${index}`;
+
+        // Check if this code block was already accepted/rejected (use index)
+        const status = codeStatus[`code-${index}`];
+
+        if (status === 'accepted' || status === 'rejected') {
+          // Show reset button instead of status
+          const resetBtn = document.createElement('button');
+          resetBtn.className = 'code-action-btn';
+          resetBtn.innerHTML = `
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+              <path d="M1.5 3.25a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H2.25a.75.75 0 0 1-.75-.75zM1.5 8a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H2.25A.75.75 0 0 1 1.5 8zm.75 4a.75.75 0 0 0 0 1.5h12.5a.75.75 0 0 0 0-1.5H2.25z"/>
+            </svg>
+            Obnovit volbu
+          `;
+          resetBtn.onclick = () => {
+            // Remove status from chatHistory
+            const lastMsg = this.chatHistory[this.chatHistory.length - 1];
+            if (lastMsg && lastMsg.role === 'assistant' && lastMsg.codeStatus) {
+              delete lastMsg.codeStatus[`code-${index}`];
+              state.set('ai.chatHistory', this.chatHistory);
+            }
+
+            // Clear container and re-add buttons
+            actionsContainer.innerHTML = '';
+
+            const isNewProject = this.detectNewProject(originalMessage, block.code);
+            this.pendingChanges.set(changeId, {
+              code: block.code,
+              isNewProject: isNewProject,
+              timestamp: Date.now()
+            });
+
+            // Create Accept button
+            const acceptBtn = document.createElement('button');
+            acceptBtn.className = 'code-action-btn accept';
+            acceptBtn.innerHTML = `
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+                <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+              </svg>
+              Accept
+            `;
+            acceptBtn.onclick = () => {
+              this.acceptChange(changeId, actionsContainer, false, isModification);
+            };
+
+            // Create Reject button
+            const rejectBtn = document.createElement('button');
+            rejectBtn.className = 'code-action-btn reject';
+            rejectBtn.innerHTML = `
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+                <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
+              </svg>
+              Reject
+            `;
+            rejectBtn.onclick = () => {
+              this.rejectChange(changeId, actionsContainer);
+            };
+
+            actionsContainer.appendChild(acceptBtn);
+            actionsContainer.appendChild(rejectBtn);
+          };
+
+          const statusText = document.createElement('span');
+          statusText.className = `change-status ${status}`;
+          statusText.innerHTML = status === 'accepted'
+            ? `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+                <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+              </svg> Změna potvrzena`
+            : `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+                <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
+              </svg> Změna zamítnuta`;
+
+          actionsContainer.appendChild(statusText);
+          actionsContainer.appendChild(resetBtn);
+          return;
+        }
+
         const isNewProject = this.detectNewProject(originalMessage, block.code);
 
         this.pendingChanges.set(changeId, {
@@ -1448,6 +1559,16 @@ ${hasCode && hasHistory ?
         Změna potvrzena
       </span>
     `;
+    actionsContainer.dataset.accepted = 'true';
+
+    // Mark code block as accepted in chatHistory (use index as key)
+    const codeIndex = actionsContainer.dataset.codeIndex;
+    const lastMsg = this.chatHistory[this.chatHistory.length - 1];
+    if (lastMsg && lastMsg.role === 'assistant') {
+      if (!lastMsg.codeStatus) lastMsg.codeStatus = {};
+      lastMsg.codeStatus[`code-${codeIndex}`] = 'accepted';
+      state.set('ai.chatHistory', this.chatHistory);
+    }
 
     // Remove from pending
     this.pendingChanges.delete(changeId);
@@ -1477,6 +1598,16 @@ ${hasCode && hasHistory ?
         Změna zamítnuta
       </span>
     `;
+    actionsContainer.dataset.rejected = 'true';
+
+    // Mark code block as rejected in chatHistory (use index as key)
+    const codeIndex = actionsContainer.dataset.codeIndex;
+    const lastMsg = this.chatHistory[this.chatHistory.length - 1];
+    if (lastMsg && lastMsg.role === 'assistant') {
+      if (!lastMsg.codeStatus) lastMsg.codeStatus = {};
+      lastMsg.codeStatus[`code-${codeIndex}`] = 'rejected';
+      state.set('ai.chatHistory', this.chatHistory);
+    }
 
     // Remove from pending
     this.pendingChanges.delete(changeId);
@@ -1543,14 +1674,13 @@ ${hasCode && hasHistory ?
     state.set('editor.code', code);
     eventBus.emit('editor:setCode', { code });
 
-    // Na mobilu - zavřít modal a ukázat preview
-    if (window.innerWidth <= 768) {
-      // Zavřít AI modal
-      if (this.modal) {
-        this.modal.close();
-      }
+    // Zavřít AI modal po vložení kódu
+    if (this.modal) {
+      this.modal.close();
+    }
 
-      // Přepnout na preview aby uživatel viděl výsledek
+    // Na mobilu - přepnout na preview aby uživatel viděl výsledek
+    if (window.innerWidth <= 768) {
       const app = document.querySelector('.app');
       if (app) {
         setTimeout(() => {
@@ -1677,6 +1807,7 @@ ${hasCode && hasHistory ?
 
   clearChatHistory() {
     this.chatHistory = [];
+    state.set('ai.chatHistory', []);
     const messagesContainer = this.modal?.element?.querySelector('#aiChatMessages');
     if (messagesContainer) {
       messagesContainer.innerHTML = `
@@ -1687,6 +1818,36 @@ ${hasCode && hasHistory ?
     }
     this.updateHistoryInfo();
     toast.show('🗑️ Historie konverzace vymazána', 'info');
+  }
+
+  restoreChatMessages() {
+    if (!this.modal || !this.chatHistory || this.chatHistory.length === 0) {
+      return;
+    }
+
+    const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
+    if (!messagesContainer) return;
+
+    // Vymazat existující zprávy
+    messagesContainer.innerHTML = '';
+
+    // Obnovit všechny zprávy z historie
+    this.chatHistory.forEach((msg) => {
+      if (msg.role === 'user') {
+        this.addChatMessage('user', msg.content);
+      } else if (msg.role === 'assistant') {
+        // Zkontroluj, jestli obsahuje kód (triple backticks)
+        const hasCodeBlock = /```[\s\S]*?```/.test(msg.content);
+        if (hasCodeBlock) {
+          this.addChatMessageWithCode('assistant', msg.content, '', false, msg.codeStatus || {});
+        } else {
+          this.addChatMessage('assistant', msg.content);
+        }
+      }
+    });
+
+    // Scrollovat na konec
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
   exportChatHistory() {
@@ -2244,7 +2405,7 @@ ${hasCode && hasHistory ?
   handleGitHubAction(action) {
     const actions = {
       'repos': () => this.showRepoManager(),
-      'search-repos': () => eventBus.emit('github:searchRepos'),
+      'search-repos': () => this.showGitHubSearchDialog(),
       'clone': () => this.cloneRepo(),
       'create-gist': () => this.createGist(),
       'issues': () => eventBus.emit('github:showIssues'),
@@ -2255,6 +2416,272 @@ ${hasCode && hasHistory ?
     const actionFn = actions[action];
     if (actionFn) {
       actionFn();
+    }
+  }
+
+  showGitHubSearchDialog() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+          <h3>🔍 Hledat HTML na GitHub</h3>
+          <button class="modal-close" id="githubSearchClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 30px;">
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Co hledáte?</label>
+            <input type="text" id="githubSearchQuery" placeholder="Např. landing page, portfolio, navbar..." style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px;">
+          </div>
+          <div style="margin-bottom: 20px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="singleFileSearch" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 500;">Hledat pouze jeden HTML soubor s kompletním kódem</span>
+            </label>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; margin-left: 26px;">
+              Vyhledá samostatné HTML soubory místo celých repozitářů
+            </p>
+          </div>
+          <button id="startGithubSearch" style="width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px;">
+            🔍 Hledat
+          </button>
+          <div id="githubSearchResults" style="margin-top: 30px; display: none;">
+            <h4 style="margin-bottom: 15px; color: var(--text-primary);">Výsledky hledání:</h4>
+            <div id="githubResultsList" style="display: grid; gap: 10px; max-height: 400px; overflow-y: auto;"></div>
+          </div>
+          <div id="githubSearchLoading" style="display: none; text-align: center; padding: 40px;">
+            <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--border-color); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <p style="margin-top: 15px; color: var(--text-secondary);">Hledání na GitHub...</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeModal = () => modal.remove();
+    modal.querySelector('#githubSearchClose').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    modal.querySelector('#startGithubSearch').addEventListener('click', async () => {
+      const query = modal.querySelector('#githubSearchQuery').value.trim();
+      const singleFile = modal.querySelector('#singleFileSearch').checked;
+
+      if (!query) {
+        alert('Zadejte prosím hledaný výraz');
+        return;
+      }
+
+      const loadingDiv = modal.querySelector('#githubSearchLoading');
+      const resultsDiv = modal.querySelector('#githubSearchResults');
+      const resultsList = modal.querySelector('#githubResultsList');
+
+      loadingDiv.style.display = 'block';
+      resultsDiv.style.display = 'none';
+      resultsList.innerHTML = '';
+
+      try {
+        let results;
+        if (singleFile) {
+          // Hledat jednotlivé HTML soubory
+          results = await this.searchGitHubFiles(query);
+        } else {
+          // Hledat celé repozitáře s HTML
+          results = await this.searchGitHubRepos(query);
+        }
+
+        loadingDiv.style.display = 'none';
+        resultsDiv.style.display = 'block';
+
+        if (results.length === 0) {
+          resultsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenalezeny žádné výsledky</p>';
+          return;
+        }
+
+        results.forEach(result => {
+          const resultCard = document.createElement('div');
+          resultCard.style.cssText = 'padding: 15px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; transition: all 0.2s;';
+          resultCard.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                  <h5 style="margin: 0; color: var(--accent); font-size: 14px;">${result.name}</h5>
+                  <a href="${result.url}" target="_blank" rel="noopener noreferrer" style="color: var(--text-secondary); text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; background: var(--bg-tertiary); border-radius: 4px; transition: all 0.2s;" title="Otevřít na GitHub">
+                    🔗 GitHub
+                  </a>
+                </div>
+                <p style="margin: 0 0 8px 0; font-size: 12px; color: var(--text-secondary);">${result.description || 'Bez popisu'}</p>
+                ${singleFile ?
+                  `<div style="font-size: 11px; color: var(--text-secondary);">📄 ${result.path}</div>` :
+                  `<div style="display: flex; gap: 15px; font-size: 11px; color: var(--text-secondary);">
+                    <span>⭐ ${result.stars}</span>
+                    <span>🍴 ${result.forks}</span>
+                  </div>`
+                }
+              </div>
+              <button class="load-github-code" data-url="${result.url}" data-name="${result.name}" style="padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                📥 Načíst kód
+              </button>
+            </div>
+          `;
+
+          resultCard.querySelector('.load-github-code').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            btn.textContent = '⏳ Načítání...';
+
+            try {
+              await this.loadGitHubCode(result.url, result.name, singleFile);
+              closeModal();
+              eventBus.emit('toast:show', {
+                message: '✅ Kód načten z GitHub',
+                type: 'success',
+                duration: 2000
+              });
+            } catch (error) {
+              alert('Chyba při načítání kódu: ' + error.message);
+              btn.disabled = false;
+              btn.textContent = '📥 Načíst kód';
+            }
+          });
+
+          resultsList.appendChild(resultCard);
+        });
+
+      } catch (error) {
+        loadingDiv.style.display = 'none';
+        resultsDiv.style.display = 'block';
+        resultsList.innerHTML = `<p style="text-align: center; color: #ef4444; padding: 20px;">Chyba: ${error.message}</p>`;
+      }
+    });
+  }
+
+  async searchGitHubFiles(query) {
+    const searchQuery = encodeURIComponent(`${query} extension:html`);
+    const response = await fetch(`https://api.github.com/search/code?q=${searchQuery}&per_page=10`);
+
+    if (!response.ok) {
+      throw new Error('GitHub API chyba: ' + response.statusText);
+    }
+
+    const data = await response.json();
+
+    return data.items.map(item => ({
+      name: item.name,
+      path: item.path,
+      description: item.repository.description,
+      url: item.html_url,
+      downloadUrl: `https://raw.githubusercontent.com/${item.repository.full_name}/${item.repository.default_branch}/${item.path}`,
+      stars: item.repository.stargazers_count,
+      forks: item.repository.forks_count
+    }));
+  }
+
+  async searchGitHubRepos(query) {
+    const searchQuery = encodeURIComponent(`${query} language:html`);
+    const response = await fetch(`https://api.github.com/search/repositories?q=${searchQuery}&sort=stars&per_page=10`);
+
+    if (!response.ok) {
+      throw new Error('GitHub API chyba: ' + response.statusText);
+    }
+
+    const data = await response.json();
+
+    return data.items.map(repo => ({
+      name: repo.name,
+      description: repo.description,
+      url: repo.html_url,
+      cloneUrl: repo.clone_url,
+      stars: repo.stargazers_count,
+      forks: repo.forks_count,
+      defaultBranch: repo.default_branch,
+      fullName: repo.full_name
+    }));
+  }
+
+  async loadGitHubCode(url, name, isSingleFile) {
+    if (isSingleFile) {
+      // Načíst obsah souboru
+      const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)/);
+      if (!match) {
+        throw new Error('Neplatná URL GitHub souboru');
+      }
+
+      const [, owner, repo, branch, path] = match;
+      const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+
+      const response = await fetch(rawUrl);
+      if (!response.ok) {
+        throw new Error('Nepodařilo se načíst soubor z GitHub');
+      }
+
+      const code = await response.text();
+
+      // Vytvořit nový soubor
+      eventBus.emit('file:create', {
+        name: name,
+        content: code
+      });
+
+    } else {
+      // Pro repozitář - zkusit najít index.html
+      const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
+      if (!match) {
+        throw new Error('Neplatná URL GitHub repozitáře');
+      }
+
+      const [, owner, repo] = match;
+
+      // Zkusit načíst index.html
+      const possibleFiles = ['index.html', 'index.htm', 'home.html', 'main.html'];
+      let code = null;
+
+      for (const file of possibleFiles) {
+        try {
+          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${file}`;
+          const response = await fetch(rawUrl);
+          if (response.ok) {
+            code = await response.text();
+            break;
+          }
+        } catch (e) {
+          // Zkusit další soubor
+          continue;
+        }
+      }
+
+      if (!code) {
+        // Zkusit master branch
+        for (const file of possibleFiles) {
+          try {
+            const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/master/${file}`;
+            const response = await fetch(rawUrl);
+            if (response.ok) {
+              code = await response.text();
+              break;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+
+      if (!code) {
+        throw new Error('Nenalezen žádný HTML soubor v repozitáři. Zkuste hledat samostatné soubory.');
+      }
+
+      // Vytvořit nový soubor
+      eventBus.emit('file:create', {
+        name: `${name}.html`,
+        content: code
+      });
     }
   }
 

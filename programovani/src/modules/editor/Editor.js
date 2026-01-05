@@ -188,7 +188,14 @@ export class Editor {
   }
 
   undo() {
-    if (this.history.past.length === 0) return;
+    if (this.history.past.length < 1) {
+      eventBus.emit('toast:show', {
+        message: '⚠️ Žádná historie pro vrácení zpět',
+        type: 'warning',
+        duration: 1500
+      });
+      return;
+    }
 
     const current = this.getCode();
     const previous = this.history.past.pop();
@@ -196,7 +203,38 @@ export class Editor {
     this.history.future.unshift(current);
     this.setCode(previous);
 
+    eventBus.emit('toast:show', {
+      message: '⬅️ Vráceno zpět',
+      type: 'success',
+      duration: 1000
+    });
+
     eventBus.emit('editor:undo', { code: previous });
+  }
+
+  redo() {
+    if (this.history.future.length === 0) {
+      eventBus.emit('toast:show', {
+        message: '⚠️ Žádná historie pro obnovu',
+        type: 'warning',
+        duration: 1500
+      });
+      return;
+    }
+
+    const current = this.getCode();
+    const next = this.history.future.shift();
+
+    this.history.past.push(current);
+    this.setCode(next);
+
+    eventBus.emit('toast:show', {
+      message: '➡️ Obnoveno',
+      type: 'success',
+      duration: 1000
+    });
+
+    eventBus.emit('editor:redo', { code: next });
   }
 
   replace(search, replace, options = {}) {
@@ -402,11 +440,16 @@ export class Editor {
   }
 
   updateActiveTab(activeId) {
-    if (!this.tabsContainer) return;
+    if (!this.tabsContainer) {
+      console.warn('⚠️ updateActiveTab: tabsContainer not found');
+      return;
+    }
 
     const tabs = this.tabsContainer.querySelectorAll('.editor-tab');
+
     tabs.forEach(tab => {
-      if (tab.dataset.tabId === activeId) {
+      // Porovnání jako string (dataset je vždy string, activeId může být number)
+      if (tab.dataset.tabId == activeId) {
         tab.classList.add('active');
         // Scroll into view
         tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });

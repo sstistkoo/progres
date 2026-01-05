@@ -229,10 +229,15 @@ export class AppState {
         files: this.state.files,
         ui: this.state.ui,
         settings: this.state.settings,
+        editor: {
+          code: this.state.editor.code,
+          language: this.state.editor.language,
+        },
         ai: {
           provider: this.state.ai.provider,
           model: this.state.ai.model,
           keys: this.state.ai.keys,
+          chatHistory: this.state.ai.chatHistory,
         },
       };
       localStorage.setItem('htmlStudio:state', JSON.stringify(toSave));
@@ -253,7 +258,10 @@ export class AppState {
         this.state = {
           ...this.state,
           ...parsed,
-          editor: this.state.editor, // Keep editor state fresh
+          editor: {
+            ...this.state.editor,
+            ...(parsed.editor || {}),
+          },
         };
       }
     } catch (error) {

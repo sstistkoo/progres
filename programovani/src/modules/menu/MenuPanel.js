@@ -154,23 +154,7 @@ export class MenuPanel {
         </div>
 
         <div class="menu-section">
-          <h3>� Export projektu</h3>
-          <button class="menu-item" data-action="exportZip">
-            <span class="menu-icon">📦</span>
-            <span>Stáhnout jako ZIP</span>
-          </button>
-          <button class="menu-item" data-action="saveTemplate">
-            <span class="menu-icon">💾</span>
-            <span>Uložit jako šablonu</span>
-          </button>
-          <button class="menu-item" data-action="manageTemplates">
-            <span class="menu-icon">📚</span>
-            <span>Moje šablony</span>
-          </button>
-        </div>
-
-        <div class="menu-section">
-          <h3>�🔗 Sdílení</h3>
+          <h3>🔗 Sdílení</h3>
           <button class="menu-item" data-action="share">
             <span class="menu-icon">🔗</span>
             <span>Sdílet odkaz</span>
@@ -259,14 +243,6 @@ export class MenuPanel {
 
       case 'exportZip':
         this.exportAsZip();
-        break;
-
-      case 'saveTemplate':
-        this.saveAsTemplate();
-        break;
-
-      case 'manageTemplates':
-        this.manageTemplates();
         break;
 
       case 'share':
@@ -1125,6 +1101,9 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
   }
 
   showTemplates() {
+    // Load custom templates from localStorage
+    const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '{}');
+
     // Create modal for templates library
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop';
@@ -1138,191 +1117,157 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
             </svg>
           </button>
         </div>
-        <div class="modal-body components-body">
-          <div class="components-grid">
-            <!-- Blank -->
-            <div class="component-card" data-template="blank">
-              <div class="component-preview" style="background: var(--bg-elevated); color: var(--text-primary);">
-                <div style="text-align: center; padding: 20px;">
-                  <h3>🎨</h3>
-                  <p>Prázdná stránka</p>
-                </div>
-              </div>
-              <div class="component-info">
-                <h4>Prázdná stránka</h4>
-                <p>Základní HTML struktura</p>
-              </div>
-            </div>
-
-            <!-- Landing Page -->
-            <div class="component-card" data-template="landing">
-              <div class="component-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                <div style="text-align: center; padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">Awesome App</h3>
-                  <p style="margin: 0; font-size: 8px;">Modern landing page</p>
-                </div>
-              </div>
-              <div class="component-info">
-                <h4>Landing Page</h4>
-                <p>Moderní přistávací stránka</p>
-              </div>
-            </div>
-
-            <!-- Portfolio -->
-            <div class="component-card" data-template="portfolio">
-              <div class="component-preview" style="background: var(--bg-tertiary); color: var(--text-primary);">
-                <div style="padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">💼 Portfolio</h3>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 8px;">
-                    <div style="background: var(--bg-secondary); padding: 5px;">Project 1</div>
-                    <div style="background: var(--bg-secondary); padding: 5px;">Project 2</div>
+        <div class="modal-body" style="padding: 30px;">
+          <div style="margin-bottom: 20px; display: flex; justify-content: center;">
+            <button id="createNewTemplate" style="padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
+              <span style="font-size: 18px;">➕</span> Vytvořit novou šablonu
+            </button>
+          </div>
+          <div class="templates-list" style="display: grid; gap: 10px; max-width: 700px; margin: 0 auto;">
+            ${Object.keys(customTemplates).length > 0 ? `
+              <div style="margin: 20px 0 10px 0; padding: 10px; background: var(--accent); color: white; border-radius: 8px; text-align: center; font-weight: 600;">Moje šablony</div>
+              ${Object.entries(customTemplates).map(([id, data]) => `
+                <button class="template-btn" data-template="custom-${id}" data-custom="true" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s; position: relative;">
+                  <span style="font-size: 24px;">${data.icon || '📄'}</span>
+                  <div style="flex: 1;">
+                    <div style="font-weight: 600; color: var(--text-primary);">${data.name}</div>
+                    <div style="font-size: 13px; color: var(--text-secondary);">${data.description || 'Vlastní šablona'}</div>
                   </div>
-                </div>
-              </div>
-              <div class="component-info">
-                <h4>Portfolio</h4>
-                <p>Osobní portfolio stránka</p>
-              </div>
-            </div>
-
-            <!-- Blog -->
-            <div class="component-card" data-template="blog">
-              <div class="component-preview" style="background: var(--bg-secondary); color: var(--text-primary);">
-                <div style="padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">✍️ Blog</h3>
-                  <div style="font-size: 8px; line-height: 1.3;">
-                    <p style="margin: 0 0 5px 0;"><strong>Titulek článku</strong></p>
-                    <p style="margin: 0; color: var(--text-secondary);">Přehled článku...</p>
+                  <div style="display: flex; gap: 8px;">
+                    <button class="edit-template-btn" data-template-id="${id}" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+                    <button class="delete-template-btn" data-template-id="${id}" style="padding: 8px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">🗑️</button>
                   </div>
-                </div>
+                </button>
+              `).join('')}
+              <div style="margin: 20px 0 10px 0; padding: 10px; background: var(--bg-tertiary); border-radius: 8px; text-align: center; font-weight: 600; color: var(--text-primary);">Vestavěné šablony</div>
+            ` : ''}
+            <!-- Web Pages -->
+            <button class="template-btn" data-template="blank" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s; position: relative;">
+              <span style="font-size: 24px;">🎨</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">Prázdná stránka</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Základní HTML struktura</div>
               </div>
-              <div class="component-info">
-                <h4>Blog</h4>
-                <p>Blogovací stránka</p>
+              <button class="edit-builtin-btn" data-template="blank" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
+
+            <button class="template-btn" data-template="landing" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s; position: relative;">
+              <span style="font-size: 24px;">🚀</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">Landing Page</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Moderní přistávací stránka</div>
               </div>
+              <button class="edit-builtin-btn" data-template="landing" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
+
+            <button class="template-btn" data-template="portfolio" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s; position: relative;">
+              <span style="font-size: 24px;">💼</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">Portfolio</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Osobní portfolio stránka</div>
+              </div>
+              <button class="edit-builtin-btn" data-template="portfolio" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
+
+            <button class="template-btn" data-template="blog" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s; position: relative;">
+              <span style="font-size: 24px;">✍️</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">Blog</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Blogovací stránka</div>
+              </div>
+              <button class="edit-builtin-btn" data-template="blog" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
+
+            <!-- CNC Templates -->
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+              <h4 style="color: var(--text-secondary); font-size: 12px; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px;">CNC Výroba</h4>
             </div>
 
-            <!-- CNC Production Landing -->
-            <div class="component-card" data-template="cnc-landing">
-              <div class="component-preview" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white;">
-                <div style="text-align: center; padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">⚙️ CNC Obrábění</h3>
-                  <p style="margin: 0; font-size: 8px;">Přesnost • Kvalita</p>
-                </div>
+            <button class="template-btn" data-template="cnc-landing" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s;">
+              <span style="font-size: 24px;">⚙️</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">CNC Landing</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Landing page pro CNC obrábění</div>
               </div>
-              <div class="component-info">
-                <h4>CNC Výroba</h4>
-                <p>Landing page pro CNC</p>
+              <button class="edit-builtin-btn" data-template="cnc-landing" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
+
+            <button class="template-btn" data-template="cnc-services" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s;">
+              <span style="font-size: 24px;">🔧</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">CNC Služby</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Přehled CNC služeb</div>
               </div>
+              <button class="edit-builtin-btn" data-template="cnc-services" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
+
+            <button class="template-btn" data-template="cnc-contact" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s;">
+              <span style="font-size: 24px;">📨</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">Kontakt + Poptávka</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Kontaktní formulář</div>
+              </div>
+              <button class="edit-builtin-btn" data-template="cnc-contact" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
+
+            <button class="template-btn" data-template="cnc-gallery" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s;">
+              <span style="font-size: 24px;">📸</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">Galerie výrobků</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Portfolio CNC dílů</div>
+              </div>
+              <button class="edit-builtin-btn" data-template="cnc-gallery" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
+
+            <!-- Calculators -->
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+              <h4 style="color: var(--text-secondary); font-size: 12px; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px;">Kalkulačky</h4>
             </div>
 
-            <!-- CNC Services -->
-            <div class="component-card" data-template="cnc-services">
-              <div class="component-preview" style="background: var(--bg-tertiary); color: var(--text-primary);">
-                <div style="padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">🔧 Služby</h3>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 7px;">
-                    <div style="background: var(--bg-secondary); padding: 5px;">Frézování</div>
-                    <div style="background: var(--bg-secondary); padding: 5px;">Soustružení</div>
-                  </div>
-                </div>
+            <button class="template-btn" data-template="calc-basic" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s;">
+              <span style="font-size: 24px;">🔢</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">Základní kalkulačka</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Jednoduchá kalkulačka (+, -, ×, ÷)</div>
               </div>
-              <div class="component-info">
-                <h4>CNC Služby</h4>
-                <p>Přehled služeb</p>
-              </div>
-            </div>
+              <button class="edit-builtin-btn" data-template="calc-basic" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
 
-            <!-- CNC Contact & Quote -->
-            <div class="component-card" data-template="cnc-contact">
-              <div class="component-preview" style="background: var(--bg-secondary); color: var(--text-primary);">
-                <div style="padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">📨 Poptávka</h3>
-                  <div style="font-size: 7px; line-height: 1.5;">
-                    <p style="margin: 0 0 3px 0;">━ Kontakt</p>
-                    <p style="margin: 0;">━ Formulář</p>
-                  </div>
-                </div>
+            <button class="template-btn" data-template="calc-price" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s;">
+              <span style="font-size: 24px;">💰</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">Cenová kalkulačka</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Výpočet ceny s DPH</div>
               </div>
-              <div class="component-info">
-                <h4>Kontakt + Poptávka</h4>
-                <p>Poptávkový formulář</p>
-              </div>
-            </div>
+              <button class="edit-builtin-btn" data-template="calc-price" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
 
-            <!-- CNC Gallery -->
-            <div class="component-card" data-template="cnc-gallery">
-              <div class="component-preview" style="background: var(--bg-tertiary); color: var(--text-primary);">
-                <div style="padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">📸 Portfolio</h3>
-                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; font-size: 7px;">
-                    <div style="background: var(--bg-secondary); aspect-ratio: 1; border-radius: 3px;"></div>
-                    <div style="background: var(--bg-secondary); aspect-ratio: 1; border-radius: 3px;"></div>
-                    <div style="background: var(--bg-secondary); aspect-ratio: 1; border-radius: 3px;"></div>
-                  </div>
-                </div>
+            <button class="template-btn" data-template="calc-bmi" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s;">
+              <span style="font-size: 24px;">📊</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">BMI kalkulačka</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Výpočet tělesného indexu</div>
               </div>
-              <div class="component-info">
-                <h4>Galerie výrobků</h4>
-                <p>Ukázky obráběných dílů</p>
-              </div>
-            </div>
+              <button class="edit-builtin-btn" data-template="calc-bmi" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
 
-            <!-- Price Calculator -->
-            <div class="component-card" data-template="calc-price">
-              <div class="component-preview" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
-                <div style="text-align: center; padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">💰 Kalkulačka</h3>
-                  <p style="margin: 0; font-size: 8px;">Cena s DPH</p>
-                </div>
+            <button class="template-btn" data-template="calc-loan" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s;">
+              <span style="font-size: 24px;">🏦</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">Kalkulačka úvěru</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Výpočet měsíčních splátek</div>
               </div>
-              <div class="component-info">
-                <h4>Cenová kalkulačka</h4>
-                <p>Výpočet ceny s DPH</p>
-              </div>
-            </div>
+              <button class="edit-builtin-btn" data-template="calc-loan" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
 
-            <!-- BMI Calculator -->
-            <div class="component-card" data-template="calc-bmi">
-              <div class="component-preview" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white;">
-                <div style="text-align: center; padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">📊 BMI</h3>
-                  <p style="margin: 0; font-size: 8px;">Body Mass Index</p>
-                </div>
+            <button class="template-btn" data-template="calc-tip" style="padding: 15px 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 15px; transition: all 0.2s;">
+              <span style="font-size: 24px;">🍽️</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-primary);">Kalkulačka spropitného</div>
+                <div style="font-size: 13px; color: var(--text-secondary);">Rozdělení účtu</div>
               </div>
-              <div class="component-info">
-                <h4>BMI kalkulačka</h4>
-                <p>Výpočet tělesného indexu</p>
-              </div>
-            </div>
-
-            <!-- Loan Calculator -->
-            <div class="component-card" data-template="calc-loan">
-              <div class="component-preview" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white;">
-                <div style="text-align: center; padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">🏦 Úvěr</h3>
-                  <p style="margin: 0; font-size: 8px;">Měsíční splátka</p>
-                </div>
-              </div>
-              <div class="component-info">
-                <h4>Kalkulačka úvěru</h4>
-                <p>Výpočet splátek</p>
-              </div>
-            </div>
-
-            <!-- Tip Calculator -->
-            <div class="component-card" data-template="calc-tip">
-              <div class="component-preview" style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white;">
-                <div style="text-align: center; padding: 20px; font-size: 10px;">
-                  <h3 style="margin: 0 0 5px 0;">🍽️ Spropitné</h3>
-                  <p style="margin: 0; font-size: 8px;">Výpočet</p>
-                </div>
-              </div>
-              <div class="component-info">
-                <h4>Kalkulačka spropitného</h4>
-                <p>Rozdělení účtu</p>
-              </div>
-            </div>
+              <button class="edit-builtin-btn" data-template="calc-tip" style="padding: 8px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="event.stopPropagation();">✏️</button>
+            </button>
           </div>
         </div>
         <div class="modal-footer">
@@ -1332,6 +1277,17 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
     `;
 
     document.body.appendChild(modal);
+
+    // Add hover styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .template-btn:hover {
+        background: var(--bg-tertiary) !important;
+        border-color: var(--accent) !important;
+        transform: translateX(5px);
+      }
+    `;
+    document.head.appendChild(style);
 
     // Template definitions
     const templates = {
@@ -1351,6 +1307,8 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
 
       'cnc-gallery': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Portfolio - Naše výrobky</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: 'Segoe UI', system-ui, sans-serif;\n      background: #0a0a0b;\n      color: #e8e8ea;\n      line-height: 1.6;\n    }\n    header {\n      padding: 80px 20px;\n      text-align: center;\n      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);\n    }\n    h1 {\n      font-size: 3rem;\n      margin-bottom: 1rem;\n    }\n    .tagline {\n      font-size: 1.2rem;\n      opacity: 0.9;\n    }\n    .container {\n      max-width: 1400px;\n      margin: 0 auto;\n      padding: 80px 20px;\n    }\n    .categories {\n      display: flex;\n      gap: 15px;\n      justify-content: center;\n      margin-bottom: 60px;\n      flex-wrap: wrap;\n    }\n    .category-btn {\n      padding: 12px 24px;\n      background: #1a1a1d;\n      border: 1px solid #2a2a2d;\n      border-radius: 8px;\n      color: #e8e8ea;\n      cursor: pointer;\n      transition: all 0.2s;\n    }\n    .category-btn:hover,\n    .category-btn.active {\n      background: #3b82f6;\n      border-color: #3b82f6;\n    }\n    .gallery {\n      display: grid;\n      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));\n      gap: 30px;\n    }\n    .gallery-item {\n      background: #111113;\n      border: 1px solid #2a2a2d;\n      border-radius: 12px;\n      overflow: hidden;\n      transition: all 0.3s;\n      cursor: pointer;\n    }\n    .gallery-item:hover {\n      transform: translateY(-5px);\n      border-color: #3b82f6;\n      box-shadow: 0 10px 40px rgba(59, 130, 246, 0.3);\n    }\n    .image-container {\n      width: 100%;\n      height: 250px;\n      background: #1a1a1d;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      font-size: 4rem;\n      color: #3b82f6;\n    }\n    .item-info {\n      padding: 25px;\n    }\n    .item-info h3 {\n      color: #3b82f6;\n      margin-bottom: 0.5rem;\n      font-size: 1.3rem;\n    }\n    .item-info p {\n      color: #8a8a8f;\n      margin-bottom: 1rem;\n    }\n    .specs {\n      display: flex;\n      gap: 15px;\n      flex-wrap: wrap;\n    }\n    .spec-tag {\n      padding: 6px 12px;\n      background: #1a1a1d;\n      border: 1px solid #2a2a2d;\n      border-radius: 6px;\n      font-size: 0.85rem;\n      color: #b8b8bf;\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <h1>📸 Portfolio výrobků</h1>\n    <p class="tagline">Ukázky našich realizovaných zakázek</p>\n  </header>\n\n  <div class="container">\n    <div class="categories">\n      <button class="category-btn active">Vše</button>\n      <button class="category-btn">Frézování</button>\n      <button class="category-btn">Soustružení</button>\n      <button class="category-btn">Složité díly</button>\n      <button class="category-btn">Prototypy</button>\n    </div>\n\n    <div class="gallery">\n      <div class="gallery-item">\n        <div class="image-container">⚙️</div>\n        <div class="item-info">\n          <h3>Příruba ložiska</h3>\n          <p>CNC frézovaná příruba pro průmyslové ložisko</p>\n          <div class="specs">\n            <span class="spec-tag">Hliník 7075</span>\n            <span class="spec-tag">5-osé frézování</span>\n            <span class="spec-tag">50 ks</span>\n          </div>\n        </div>\n      </div>\n\n      <div class="gallery-item">\n        <div class="image-container">🔩</div>\n        <div class="item-info">\n          <h3>Hřídel převodovky</h3>\n          <p>Precizně soustružená hřídel s drážkami</p>\n          <div class="specs">\n            <span class="spec-tag">Ocel 42CrMo4</span>\n            <span class="spec-tag">Kaleno</span>\n            <span class="spec-tag">200 ks</span>\n          </div>\n        </div>\n      </div>\n\n      <div class="gallery-item">\n        <div class="image-container">🎯</div>\n        <div class="item-info">\n          <h3>Těleso ventilu</h3>\n          <p>Složitý díl s vnitřními kanály</p>\n          <div class="specs">\n            <span class="spec-tag">Mosaz</span>\n            <span class="spec-tag">4-osé frézování</span>\n            <span class="spec-tag">Prototyp</span>\n          </div>\n        </div>\n      </div>\n\n      <div class="gallery-item">\n        <div class="image-container">✂️</div>\n        <div class="item-info">\n          <h3>Adaptér motoru</h3>\n          <p>Adaptérová deska s přesným vrtáním</p>\n          <div class="specs">\n            <span class="spec-tag">Hliník 6061</span>\n            <span class="spec-tag">Eloxováno</span>\n            <span class="spec-tag">30 ks</span>\n          </div>\n        </div>\n      </div>\n\n      <div class="gallery-item">\n        <div class="image-container">🔧</div>\n        <div class="item-info">\n          <h3>Ozubené kolo</h3>\n          <p>Ozubené kolo modulu 3 s 45 zuby</p>\n          <div class="specs">\n            <span class="spec-tag">Ocel C45</span>\n            <span class="spec-tag">Frézování</span>\n            <span class="spec-tag">100 ks</span>\n          </div>\n        </div>\n      </div>\n\n      <div class="gallery-item">\n        <div class="image-container">⚡</div>\n        <div class="item-info">\n          <h3>Kryt elektroniky</h3>\n          <p>Lehký kryt s chladícími žebry</p>\n          <div class="specs">\n            <span class="spec-tag">Hliník</span>\n            <span class="spec-tag">3-osé frézování</span>\n            <span class="spec-tag">Lakováno</span>\n          </div>\n        </div>\n      </div>\n    </div>\n  </div>\n</body>\n</html>`,
 
+      'calc-basic': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Kalkulačka</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: system-ui, sans-serif;\n      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);\n      min-height: 100vh;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      padding: 20px;\n    }\n    .calculator {\n      background: white;\n      border-radius: 20px;\n      box-shadow: 0 20px 60px rgba(0,0,0,0.3);\n      padding: 30px;\n      max-width: 400px;\n      width: 100%;\n    }\n    .display {\n      background: #f3f4f6;\n      border: 2px solid #e5e7eb;\n      border-radius: 10px;\n      padding: 20px;\n      margin-bottom: 20px;\n      text-align: right;\n      font-size: 2.5rem;\n      font-weight: 600;\n      color: #1f2937;\n      min-height: 80px;\n      word-break: break-all;\n    }\n    .buttons {\n      display: grid;\n      grid-template-columns: repeat(4, 1fr);\n      gap: 10px;\n    }\n    button {\n      padding: 20px;\n      border: none;\n      border-radius: 10px;\n      font-size: 1.5rem;\n      font-weight: 600;\n      cursor: pointer;\n      transition: all 0.2s;\n    }\n    .num, .decimal {\n      background: #f3f4f6;\n      color: #1f2937;\n    }\n    .num:hover, .decimal:hover {\n      background: #e5e7eb;\n    }\n    .operator {\n      background: #6366f1;\n      color: white;\n    }\n    .operator:hover {\n      background: #5558e3;\n    }\n    .equals {\n      background: #8b5cf6;\n      color: white;\n    }\n    .equals:hover {\n      background: #7c3aed;\n    }\n    .clear {\n      background: #ef4444;\n      color: white;\n    }\n    .clear:hover {\n      background: #dc2626;\n    }\n    .zero {\n      grid-column: span 2;\n    }\n  </style>\n</head>\n<body>\n  <div class="calculator">\n    <div class="display" id="display">0</div>\n    <div class="buttons">\n      <button class="clear" onclick="clearDisplay()">C</button>\n      <button class="operator" onclick="appendOperator('/')">&divide;</button>\n      <button class="operator" onclick="appendOperator('*')">&times;</button>\n      \n      <button class="num" onclick="appendNumber('7')">7</button>\n      <button class="num" onclick="appendNumber('8')">8</button>\n      <button class="num" onclick="appendNumber('9')">9</button>\n      <button class="operator" onclick="appendOperator('-')">-</button>\n      \n      <button class="num" onclick="appendNumber('4')">4</button>\n      <button class="num" onclick="appendNumber('5')">5</button>\n      <button class="num" onclick="appendNumber('6')">6</button>\n      <button class="operator" onclick="appendOperator('+')">+</button>\n      \n      <button class="num" onclick="appendNumber('1')">1</button>\n      <button class="num" onclick="appendNumber('2')">2</button>\n      <button class="num" onclick="appendNumber('3')">3</button>\n      <button class="equals" onclick="calculate()" style="grid-row: span 2;">=</button>\n      \n      <button class="num zero" onclick="appendNumber('0')">0</button>\n      <button class="decimal" onclick="appendDecimal()">.</button>\n    </div>\n  </div>\n\n  <script>\n    let display = document.getElementById('display');\n    let currentValue = '0';\n    let previousValue = '';\n    let operator = '';\n    let shouldResetDisplay = false;\n\n    function updateDisplay() {\n      display.textContent = currentValue;\n    }\n\n    function clearDisplay() {\n      currentValue = '0';\n      previousValue = '';\n      operator = '';\n      shouldResetDisplay = false;\n      updateDisplay();\n    }\n\n    function appendNumber(num) {\n      if (shouldResetDisplay) {\n        currentValue = num;\n        shouldResetDisplay = false;\n      } else {\n        currentValue = currentValue === '0' ? num : currentValue + num;\n      }\n      updateDisplay();\n    }\n\n    function appendDecimal() {\n      if (shouldResetDisplay) {\n        currentValue = '0.';\n        shouldResetDisplay = false;\n      } else if (!currentValue.includes('.')) {\n        currentValue += '.';\n      }\n      updateDisplay();\n    }\n\n    function appendOperator(op) {\n      if (operator && !shouldResetDisplay) {\n        calculate();\n      }\n      previousValue = currentValue;\n      operator = op;\n      shouldResetDisplay = true;\n    }\n\n    function calculate() {\n      if (!operator || !previousValue) return;\n      \n      const prev = parseFloat(previousValue);\n      const current = parseFloat(currentValue);\n      let result = 0;\n\n      switch (operator) {\n        case '+':\n          result = prev + current;\n          break;\n        case '-':\n          result = prev - current;\n          break;\n        case '*':\n          result = prev * current;\n          break;\n        case '/':\n          result = current !== 0 ? prev / current : 'Chyba';\n          break;\n      }\n\n      currentValue = result.toString();\n      operator = '';\n      previousValue = '';\n      shouldResetDisplay = true;\n      updateDisplay();\n    }\n  </script>\n</body>\n</html>`,
+
       'calc-price': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Cenová kalkulačka - DPH</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: system-ui, sans-serif;\n      background: linear-gradient(135deg, #10b981 0%, #059669 100%);\n      min-height: 100vh;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      padding: 20px;\n    }\n    .calculator {\n      background: white;\n      border-radius: 20px;\n      box-shadow: 0 20px 60px rgba(0,0,0,0.3);\n      padding: 40px;\n      max-width: 500px;\n      width: 100%;\n    }\n    h1 {\n      color: #059669;\n      margin-bottom: 30px;\n      text-align: center;\n      font-size: 2rem;\n    }\n    .input-group {\n      margin-bottom: 25px;\n    }\n    label {\n      display: block;\n      margin-bottom: 8px;\n      color: #374151;\n      font-weight: 500;\n    }\n    input, select {\n      width: 100%;\n      padding: 15px;\n      border: 2px solid #d1d5db;\n      border-radius: 10px;\n      font-size: 1.1rem;\n      transition: border-color 0.2s;\n    }\n    input:focus, select:focus {\n      outline: none;\n      border-color: #10b981;\n    }\n    .result {\n      background: #f0fdf4;\n      border: 2px solid #10b981;\n      border-radius: 10px;\n      padding: 20px;\n      margin-top: 30px;\n      text-align: center;\n    }\n    .result-label {\n      color: #059669;\n      font-size: 0.9rem;\n      margin-bottom: 5px;\n    }\n    .result-value {\n      color: #047857;\n      font-size: 2.5rem;\n      font-weight: 700;\n    }\n    .breakdown {\n      margin-top: 20px;\n      padding-top: 20px;\n      border-top: 1px solid #d1fae5;\n      display: grid;\n      gap: 10px;\n    }\n    .breakdown-item {\n      display: flex;\n      justify-content: space-between;\n      color: #6b7280;\n      font-size: 0.95rem;\n    }\n    .breakdown-item strong {\n      color: #374151;\n    }\n  </style>\n</head>\n<body>\n  <div class="calculator">\n    <h1>💰 Cenová kalkulačka</h1>\n    \n    <div class="input-group">\n      <label for="price">Cena bez DPH (Kč)</label>\n      <input type="number" id="price" placeholder="0" value="1000" step="0.01">\n    </div>\n\n    <div class="input-group">\n      <label for="vat">Sazba DPH</label>\n      <select id="vat">\n        <option value="21">21% (základní)</option>\n        <option value="12">12% (snížená)</option>\n        <option value="0">0% (osvobozeno)</option>\n      </select>\n    </div>\n\n    <div class="result">\n      <div class="result-label">Cena s DPH</div>\n      <div class="result-value" id="totalPrice">1 210 Kč</div>\n      \n      <div class="breakdown">\n        <div class="breakdown-item">\n          <span>Cena bez DPH:</span>\n          <strong id="priceNoDPH">1 000 Kč</strong>\n        </div>\n        <div class="breakdown-item">\n          <span>DPH (<span id="vatPercent">21</span>%):</span>\n          <strong id="vatAmount">210 Kč</strong>\n        </div>\n      </div>\n    </div>\n  </div>\n\n  <script>\n    const priceInput = document.getElementById('price');\n    const vatSelect = document.getElementById('vat');\n    const totalPriceEl = document.getElementById('totalPrice');\n    const priceNoDPHEl = document.getElementById('priceNoDPH');\n    const vatAmountEl = document.getElementById('vatAmount');\n    const vatPercentEl = document.getElementById('vatPercent');\n\n    function calculate() {\n      const price = parseFloat(priceInput.value) || 0;\n      const vatRate = parseFloat(vatSelect.value) / 100;\n      \n      const vatAmount = price * vatRate;\n      const totalPrice = price + vatAmount;\n\n      priceNoDPHEl.textContent = price.toLocaleString('cs-CZ') + ' Kč';\n      vatAmountEl.textContent = vatAmount.toLocaleString('cs-CZ') + ' Kč';\n      totalPriceEl.textContent = totalPrice.toLocaleString('cs-CZ') + ' Kč';\n      vatPercentEl.textContent = vatSelect.value;\n    }\n\n    priceInput.addEventListener('input', calculate);\n    vatSelect.addEventListener('change', calculate);\n    calculate();\n  </script>\n</body>\n</html>`,
 
       'calc-bmi': `<!DOCTYPE html>\n<html lang="cs">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>BMI Kalkulačka</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body {\n      font-family: system-ui, sans-serif;\n      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);\n      min-height: 100vh;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      padding: 20px;\n    }\n    .calculator {\n      background: white;\n      border-radius: 20px;\n      box-shadow: 0 20px 60px rgba(0,0,0,0.3);\n      padding: 40px;\n      max-width: 500px;\n      width: 100%;\n    }\n    h1 {\n      color: #d97706;\n      margin-bottom: 30px;\n      text-align: center;\n      font-size: 2rem;\n    }\n    .input-group {\n      margin-bottom: 25px;\n    }\n    label {\n      display: block;\n      margin-bottom: 8px;\n      color: #374151;\n      font-weight: 500;\n    }\n    input {\n      width: 100%;\n      padding: 15px;\n      border: 2px solid #d1d5db;\n      border-radius: 10px;\n      font-size: 1.1rem;\n      transition: border-color 0.2s;\n    }\n    input:focus {\n      outline: none;\n      border-color: #f59e0b;\n    }\n    .result {\n      margin-top: 30px;\n      text-align: center;\n    }\n    .bmi-value {\n      font-size: 3rem;\n      font-weight: 700;\n      margin: 20px 0;\n    }\n    .bmi-category {\n      font-size: 1.5rem;\n      font-weight: 600;\n      margin-bottom: 10px;\n    }\n    .bmi-desc {\n      color: #6b7280;\n      margin-bottom: 30px;\n    }\n    .scale {\n      background: #f3f4f6;\n      padding: 20px;\n      border-radius: 10px;\n    }\n    .scale-item {\n      display: flex;\n      justify-content: space-between;\n      padding: 8px 0;\n      border-bottom: 1px solid #e5e7eb;\n    }\n    .scale-item:last-child {\n      border-bottom: none;\n    }\n  </style>\n</head>\n<body>\n  <div class="calculator">\n    <h1>📊 BMI Kalkulačka</h1>\n    \n    <div class="input-group">\n      <label for="weight">Váha (kg)</label>\n      <input type="number" id="weight" placeholder="70" step="0.1">\n    </div>\n\n    <div class="input-group">\n      <label for="height">Výška (cm)</label>\n      <input type="number" id="height" placeholder="175" step="1">\n    </div>\n\n    <div class="result" id="result" style="display: none;">\n      <div class="bmi-value" id="bmiValue"></div>\n      <div class="bmi-category" id="bmiCategory"></div>\n      <div class="bmi-desc" id="bmiDesc"></div>\n      \n      <div class="scale">\n        <div class="scale-item" style="color: #3b82f6;">\n          <span>Podváha</span>\n          <span>&lt; 18.5</span>\n        </div>\n        <div class="scale-item" style="color: #10b981;">\n          <span>Normální váha</span>\n          <span>18.5 - 24.9</span>\n        </div>\n        <div class="scale-item" style="color: #f59e0b;">\n          <span>Nadváha</span>\n          <span>25 - 29.9</span>\n        </div>\n        <div class="scale-item" style="color: #ef4444;">\n          <span>Obezita</span>\n          <span>&gt;= 30</span>\n        </div>\n      </div>\n    </div>\n  </div>\n\n  <script>\n    const weightInput = document.getElementById('weight');\n    const heightInput = document.getElementById('height');\n    const resultDiv = document.getElementById('result');\n    const bmiValueEl = document.getElementById('bmiValue');\n    const bmiCategoryEl = document.getElementById('bmiCategory');\n    const bmiDescEl = document.getElementById('bmiDesc');\n\n    function calculate() {\n      const weight = parseFloat(weightInput.value);\n      const height = parseFloat(heightInput.value) / 100;\n      \n      if (weight > 0 && height > 0) {\n        const bmi = weight / (height * height);\n        \n        let category, desc, color;\n        if (bmi < 18.5) {\n          category = 'Podváha';\n          desc = 'Vaše BMI je pod normálem';\n          color = '#3b82f6';\n        } else if (bmi < 25) {\n          category = 'Normální váha';\n          desc = 'Vaše BMI je v normálním rozmezí';\n          color = '#10b981';\n        } else if (bmi < 30) {\n          category = 'Nadváha';\n          desc = 'Vaše BMI je nad normálem';\n          color = '#f59e0b';\n        } else {\n          category = 'Obezita';\n          desc = 'Vaše BMI značí obezitu';\n          color = '#ef4444';\n        }\n        \n        bmiValueEl.textContent = bmi.toFixed(1);\n        bmiValueEl.style.color = color;\n        bmiCategoryEl.textContent = category;\n        bmiCategoryEl.style.color = color;\n        bmiDescEl.textContent = desc;\n        resultDiv.style.display = 'block';\n      } else {\n        resultDiv.style.display = 'none';\n      }\n    }\n\n    weightInput.addEventListener('input', calculate);\n    heightInput.addEventListener('input', calculate);\n  </script>\n</body>\n</html>`,
@@ -1368,11 +1326,65 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
       if (e.target === modal) closeModal();
     });
 
+    // Create new template handler
+    modal.querySelector('#createNewTemplate').addEventListener('click', () => {
+      this.showCreateTemplateDialog();
+      closeModal();
+    });
+
+    // Edit custom template handlers
+    modal.querySelectorAll('.edit-template-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const templateId = btn.dataset.templateId;
+        this.showEditTemplateDialog(templateId, customTemplates[templateId]);
+        closeModal();
+      });
+    });
+
+    // Delete custom template handlers
+    modal.querySelectorAll('.delete-template-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const templateId = btn.dataset.templateId;
+        if (confirm(`Opravdu chcete smazat šablonu "${customTemplates[templateId].name}"?`)) {
+          delete customTemplates[templateId];
+          localStorage.setItem('customTemplates', JSON.stringify(customTemplates));
+          eventBus.emit('toast:show', {
+            message: '🗑️ Šablona smazána',
+            type: 'success',
+            duration: 2000
+          });
+          closeModal();
+          this.showTemplates(); // Refresh
+        }
+      });
+    });
+
+    // Edit built-in template (save as custom)
+    modal.querySelectorAll('.edit-builtin-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const templateId = btn.dataset.template;
+        const code = templates[templateId];
+        this.showEditTemplateDialog(null, { name: templateId, code: code }, true);
+        closeModal();
+      });
+    });
+
     // Template click handlers
-    modal.querySelectorAll('.component-card').forEach(card => {
+    modal.querySelectorAll('.template-btn').forEach(card => {
       card.addEventListener('click', () => {
         const templateId = card.dataset.template;
-        const code = templates[templateId];
+        const isCustom = card.dataset.custom === 'true';
+
+        let code;
+        if (isCustom) {
+          const customId = templateId.replace('custom-', '');
+          code = customTemplates[customId]?.code;
+        } else {
+          code = templates[templateId];
+        }
 
         console.log('Template clicked:', templateId);
 
@@ -1391,6 +1403,192 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
         }
       });
     });
+  }
+
+  showCreateTemplateDialog() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+          <h3>➕ Vytvořit novou šablonu</h3>
+          <button class="modal-close" id="createTemplateClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 30px;">
+          <div style="display: grid; gap: 20px;">
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 600;">Název šablony</label>
+              <input type="text" id="templateName" placeholder="Např. Moje landing page" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 600;">Popis</label>
+              <input type="text" id="templateDesc" placeholder="Stručný popis šablony" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 600;">Ikona (emoji)</label>
+              <input type="text" id="templateIcon" placeholder="📄" maxlength="2" style="width: 100px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 20px; text-align: center;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 600;">HTML kód</label>
+              <textarea id="templateCode" placeholder="Vložte zde kompletní HTML kód šablony..." style="width: 100%; min-height: 300px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.6;"></textarea>
+            </div>
+          </div>
+          <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+            <button id="cancelCreateTemplate" style="padding: 12px 24px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-weight: 600;">Zrušit</button>
+            <button id="saveTemplate" style="padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Uložit šablonu</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeModal = () => modal.remove();
+
+    modal.querySelector('#createTemplateClose').addEventListener('click', closeModal);
+    modal.querySelector('#cancelCreateTemplate').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    modal.querySelector('#saveTemplate').addEventListener('click', () => {
+      const name = modal.querySelector('#templateName').value.trim();
+      const description = modal.querySelector('#templateDesc').value.trim();
+      const icon = modal.querySelector('#templateIcon').value.trim() || '📄';
+      const code = modal.querySelector('#templateCode').value.trim();
+
+      if (!name) {
+        alert('Zadejte prosím název šablony');
+        return;
+      }
+
+      if (!code) {
+        alert('Zadejte prosím HTML kód šablony');
+        return;
+      }
+
+      const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '{}');
+      const templateId = Date.now().toString();
+
+      customTemplates[templateId] = {
+        name,
+        description,
+        icon,
+        code
+      };
+
+      localStorage.setItem('customTemplates', JSON.stringify(customTemplates));
+
+      eventBus.emit('toast:show', {
+        message: '✅ Šablona vytvořena',
+        type: 'success',
+        duration: 2000
+      });
+
+      closeModal();
+      this.showTemplates();
+    });
+  }
+
+  showEditTemplateDialog(templateId, templateData, isBuiltIn = false) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+          <h3>✏️ ${isBuiltIn ? 'Upravit šablonu (uloží se jako vlastní)' : 'Upravit šablonu'}</h3>
+          <button class="modal-close" id="editTemplateClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 30px;">
+          <div style="display: grid; gap: 20px;">
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 600;">Název šablony</label>
+              <input type="text" id="templateName" value="${this.escapeHtml(templateData.name || '')}" placeholder="Např. Moje landing page" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 600;">Popis</label>
+              <input type="text" id="templateDesc" value="${this.escapeHtml(templateData.description || '')}" placeholder="Stručný popis šablony" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 600;">Ikona (emoji)</label>
+              <input type="text" id="templateIcon" value="${templateData.icon || '📄'}" maxlength="2" style="width: 100px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 20px; text-align: center;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 600;">HTML kód</label>
+              <textarea id="templateCode" style="width: 100%; min-height: 300px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.6;">${this.escapeHtml(templateData.code || '')}</textarea>
+            </div>
+          </div>
+          <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+            <button id="cancelEditTemplate" style="padding: 12px 24px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-weight: 600;">Zrušit</button>
+            <button id="updateTemplate" style="padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Uložit změny</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeModal = () => modal.remove();
+
+    modal.querySelector('#editTemplateClose').addEventListener('click', closeModal);
+    modal.querySelector('#cancelEditTemplate').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    modal.querySelector('#updateTemplate').addEventListener('click', () => {
+      const name = modal.querySelector('#templateName').value.trim();
+      const description = modal.querySelector('#templateDesc').value.trim();
+      const icon = modal.querySelector('#templateIcon').value.trim() || '📄';
+      const code = modal.querySelector('#templateCode').value.trim();
+
+      if (!name) {
+        alert('Zadejte prosím název šablony');
+        return;
+      }
+
+      if (!code) {
+        alert('Zadejte prosím HTML kód šablony');
+        return;
+      }
+
+      const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '{}');
+
+      // If editing built-in template, create new custom template
+      const finalTemplateId = isBuiltIn ? Date.now().toString() : templateId;
+
+      customTemplates[finalTemplateId] = {
+        name,
+        description,
+        icon,
+        code
+      };
+
+      localStorage.setItem('customTemplates', JSON.stringify(customTemplates));
+
+      eventBus.emit('toast:show', {
+        message: isBuiltIn ? '✅ Šablona uložena jako vlastní' : '✅ Šablona upravena',
+        type: 'success',
+        duration: 2000
+      });
+
+      closeModal();
+      this.showTemplates();
+    });
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   showImages() {
@@ -1508,302 +1706,6 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
     });
   }
 
-  saveAsTemplate() {
-    const tabs = window.state?.get('files.tabs') || [];
-
-    if (tabs.length === 0) {
-      eventBus.emit('toast:show', {
-        message: '⚠️ Nejsou žádné soubory k uložení',
-        type: 'warning'
-      });
-      return;
-    }
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-container" style="max-width: 600px;">
-        <div class="modal-header">
-          <h2>💾 Uložit jako šablonu</h2>
-          <button class="modal-close" id="saveTemplateClose">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p style="margin-bottom: 20px; color: var(--text-secondary);">
-            Uložte svůj projekt jako šablonu pro rychlé použití později.
-          </p>
-
-          <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 8px; font-weight: 500;">
-              📝 Název šablony:
-            </label>
-            <input
-              type="text"
-              id="templateName"
-              placeholder="Např. Vizitka, Portfolio, Landing page..."
-              style="width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);"
-            />
-          </div>
-
-          <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 8px; font-weight: 500;">
-              📄 Popis (volitelný):
-            </label>
-            <textarea
-              id="templateDescription"
-              placeholder="Krátký popis šablony..."
-              rows="3"
-              style="width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary); resize: vertical;"
-            ></textarea>
-          </div>
-
-          <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 20px;">
-            <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
-              📊 Počet souborů: <strong>${tabs.length}</strong>
-            </p>
-          </div>
-
-          <div style="display: flex; gap: 10px;">
-            <button
-              id="saveTemplateCancel"
-              class="btn-secondary"
-              style="flex: 1; padding: 12px; background: var(--bg-secondary); color: var(--text-primary); border: none; border-radius: 8px; cursor: pointer; font-weight: 500;"
-            >
-              Zrušit
-            </button>
-            <button
-              id="saveTemplateConfirm"
-              class="btn-primary"
-              style="flex: 1; padding: 12px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;"
-            >
-              💾 Uložit šablonu
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    const closeModal = () => {
-      modal.remove();
-    };
-
-    modal.querySelector('#saveTemplateClose').addEventListener('click', closeModal);
-    modal.querySelector('#saveTemplateCancel').addEventListener('click', closeModal);
-    modal.querySelector('.modal-overlay').addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
-
-    modal.querySelector('#saveTemplateConfirm').addEventListener('click', () => {
-      const name = modal.querySelector('#templateName').value.trim();
-      const description = modal.querySelector('#templateDescription').value.trim();
-
-      if (!name) {
-        eventBus.emit('toast:show', {
-          message: '⚠️ Zadejte název šablony',
-          type: 'warning'
-        });
-        return;
-      }
-
-      // Get all tabs data
-      const templateData = {
-        id: Date.now().toString(),
-        name,
-        description,
-        files: tabs.map(tab => ({
-          name: tab.name,
-          content: tab.content,
-          language: tab.language || 'html'
-        })),
-        createdAt: new Date().toISOString(),
-        filesCount: tabs.length
-      };
-
-      // Save to localStorage
-      const templates = JSON.parse(localStorage.getItem('userTemplates') || '[]');
-      templates.unshift(templateData);
-      localStorage.setItem('userTemplates', JSON.stringify(templates));
-
-      closeModal();
-      eventBus.emit('toast:show', {
-        message: `✅ Šablona "${name}" uložena`,
-        type: 'success'
-      });
-    });
-  }
-
-  manageTemplates() {
-    const templates = JSON.parse(localStorage.getItem('userTemplates') || '[]');
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-container" style="max-width: 800px;">
-        <div class="modal-header">
-          <h2>📚 Moje šablony</h2>
-          <button class="modal-close" id="manageTemplatesClose">&times;</button>
-        </div>
-        <div class="modal-body">
-          ${templates.length === 0 ? `
-            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
-              <div style="font-size: 64px; margin-bottom: 20px;">📚</div>
-              <h3 style="margin: 0 0 10px 0;">Zatím nemáte žádné šablony</h3>
-              <p style="margin: 0;">
-                Vytvořte projekt a uložte ho jako šablonu pomocí<br>
-                <strong>Menu → Export projektu → Uložit jako šablonu</strong>
-              </p>
-            </div>
-          ` : `
-            <div style="margin-bottom: 20px;">
-              <p style="color: var(--text-secondary); margin: 0;">
-                Celkem šablon: <strong>${templates.length}</strong>
-              </p>
-            </div>
-            <div id="templatesList" style="display: grid; gap: 15px;">
-              ${templates.map(template => `
-                <div class="template-card" data-template-id="${template.id}" style="border: 2px solid var(--border-color); border-radius: 12px; padding: 20px; transition: all 0.2s; cursor: pointer;">
-                  <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                    <div style="flex: 1;">
-                      <h3 style="margin: 0 0 8px 0; font-size: 18px;">${template.name}</h3>
-                      ${template.description ? `
-                        <p style="margin: 0 0 12px 0; color: var(--text-secondary); font-size: 14px;">
-                          ${template.description}
-                        </p>
-                      ` : ''}
-                    </div>
-                    <button
-                      class="delete-template"
-                      data-template-id="${template.id}"
-                      style="padding: 8px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 10px;"
-                      title="Smazat šablonu"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                  <div style="display: flex; gap: 15px; align-items: center; font-size: 13px; color: var(--text-secondary);">
-                    <span>📄 ${template.filesCount} souborů</span>
-                    <span>📅 ${new Date(template.createdAt).toLocaleDateString('cs-CZ')}</span>
-                  </div>
-                  <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
-                    <button
-                      class="load-template"
-                      data-template-id="${template.id}"
-                      style="width: 100%; padding: 10px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;"
-                    >
-                      📂 Načíst šablonu
-                    </button>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          `}
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    const closeModal = () => {
-      modal.remove();
-    };
-
-    modal.querySelector('#manageTemplatesClose').addEventListener('click', closeModal);
-    modal.querySelector('.modal-overlay').addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
-
-    // Load template buttons
-    modal.querySelectorAll('.load-template').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const templateId = btn.dataset.templateId;
-        const template = templates.find(t => t.id === templateId);
-
-        if (template) {
-          this.loadTemplate(template);
-          closeModal();
-        }
-      });
-    });
-
-    // Delete template buttons
-    modal.querySelectorAll('.delete-template').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const templateId = btn.dataset.templateId;
-        const template = templates.find(t => t.id === templateId);
-
-        if (template && confirm(`Opravdu smazat šablonu "${template.name}"?`)) {
-          const updatedTemplates = templates.filter(t => t.id !== templateId);
-          localStorage.setItem('userTemplates', JSON.stringify(updatedTemplates));
-          closeModal();
-          eventBus.emit('toast:show', {
-            message: `🗑️ Šablona "${template.name}" smazána`,
-            type: 'success'
-          });
-          // Reopen modal with updated list
-          setTimeout(() => this.manageTemplates(), 100);
-        }
-      });
-    });
-
-    // Hover effects for template cards
-    modal.querySelectorAll('.template-card').forEach(card => {
-      card.addEventListener('mouseenter', () => {
-        card.style.borderColor = 'var(--primary-color)';
-        card.style.transform = 'translateY(-2px)';
-        card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
-      });
-      card.addEventListener('mouseleave', () => {
-        card.style.borderColor = 'var(--border-color)';
-        card.style.transform = 'translateY(0)';
-        card.style.boxShadow = 'none';
-      });
-    });
-  }
-
-  loadTemplate(template) {
-    if (!template || !template.files || template.files.length === 0) {
-      eventBus.emit('toast:show', {
-        message: '⚠️ Šablona je prázdná',
-        type: 'warning'
-      });
-      return;
-    }
-
-    // Ask for confirmation if there are open files
-    const currentTabs = window.state?.get('files.tabs') || [];
-    if (currentTabs.length > 0) {
-      if (!confirm('Načtení šablony zavře všechny otevřené soubory. Pokračovat?')) {
-        return;
-      }
-    }
-
-    // Close all tabs first
-    eventBus.emit('tabs:closeAll');
-
-    // Wait a bit and load template files
-    setTimeout(() => {
-      template.files.forEach((file, index) => {
-        setTimeout(() => {
-          eventBus.emit('file:create', {
-            name: file.name,
-            content: file.content,
-            language: file.language || 'html'
-          });
-        }, index * 50); // Small delay between files
-      });
-
-      setTimeout(() => {
-        eventBus.emit('toast:show', {
-          message: `✅ Šablona "${template.name}" načtena (${template.files.length} souborů)`,
-          type: 'success'
-        });
-      }, template.files.length * 50 + 100);
-    }, 100);
-  }
-
   shareProject() {
     const url = window.location.href;
     navigator.clipboard.writeText(url).then(() => {
@@ -1817,33 +1719,453 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
   }
 
   githubSearch() {
-    const query = prompt('Hledat na GitHubu:');
-    if (query && query.trim()) {
-      try {
-        const url = `https://github.com/search?q=${encodeURIComponent(query.trim())}&type=repositories`;
-        const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    `;
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 800px; background: var(--bg-primary, #1e1e1e); border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); overflow: hidden;">
+        <div class="modal-header" style="padding: 24px 30px; background: var(--bg-secondary, #2d2d2d); border-bottom: 1px solid var(--border-color, #444); display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: var(--text-primary, #fff); font-size: 20px;">🔍 Hledat HTML repozitáře na GitHub</h3>
+          <button class="modal-close" id="githubSearchClose" style="background: transparent; border: none; color: var(--text-primary, #fff); font-size: 24px; cursor: pointer; padding: 4px 8px; opacity: 0.7; transition: opacity 0.2s;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 30px; background: var(--bg-primary, #1e1e1e);">
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary, #fff);">Co hledáte?</label>
+            <input type="text" id="githubSearchQuery" placeholder="Např. calculator, landing page, portfolio (česky i anglicky)" style="width: 100%; padding: 12px; border: 1px solid var(--border-color, #444); border-radius: 8px; font-size: 14px; background: var(--bg-secondary, #2d2d2d); color: var(--text-primary, #fff); box-sizing: border-box;">
+            <p style="font-size: 12px; color: var(--text-secondary, #999); margin-top: 8px;">
+              💡 Tip: Můžete hledat česky i anglicky. Výsledky jsou seřazeny podle popularity.
+            </p>
+          </div>
+          <button id="startGithubSearch" style="width: 100%; padding: 14px; background: var(--accent, #007acc); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: opacity 0.2s;">
+            🔍 Hledat
+          </button>
+          <div id="githubSearchResults" style="margin-top: 30px; display: none;">
+            <h4 style="margin-bottom: 15px; color: var(--text-primary, #fff);">Výsledky hledání:</h4>
+            <div id="githubResultsList" style="display: grid; gap: 10px; max-height: 400px; overflow-y: auto;"></div>
+          </div>
+          <div id="githubSearchLoading" style="display: none; text-align: center; padding: 40px;">
+            <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--border-color, #444); border-top-color: var(--accent, #007acc); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <p style="margin-top: 15px; color: var(--text-secondary, #999);">Hledání na GitHub...</p>
+          </div>
+        </div>
+      </div>
+    `;
 
-        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-          // Popup was blocked
-          eventBus.emit('toast:show', {
-            message: '⚠️ Povolete vyskakovací okna pro tuto stránku',
-            type: 'warning'
-          });
-          // Fallback - open in same window
-          window.location.href = url;
-        } else {
-          eventBus.emit('toast:show', {
-            message: '🔍 Otevírám GitHub search...',
-            type: 'success'
-          });
-        }
-      } catch (error) {
-        console.error('GitHub search error:', error);
-        eventBus.emit('toast:show', {
-          message: 'Chyba při otevírání GitHub',
-          type: 'error'
-        });
+    document.body.appendChild(modal);
+
+    const closeModal = () => modal.remove();
+    modal.querySelector('#githubSearchClose').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    modal.querySelector('#startGithubSearch').addEventListener('click', async () => {
+      const query = modal.querySelector('#githubSearchQuery').value.trim();
+
+      if (!query) {
+        alert('Zadejte prosím hledaný výraz');
+        return;
       }
+
+      const loadingDiv = modal.querySelector('#githubSearchLoading');
+      const resultsDiv = modal.querySelector('#githubSearchResults');
+      const resultsList = modal.querySelector('#githubResultsList');
+
+      loadingDiv.style.display = 'block';
+      resultsDiv.style.display = 'none';
+      resultsList.innerHTML = '';
+
+      try {
+        // Hledat GitHub repozitáře
+        const allResults = await this.searchGitHubRepos(query);
+        allResults.forEach(r => r.source = 'GitHub');
+
+        loadingDiv.style.display = 'none';
+        resultsDiv.style.display = 'block';
+
+        if (allResults.length === 0) {
+          resultsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenalezeny žádné výsledky</p>';
+          return;
+        }
+
+        allResults.forEach(result => {
+          const resultCard = document.createElement('div');
+          resultCard.style.cssText = 'padding: 15px; background: var(--bg-secondary, #2d2d2d); border: 1px solid var(--border-color, #444); border-radius: 8px; transition: all 0.2s;';
+
+          const sourceIcon = result.source === 'GitHub' ? '🐙' : result.source === 'CodePen' ? '✏️' : '📝';
+          const sourceLabel = result.source;
+
+          resultCard.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                  <h5 style="margin: 0; color: var(--accent, #007acc); font-size: 14px;">${result.name}</h5>
+                  <a href="${result.url}" target="_blank" rel="noopener noreferrer" style="color: var(--text-secondary, #999); text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; background: var(--bg-tertiary, #3d3d3d); border-radius: 4px; transition: all 0.2s;" title="Otevřít na ${sourceLabel}">
+                    ${sourceIcon} ${sourceLabel}
+                  </a>
+                </div>
+                <p style="margin: 0 0 8px 0; font-size: 12px; color: var(--text-secondary, #999);">${result.description || 'Bez popisu'}</p>
+                <div style="display: flex; gap: 15px; font-size: 11px; color: var(--text-secondary, #999);">
+                  <span>⭐ ${result.stars || 0}</span>
+                  <span>🍴 ${result.forks || 0}</span>
+                </div>
+              </div>
+              <button class="load-github-code" data-url="${result.url}" data-name="${result.name}" style="padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                📥 Načíst kód
+              </button>
+            </div>
+          `;
+
+          resultCard.querySelector('.load-github-code').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            btn.textContent = '⏳ Načítání...';
+
+            try {
+              await this.loadGitHubCode(result.url, result.name, false, result.downloadUrl);
+              closeModal();
+              eventBus.emit('toast:show', {
+                message: '✅ Kód načten z GitHub',
+                type: 'success',
+                duration: 2000
+              });
+            } catch (error) {
+              alert('Chyba při načítání kódu: ' + error.message);
+              btn.disabled = false;
+              btn.textContent = '📥 Načíst kód';
+            }
+          });
+
+          resultsList.appendChild(resultCard);
+        });
+
+      } catch (error) {
+        loadingDiv.style.display = 'none';
+        resultsDiv.style.display = 'block';
+        resultsList.innerHTML = `<p style="text-align: center; color: #ef4444; padding: 20px;">Chyba: ${error.message}</p>`;
+      }
+    });
+  }
+
+  async searchGitHubFiles(query) {
+    // Hledat HTML, CSS a JS soubory
+    const searchQuery = encodeURIComponent(`${query} extension:html OR extension:css OR extension:js`);
+    const response = await fetch(`https://api.github.com/search/code?q=${searchQuery}&per_page=10`);
+
+    if (!response.ok) {
+      throw new Error('GitHub API chyba: ' + response.statusText);
+    }
+
+    const data = await response.json();
+
+    return data.items.map(item => ({
+      name: item.name,
+      path: item.path,
+      description: item.repository.description,
+      url: item.html_url,
+      downloadUrl: `https://raw.githubusercontent.com/${item.repository.full_name}/${item.repository.default_branch}/${item.path}`,
+      stars: item.repository.stargazers_count,
+      forks: item.repository.forks_count
+    }));
+  }
+
+  async searchGitHubRepos(query) {
+    const searchQuery = encodeURIComponent(`${query} language:html`);
+    const response = await fetch(`https://api.github.com/search/repositories?q=${searchQuery}&sort=stars&per_page=10`);
+
+    if (!response.ok) {
+      throw new Error('GitHub API chyba: ' + response.statusText);
+    }
+
+    const data = await response.json();
+
+    return data.items.map(repo => ({
+      name: repo.name,
+      description: repo.description,
+      url: repo.html_url,
+      cloneUrl: repo.clone_url,
+      stars: repo.stargazers_count,
+      forks: repo.forks_count,
+      defaultBranch: repo.default_branch,
+      fullName: repo.full_name
+    }));
+  }
+
+  async loadGitHubCode(url, name, isSingleFile, downloadUrl) {
+    if (isSingleFile && downloadUrl) {
+      // Načíst obsah souboru přímo z downloadUrl
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error('Nepodařilo se načíst soubor z GitHub');
+      }
+
+      const code = await response.text();
+
+      // Vytvořit nový soubor
+      eventBus.emit('file:create', {
+        name: name,
+        content: code
+      });
+
+    } else {
+      // Pro repozitář - stáhnout celý projekt se všemi závislostmi
+      const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
+      if (!match) {
+        throw new Error('Neplatná URL GitHub repozitáře');
+      }
+
+      const [, owner, repo] = match;
+
+      // Získat informace o repozitáři
+      const repoInfo = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+      if (!repoInfo.ok) {
+        throw new Error('Nepodařilo se načíst informace o repozitáři');
+      }
+      const repoData = await repoInfo.json();
+      const defaultBranch = repoData.default_branch || 'main';
+
+      // Najít hlavní HTML soubor
+      const possibleFiles = ['index.html', 'index.htm', 'home.html', 'main.html'];
+      let mainHtmlFile = null;
+      let mainHtmlContent = null;
+
+      for (const file of possibleFiles) {
+        try {
+          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${file}`;
+          const response = await fetch(rawUrl);
+          if (response.ok) {
+            mainHtmlFile = file;
+            mainHtmlContent = await response.text();
+            break;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+
+      if (!mainHtmlContent) {
+        throw new Error('Nenalezen žádný HTML soubor v repozitáři.');
+      }
+
+      // Analyzovat HTML a najít všechny závislosti
+      const dependencies = this.parseHtmlDependencies(mainHtmlContent);
+
+      // Stáhnout všechny soubory
+      const filesToCreate = [
+        { name: mainHtmlFile, content: mainHtmlContent }
+      ];
+
+      // Stáhnout CSS soubory
+      for (const cssPath of dependencies.css) {
+        try {
+          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${cssPath}`;
+          const response = await fetch(rawUrl);
+          if (response.ok) {
+            const content = await response.text();
+            filesToCreate.push({ name: cssPath, content });
+          }
+        } catch (e) {
+          console.warn(`Nepodařilo se načíst CSS: ${cssPath}`);
+        }
+      }
+
+      // Stáhnout JS soubory
+      for (const jsPath of dependencies.js) {
+        try {
+          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${jsPath}`;
+          const response = await fetch(rawUrl);
+          if (response.ok) {
+            const content = await response.text();
+            filesToCreate.push({ name: jsPath, content });
+          }
+        } catch (e) {
+          console.warn(`Nepodařilo se načíst JS: ${jsPath}`);
+        }
+      }
+
+      // Vytvořit všechny soubory najednou
+      eventBus.emit('github:project:loaded', {
+        name: name,
+        files: filesToCreate
+      });
+    }
+  }
+
+  parseHtmlDependencies(html) {
+    const dependencies = {
+      css: [],
+      js: [],
+      images: []
+    };
+
+    // Najít CSS linky
+    const cssRegex = /<link[^>]*href=["']([^"']+\.css)["'][^>]*>/gi;
+    let match;
+    while ((match = cssRegex.exec(html)) !== null) {
+      const path = match[1];
+      // Jen lokální soubory (ne CDN)
+      if (!path.startsWith('http') && !path.startsWith('//')) {
+        dependencies.css.push(path.replace(/^\.?\//, ''));
+      }
+    }
+
+    // Najít JS scripty
+    const jsRegex = /<script[^>]*src=["']([^"']+\.js)["'][^>]*>/gi;
+    while ((match = jsRegex.exec(html)) !== null) {
+      const path = match[1];
+      if (!path.startsWith('http') && !path.startsWith('//')) {
+        dependencies.js.push(path.replace(/^\.?\//, ''));
+      }
+    }
+
+    // Najít obrázky
+    const imgRegex = /<img[^>]*src=["']([^"']+)["'][^>]*>/gi;
+    while ((match = imgRegex.exec(html)) !== null) {
+      const path = match[1];
+      if (!path.startsWith('http') && !path.startsWith('//') && !path.startsWith('data:')) {
+        dependencies.images.push(path.replace(/^\.?\//, ''));
+      }
+    }
+
+    return dependencies;
+  }
+
+  async searchGist(query) {
+    try {
+      // Použít GitHub Code Search a filtrovat gist výsledky
+      // GitHub Gist nemá přímé search API, ale můžeme hledat přes code search
+      const searchQuery = encodeURIComponent(`${query} (extension:html OR extension:css OR extension:js)`);
+      const response = await fetch(`https://api.github.com/search/code?q=${searchQuery}&per_page=30`);
+
+      if (!response.ok) {
+        console.warn('GitHub API nedostupné pro Gist search');
+        return [];
+      }
+
+      const data = await response.json();
+
+      // Filtrovat pouze Gist výsledky (repository obsahuje /gist:)
+      const gistItems = data.items.filter(item =>
+        item.repository && item.repository.full_name &&
+        (item.repository.full_name.includes('/gist:') || item.repository.owner.type === 'User' && item.path.includes('.'))
+      ).slice(0, 10);
+
+      if (gistItems.length === 0) {
+        console.info('Gist: Žádné výsledky nalezeny');
+        return [];
+      }
+
+      return gistItems.map(item => ({
+        name: item.name,
+        description: item.repository.description || 'GitHub snippet',
+        url: item.html_url,
+        path: item.path,
+        downloadUrl: item.html_url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/'),
+        size: item.size || 0
+      }));
+    } catch (error) {
+      console.warn('Gist search error:', error);
+      return [];
+    }
+  }
+
+  async loadCodePenCode(result) {
+    try {
+      // Pro CodePen musíme získat HTML/CSS/JS z jejich editoru
+      // Použijeme export URL nebo API
+      const penId = result.id || result.url.split('/').pop();
+
+      // Pokusit se získat data z CodePen
+      const response = await fetch(`https://cpv2api.com/pens/${penId}`);
+
+      if (!response.ok) {
+        throw new Error('Nepodařilo se načíst CodePen projekt');
+      }
+
+      const data = await response.json();
+      const pen = data.data;
+
+      // Složit HTML dokument z HTML, CSS a JS
+      const html = `<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${pen.title || 'CodePen Import'}</title>
+  <style>
+${pen.css || '/* No CSS */'}
+  </style>
+</head>
+<body>
+${pen.html || '<!-- No HTML -->'}
+
+  <script>
+${pen.js || '// No JavaScript'}
+  </script>
+</body>
+</html>`;
+
+      // Vytvořit nový soubor
+      eventBus.emit('file:create', {
+        name: `${result.name || 'codepen'}.html`,
+        content: html
+      });
+    } catch (error) {
+      throw new Error('CodePen: ' + error.message);
+    }
+  }
+
+  async loadGistCode(result) {
+    try {
+      // Načíst HTML obsah z Gist
+      let url = result.downloadUrl;
+
+      // Pokud není downloadUrl, zkusit konstruovat raw URL
+      if (!url) {
+        // Gist raw URL formát: https://gist.githubusercontent.com/user/gistId/raw/filename
+        const gistMatch = result.url.match(/gist\.github\.com\/([^/]+)\/([^/]+)/);
+        if (gistMatch) {
+          const [, user, gistId] = gistMatch;
+          url = `https://gist.githubusercontent.com/${user}/${gistId}/raw/${result.name}`;
+        }
+      }
+
+      if (!url) {
+        throw new Error('Nepodařilo se získat URL souboru');
+      }
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error('Nepodařilo se načíst soubor z Gist');
+      }
+
+      const code = await response.text();
+
+      // Vytvořit nový soubor
+      eventBus.emit('file:create', {
+        name: result.name,
+        content: code
+      });
+    } catch (error) {
+      throw new Error('Gist: ' + error.message);
     }
   }
 
