@@ -51,7 +51,7 @@ export class ShortcutManager {
 
     if (shortcut) {
       // Některé shortcuts fungují i ve formulářích
-      const allowedInInputs = ['Ctrl+S', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+F'];
+      const allowedInInputs = ['Ctrl+S', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+F', 'Ctrl+H'];
       if (isInput || isContentEditable) {
         if (!allowedInInputs.includes(combo)) {
           return;
@@ -178,6 +178,10 @@ export function registerDefaultShortcuts() {
   shortcuts.register('Ctrl+F', () => {
     eventBus.emit('action:search');
   }, 'Hledat');
+
+  shortcuts.register('Ctrl+H', () => {
+    eventBus.emit('findreplace:show');
+  }, 'Najít a nahradit');
 
   shortcuts.register('Ctrl+Z', () => {
     eventBus.emit('action:undo');

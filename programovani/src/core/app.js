@@ -17,6 +17,7 @@ import { MenuPanel } from '../modules/menu/MenuPanel.js';
 import { SearchPanel } from '../modules/search/SearchPanel.js';
 import { SidePanel } from '../modules/panel/SidePanel.js';
 import { Sidebar } from '../modules/sidebar/Sidebar.js';
+import { FindReplacePanel } from '../modules/findreplace/FindReplacePanel.js';
 
 class App {
   constructor() {
@@ -28,6 +29,7 @@ class App {
     this.searchPanel = null;
     this.sidePanel = null;
     this.sidebar = null;
+    this.findReplacePanel = null;
     this.initialized = false;
   }
 
@@ -103,6 +105,10 @@ class App {
     // Sidebar (levý)
     this.sidebar = new Sidebar();
     console.log('✓ Sidebar initialized');
+
+    // Find and Replace Panel
+    this.findReplacePanel = new FindReplacePanel();
+    console.log('✓ Find Replace Panel initialized');
   }
 
   setupEventListeners() {

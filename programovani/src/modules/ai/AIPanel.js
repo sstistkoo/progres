@@ -1234,8 +1234,8 @@ Vytvořit plně funkční, moderní webovou aplikaci podle zadání uživatele.
 Odpovídej česky, kód zabal do \`\`\`html...\`\`\`.`;
       } else {
         // Normal mode - include current code context
-        const hasCode = currentCode.trim().length > 100;
-        const hasHistory = this.chatHistory.length > 2;
+        const hasCode = currentCode && currentCode.trim().length > 100;
+        const hasHistory = this.chatHistory && this.chatHistory.length > 2;
 
         systemPrompt = `Jsi expert programátor a full-stack vývojář. Pomáháš s vývojem webových aplikací.
 
@@ -1243,15 +1243,15 @@ Odpovídej česky, kód zabal do \`\`\`html...\`\`\`.`;
 ${filesContext}
 
 📄 ${activeFile ? `Aktivní soubor: ${activeFile.name}` : 'Žádný aktivní soubor'}
-💾 Aktuální kód v editoru (${currentCode.split('\n').length} řádků):
+💾 Aktuální kód v editoru (${currentCode ? currentCode.split('\n').length : 0} řádků):
 \`\`\`html
-${this.addLineNumbers(currentCode.substring(0, 1500))}${currentCode.length > 1500 ? '\n... (zkráceno, celkem ' + currentCode.split('\n').length + ' řádků)' : ''}
+${currentCode ? this.addLineNumbers(this.truncateCodeIntelligently(currentCode, 3000)) : '(prázdný editor)'}
 \`\`\`
 
 💬 ${historyContext}
 
 🎯 TVŮJ ÚKOL:
-${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
+${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
 
 📋 PRAVIDLA VÝSTUPU:
 ✅ Kód MUSÍ obsahovat JavaScript pro interaktivitu
@@ -1356,8 +1356,29 @@ ${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
           }
           return;
         } else {
-          // Show response anyway if edits failed
-          this.addChatMessage('assistant', `⚠️ Nepodařilo se aplikovat změny automaticky.\n\n${response}`);
+          // Edits failed - show helpful message with current code context
+          const currentCode = state.get('editor.code');
+          const lines = currentCode ? currentCode.split('\n') : [];
+
+          // Show context around failed lines
+          let contextMessage = '📄 **Aktuální kód v editoru:**\n\n';
+          for (const edit of editInstructions) {
+            const startLine = Math.max(1, edit.startLine - 2);
+            const endLine = Math.min(lines.length, edit.endLine + 2);
+            const contextLines = lines.slice(startLine - 1, endLine).map((line, i) =>
+              `${startLine + i}: ${line}`
+            ).join('\n');
+            contextMessage += `Řádky ${edit.startLine}-${edit.endLine} (+ kontext):\n\`\`\`\n${contextLines}\n\`\`\`\n\n`;
+          }
+
+          this.addChatMessage('assistant',
+            `⚠️ Nepodařilo se aplikovat změny - kód v editoru se liší od očekávání.\n\n` +
+            `${contextMessage}\n` +
+            `💡 **Co dělat:**\n` +
+            `- Zkus požádat znovu s aktuálním stavem kódu\n` +
+            `- Nebo upřesni co chceš změnit\n\n` +
+            `**AI odpověď:**\n${response}`
+          );
           return;
         }
       }
@@ -1684,6 +1705,558 @@ ${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
   }
 
   /**
+   * Meta-prompt for AI to determine which prompt(s) to use
+   * Used when user request is ambiguous or complex
+   *
+   * @param {string} userMessage - User's request
+   * @param {number} codeLength - Current code length
+   * @param {number} lineCount - Current code line count
+   * @returns {string} Meta-prompt text
+   */
+  getPromptSelectionMetaPrompt(userMessage, codeLength, lineCount) {
+    const wordCount = userMessage ? userMessage.split(/\s+/).length : 0;
+    return `🤔 ANALÝZA POŽADAVKU - Určení Správného Přístupu
+
+📋 UŽIVATELSKÝ POŽADAVEK:
+"${userMessage || '(prázdný požadavek)'}"
+
+📊 KONTEXT:
+- Současný kód: ${codeLength || 0} znaků, ${lineCount || 0} řádků
+- Požadavek obsahuje: ${wordCount} slov
+
+🎯 TVŮJ ÚKOL:
+Analyzuj požadavek a urči který přístup/prompty použít.
+
+📚 DOSTUPNÉ PROMPTY:
+
+1. 🐛 DEBUG MODE
+   Kdy: Oprava chyb, bugs, errors, nefunkčnost
+   Příklad: "Tlačítko nefunguje", "Console error"
+
+2. 🎨 STYLE MODE
+   Kdy: Design, CSS, barvy, layout, responzivní
+   Příklad: "Změň barvu na modrou", "Moderní design"
+
+3. ♻️ REFACTOR MODE
+   Kdy: Vyčištění kódu, optimalizace struktury, DRY
+   Příklad: "Refaktoruj", "Vyčisti kód"
+
+4. ➕ ADD FEATURE MODE
+   Kdy: Přidání nové funkce/prvku
+   Příklad: "Přidej dark mode", "Implementuj timer"
+
+5. 📝 DOCUMENTATION MODE
+   Kdy: Komentáře, JSDoc, vysvětlení
+   Příklad: "Přidej komentáře", "Dokumentuj funkce"
+
+6. 🧪 TESTING MODE
+   Kdy: Testy, validace, edge cases
+   Příklad: "Validace emailu", "Unit testy"
+
+7. 🔧 PERFORMANCE MODE
+   Kdy: Zrychlení, optimalizace rychlosti
+   Příklad: "Je to pomalé", "Optimalizuj performance"
+
+8. ⚠️ EDIT MODE
+   Kdy: Obecné úpravy existujícího kódu
+   Příklad: "Změň text", "Uprav hodnotu"
+
+9. 🆕 NEW PROJECT MODE
+   Kdy: Vytvoření nové aplikace od začátku
+   Příklad: "Vytvoř kalkulačku", "Todo list"
+
+🎯 INSTRUKCE:
+1. Analyzuj požadavek uživatele
+2. Urči který prompt(y) jsou nejvhodnější
+3. Pokud je potřeba více promptů, specifikuj pořadí
+4. Poté PROVEĎ úkol podle vybraného promptu!
+
+📝 FORMÁT ODPOVĚDI:
+
+KROK 1 - ANALÝZA:
+[Krátká analýza co uživatel chce]
+
+KROK 2 - VYBRANÝ PROMPT:
+[Ikona a název promptu, např: "🎨 STYLE MODE"]
+
+KROK 3 - DŮVOD:
+[Proč je tento prompt nejvhodnější]
+
+KROK 4 - ŘEŠENÍ:
+[Nyní VYKONEJ úkol podle vybraného promptu - vrať EDIT:LINES nebo celý kód]
+
+💡 PŘÍKLAD:
+
+KROK 1 - ANALÝZA:
+Uživatel chce změnit vzhled tlačítek a přidat hover efekt.
+
+KROK 2 - VYBRANÝ PROMPT:
+🎨 STYLE MODE
+
+KROK 3 - DŮVOD:
+Požadavek se týká čistě CSS/designu, žádné strukturální změny.
+
+KROK 4 - ŘEŠENÍ:
+\\\`\\\`\\\`EDIT:LINES:45-47
+OLD:
+.button { background: blue; }
+NEW:
+.button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  transition: transform 0.3s;
+}
+.button:hover {
+  transform: translateY(-2px);
+}
+\\\`\\\`\\\`
+
+⚠️ DŮLEŽITÉ:
+- Po analýze PROVEĎ úkol!
+- Nejen popisuj co by se mělo udělat
+- Vrať konkrétní kód/změny!`;
+  }
+
+  /**
+   * Intelligent prompt selection based on context and user intent
+   * Analyzes user message and code state to select optimal prompt
+   *
+   * @param {string} userMessage - User's request
+   * @param {boolean} hasCode - Whether editor has code
+   * @param {boolean} hasHistory - Whether editor has change history
+   * @param {string} currentCode - Current editor code
+   * @returns {string} Selected prompt text
+   */
+  selectPromptByContext(userMessage, hasCode, hasHistory, currentCode) {
+    const msg = userMessage ? userMessage.toLowerCase() : '';
+    const codeLength = currentCode ? currentCode.length : 0;
+    const lineCount = currentCode ? currentCode.split('\n').length : 0;
+
+    // ⚠️ KRITICKÉ PRAVIDLO PRO VŠECHNY PROMPTY
+    const CRITICAL_FORMAT_RULE = `🚨 ABSOLUTNÍ ZÁKAZ VYSVĚTLOVÁNÍ! 🚨
+
+❌ NIKDY NESMÍŠ:
+- Psát "Timto změním...", "Tady je úprava...", "Provedu změnu..."
+- Vysvětlovat co děláš PŘED kódem
+- Psát jakýkoliv český text mimo EDIT:LINES bloky
+- Popisovat změny slovy
+
+✅ JEDINÁ POVOLENÁ ODPOVĚĎ:
+\\\`\\\`\\\`EDIT:LINES:1-5
+OLD:
+[původní kód]
+NEW:
+[nový kód]
+\\\`\\\`\\\`
+
+IHNED začni s \\\`\\\`\\\`EDIT:LINES! Žádné slovo navíc!
+
+📍 DŮLEŽITÉ - KDE CO HLEDAT:
+- "změň název/titulek stránky" → <title> tag (v <head>)
+- "změň nadpis/popis/text na stránce" → <h1>, <h2>, <p> tagy (v <body>)
+- "přidej text" → do <body>, ne do <title>
+────────────────────────────────────────────────────
+`;
+
+    // 1. 🐛 DEBUG MODE - Error fixing & debugging
+    if (msg.match(/\b(nefunguje|chyba|error|bug|oprav|fix|debug|console)\b/)) {
+      return `${CRITICAL_FORMAT_RULE}
+
+🐛 DEBUG & ERROR FIXING
+
+📊 ANALÝZA KÓDU:
+- Celkem: ${codeLength} znaků, ${lineCount} řádků
+- Hledej syntax errors, runtime errors, logic bugs
+
+🔍 TVŮJ ÚKOL:
+IHNED vrať EDIT:LINES bloky s opravami. ŽÁDNÉ vysvětlování!
+
+\\\`\\\`\\\`EDIT:LINES:X-Y
+OLD:
+<kód s chybou>
+NEW:
+<opravený kód>
+\\\`\\\`\\\`
+
+❌ ZAKÁZÁNO:
+- Psát "Problém je...", "Chyba je v..."
+- Vysvětlovat co děláš
+- Psát kroky nebo instrukce
+
+✅ SPRÁVNĚ:
+Pouze EDIT:LINES bloky, žádný další text!`;
+    }
+
+    // 2. 🎨 STYLE MODE - CSS & Design changes
+    if (msg.match(/\b(barva|color|design|styl|style|css|vzhled|font|velikost|layout|responzivní|mobile)\b/)) {
+      return `${CRITICAL_FORMAT_RULE}
+
+🎨 DESIGN & STYLING
+
+📊 KONTEXT:
+- ${lineCount} řádků kódu
+- Změny se týkají jen vizuální stránky
+
+🎯 TVŮJ ÚKOL:
+IHNED vrať EDIT:LINES bloky se CSS změnami. BEZ vysvětlení!
+
+PŘÍKLAD:
+\\\`\\\`\\\`EDIT:LINES:45-47
+OLD:
+.button {
+  background: blue;
+  color: white;
+}
+NEW:
+.button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+\\\`\\\`\\\`
+
+💡 BEST PRACTICES:
+- Moderní CSS (flexbox, grid, custom properties)
+- Responzivní design (media queries)
+- Accessibility (kontrast, focus states)
+- Smooth transitions
+- Mobile-first approach
+
+✅ FORMÁT: Jen EDIT:LINES bloky se CSS změnami`;
+    }
+
+    // 3. ♻️ REFACTOR MODE - Code optimization & cleanup
+    if (msg.match(/\b(optimalizuj|refactor|vyčisti|cleanup|zlepši|improve|reorganizuj|clean)\b/)) {
+      return `${CRITICAL_FORMAT_RULE}
+
+♻️ CODE REFACTORING & OPTIMIZATION
+
+📊 SOUČASNÝ STAV:
+- ${codeLength} znaků, ${lineCount} řádků
+- Cíl: Lepší čitelnost, performance, maintainability
+
+🎯 TVŮJ ÚKOL:
+Refaktoruj kód pomocí EDIT:LINES formátu.
+
+ZAMĚŘ SE NA:
+✅ DRY (Don't Repeat Yourself)
+✅ Jednodušší funkce (max 20 řádků)
+✅ Výstižné názvy proměnných
+✅ Odstranění dead code
+✅ Modern ES6+ syntax (arrow functions, destructuring)
+✅ Performance optimizations
+✅ Better error handling
+
+PŘÍKLAD:
+\\\`\\\`\\\`EDIT:LINES:23-30
+OLD:
+function calculate(a, b, operation) {
+  if (operation === 'add') return a + b;
+  if (operation === 'subtract') return a - b;
+  if (operation === 'multiply') return a * b;
+  if (operation === 'divide') return a / b;
+}
+NEW:
+const operations = {
+  add: (a, b) => a + b,
+  subtract: (a, b) => a - b,
+  multiply: (a, b) => a * b,
+  divide: (a, b) => b !== 0 ? a / b : null
+};
+const calculate = (a, b, operation) => operations[operation]?.(a, b) ?? null;
+\\\`\\\`\\\`
+
+✅ FORMÁT: Jen EDIT:LINES bloky s refactorovaným kódem`;
+    }
+
+    // 4. ➕ ADD FEATURE - New functionality
+    if (msg.match(/\b(přidej|add|nový|new|implementuj|implement|vytvoř|create|feature|funkc)\b/)) {
+      return `${CRITICAL_FORMAT_RULE}
+
+➕ ADD NEW FEATURE
+
+📊 KONTEXT:
+- Existující kód: ${lineCount} řádků
+- Přidáváš novou funkčnost
+
+🎯 TVŮJ ÚKOL:
+Přidej novou funkci/feature pomocí EDIT:LINES formátu.
+
+KROKY:
+1. Najdi správné místo v kódu
+2. Přidej HTML strukturu (pokud potřeba)
+3. Přidej CSS styling
+4. Přidaj JavaScript logiku
+
+PŘÍKLAD (přidání dark mode):
+\\\`\\\`\\\`EDIT:LINES:15-15
+OLD:
+<button id="submitBtn">Submit</button>
+NEW:
+<button id="submitBtn">Submit</button>
+<button id="darkModeToggle">🌙 Dark Mode</button>
+\\\`\\\`\\\`
+
+\\\`\\\`\\\`EDIT:LINES:89-89
+OLD:
+});
+NEW:
+});
+
+// Dark mode toggle
+const darkModeToggle = document.getElementById('darkModeToggle');
+darkModeToggle?.addEventListener('click', () => {
+  document.body.classList.toggle('dark-mode');
+  darkModeToggle.textContent = document.body.classList.contains('dark-mode')
+    ? '☀️ Light Mode'
+    : '🌙 Dark Mode';
+});
+\\\`\\\`\\\`
+
+💡 BEST PRACTICES:
+- Nesmaž existující funkce
+- Nové ID/classes musí být unikátní
+- Event listeners správně připojené
+- Error handling pro nové featury
+- Accessibility (ARIA labels)
+
+✅ FORMÁT: Jen EDIT:LINES bloky s novou funkčností`;
+    }
+
+    // 5. 📝 DOCUMENTATION MODE - Comments & docs
+    if (msg.match(/\b(komentář|comment|dokumentace|documentation|doc|vysvětli|explain|popis)\b/)) {
+      return `${CRITICAL_FORMAT_RULE}
+
+📝 DOCUMENTATION & COMMENTS
+
+📊 KONTEXT:
+- ${lineCount} řádků kódu k dokumentování
+
+🎯 TVŮJ ÚKOL:
+Přidej kvalitní dokumentaci a komentáře pomocí EDIT:LINES.
+
+CO PŘIDAT:
+✅ JSDoc pro funkce
+✅ Inline komentáře pro složitou logiku
+✅ TODO/FIXME/NOTE značky
+✅ Vysvětlení algoritmů
+✅ Popis parametrů a return values
+
+PŘÍKLAD:
+\\\`\\\`\\\`EDIT:LINES:34-36
+OLD:
+function processData(data) {
+  return data.filter(x => x.active).map(x => x.value);
+}
+NEW:
+/**
+ * Processes raw data by filtering active items and extracting values
+ * @param {Array<{active: boolean, value: any}>} data - Input data array
+ * @returns {Array} Array of values from active items
+ */
+function processData(data) {
+  // Filter only active items and extract their values
+  return data.filter(x => x.active).map(x => x.value);
+}
+\\\`\\\`\\\`
+
+💡 STYLE GUIDE:
+- Stručné ale výstižné
+- Česky nebo anglicky (konzistentně)
+- Vysvětli "proč", ne jen "co"
+
+✅ FORMÁT: Jen EDIT:LINES bloky s dokumentací`;
+    }
+
+    // 6. 🧪 TESTING MODE - Unit tests
+    if (msg.match(/\b(test|testing|unit test|test case|testuj|validace|validation)\b/)) {
+      return `${CRITICAL_FORMAT_RULE}
+
+🧪 TESTING & VALIDATION
+
+📊 KONTEXT:
+- ${lineCount} řádků kódu k otestování
+
+🎯 TVŮJ ÚKOL:
+Přidej testy nebo validaci pomocí EDIT:LINES formátu.
+
+PŘÍKLAD (přidání validace formuláře):
+\\\`\\\`\\\`EDIT:LINES:45-47
+OLD:
+submitBtn.addEventListener('click', () => {
+  sendData(inputField.value);
+});
+NEW:
+submitBtn.addEventListener('click', () => {
+  const value = inputField.value.trim();
+
+  // Validation
+  if (!value) {
+    showError('Pole nesmí být prázdné');
+    return;
+  }
+  if (value.length < 3) {
+    showError('Minimálně 3 znaky');
+    return;
+  }
+  if (!/^[a-zA-Z0-9]+$/.test(value)) {
+    showError('Jen alfanumerické znaky');
+    return;
+  }
+
+  sendData(value);
+});
+\\\`\\\`\\\`
+
+💡 CO TESTOVAT:
+- Input validace
+- Edge cases (prázdné hodnoty, null, undefined)
+- Boundary conditions
+- Error scenarios
+- Happy path scenarios
+
+✅ FORMÁT: Jen EDIT:LINES bloky s testy/validací`;
+    }
+
+    // 7. 🔧 PERFORMANCE MODE - Speed optimization
+    if (msg.match(/\b(performance|rychlost|speed|optimalizace|optimize|pomalý|slow|zrychli)\b/)) {
+      return `${CRITICAL_FORMAT_RULE}
+
+🔧 PERFORMANCE OPTIMIZATION
+
+📊 ANALÝZA:
+- ${lineCount} řádků kódu
+- Cíl: Zlepšit rychlost a efektivitu
+
+🎯 TVŮJ ÚKOL:
+Optimalizuj performance pomocí EDIT:LINES formátu.
+
+ZAMĚŘ SE NA:
+✅ Debouncing/Throttling
+✅ Lazy loading
+✅ Event delegation
+✅ Caching výsledků
+✅ Reduce DOM manipulations
+✅ Use fragments for multiple inserts
+✅ Async operations
+✅ Memory leaks prevention
+
+PŘÍKLAD (debouncing):
+\\\`\\\`\\\`EDIT:LINES:56-58
+OLD:
+searchInput.addEventListener('input', (e) => {
+  performSearch(e.target.value);
+});
+NEW:
+const debounce = (fn, delay) => {
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn(...args), delay);
+  };
+};
+
+searchInput.addEventListener('input', debounce((e) => {
+  performSearch(e.target.value);
+}, 300));
+\\\`\\\`\\\`
+
+💡 TECHNIKY:
+- Minimalizuj repaints/reflows
+- Use requestAnimationFrame for animations
+- Batch DOM updates
+- Remove unused event listeners
+
+✅ FORMÁT: Jen EDIT:LINES bloky s optimalizacemi`;
+    }
+
+    // 8. 🤔 AMBIGUOUS - Ask AI to determine best prompt
+    // Check if message is complex/ambiguous and no clear pattern matched
+    const wordCount = userMessage ? userMessage.split(/\s+/).length : 0;
+    const hasMultipleIntents = userMessage ? userMessage.match(/a zároveň|a také|plus|navíc|ještě/) : false;
+
+    if (wordCount > 15 || hasMultipleIntents) {
+      // Complex request - let AI analyze and choose
+      return this.getPromptSelectionMetaPrompt(userMessage, codeLength, lineCount);
+    }
+
+    // 9. DEFAULT: EDIT MODE (existing code) vs NEW PROJECT
+    if (hasCode && hasHistory) {
+      return `${CRITICAL_FORMAT_RULE}
+
+⚠️ EDITACE EXISTUJÍCÍHO KÓDU (${codeLength} znaků, ${lineCount} řádků)
+
+🚨 POVINNÝ FORMÁT - AUTOMATICKÝ SYSTÉM 🚨
+
+System automaticky aplikuje změny podle tohoto formátu:
+
+\\\`\\\`\\\`EDIT:LINES:5-5
+OLD:
+<title>Původní název</title>
+NEW:
+<title>Nový název</title>
+\\\`\\\`\\\`
+
+\\\`\\\`\\\`EDIT:LINES:35-37
+OLD:
+<h2>Původní nadpis</h2>
+<p>Původní text</p>
+NEW:
+<h2>Nový nadpis</h2>
+<p>Nový text s více detaily</p>
+\\\`\\\`\\\`
+
+💡 PRAVIDLA:
+- Každá změna = blok \\\`\\\`\\\`EDIT:LINES:X-Y (X-Y = čísla řádků)
+- OLD: přesný současný kód na těch řádcích
+- NEW: nový kód (může být víc/míň řádků)
+- System najde OLD, ověří a nahradí za NEW
+- Vidíš čísla řádků v kódu výše - použij je!
+
+❌ ZAKÁZÁNO:
+- Vracet celý soubor (bude zkrácen!)
+- Psát "...zkráceno" nebo "...rest of code..."
+- Psát "**Krok 1:**" nebo vysvětlení
+- Psát "Timto změním...", "Potřeba provést..."
+- JAKÉKOLIV vysvětlování místo kódu!
+
+✅ SPRÁVNĚ:
+- IHNED začni s \\\`\\\`\\\`EDIT:LINES:X-Y
+- Jen EDIT:LINES bloky, žádný text navíc
+- Každá změna = samostatný blok`;
+    } else {
+      // NEW PROJECT
+      return `${CRITICAL_FORMAT_RULE}
+
+🆕 NOVÝ PROJEKT - Vytvoř kompletní funkční aplikaci
+
+📋 POŽADAVKY:
+- Vytvoř CELÝ soubor od <!DOCTYPE html> až po </html>
+- Zahrň všechny sekce: <head>, <style>, <body>, <script>
+- CSS v <style> tagu v <head>
+- JavaScript v <script> tagu před </body>
+- Kompletní funkčnost - všechno musí fungovat!
+- Moderní, responzivní design
+- Interaktivní prvky (formuláře, tlačítka, atd.)
+
+✅ MUSÍ OBSAHOVAT:
+- Úplnou HTML strukturu
+- Styling pro všechny prvky
+- JavaScript pro interaktivitu
+- Event listenery správně připojené
+- Validaci vstupů
+- Error handling
+
+❌ NEPIŠ:
+- "...zkráceno" - vrať všechno!
+- Částečný kód
+- Jen HTML bez funkčnosti
+
+💡 TIP: Kód může být i 1000+ řádků, token limit to zvládne!`;
+    }
+  }
+
+  /**
    * Parse EDIT:LINES instructions from AI response
    * Format: ```EDIT:LINES:5-10
    *         OLD:
@@ -1696,18 +2269,44 @@ ${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
    * @returns {Array} Array of edit objects with {startLine, endLine, oldCode, newCode}
    */
   parseEditInstructions(response) {
-    // Parse EDIT:LINES blocks from AI response
-    const editPattern = /```EDIT:LINES:(\d+)-(\d+)\s+OLD:\s*([\s\S]*?)\s*NEW:\s*([\s\S]*?)\s*```/g;
-    const edits = [];
-    let match;
+    if (!response) return [];
 
-    while ((match = editPattern.exec(response)) !== null) {
-      edits.push({
-        startLine: parseInt(match[1]),
-        endLine: parseInt(match[2]),
-        oldCode: match[3].trim(),
-        newCode: match[4].trim()
-      });
+    // Parse EDIT:LINES blocks from AI response
+    // Try multiple patterns to catch various AI formatting mistakes
+    const patterns = [
+      // Standard format with triple backticks
+      /```EDIT:LINES:(\d+)-(\d+)\s+OLD:\s*([\s\S]*?)\s*NEW:\s*([\s\S]*?)\s*```/g,
+      // With escaped backticks
+      /\`\`\`EDIT:LINES:(\d+)-(\d+)\s+OLD:\s*([\s\S]*?)\s*NEW:\s*([\s\S]*?)\s*\`\`\`/g,
+      // Without backticks
+      /EDIT:LINES:(\d+)-(\d+)\s+OLD:\s*([\s\S]*?)\s*NEW:\s*([\s\S]*?)(?=EDIT:LINES:|$)/g,
+      // Missing "EDIT" prefix (just :LINES:)
+      /:LINES:(\d+)-(\d+)\s+OLD:\s*([\s\S]*?)\s*NEW:\s*([\s\S]*?)(?::LINES:|$)/g,
+      // With newlines after OLD: and NEW:
+      /EDIT:LINES:(\d+)-(\d+)\s*\n\s*OLD:\s*\n([\s\S]*?)\s*\n\s*NEW:\s*\n([\s\S]*?)(?=EDIT:LINES:|$)/g
+    ];
+
+    const edits = [];
+
+    for (const editPattern of patterns) {
+      const regex = new RegExp(editPattern);
+      let match;
+      while ((match = regex.exec(response)) !== null) {
+        edits.push({
+          startLine: parseInt(match[1]),
+          endLine: parseInt(match[2]),
+          oldCode: match[3].trim(),
+          newCode: match[4].trim()
+        });
+      }
+      if (edits.length > 0) {
+        console.log(`✅ Detekováno ${edits.length} změn pomocí pattern #${patterns.indexOf(editPattern) + 1}`);
+        break; // Found matches, stop trying other patterns
+      }
+    }
+
+    if (edits.length === 0) {
+      console.warn('⚠️ Žádné EDIT:LINES bloky nebyly detekovány. AI možná ignoruje prompt formát!');
     }
 
     return edits;
@@ -1722,6 +2321,11 @@ ${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
    * @returns {boolean} True if at least one edit was applied
    */
   applyLineEdits(edits) {
+    if (!edits || edits.length === 0) {
+      console.warn('⚠️ Žádné EDIT:LINES bloky k aplikaci');
+      return false;
+    }
+
     const currentCode = state.get('editor.code');
     if (!currentCode) {
       toast.error('Editor je prázdný - nelze aplikovat změny');
@@ -1749,8 +2353,29 @@ ${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
 
       // Verify OLD code matches
       if (actualCode.trim() !== oldCode.trim()) {
-        failedEdits.push(`Řádky ${startLine}-${endLine}: OLD kód nesedí\nOčekáváno: ${oldCode.substring(0, 50)}...\nSkutečnost: ${actualCode.substring(0, 50)}...`);
-        continue;
+        const expectedPreview = oldCode.length > 50 ? oldCode.substring(0, 50) + '...' : oldCode;
+        const actualPreview = actualCode.length > 50 ? actualCode.substring(0, 50) + '...' : actualCode;
+
+        // Show detailed error with option to see full context
+        console.error(`❌ Řádky ${startLine}-${endLine}: OLD kód nesedí`);
+        console.log('📋 Očekáváno AI:', oldCode);
+        console.log('📄 Skutečný kód:', actualCode);
+
+        // Try fuzzy match - maybe just whitespace differs
+        if (actualCode.replace(/\s+/g, '') === oldCode.replace(/\s+/g, '')) {
+          console.log('✓ Whitespace mismatch - aplikuji stejně');
+          // Continue with the change
+        } else {
+          failedEdits.push({
+            lines: `${startLine}-${endLine}`,
+            reason: 'OLD kód nesedí',
+            expected: expectedPreview,
+            actual: actualPreview,
+            fullExpected: oldCode,
+            fullActual: actualCode
+          });
+          continue;
+        }
       }
 
       // Apply change
@@ -1761,13 +2386,24 @@ ${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
 
     if (failedEdits.length > 0) {
       console.warn('⚠️ Některé změny selhaly:', failedEdits);
-      const message = `Aplikováno ${appliedCount}/${edits.length} změn\n\nChyby:\n${failedEdits.join('\n\n')}`;
+
+      // Create detailed error message
+      const errorMessages = failedEdits.map(f =>
+        `Řádky ${f.lines}: ${f.reason}\n` +
+        `  AI očekávala: "${f.expected}"\n` +
+        `  Skutečnost: "${f.actual}"`
+      ).join('\n\n');
+
+      const message = `⚠️ ${appliedCount}/${edits.length} změn aplikováno\n\n` +
+        `💡 Problém: Kód v editoru se liší od toho co AI očekávala.\n` +
+        `Možná byl mezitím změněn.\n\n${errorMessages}\n\n` +
+        `💬 Zkus požádat AI znovu s aktuálním kódem.`;
 
       if (appliedCount === 0) {
-        toast.error(message, 8000);
+        toast.error(message, 10000);
         return false;
       } else {
-        toast.warning(message, 8000);
+        toast.warning(message, 10000);
       }
     } else if (appliedCount > 0) {
       toast.success(`✅ Aplikováno ${appliedCount} změn automaticky`, 3000);
@@ -1796,7 +2432,7 @@ ${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
         editor.setCode(newCode, true);
       }
 
-      console.log(`💾 Undo historie: ${editor.history.past.length} kroků`);
+      console.log(`💾 Undo historie: ${editor.history?.past?.length || 0} kroků`);
     }
 
     state.set('editor.code', newCode);
@@ -1805,8 +2441,50 @@ ${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
   }
 
   addLineNumbers(code) {
+    if (!code) return '';
     const lines = code.split('\n');
     return lines.map((line, i) => `${String(i + 1).padStart(4, ' ')}| ${line}`).join('\n');
+  }
+
+  /**
+   * Truncate code intelligently - show beginning, end, and indicate middle is truncated
+   */
+  truncateCodeIntelligently(code, maxChars = 3000) {
+    if (!code || code.length <= maxChars) {
+      return code;
+    }
+
+    const lines = code.split('\n');
+    const totalLines = lines.length;
+
+    // Show first ~40% and last ~40% of allowed space
+    const charsPerSection = Math.floor(maxChars * 0.4);
+
+    let topLines = [];
+    let bottomLines = [];
+    let topChars = 0;
+    let bottomChars = 0;
+
+    // Get top lines
+    for (let i = 0; i < lines.length; i++) {
+      if (topChars + lines[i].length + 1 > charsPerSection) break;
+      topLines.push(lines[i]);
+      topChars += lines[i].length + 1;
+    }
+
+    // Get bottom lines
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (bottomChars + lines[i].length + 1 > charsPerSection) break;
+      bottomLines.unshift(lines[i]);
+      bottomChars += lines[i].length + 1;
+    }
+
+    const truncatedLineCount = totalLines - topLines.length - bottomLines.length;
+    const middleLineNumber = topLines.length;
+
+    return topLines.join('\n') +
+      `\n\n... (🔽 zkráceno ${truncatedLineCount} řádků - řádky ${middleLineNumber + 1}-${middleLineNumber + truncatedLineCount}) ...\n\n` +
+      bottomLines.join('\n');
   }
 
   insertCodeToEditor(code, isModification = false) {
@@ -1850,6 +2528,12 @@ ${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
     // Get editor instance and use skipStateUpdate to prevent loop
     const editor = document.querySelector('.editor-container')?.__editor;
     if (editor && editor.setCode) {
+      // DŮLEŽITÉ: Před změnou kódu uložit současný stav do historie
+      // Aby fungoval undo (zpět na starý kód)
+      if (editor.saveToHistory) {
+        editor.saveToHistory();
+      }
+
       editor.setCode(code, true); // Skip state update first
     }
 
@@ -2720,15 +3404,29 @@ ${this.selectPromptByContext(userMessage, hasCode, hasHistory, currentCode)}
             btn.textContent = '⏳ Načítání...';
 
             try {
-              await this.loadGitHubCode(result.url, result.name, singleFile);
+              // Zavřít dialog PŘED načítáním
               closeModal();
+
+              // Zobrazit loading overlay
+              this.showLoadingOverlay('📥 Načítám soubory z GitHub...', name);
+
+              await this.loadGitHubCode(result.url, result.name, singleFile);
+
+              // Skrýt loading overlay
+              this.hideLoadingOverlay();
+
               eventBus.emit('toast:show', {
                 message: '✅ Kód načten z GitHub',
                 type: 'success',
                 duration: 2000
               });
             } catch (error) {
-              alert('Chyba při načítání kódu: ' + error.message);
+              this.hideLoadingOverlay();
+              eventBus.emit('toast:show', {
+                message: '❌ Chyba při načítání: ' + error.message,
+                type: 'error',
+                duration: 3000
+              });
               btn.disabled = false;
               btn.textContent = '📥 Načíst kód';
             }
@@ -5136,6 +5834,71 @@ Každý agent pracuje na své části, výsledky se kombinují do finálního pr
     URL.revokeObjectURL(url);
 
     toast.show('📥 Výsledky exportovány', 'success');
+  }
+
+  /**
+   * Show loading overlay with animation
+   */
+  showLoadingOverlay(message, subtitle = '') {
+    // Remove existing overlay if any
+    this.hideLoadingOverlay();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'github-loading-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    `;
+
+    overlay.innerHTML = `
+      <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 40px 60px;
+        border-radius: 16px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        max-width: 500px;
+      ">
+        <div style="
+          width: 60px;
+          height: 60px;
+          border: 4px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          margin: 0 auto 20px;
+          animation: spin 1s linear infinite;
+        "></div>
+        <h2 style="color: white; margin: 0 0 10px; font-size: 24px;">${message}</h2>
+        ${subtitle ? `<p style="color: rgba(255, 255, 255, 0.8); margin: 0; font-size: 16px;">${subtitle}</p>` : ''}
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    `;
+
+    document.body.appendChild(overlay);
+  }
+
+  /**
+   * Hide loading overlay
+   */
+  hideLoadingOverlay() {
+    const overlay = document.getElementById('github-loading-overlay');
+    if (overlay) {
+      overlay.remove();
+    }
   }
 }
 
