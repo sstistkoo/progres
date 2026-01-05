@@ -527,6 +527,22 @@
   border: 1px solid var(--border);
 }
 
+/* Collapsible code block */
+.code-block-collapsible {
+  border: none;
+  margin: 0;
+}
+
+.code-block-collapsible summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.code-block-collapsible summary::-webkit-details-marker {
+  display: none;
+}
+
 .code-block-header {
   padding: 8px 12px;
   background: var(--bg-tertiary);
@@ -534,6 +550,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.code-block-collapsible[open] .code-block-header {
+  border-bottom: 1px solid var(--border);
+}
+
+.code-block-collapsible:not([open]) .code-block-header {
+  border-bottom: none;
+}
+
+.toggle-icon {
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.code-block-collapsible[open] .toggle-icon {
+  transform: rotate(180deg);
 }
 
 .code-language {
@@ -559,8 +592,8 @@
 
 .code-block-actions {
   padding: 8px 12px;
-  background: var(--bg-tertiary);
-  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
   display: flex;
   gap: 8px;
   justify-content: flex-end;

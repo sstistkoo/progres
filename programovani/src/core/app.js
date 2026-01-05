@@ -171,6 +171,7 @@ class App {
     eventBus.on('file:createWithCode', ({ code }) => this.createFileWithCode(code));
     eventBus.on('file:create', ({ name, content }) => this.createFile(name, content));
     eventBus.on('action:exportZip', () => this.exportProjectAsZip());
+    eventBus.on('github:project:loaded', ({ name, files }) => this.loadGitHubProject(name, files));
 
     // Editor actions
     eventBus.on('editor:setCode', ({ code }) => {
@@ -634,6 +635,76 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     eventBus.emit('files:changed');
 
     toast.success(`Nový soubor vytvořen: ${fileName}`, 2000);
+  }
+
+  loadGitHubProject(projectName, files) {
+    console.log(`📦 Loading GitHub project: ${projectName}`, files);
+
+    // Zavřít všechny otevřené soubory
+    state.set('files.tabs', []);
+    state.set('files.active', null);
+
+    const tabs = [];
+    let nextId = 1;
+    let htmlFileId = null;
+
+    // Vytvořit taby pro všechny soubory
+    files.forEach(file => {
+      const tab = {
+        id: nextId,
+        name: file.name,
+        content: file.content,
+        modified: false,
+        type: this.getFileType(file.name),
+        path: file.name // Zachovat cestu pro složky
+      };
+
+      tabs.push(tab);
+
+      // Najít první HTML soubor
+      if (!htmlFileId && file.name.endsWith('.html')) {
+        htmlFileId = nextId;
+      }
+
+      nextId++;
+    });
+
+    // Nastavit soubory do state
+    state.set('files.tabs', tabs);
+    state.set('files.nextId', nextId);
+
+    // Otevřít HTML soubor nebo první soubor
+    const activeId = htmlFileId || (tabs.length > 0 ? tabs[0].id : null);
+
+    if (activeId) {
+      state.set('files.active', activeId);
+      const activeTab = tabs.find(t => t.id === activeId);
+
+      if (activeTab && this.editor) {
+        this.editor.setCode(activeTab.content);
+        this.editor.focus();
+      }
+
+      // Update preview pro HTML soubory
+      if (activeTab && activeTab.type === 'html' && this.preview) {
+        this.preview.update(activeTab.content);
+      }
+    }
+
+    // Zobrazit sidebar s projektem
+    eventBus.emit('sidebar:show');
+    eventBus.emit('files:changed');
+
+    toast.success(`✅ GitHub projekt načten: ${projectName} (${files.length} souborů)`, 3000);
+  }
+
+  getFileType(fileName) {
+    if (fileName.endsWith('.html') || fileName.endsWith('.htm')) return 'html';
+    if (fileName.endsWith('.css')) return 'css';
+    if (fileName.endsWith('.js')) return 'javascript';
+    if (fileName.endsWith('.json')) return 'json';
+    if (fileName.endsWith('.md')) return 'markdown';
+    return 'text';
   }
 
   downloadAllFiles() {

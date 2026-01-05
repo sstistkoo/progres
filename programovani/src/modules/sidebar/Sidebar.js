@@ -26,6 +26,7 @@ export class Sidebar {
     eventBus.on('sidebar:show', () => this.show());
     eventBus.on('sidebar:hide', () => this.hide());
     eventBus.on('tabs:updated', () => this.updateFilesList());
+    eventBus.on('files:changed', () => this.updateFilesListWithFolders());
   }
 
   createSidebar() {
@@ -338,6 +339,252 @@ export class Sidebar {
         eventBus.emit('tabs:close', { index });
       });
     });
+  }
+
+  updateFilesListWithFolders() {
+    const filesList = this.sidebarElement?.querySelector('#openFilesList');
+    if (!filesList) return;
+
+    // Get tabs from new state structure
+    const tabs = state.get('files.tabs') || [];
+    const activeFileId = state.get('files.active');
+
+    // Update count
+    const countElement = this.sidebarElement.querySelector('.file-count');
+    if (countElement) {
+      countElement.textContent = tabs.length;
+    }
+
+    if (tabs.length === 0) {
+      filesList.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+            <path d="M13 2v7h7"/>
+          </svg>
+          <p>Žádné otevřené soubory</p>
+          <small>Vytvořte nový soubor nebo otevřete existující</small>
+        </div>
+      `;
+      return;
+    }
+
+    // Organize files into folder structure
+    const fileTree = this.buildFileTree(tabs);
+
+    // Render file tree
+    filesList.innerHTML = this.renderFileTree(fileTree, activeFileId);
+
+    // Attach event handlers
+    this.attachFileTreeHandlers(filesList, activeFileId);
+  }
+
+  buildFileTree(tabs) {
+    const tree = {};
+
+    tabs.forEach(tab => {
+      const path = tab.path || tab.name;
+      const parts = path.split('/');
+
+      if (parts.length === 1) {
+        // Root file
+        if (!tree._files) tree._files = [];
+        tree._files.push(tab);
+      } else {
+        // File in folder
+        let current = tree;
+        for (let i = 0; i < parts.length - 1; i++) {
+          const folder = parts[i];
+          if (!current[folder]) {
+            current[folder] = { _files: [] };
+          }
+          current = current[folder];
+        }
+        current._files.push(tab);
+      }
+    });
+
+    return tree;
+  }
+
+  renderFileTree(tree, activeFileId, level = 0) {
+    let html = '';
+
+    // Render root files first
+    if (tree._files) {
+      tree._files.forEach(tab => {
+        const isActive = tab.id === activeFileId;
+        const icon = this.getFileIcon(tab.name);
+        html += `
+          <div class="file-item ${isActive ? 'active' : ''}" data-file-id="${tab.id}" style="padding-left: ${level * 20 + 12}px;">
+            <span class="file-icon">${icon}</span>
+            <span class="file-name">${tab.name}</span>
+          </div>
+        `;
+      });
+    }
+
+    // Render folders
+    Object.keys(tree).forEach(key => {
+      if (key === '_files') return;
+
+      const folder = tree[key];
+      html += `
+        <div class="folder-item" data-folder="${key}" style="padding-left: ${level * 20 + 12}px;">
+          <span class="folder-toggle">▶</span>
+          <span class="folder-icon">📁</span>
+          <span class="folder-name">${key}</span>
+        </div>
+        <div class="folder-content" data-folder-content="${key}" style="display: none;">
+          ${this.renderFileTree(folder, activeFileId, level + 1)}
+        </div>
+      `;
+    });
+
+    return html;
+  }
+
+  attachFileTreeHandlers(filesList, activeFileId) {
+    // File click handlers
+    filesList.querySelectorAll('.file-item').forEach(item => {
+      // Single click - open file
+      item.addEventListener('click', () => {
+        const fileId = parseInt(item.dataset.fileId);
+        eventBus.emit('file:open', { fileId });
+      });
+
+      // Double click - rename file
+      item.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const fileId = parseInt(item.dataset.fileId);
+        const fileNameSpan = item.querySelector('.file-name');
+        const currentName = fileNameSpan.textContent;
+
+        this.startRenameFile(fileId, fileNameSpan, currentName);
+      });
+    });
+
+    // Folder toggle handlers
+    filesList.querySelectorAll('.folder-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const folderName = item.dataset.folder;
+        const content = filesList.querySelector(`[data-folder-content="${folderName}"]`);
+        const toggle = item.querySelector('.folder-toggle');
+
+        if (content && toggle) {
+          const isOpen = content.style.display !== 'none';
+          content.style.display = isOpen ? 'none' : 'block';
+          toggle.textContent = isOpen ? '▶' : '▼';
+
+          // Update folder icon
+          const folderIcon = item.querySelector('.folder-icon');
+          if (folderIcon) {
+            folderIcon.textContent = isOpen ? '📁' : '📂';
+          }
+        }
+      });
+    });
+  }
+
+  getFileIcon(fileName) {
+    if (fileName.endsWith('.html') || fileName.endsWith('.htm')) return '📄';
+    if (fileName.endsWith('.css')) return '🎨';
+    if (fileName.endsWith('.js')) return '⚡';
+    if (fileName.endsWith('.json')) return '📋';
+    if (fileName.endsWith('.md')) return '📝';
+    if (fileName.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i)) return '🖼️';
+    return '📄';
+  }
+
+  startRenameFile(fileId, fileNameSpan, currentName) {
+    // Create input field for renaming
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentName;
+    input.className = 'file-rename-input';
+    input.style.cssText = `
+      width: 100%;
+      padding: 2px 4px;
+      background: var(--bg-tertiary, #3d3d3d);
+      color: var(--text-primary, #fff);
+      border: 1px solid var(--accent, #007acc);
+      border-radius: 3px;
+      font-size: 13px;
+      font-family: inherit;
+    `;
+
+    // Replace span with input
+    const parent = fileNameSpan.parentElement;
+    fileNameSpan.style.display = 'none';
+    parent.appendChild(input);
+    input.focus();
+    input.select();
+
+    const finishRename = (save) => {
+      if (save) {
+        const newName = input.value.trim();
+        if (newName && newName !== currentName) {
+          this.renameFile(fileId, newName);
+        }
+      }
+
+      // Restore original span
+      input.remove();
+      fileNameSpan.style.display = '';
+    };
+
+    // Save on Enter, cancel on Escape
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        finishRename(true);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        finishRename(false);
+      }
+    });
+
+    // Save on blur (click outside)
+    input.addEventListener('blur', () => {
+      finishRename(true);
+    });
+  }
+
+  renameFile(fileId, newName) {
+    const tabs = state.get('files.tabs') || [];
+    const tab = tabs.find(t => t.id === fileId);
+
+    if (!tab) {
+      toast.error('Soubor nenalezen', 2000);
+      return;
+    }
+
+    // Update tab name and path
+    const oldName = tab.name;
+    tab.name = newName;
+
+    // Update path if it exists
+    if (tab.path) {
+      const pathParts = tab.path.split('/');
+      pathParts[pathParts.length - 1] = newName;
+      tab.path = pathParts.join('/');
+    }
+
+    // Update file type based on new extension
+    if (newName.endsWith('.html') || newName.endsWith('.htm')) tab.type = 'html';
+    else if (newName.endsWith('.css')) tab.type = 'css';
+    else if (newName.endsWith('.js')) tab.type = 'javascript';
+    else if (newName.endsWith('.json')) tab.type = 'json';
+    else if (newName.endsWith('.md')) tab.type = 'markdown';
+    else tab.type = 'text';
+
+    // Save updated tabs
+    state.set('files.tabs', tabs);
+
+    // Refresh file list
+    this.updateFilesListWithFolders();
+
+    toast.success(`📝 Soubor přejmenován: ${oldName} → ${newName}`, 2000);
   }
 
   updateGitHubStatus() {

@@ -492,8 +492,6 @@ const AI = {
             { value: "qwen/qwen3-32b", name: "💻 Qwen3 32B", rpm: 60, quality: 85, free: true },
             { value: "moonshotai/kimi-k2-instruct", name: "🎯 Kimi K2 Instruct", rpm: 60, quality: 82, free: true },
             { value: "openai/gpt-oss-120b", name: "🧠 GPT-OSS 120B", rpm: 30, quality: 88, free: true },
-            { value: "whisper-large-v3", name: "🎤 Whisper Large v3", rpm: 20, quality: 95, free: true },
-            { value: "whisper-large-v3-turbo", name: "⚡ Whisper Large v3 Turbo", rpm: 20, quality: 92, free: true },
             { value: "allam-2-7b", name: "🌍 Allam 2 7B (Arabic)", rpm: 30, quality: 70, free: true },
             { value: "mixtral-8x7b-32768", name: "⚡ Mixtral 8x7B", rpm: 30, quality: 80, free: true }
         ],
@@ -542,7 +540,7 @@ const AI = {
     },
 
     // Pořadí providerů od nejlepšího (pro fallback)
-    PROVIDER_PRIORITY: ['groq', 'gemini', 'openrouter', 'mistral', 'cohere', 'huggingface'],
+    PROVIDER_PRIORITY: ['gemini', 'groq', 'mistral', 'cohere', 'huggingface', 'openrouter'],
 
     // Cache pro OpenRouter tier info
     _openRouterTierCache: {},
@@ -1284,22 +1282,38 @@ const AI = {
             messages.push({ role: 'user', content: prompt });
         }
 
+        const requestBody = {
+            model: model,
+            messages: messages,
+            temperature: options.temperature ?? 0.7,
+            max_tokens: options.maxTokens ?? 4096
+        };
+
+        console.log('🦙 Groq request:', {
+            url,
+            model,
+            messagesCount: messages.length,
+            hasSystemPrompt: !!options.system,
+            temperature: requestBody.temperature,
+            max_tokens: requestBody.max_tokens,
+            keyLength: key.length,
+            keyStart: key.substring(0, 10) + '...'
+        });
+
         const response = await this.fetchWithTimeout(url, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${key}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                model: model,
-                messages: messages,
-                temperature: options.temperature ?? 0.7,
-                max_tokens: options.maxTokens ?? 4096
-            })
+            body: JSON.stringify(requestBody)
         });
+
+        console.log('🦙 Groq response status:', response.status);
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
+            console.error('🦙 Groq error:', error);
             throw new Error(error.error?.message || `HTTP ${response.status}`);
         }
 
@@ -1698,37 +1712,41 @@ const AI = {
 
     // Interní metoda pro fallback na další model
     _fallbackToNextModel(prompt, options, failedProvider, failedModel) {
-        const allModels = this.getAllModelsSorted();
+        console.log('🔄 Fallback from:', failedProvider, failedModel);
 
-        // Najdi index aktuálního modelu
-        const currentIndex = allModels.findIndex(
-            m => m.provider === failedProvider && m.model === failedModel
-        );
+        // Najdi index současného providera v PROVIDER_PRIORITY
+        const currentProviderIndex = this.PROVIDER_PRIORITY.indexOf(failedProvider);
 
-        // Zkus další modely
-        for (let i = currentIndex + 1; i < allModels.length; i++) {
-            const { provider, model, name } = allModels[i];
+        // Zkus další providery podle priority
+        for (let i = currentProviderIndex + 1; i < this.PROVIDER_PRIORITY.length; i++) {
+            const nextProvider = this.PROVIDER_PRIORITY[i];
 
-            // Přeskoč modely ze stejného providera pokud nemají klíč
-            if (!this.getKey(provider)) continue;
+            // Přeskoč providery bez klíče
+            if (!this.getKey(nextProvider)) {
+                console.log('⏭️ Skipping', nextProvider, '(no key)');
+                continue;
+            }
 
-            this._log(`Fallback na: ${name}`);
+            // Vezmi první (výchozí) model tohoto providera
+            const nextModel = this.config.models[nextProvider];
+            console.log('✅ Trying fallback to:', nextProvider, nextModel);
 
             try {
                 return this.ask(prompt, {
                     ...options,
-                    provider,
-                    model,
+                    provider: nextProvider,
+                    model: nextModel,
                     _keyRotations: 0, // Reset rotace pro nového providera
                     autoFallback: true
                 });
             } catch (e) {
+                console.log('❌ Fallback failed for', nextProvider, e.message);
                 // Pokračuj na další
                 continue;
             }
         }
 
-        throw new Error('Všechny modely vyčerpány');
+        throw new Error('Všechny providery vyčerpány');
     },
 
     async askWithFallback(prompt, options = {}) {
