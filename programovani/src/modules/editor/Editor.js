@@ -129,10 +129,19 @@ export class Editor {
     return this.textarea.value;
   }
 
-  setCode(code) {
+  setCode(code, skipStateUpdate = false) {
+    // Prevent infinite loop - don't set if it's the same
+    if (this.textarea.value === code) {
+      return;
+    }
     this.textarea.value = code;
-    this.updateLineNumbers();
-    state.set('editor.code', code);
+    this.updateLineNumbersFromCode(code);
+
+    // Only update state if not skipped (prevents loops during initialization)
+    if (!skipStateUpdate) {
+      state.set('editor.code', code);
+    }
+
     // Emit change event to update preview
     eventBus.emit('editor:change', { code });
   }
@@ -159,6 +168,10 @@ export class Editor {
 
   updateLineNumbers() {
     const code = this.getCode();
+    this.updateLineNumbersFromCode(code);
+  }
+
+  updateLineNumbersFromCode(code) {
     const lineCount = countLines(code);
     const numbers = Array.from({ length: lineCount }, (_, i) => i + 1).join('\n');
     this.lineNumbers.textContent = numbers;

@@ -50,39 +50,10 @@ export class SidePanel {
     this.panel.className = 'side-panel';
     this.panel.innerHTML = `
       <div class="panel-header">
-        <h2>📁 Soubory & GitHub</h2>
+        <h2>🐙 GitHub Manager</h2>
         <button class="panel-close" aria-label="Zavřít">&times;</button>
       </div>
       <div class="panel-body">
-        <div style="margin-bottom: 24px;">
-          <h3 style="margin: 0 0 12px 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
-              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-              <path d="M13 2v7h7"/>
-            </svg>
-            Otevřené soubory
-          </h3>
-          <div id="panelFilesList" style="background: var(--bg-secondary); border-radius: 8px; padding: 8px; max-height: 300px; overflow-y: auto;">
-            ${this.renderFilesList()}
-          </div>
-          <div style="margin-top: 12px; display: flex; gap: 8px;">
-            <button class="btn btn-secondary" data-action="newFile" style="flex: 1; padding: 10px; border: none; border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; min-height: 44px;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 6px;">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <path d="M14 2v6h6M12 18v-6m-3 3h6"/>
-              </svg>
-              Nový
-            </button>
-            <button class="btn btn-secondary" data-action="save" style="flex: 1; padding: 10px; border: none; border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; min-height: 44px;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 6px;">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                <path d="M17 21v-8H7v8M7 3v5h8"/>
-              </svg>
-              Uložit
-            </button>
-          </div>
-        </div>
-
         <div>
           <h3 style="margin: 0 0 12px 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">

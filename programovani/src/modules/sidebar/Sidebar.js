@@ -19,6 +19,8 @@ export class Sidebar {
   init() {
     this.createSidebar();
     this.setupEventListeners();
+    // Show sidebar by default
+    this.show();
   }
 
   setupEventListeners() {
@@ -27,6 +29,13 @@ export class Sidebar {
     eventBus.on('sidebar:hide', () => this.hide());
     eventBus.on('tabs:updated', () => this.updateFilesList());
     eventBus.on('files:changed', () => this.updateFilesListWithFolders());
+
+    // Update when active file changes
+    state.subscribe('files.active', () => {
+      if (this.isVisible && this.activeTab === 'files') {
+        this.updateFilesListWithFolders();
+      }
+    });
   }
 
   createSidebar() {
@@ -343,11 +352,16 @@ export class Sidebar {
 
   updateFilesListWithFolders() {
     const filesList = this.sidebarElement?.querySelector('#openFilesList');
-    if (!filesList) return;
+    if (!filesList) {
+      console.warn('⚠️ Sidebar: #openFilesList not found');
+      return;
+    }
 
     // Get tabs from new state structure
     const tabs = state.get('files.tabs') || [];
     const activeFileId = state.get('files.active');
+
+    console.log('📁 Sidebar: Updating files list', { tabsCount: tabs.length, activeFileId });
 
     // Update count
     const countElement = this.sidebarElement.querySelector('.file-count');
@@ -410,36 +424,37 @@ export class Sidebar {
   renderFileTree(tree, activeFileId, level = 0) {
     let html = '';
 
-    // Render root files first
-    if (tree._files) {
-      tree._files.forEach(tab => {
-        const isActive = tab.id === activeFileId;
-        const icon = this.getFileIcon(tab.name);
-        html += `
-          <div class="file-item ${isActive ? 'active' : ''}" data-file-id="${tab.id}" style="padding-left: ${level * 20 + 12}px;">
-            <span class="file-icon">${icon}</span>
-            <span class="file-name">${tab.name}</span>
-          </div>
-        `;
-      });
-    }
-
-    // Render folders
+    // Render folders first
     Object.keys(tree).forEach(key => {
       if (key === '_files') return;
 
       const folder = tree[key];
       html += `
         <div class="folder-item" data-folder="${key}" style="padding-left: ${level * 20 + 12}px;">
-          <span class="folder-toggle">▶</span>
-          <span class="folder-icon">📁</span>
+          <span class="folder-toggle">▼</span>
+          <span class="folder-icon">📂</span>
           <span class="folder-name">${key}</span>
         </div>
-        <div class="folder-content" data-folder-content="${key}" style="display: none;">
+        <div class="folder-content" data-folder-content="${key}">
           ${this.renderFileTree(folder, activeFileId, level + 1)}
         </div>
       `;
     });
+
+    // Render root files after folders
+    if (tree._files) {
+      tree._files.forEach(tab => {
+        const isActive = tab.id === activeFileId;
+        const icon = this.getFileIcon(tab.name);
+        const fileName = tab.path ? tab.path.split('/').pop() : tab.name;
+        html += `
+          <div class="file-item ${isActive ? 'active' : ''}" data-file-id="${tab.id}" style="padding-left: ${level * 20 + 12}px;">
+            <span class="file-icon">${icon}</span>
+            <span class="file-name">${fileName}</span>
+          </div>
+        `;
+      });
+    }
 
     return html;
   }
@@ -784,12 +799,13 @@ export class Sidebar {
   show() {
     if (this.isVisible) return;
 
+    console.log('👁️ Sidebar: Showing sidebar');
     this.sidebarElement.classList.add('visible');
     this.isVisible = true;
 
     // Update content
     if (this.activeTab === 'files') {
-      this.updateFilesList();
+      this.updateFilesListWithFolders();
     } else if (this.activeTab === 'github') {
       this.updateGitHubStatus();
     }
