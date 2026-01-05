@@ -427,6 +427,92 @@ export class FindReplacePanel {
           font-size: 11px;
           margin-top: 4px;
         }
+
+        /* Mobile Optimization */
+        @media (max-width: 768px) {
+          .find-replace-panel {
+            gap: 15px;
+          }
+
+          .find-replace-inputs {
+            padding: 15px;
+            gap: 12px;
+          }
+
+          .input-group input[type="text"] {
+            padding: 10px 14px;
+            font-size: 16px; /* Prevents zoom on iOS */
+          }
+
+          .find-replace-options {
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .find-replace-actions {
+            flex-direction: column;
+            gap: 10px;
+          }
+
+          .find-replace-actions .btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .result-item {
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px;
+          }
+
+          .result-number {
+            align-self: flex-start;
+          }
+
+          .result-context {
+            font-size: 12px;
+          }
+
+          .result-location {
+            flex-wrap: wrap;
+            gap: 6px;
+          }
+
+          .visual-mode-controls {
+            padding: 12px;
+          }
+
+          .visual-mode-controls .btn {
+            padding: 8px 16px;
+            font-size: 14px;
+          }
+        }
+
+        /* Small mobile devices */
+        @media (max-width: 480px) {
+          .find-replace-inputs {
+            padding: 12px;
+          }
+
+          .result-item {
+            padding: 10px;
+          }
+
+          .result-number {
+            min-width: 28px;
+            height: 28px;
+            font-size: 12px;
+          }
+
+          .result-context {
+            font-size: 11px;
+          }
+
+          .btn-primary, .btn-secondary, .btn-visual, .btn-success, .btn-cancel {
+            padding: 8px 16px;
+            font-size: 14px;
+          }
+        }
       </style>
     `;
   }
