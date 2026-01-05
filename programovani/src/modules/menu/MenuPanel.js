@@ -4,6 +4,7 @@
  */
 
 import { eventBus } from '../../core/events.js';
+import { state } from '../../core/state.js';
 import { AITester } from '../ai/AITester.js';
 import { Modal } from '../../ui/components/Modal.js';
 
@@ -93,13 +94,6 @@ export class MenuPanel {
       </div>
 
       <nav class="menu-nav">
-        <div class="menu-section">
-          <h3>📁 Otevřené soubory</h3>
-          <div id="openFilesManager" class="open-files-list">
-            <!-- Files will be dynamically added here -->
-          </div>
-        </div>
-
         <div class="menu-section">
           <h3>⚙️ Nastavení</h3>
           <button class="menu-item" data-action="aiSettings">
@@ -1755,6 +1749,14 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
           <button id="startGithubSearch" style="width: 100%; padding: 14px; background: var(--accent, #007acc); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: opacity 0.2s;">
             🔍 Hledat
           </button>
+          <div style="margin-top: 12px; text-align: center;">
+            <a href="#" id="openGithubSearch" style="color: var(--accent, #007acc); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+              <svg viewBox="0 0 16 16" fill="currentColor" style="width: 14px; height: 14px;">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+              </svg>
+              Pokračovat na GitHub.com
+            </a>
+          </div>
           <div id="githubSearchResults" style="margin-top: 30px; display: none;">
             <h4 style="margin-bottom: 15px; color: var(--text-primary, #fff);">Výsledky hledání:</h4>
             <div id="githubResultsList" style="display: grid; gap: 10px; max-height: 400px; overflow-y: auto;"></div>
@@ -1773,6 +1775,14 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
     modal.querySelector('#githubSearchClose').addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
       if (e.target === modal) closeModal();
+    });
+
+    // Odkaz na GitHub.com s předvyplněným vyhledáváním
+    modal.querySelector('#openGithubSearch').addEventListener('click', (e) => {
+      e.preventDefault();
+      const query = modal.querySelector('#githubSearchQuery').value.trim() || 'html';
+      const githubUrl = `https://github.com/search?q=${encodeURIComponent(query)}+language:html&type=repositories&s=stars&o=desc`;
+      window.open(githubUrl, '_blank');
     });
 
     modal.querySelector('#startGithubSearch').addEventListener('click', async () => {
@@ -1834,6 +1844,21 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
 
           resultCard.querySelector('.load-github-code').addEventListener('click', async (e) => {
             e.stopPropagation();
+
+            // Varovná hláška
+            const currentFiles = state.get('files.tabs') || [];
+            if (currentFiles.length > 0) {
+              const confirmed = confirm(
+                `⚠️ VAROVÁNÍ\n\n` +
+                `Načtení projektu z GitHub smaže všechny aktuálně otevřené soubory (${currentFiles.length}).\n\n` +
+                `Chcete pokračovat?`
+              );
+
+              if (!confirmed) {
+                return;
+              }
+            }
+
             const btn = e.currentTarget;
             btn.disabled = true;
             btn.textContent = '⏳ Načítání...';
@@ -1941,62 +1966,48 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
       const repoData = await repoInfo.json();
       const defaultBranch = repoData.default_branch || 'main';
 
-      // Najít hlavní HTML soubor
-      const possibleFiles = ['index.html', 'index.htm', 'home.html', 'main.html'];
-      let mainHtmlFile = null;
-      let mainHtmlContent = null;
-
-      for (const file of possibleFiles) {
-        try {
-          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${file}`;
-          const response = await fetch(rawUrl);
-          if (response.ok) {
-            mainHtmlFile = file;
-            mainHtmlContent = await response.text();
-            break;
-          }
-        } catch (e) {
-          continue;
-        }
+      // Získat strom souborů z repozitáře
+      const treeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${defaultBranch}?recursive=1`);
+      if (!treeResponse.ok) {
+        throw new Error('Nepodařilo se načíst strukturu repozitáře');
       }
+      const treeData = await treeResponse.json();
 
-      if (!mainHtmlContent) {
-        throw new Error('Nenalezen žádný HTML soubor v repozitáři.');
-      }
+      // Filtrovat pouze soubory (ne složky) a rozumné typy
+      const supportedExtensions = ['.html', '.htm', '.css', '.js', '.json', '.txt', '.md', '.xml', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.ico'];
+      const maxFileSize = 1024 * 1024; // 1MB limit
 
-      // Analyzovat HTML a najít všechny závislosti
-      const dependencies = this.parseHtmlDependencies(mainHtmlContent);
+      const files = treeData.tree.filter(item =>
+        item.type === 'blob' &&
+        supportedExtensions.some(ext => item.path.toLowerCase().endsWith(ext)) &&
+        item.size < maxFileSize &&
+        !item.path.includes('node_modules') &&
+        !item.path.includes('.git')
+      );
+
+      console.log(`📂 Nalezeno ${files.length} souborů ke stažení`);
 
       // Stáhnout všechny soubory
-      const filesToCreate = [
-        { name: mainHtmlFile, content: mainHtmlContent }
-      ];
+      const filesToCreate = [];
 
-      // Stáhnout CSS soubory
-      for (const cssPath of dependencies.css) {
+      for (const file of files) {
         try {
-          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${cssPath}`;
+          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${file.path}`;
           const response = await fetch(rawUrl);
           if (response.ok) {
-            const content = await response.text();
-            filesToCreate.push({ name: cssPath, content });
-          }
-        } catch (e) {
-          console.warn(`Nepodařilo se načíst CSS: ${cssPath}`);
-        }
-      }
+            // Pro textové soubory použít text(), pro binární blob
+            const isTextFile = ['.html', '.htm', '.css', '.js', '.json', '.txt', '.md', '.xml', '.svg'].some(ext =>
+              file.path.toLowerCase().endsWith(ext)
+            );
 
-      // Stáhnout JS soubory
-      for (const jsPath of dependencies.js) {
-        try {
-          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${jsPath}`;
-          const response = await fetch(rawUrl);
-          if (response.ok) {
-            const content = await response.text();
-            filesToCreate.push({ name: jsPath, content });
+            const content = isTextFile ? await response.text() : await response.blob();
+            filesToCreate.push({
+              name: file.path,
+              content: isTextFile ? content : `[Binary file: ${file.path}]`
+            });
           }
         } catch (e) {
-          console.warn(`Nepodařilo se načíst JS: ${jsPath}`);
+          console.warn(`Nepodařilo se načíst: ${file.path}`);
         }
       }
 

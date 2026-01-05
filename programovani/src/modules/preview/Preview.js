@@ -54,6 +54,10 @@ export class Preview {
 
   update(code) {
     try {
+      // Get all open files to inject CSS/JS
+      const tabs = state.get('files.tabs') || [];
+      const enhancedCode = this.injectProjectFiles(code, tabs);
+
       // Completely reload iframe to avoid duplicate variable declarations
       const oldIframe = this.iframe;
       const newIframe = document.createElement('iframe');
@@ -68,7 +72,7 @@ export class Preview {
       // Wait for iframe to be ready
       setTimeout(() => {
         // Inject console capture script
-        const wrappedCode = this.injectConsoleCapture(code);
+        const wrappedCode = this.injectConsoleCapture(enhancedCode);
 
         // Write to new iframe
         const doc = this.iframe.contentDocument || this.iframe.contentWindow.document;
@@ -76,12 +80,79 @@ export class Preview {
         doc.write(wrappedCode);
         doc.close();
 
-        eventBus.emit('preview:updated', { code });
+        eventBus.emit('preview:updated', { code: enhancedCode });
       }, 10);
     } catch (error) {
       console.error('Preview update error:', error);
       this.showError(error);
     }
+  }
+
+  injectProjectFiles(htmlCode, tabs) {
+    let modifiedCode = htmlCode;
+
+    // Find all CSS files and inject them
+    const cssFiles = tabs.filter(tab => tab.type === 'css' || tab.name.endsWith('.css'));
+    const jsFiles = tabs.filter(tab => tab.type === 'javascript' || tab.name.endsWith('.js'));
+
+    // Build CSS inline styles
+    if (cssFiles.length > 0) {
+      const cssContent = cssFiles.map(tab => {
+        return `/* ${tab.name} */\n${tab.content}`;
+      }).join('\n\n');
+
+      const styleTag = `<style id="injected-css">\n${cssContent}\n</style>`;
+
+      // Try to inject before </head> or at start of <body>
+      if (modifiedCode.includes('</head>')) {
+        modifiedCode = modifiedCode.replace('</head>', `${styleTag}\n</head>`);
+      } else if (modifiedCode.includes('<body>')) {
+        modifiedCode = modifiedCode.replace('<body>', `<body>\n${styleTag}`);
+      } else {
+        modifiedCode = styleTag + '\n' + modifiedCode;
+      }
+    }
+
+    // Build JS inline scripts
+    if (jsFiles.length > 0) {
+      const jsContent = jsFiles.map(tab => {
+        return `/* ${tab.name} */\n${tab.content}`;
+      }).join('\n\n');
+
+      const scriptTag = `<script id="injected-js">\n${jsContent}\n</script>`;
+
+      // Try to inject before </body> or at end
+      if (modifiedCode.includes('</body>')) {
+        modifiedCode = modifiedCode.replace('</body>', `${scriptTag}\n</body>`);
+      } else {
+        modifiedCode = modifiedCode + '\n' + scriptTag;
+      }
+    }
+
+    // Replace relative CSS/JS links with comment (since we injected them)
+    modifiedCode = modifiedCode.replace(/<link[^>]*href=["']([^"']+\.css)["'][^>]*>/gi, (match, path) => {
+      if (!path.startsWith('http') && !path.startsWith('//')) {
+        const fileName = path.split('/').pop();
+        const hasFile = cssFiles.some(tab => tab.name === fileName || tab.path === path);
+        if (hasFile) {
+          return `<!-- CSS file ${path} injected inline -->`;
+        }
+      }
+      return match;
+    });
+
+    modifiedCode = modifiedCode.replace(/<script[^>]*src=["']([^"']+\.js)["'][^>]*><\/script>/gi, (match, path) => {
+      if (!path.startsWith('http') && !path.startsWith('//')) {
+        const fileName = path.split('/').pop();
+        const hasFile = jsFiles.some(tab => tab.name === fileName || tab.path === path);
+        if (hasFile) {
+          return `<!-- JS file ${path} injected inline -->`;
+        }
+      }
+      return match;
+    });
+
+    return modifiedCode;
   }
 
   injectConsoleCapture(code) {

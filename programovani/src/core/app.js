@@ -16,6 +16,7 @@ import { ShortcutsPanel } from '../modules/shortcuts/ShortcutsPanel.js';
 import { MenuPanel } from '../modules/menu/MenuPanel.js';
 import { SearchPanel } from '../modules/search/SearchPanel.js';
 import { SidePanel } from '../modules/panel/SidePanel.js';
+import { Sidebar } from '../modules/sidebar/Sidebar.js';
 
 class App {
   constructor() {
@@ -26,6 +27,7 @@ class App {
     this.menuPanel = null;
     this.searchPanel = null;
     this.sidePanel = null;
+    this.sidebar = null;
     this.initialized = false;
   }
 
@@ -94,9 +96,13 @@ class App {
     this.searchPanel = new SearchPanel();
     console.log('✓ Search Panel initialized');
 
-    // Side Panel
-    this.sidePanel = new SidePanel();
-    console.log('✓ Side Panel initialized');
+    // Side Panel (pravý) - DISABLED, používáme pouze Sidebar
+    // this.sidePanel = new SidePanel();
+    // console.log('✓ Side Panel initialized');
+
+    // Sidebar (levý)
+    this.sidebar = new Sidebar();
+    console.log('✓ Sidebar initialized');
   }
 
   setupEventListeners() {
@@ -118,12 +124,12 @@ class App {
       this.menuPanel.toggle();
     });
 
-    // Sidebar toggle
-    eventBus.on('sidebar:toggle', () => {
-      if (this.sidePanel) {
-        this.sidePanel.toggle();
-      }
-    });
+    // Sidebar toggle - DISABLED (používáme pouze Sidebar vlevo)
+    // eventBus.on('sidebar:toggle', () => {
+    //   if (this.sidePanel) {
+    //     this.sidePanel.toggle();
+    //   }
+    // });
 
     // AI panel toggle
     eventBus.on('ai:show', () => {
@@ -526,18 +532,30 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       return;
     }
 
+    // Zakázat otevírání binárních souborů
+    if (tab.content && tab.content.startsWith('[Binary file:')) {
+      toast.warning('Binární soubory nelze editovat', 2000);
+      state.set('files.active', fileId);
+      return;
+    }
+
     // Set as active file
     state.set('files.active', fileId);
 
-    // Load content to editor
-    state.set('editor.code', tab.content);
-    if (this.editor) {
-      this.editor.setCode(tab.content);
-    }
+    // Load content to editor (pouze pokud se změnil)
+    const currentCode = state.get('editor.code');
+    if (currentCode !== tab.content) {
+      if (this.editor) {
+        this.editor.setCode(tab.content, true); // Skip state update to prevent loop
+      }
 
-    // Update preview
-    if (this.preview) {
-      this.preview.update(tab.content);
+      // Then update state
+      state.set('editor.code', tab.content);
+
+      // Update preview pouze pro HTML
+      if (this.preview && (tab.type === 'html' || tab.name.endsWith('.html'))) {
+        this.preview.update(tab.content);
+      }
     }
 
     // Add to recent files
@@ -640,12 +658,8 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
   loadGitHubProject(projectName, files) {
     console.log(`📦 Loading GitHub project: ${projectName}`, files);
 
-    // Zavřít všechny otevřené soubory
-    state.set('files.tabs', []);
-    state.set('files.active', null);
-
     const tabs = [];
-    let nextId = 1;
+    let nextId = state.get('files.nextId') || 1;
     let htmlFileId = null;
 
     // Vytvořit taby pro všechny soubory
@@ -661,9 +675,13 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
 
       tabs.push(tab);
 
-      // Najít první HTML soubor
+      // Najít první HTML soubor (priorita: index.html)
       if (!htmlFileId && file.name.endsWith('.html')) {
-        htmlFileId = nextId;
+        if (file.name === 'index.html' || file.name.endsWith('/index.html')) {
+          htmlFileId = nextId;
+        } else if (!htmlFileId) {
+          htmlFileId = nextId;
+        }
       }
 
       nextId++;
@@ -672,22 +690,23 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     // Nastavit soubory do state
     state.set('files.tabs', tabs);
     state.set('files.nextId', nextId);
+    state.set('files.active', htmlFileId || (tabs.length > 0 ? tabs[0].id : null));
 
-    // Otevřít HTML soubor nebo první soubor
-    const activeId = htmlFileId || (tabs.length > 0 ? tabs[0].id : null);
+    // Otevřít pouze HTML soubor do editoru
+    if (htmlFileId) {
+      const activeTab = tabs.find(t => t.id === htmlFileId);
+      if (activeTab) {
+        // Update editor a preview bez triggeru state změn (zabránění infinite loop)
+        if (this.editor) {
+          this.editor.setCode(activeTab.content, true); // Skip state update
+        }
 
-    if (activeId) {
-      state.set('files.active', activeId);
-      const activeTab = tabs.find(t => t.id === activeId);
+        // Pak nastavit state
+        state.set('editor.code', activeTab.content);
 
-      if (activeTab && this.editor) {
-        this.editor.setCode(activeTab.content);
-        this.editor.focus();
-      }
-
-      // Update preview pro HTML soubory
-      if (activeTab && activeTab.type === 'html' && this.preview) {
-        this.preview.update(activeTab.content);
+        if (this.preview && activeTab.type === 'html') {
+          this.preview.update(activeTab.content);
+        }
       }
     }
 
