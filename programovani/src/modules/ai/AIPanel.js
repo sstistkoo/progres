@@ -2366,16 +2366,44 @@ NEW:
           console.log('✓ Whitespace mismatch - aplikuji stejně');
           // Continue with the change
         } else {
-          failedEdits.push({
-            lines: `${startLine}-${endLine}`,
-            reason: 'OLD kód nesedí',
-            expected: expectedPreview,
-            actual: actualPreview,
-            fullExpected: oldCode,
-            fullActual: actualCode
-          });
-          continue;
+          // Try to find similar content nearby (within 5 lines)
+          let foundMatch = false;
+          for (let offset = -5; offset <= 5; offset++) {
+            if (offset === 0) continue;
+            const offsetStart = startLine + offset - 1;
+            const offsetEnd = endLine + offset;
+            if (offsetStart < 0 || offsetEnd > lines.length) continue;
+
+            const offsetCode = lines.slice(offsetStart, offsetEnd).join('\n');
+            if (offsetCode.trim() === oldCode.trim()) {
+              console.log(`✓ Našel jsem shodu na řádcích ${offsetStart + 1}-${offsetEnd} (offset ${offset})`);
+              // Apply change at correct location
+              const newLines = newCode.split('\n');
+              lines.splice(offsetStart, offsetEnd - offsetStart, ...newLines);
+              appliedCount++;
+              foundMatch = true;
+              break;
+            }
+          }
+
+          if (!foundMatch) {
+            failedEdits.push({
+              lines: `${startLine}-${endLine}`,
+              reason: 'OLD kód nesedí',
+              expected: expectedPreview,
+              actual: actualPreview,
+              fullExpected: oldCode,
+              fullActual: actualCode,
+              newCode: newCode
+            });
+            continue;
+          }
         }
+      } else {
+        // Apply change normally
+        const newLines = newCode.split('\n');
+        lines.splice(startLine - 1, endLine - startLine + 1, ...newLines);
+        appliedCount++;
       }
 
       // Apply change
@@ -2387,23 +2415,104 @@ NEW:
     if (failedEdits.length > 0) {
       console.warn('⚠️ Některé změny selhaly:', failedEdits);
 
-      // Create detailed error message
-      const errorMessages = failedEdits.map(f =>
-        `Řádky ${f.lines}: ${f.reason}\n` +
-        `  AI očekávala: "${f.expected}"\n` +
-        `  Skutečnost: "${f.actual}"`
-      ).join('\n\n');
+      // Show failed edits with context in console
+      failedEdits.forEach((f, i) => {
+        console.group(`❌ Změna #${i + 1} (řádky ${f.lines})`);
+        console.log('📝 Aktuální kód v editoru:');
+        console.log(f.fullActual);
+        console.log('\n💡 Co chce AI nahradit (nesedí):');
+        console.log(f.fullExpected);
+        console.log('\n✨ Nový kód od AI:');
+        console.log(f.newCode);
+        console.groupEnd();
+      });
 
-      const message = `⚠️ ${appliedCount}/${edits.length} změn aplikováno\n\n` +
-        `💡 Problém: Kód v editoru se liší od toho co AI očekávala.\n` +
-        `Možná byl mezitím změněn.\n\n${errorMessages}\n\n` +
-        `💬 Zkus požádat AI znovu s aktuálním kódem.`;
+      // Create interactive error UI
+      const errorDetails = failedEdits.map((f, i) => {
+        return `
+          <div class="failed-edit" style="margin-bottom: 15px; padding: 10px; background: #2a2a2a; border-left: 3px solid #f59e0b; border-radius: 4px;">
+            <div style="font-weight: bold; margin-bottom: 8px;">❌ Změna #${i + 1} (řádky ${f.lines})</div>
+            <div style="margin-bottom: 5px; font-size: 0.9em; color: #999;">
+              <strong>📄 Aktuální kód v editoru:</strong>
+            </div>
+            <pre style="background: #1a1a1a; padding: 8px; border-radius: 3px; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(f.fullActual)}</pre>
+
+            <div style="margin: 10px 0 5px; font-size: 0.9em; color: #999;">
+              <strong>💡 Co AI chce nahradit (nesedí):</strong>
+            </div>
+            <pre style="background: #1a1a1a; padding: 8px; border-radius: 3px; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(f.fullExpected)}</pre>
+
+            <div style="margin: 10px 0 5px; font-size: 0.9em; color: #999;">
+              <strong>✨ Nový kód od AI:</strong>
+            </div>
+            <pre style="background: #1a1a1a; padding: 8px; border-radius: 3px; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(f.newCode)}</pre>
+
+            <button class="apply-manual-btn" data-newcode="${this.escapeHtml(f.newCode)}" style="margin-top: 10px; padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+              📋 Zkopírovat nový kód
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      const modalContent = `
+        <div style="max-height: 60vh; overflow-y: auto; padding: 10px;">
+          <div style="margin-bottom: 15px; padding: 12px; background: #1a1a1a; border-radius: 6px;">
+            <div style="font-size: 1.1em; margin-bottom: 8px;">
+              ${appliedCount > 0
+                ? `⚠️ <strong>${appliedCount}/${edits.length} změn aplikováno</strong>`
+                : '❌ <strong>Nepodařilo se aplikovat změny</strong>'}
+            </div>
+            <div style="color: #999; font-size: 0.95em;">
+              Kód v editoru se liší od očekávání AI. Možná byl mezitím změněn nebo AI neviděla aktuální verzi.
+            </div>
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <strong>💡 Co dělat:</strong>
+            <ul style="margin: 8px 0; padding-left: 20px; color: #999;">
+              <li>Zkus požádat znovu s aktuálním stavem kódu</li>
+              <li>Nebo upřesni co chceš změnit</li>
+              <li>Můžeš zkopírovat navržený kód níže a vložit ručně</li>
+            </ul>
+          </div>
+
+          ${errorDetails}
+        </div>
+      `;
+
+      // Create modal for errors
+      const errorModal = new Modal({
+        title: `${appliedCount > 0 ? '⚠️ Částečné selhání' : '❌ Změny nelze aplikovat'}`,
+        content: modalContent,
+        className: 'failed-edits-modal',
+        size: 'large'
+      });
+
+      errorModal.create();
+      errorModal.open();
+
+      // Add event listeners for copy buttons
+      setTimeout(() => {
+        const copyButtons = errorModal.element.querySelectorAll('.apply-manual-btn');
+        copyButtons.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const newCode = e.target.dataset.newcode;
+            const decoded = this.unescapeHtml(newCode);
+            navigator.clipboard.writeText(decoded).then(() => {
+              toast.success('✅ Kód zkopírován do schránky', 2000);
+              e.target.textContent = '✓ Zkopírováno!';
+              e.target.style.background = '#059669';
+              setTimeout(() => {
+                e.target.textContent = '📋 Zkopírovat nový kód';
+                e.target.style.background = '#10b981';
+              }, 2000);
+            });
+          });
+        });
+      }, 100);
 
       if (appliedCount === 0) {
-        toast.error(message, 10000);
         return false;
-      } else {
-        toast.warning(message, 10000);
       }
     } else if (appliedCount > 0) {
       toast.success(`✅ Aplikováno ${appliedCount} změn automaticky`, 3000);
@@ -2794,6 +2903,12 @@ NEW:
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  unescapeHtml(text) {
+    const div = document.createElement('div');
+    div.innerHTML = text;
+    return div.textContent;
   }
 
   generateProviderOptions() {
