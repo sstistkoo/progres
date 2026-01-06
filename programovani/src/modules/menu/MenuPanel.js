@@ -179,6 +179,71 @@ export class MenuPanel {
           </button>
         </div>
 
+        <div class="menu-section">
+          <button class="menu-item menu-expandable" id="similarToolsToggle">
+            <span class="menu-icon">🌐</span>
+            <span>Podobné nástroje</span>
+            <span class="expand-arrow">▼</span>
+          </button>
+          <div class="menu-expandable-content" id="similarToolsContent">
+            <div class="tools-category">
+              <h4>🎨 Online Code Editory</h4>
+              <a href="https://codepen.io" target="_blank" class="tool-link">
+                <strong>CodePen</strong>
+                <small>Živý preview HTML/CSS/JS, komunita</small>
+              </a>
+              <a href="https://jsfiddle.net" target="_blank" class="tool-link">
+                <strong>JSFiddle</strong>
+                <small>Rychlé testování a sdílení kódu</small>
+              </a>
+              <a href="https://stackblitz.com" target="_blank" class="tool-link">
+                <strong>StackBlitz</strong>
+                <small>Plnohodnotné IDE, Node.js & npm</small>
+              </a>
+              <a href="https://codesandbox.io" target="_blank" class="tool-link">
+                <strong>CodeSandbox</strong>
+                <small>Online VSCode, full-stack projekty</small>
+              </a>
+              <a href="https://replit.com" target="_blank" class="tool-link">
+                <strong>Replit</strong>
+                <small>IDE + hosting, multiplayer coding</small>
+              </a>
+            </div>
+
+            <div class="tools-category">
+              <h4>🤖 AI-Assisted Editory</h4>
+              <a href="https://aistudio.google.com" target="_blank" class="tool-link">
+                <strong>Google AI Studio</strong>
+                <small>Gemini API playground, prompt engineering</small>
+              </a>
+              <a href="https://bolt.new" target="_blank" class="tool-link">
+                <strong>Bolt.new</strong>
+                <small>AI generuje celé aplikace, instant deploy</small>
+              </a>
+              <a href="https://v0.dev" target="_blank" class="tool-link">
+                <strong>v0.dev</strong>
+                <small>AI React komponenty, Shadcn UI</small>
+              </a>
+              <a href="https://cursor.sh" target="_blank" class="tool-link">
+                <strong>Cursor</strong>
+                <small>AI-first code editor, VSCode fork</small>
+              </a>
+            </div>
+
+            <div class="tools-category">
+              <h4>📱 Mobile Code Editory</h4>
+              <a href="https://play.google.com/store/apps/details?id=io.spck" target="_blank" class="tool-link">
+                <strong>Spck Editor</strong>
+                <small>Android/iOS - Git, live preview, offline</small>
+              </a>
+              <a href="https://play.google.com/store/apps/details?id=com.foxdebug.acodefree" target="_blank" class="tool-link">
+                <strong>Acode</strong>
+                <small>Android - Plugin systém, GitHub</small>
+              </a>
+            </div>
+          </div>
+        </div>
+
         <div class="menu-footer">
           <small>💡 Pro základní akce použijte <strong>logo ⚡</strong> nebo <strong>Ctrl+K</strong></small>
         </div>
@@ -192,7 +257,7 @@ export class MenuPanel {
     closeBtn.addEventListener('click', () => this.hide());
 
     // Menu items
-    const menuItems = this.menuElement.querySelectorAll('.menu-item');
+    const menuItems = this.menuElement.querySelectorAll('.menu-item:not(.menu-expandable)');
     menuItems.forEach(item => {
       item.addEventListener('click', () => {
         const action = item.dataset.action;
@@ -200,6 +265,26 @@ export class MenuPanel {
         this.hide();
       });
     });
+
+    // Similar tools expandable
+    const similarToolsToggle = this.menuElement.querySelector('#similarToolsToggle');
+    const similarToolsContent = this.menuElement.querySelector('#similarToolsContent');
+    if (similarToolsToggle && similarToolsContent) {
+      // Ensure it's collapsed initially
+      similarToolsContent.classList.remove('expanded');
+
+      similarToolsToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const isExpanded = similarToolsContent.classList.contains('expanded');
+        similarToolsContent.classList.toggle('expanded');
+        const arrow = similarToolsToggle.querySelector('.expand-arrow');
+        if (arrow) {
+          arrow.textContent = isExpanded ? '▼' : '▲';
+        }
+        console.log('Toggle similar tools:', isExpanded ? 'collapse' : 'expand');
+      });
+    }
   }
 
   executeAction(action) {

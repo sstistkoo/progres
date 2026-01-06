@@ -1360,6 +1360,121 @@
   border-radius: 4px;
 }
 
+/* Menu Expandable Section */
+.menu-expandable {
+  position: relative;
+}
+
+.menu-expandable .expand-arrow {
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: transform 0.3s ease;
+  margin-left: auto;
+}
+
+.menu-expandable-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease-out, padding 0.4s ease-out;
+  padding: 0;
+  opacity: 0;
+}
+
+.menu-expandable-content.expanded {
+  max-height: 500px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  opacity: 1;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--bg-secondary);
+}
+
+.menu-expandable-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.menu-expandable-content::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 3px;
+}
+
+.menu-expandable-content::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+.menu-expandable-content::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-hover);
+}
+
+.tools-category {
+  margin-bottom: 16px;
+}
+
+.tools-category:last-child {
+  margin-bottom: 0;
+}
+
+.tools-category h4 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  padding: 8px 0 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.tool-link:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+  transform: translateX(4px);
+}
+
+.tool-link strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tool-link small {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.tool-link::after {
+  content: '↗';
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.tool-link:hover::after {
+  opacity: 1;
+}
+
 /* Menu Footer */
 .menu-footer {
   padding: 16px 20px;
