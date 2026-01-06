@@ -1246,19 +1246,21 @@ ${filesContext}
 💾 Aktuální kód v editoru (${currentCode ? currentCode.split('\n').length : 0} řádků):
 \`\`\`html
 ${currentCode ? (() => {
-  // For EDIT mode or if user asks for full code, don't truncate
-  const needsFullCode = message && (
-    message.toLowerCase().includes('celý soubor') ||
-    message.toLowerCase().includes('celý kód') ||
-    message.toLowerCase().includes('zobraz vše') ||
-    message.toLowerCase().includes('show all') ||
-    currentCode.length < 8000 // Small files - no need to truncate
+  // Detect if AI will likely use EDIT:LINES mode
+  const msg = message ? message.toLowerCase() : '';
+  const willEdit = hasCode && (
+    msg.match(/\b(změň|change|uprav|edit|oprav|fix|přidej|add|odstraň|remove|smaž|delete)\b/) ||
+    msg.includes('celý soubor') ||
+    msg.includes('celý kód') ||
+    msg.includes('zobraz vše')
   );
 
-  if (needsFullCode) {
+  // For EDIT mode or small files, send full code with line numbers
+  if (willEdit || currentCode.length < 8000) {
     return this.addLineNumbers(currentCode);
   }
 
+  // Otherwise truncate for context
   const truncated = this.truncateCodeIntelligently(currentCode, 3000);
   return this.addLineNumbers(typeof truncated === 'string' ? truncated : truncated.code, typeof truncated === 'object' ? truncated : null);
 })() : '(prázdný editor)'}
@@ -2505,10 +2507,10 @@ NEW:
               break;
             }
 
-            // Partial match (obsahuje alespoň 70% stejného textu)
+            // Partial match (obsahuje alespoň 90% stejného textu)
             if (!foundMatch && oldCode.length > 20) {
               const similarity = this.calculateSimilarity(offsetNormalized, oldNormalized);
-              if (similarity > 0.7) {
+              if (similarity > 0.90) {
                 console.log(`✓ Našel jsem podobnou shodu (${Math.round(similarity * 100)}%) na řádcích ${offsetStart + 1}-${offsetEnd}`);
                 const newLines = newCode.split('\n');
                 lines.splice(offsetStart, offsetEnd - offsetStart, ...newLines);
