@@ -2671,16 +2671,14 @@ NEW:
         }
       }
 
-      // Set flag to prevent double history save
+      // Apply new code - use setCode without skip to trigger normal flow
+      // But don't save to history again (we just did above)
       editor.isUndoRedoInProgress = true;
+      editor.setCode(newCode, true); // Skip state update
+      editor.isUndoRedoInProgress = false;
 
-      // Apply new code and update state
-      editor.setCode(newCode); // Don't skip state update
-
-      // Reset flag after state update propagates
-      setTimeout(() => {
-        editor.isUndoRedoInProgress = false;
-      }, 0);
+      // Manually update state
+      state.set('editor.code', newCode);
 
       console.log(`💾 Undo historie: ${editor.history?.past?.length || 0} kroků`);
     } else {
