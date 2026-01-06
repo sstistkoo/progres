@@ -1245,7 +1245,23 @@ ${filesContext}
 📄 ${activeFile ? `Aktivní soubor: ${activeFile.name}` : 'Žádný aktivní soubor'}
 💾 Aktuální kód v editoru (${currentCode ? currentCode.split('\n').length : 0} řádků):
 \`\`\`html
-${currentCode ? this.addLineNumbers(this.truncateCodeIntelligently(currentCode, 3000)) : '(prázdný editor)'}
+${currentCode ? (() => {
+  // For EDIT mode or if user asks for full code, don't truncate
+  const needsFullCode = message && (
+    message.toLowerCase().includes('celý soubor') ||
+    message.toLowerCase().includes('celý kód') ||
+    message.toLowerCase().includes('zobraz vše') ||
+    message.toLowerCase().includes('show all') ||
+    currentCode.length < 8000 // Small files - no need to truncate
+  );
+
+  if (needsFullCode) {
+    return this.addLineNumbers(currentCode);
+  }
+
+  const truncated = this.truncateCodeIntelligently(currentCode, 3000);
+  return this.addLineNumbers(typeof truncated === 'string' ? truncated : truncated.code, typeof truncated === 'object' ? truncated : null);
+})() : '(prázdný editor)'}
 \`\`\`
 
 💬 ${historyContext}
@@ -1381,6 +1397,15 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
           );
           return;
         }
+      } else if (response.includes('EDIT:LINES')) {
+        // EDIT:LINES bloky byly detekovány ale ignorovány kvůli prázdným OLD blokům
+        toast.error(
+          `❌ AI použila ZAKÁZANÉ zkratky v OLD blocích!\n\n` +
+          `💡 AI musí zkopírovat PŘESNÝ kód, ne "...", "// ...", "/* ... */"\n\n` +
+          `🔄 Zkus požádat AI znovu nebo buď konkrétnější.`,
+          8000
+        );
+        console.error('❌ EDIT:LINES bloky ignorovány - obsahují prázdné nebo zkrácené OLD bloky');
       }
 
       // Check if this is modification of existing code (has history and code)
@@ -1839,14 +1864,33 @@ NEW:
 - Vysvětlovat co děláš PŘED kódem
 - Psát jakýkoliv český text mimo EDIT:LINES bloky
 - Popisovat změny slovy
+- Používat zkratky "// ...", "/* ... */", "..." v OLD blocích
 
 ✅ JEDINÁ POVOLENÁ ODPOVĚĎ:
 \\\`\\\`\\\`EDIT:LINES:1-5
 OLD:
-[původní kód]
+[PŘESNÝ původní kód - kopie z editoru!]
 NEW:
 [nový kód]
 \\\`\\\`\\\`
+
+🚨 KRITICKÉ - OLD BLOK:
+- Musí obsahovat PŘESNÝ kód z editoru
+- NIKDY nepoužívej "// ...", "/* ... */", "...zkráceno..."
+- Zkopíruj CELÝ kód z daných řádků (vidíš ho výše s čísly řádků)
+- Pokud kód je zkrácený a nevidíš tu část, POŽÁDEJ o zobrazení
+
+⚠️ KDYŽ PŘIDÁVÁŠ KÓD (ne jen upravuješ):
+- OLD blok MUSÍ obsahovat i řádky KOLEM, ne jen jeden řádek!
+- Špatně: EDIT:LINES:60-60 s OLD:"border:none;" a NEW:"border:none; + 50 řádků nového kódu"
+- Správně: EDIT:LINES:60-65 s OLD:"border:none;\n}\n\n.card {\n..." a NEW:"border:none;\n}\n\n/* NEW */.calc{...}\n\n.card{\n..."
+- Počet řádků v OLD určuje, kolik řádků se NAHRADÍ! Pokud OLD má 1 řádek, nahradí se 1 řádek!
+- Když přidáváš nový blok kódu, zahrň do OLD i následující řádky, které chceš zachovat
+
+⚠️ ZKRÁCENÝ KÓD:
+- Pokud vidíš "🔽 ZKRÁCENO" a "ŘÁDKY X-Y NEJSOU VIDITELNÉ", NESMĚJ editovat ty řádky!
+- Pro editaci neviditelných řádků napiš: "Potřebuji vidět celý soubor pro editaci řádků X-Y"
+- Edituj JEN ty řádky, které vidíš s čísly v levé části!
 
 IHNED začni s \\\`\\\`\\\`EDIT:LINES! Žádné slovo navíc!
 
@@ -1986,31 +2030,47 @@ KROKY:
 1. Najdi správné místo v kódu
 2. Přidej HTML strukturu (pokud potřeba)
 3. Přidej CSS styling
-4. Přidaj JavaScript logiku
+4. Přidej JavaScript logiku
 
-PŘÍKLAD (přidání dark mode):
-\\\`\\\`\\\`EDIT:LINES:15-15
+🚨 KRITICKÉ PRO PŘIDÁVÁNÍ KÓDU:
+- Když přidáváš nový blok, MUSÍŠ zahrnout do OLD i následující řádky!
+- OLD řádky = kolik řádků se NAHRADÍ (ne přidá!)
+- Pokud OLD má 1 řádek a NEW má 20 řádků, nahradí se JEN 1 řádek → zbytek se přidá
+- Ale pokud po tom řádku následují další, budou duplikáty!
+
+PŘÍKLAD SPRÁVNĚ (přidání kalkulačky do CSS):
+\\\`\\\`\\\`EDIT:LINES:58-65
 OLD:
-<button id="submitBtn">Submit</button>
+  border: none;
+}
+
+.card {
+  background: rgba(0,0,0,0.65);
+  border-radius: 12px;
 NEW:
-<button id="submitBtn">Submit</button>
-<button id="darkModeToggle">🌙 Dark Mode</button>
+  border: none;
+}
+
+/* Calculator section */
+.calculator-card {
+  background: rgba(0,0,0,0.7);
+  padding: 20px;
+}
+
+.card {
+  background: rgba(0,0,0,0.65);
+  border-radius: 12px;
 \\\`\\\`\\\`
 
-\\\`\\\`\\\`EDIT:LINES:89-89
+❌ ŠPATNĚ (nahradí jen 1 řádek, zbytek duplikuje):
+\\\`\\\`\\\`EDIT:LINES:60-60
 OLD:
-});
+border: none;
 NEW:
-});
-
-// Dark mode toggle
-const darkModeToggle = document.getElementById('darkModeToggle');
-darkModeToggle?.addEventListener('click', () => {
-  document.body.classList.toggle('dark-mode');
-  darkModeToggle.textContent = document.body.classList.contains('dark-mode')
-    ? '☀️ Light Mode'
-    : '🌙 Dark Mode';
-});
+border: none;
+}
+/* 50 řádků nového kódu */
+.card {
 \\\`\\\`\\\`
 
 💡 BEST PRACTICES:
@@ -2181,7 +2241,8 @@ searchInput.addEventListener('input', debounce((e) => {
     }
 
     // 9. DEFAULT: EDIT MODE (existing code) vs NEW PROJECT
-    if (hasCode && hasHistory) {
+    if (hasCode) {
+      // Pokud má existující kód (i bez historie), použij EDIT MODE
       return `${CRITICAL_FORMAT_RULE}
 
 ⚠️ EDITACE EXISTUJÍCÍHO KÓDU (${codeLength} znaků, ${lineCount} řádků)
@@ -2208,14 +2269,48 @@ NEW:
 
 💡 PRAVIDLA:
 - Každá změna = blok \\\`\\\`\\\`EDIT:LINES:X-Y (X-Y = čísla řádků)
-- OLD: přesný současný kód na těch řádcích
+- OLD: PŘESNÝ kód z editoru - NIKDY nepoužívej "// ...", "/* ... */", "..."
 - NEW: nový kód (může být víc/míň řádků)
 - System najde OLD, ověří a nahradí za NEW
-- Vidíš čísla řádků v kódu výše - použij je!
+- Vidíš čísla řádků v kódu výše - zkopíruj PŘESNĚ z těch řádků!
+
+🚨 KRITICKÉ - JAK PSÁT OLD BLOK:
+1. Najdi čísla řádků v kódu výše (např. "  50| <div>...")
+2. Zkopíruj CELÝ kód z těch řádků (bez čísla řádku)
+3. NIKDY nepoužívej zkratky "// ...", "/* ... */", "...zkráceno..."
+4. Pokud kód není viditelný (zkrácený), ŘEKNI: "Prosím zobraz řádky X-Y"
+
+PŘÍKLAD SPRÁVNĚ:
+\\\`\\\`\\\`EDIT:LINES:50-52
+OLD:
+<div class="card">
+    <h2>Nadpis</h2>
+</div>
+NEW:
+<div class="card active">
+    <h2>Nový nadpis</h2>
+</div>
+\\\`\\\`\\\`
+
+PŘÍKLAD ŠPATNĚ ❌:
+\\\`\\\`\\\`EDIT:LINES:50-52
+OLD:
+<div class="card">
+    // ...
+</div>
+NEW:
+...
+\\\`\\\`\\\`
+
+⚠️ DŮLEŽITÉ PRO STAŽENÉ/EXTERNÍ SOUBORY:
+- Tento kód může být z GitHubu nebo jiného zdroje
+- Může být zkrácen kvůli velikosti
+- OLD bloky musí přesně odpovídat zobrazené části kódu
+- Pokud potřebuješ vidět více kódu, požádej uživatele o konkrétní část
 
 ❌ ZAKÁZÁNO:
 - Vracet celý soubor (bude zkrácen!)
-- Psát "...zkráceno" nebo "...rest of code..."
+- Psát "...zkráceno" nebo "...rest of code..." v NEW blocích
 - Psát "**Krok 1:**" nebo vysvětlení
 - Psát "Timto změním...", "Potřeba provést..."
 - JAKÉKOLIV vysvětlování místo kódu!
@@ -2223,9 +2318,10 @@ NEW:
 ✅ SPRÁVNĚ:
 - IHNED začni s \\\`\\\`\\\`EDIT:LINES:X-Y
 - Jen EDIT:LINES bloky, žádný text navíc
-- Každá změna = samostatný blok`;
+- Každá změna = samostatný blok
+- Pracuj jen s viditelnou částí kódu`;
     } else {
-      // NEW PROJECT
+      // NEW PROJECT - editor je prázdný
       return `${CRITICAL_FORMAT_RULE}
 
 🆕 NOVÝ PROJEKT - Vytvoř kompletní funkční aplikaci
@@ -2292,11 +2388,21 @@ NEW:
       const regex = new RegExp(editPattern);
       let match;
       while ((match = regex.exec(response)) !== null) {
+        const oldCode = match[3].trim();
+        const newCode = match[4].trim();
+
+        // Validate OLD code - reject empty or placeholder content
+        if (!oldCode || oldCode === '...' || oldCode === '// ...' || oldCode === '/* ... */' ||
+            oldCode.includes('...') && oldCode.length < 10) {
+          console.warn(`⚠️ Ignoruji EDIT:LINES ${match[1]}-${match[2]}: OLD blok je prázdný nebo obsahuje zkratky`);
+          continue;
+        }
+
         edits.push({
           startLine: parseInt(match[1]),
           endLine: parseInt(match[2]),
-          oldCode: match[3].trim(),
-          newCode: match[4].trim()
+          oldCode: oldCode,
+          newCode: newCode
         });
       }
       if (edits.length > 0) {
@@ -2307,6 +2413,7 @@ NEW:
 
     if (edits.length === 0) {
       console.warn('⚠️ Žádné EDIT:LINES bloky nebyly detekovány. AI možná ignoruje prompt formát!');
+      console.warn('💡 Možný důvod: OLD bloky obsahují zkratky "...", "// ...", což je zakázáno!');
     }
 
     return edits;
@@ -2337,7 +2444,11 @@ NEW:
     let failedEdits = [];
 
     // Sort edits by line number (descending) to avoid line number shifts
+    // Aplikujeme změny od konce k začátku, aby se čísla řádků neměnila
     edits.sort((a, b) => b.startLine - a.startLine);
+
+    console.log(`📝 Aplikuji ${edits.length} změn od konce k začátku (aby se čísla řádků neměnila):`,
+      edits.map(e => `${e.startLine}-${e.endLine}`).join(', '));
 
     for (const edit of edits) {
       const { startLine, endLine, oldCode, newCode } = edit;
@@ -2362,20 +2473,29 @@ NEW:
         console.log('📄 Skutečný kód:', actualCode);
 
         // Try fuzzy match - maybe just whitespace differs
-        if (actualCode.replace(/\s+/g, '') === oldCode.replace(/\s+/g, '')) {
+        const actualNormalized = actualCode.replace(/\s+/g, ' ').trim();
+        const oldNormalized = oldCode.replace(/\s+/g, ' ').trim();
+
+        if (actualNormalized === oldNormalized) {
           console.log('✓ Whitespace mismatch - aplikuji stejně');
-          // Continue with the change
+          // Continue with the change (but don't skip the apply logic below)
         } else {
-          // Try to find similar content nearby (within 5 lines)
+          // Try to find similar content nearby (within 10 lines for larger files)
+          const totalLines = lines.length;
+          const searchRange = Math.min(10, Math.floor(totalLines / 100));
           let foundMatch = false;
-          for (let offset = -5; offset <= 5; offset++) {
+
+          for (let offset = -searchRange; offset <= searchRange; offset++) {
             if (offset === 0) continue;
             const offsetStart = startLine + offset - 1;
             const offsetEnd = endLine + offset;
             if (offsetStart < 0 || offsetEnd > lines.length) continue;
 
             const offsetCode = lines.slice(offsetStart, offsetEnd).join('\n');
-            if (offsetCode.trim() === oldCode.trim()) {
+            const offsetNormalized = offsetCode.replace(/\s+/g, ' ').trim();
+
+            // Exact match after normalization
+            if (offsetNormalized === oldNormalized) {
               console.log(`✓ Našel jsem shodu na řádcích ${offsetStart + 1}-${offsetEnd} (offset ${offset})`);
               // Apply change at correct location
               const newLines = newCode.split('\n');
@@ -2383,6 +2503,19 @@ NEW:
               appliedCount++;
               foundMatch = true;
               break;
+            }
+
+            // Partial match (obsahuje alespoň 70% stejného textu)
+            if (!foundMatch && oldCode.length > 20) {
+              const similarity = this.calculateSimilarity(offsetNormalized, oldNormalized);
+              if (similarity > 0.7) {
+                console.log(`✓ Našel jsem podobnou shodu (${Math.round(similarity * 100)}%) na řádcích ${offsetStart + 1}-${offsetEnd}`);
+                const newLines = newCode.split('\n');
+                lines.splice(offsetStart, offsetEnd - offsetStart, ...newLines);
+                appliedCount++;
+                foundMatch = true;
+                break;
+              }
             }
           }
 
@@ -2532,56 +2665,93 @@ NEW:
           if (editor.history.past.length > editor.history.maxSize) {
             editor.history.past.shift();
           }
-          editor.history.future = [];
+          editor.history.future = []; // Clear redo stack
         }
       }
 
-      // Apply new code without triggering state update loop
-      if (editor.setCode) {
-        editor.setCode(newCode, true);
-      }
+      // Set flag to prevent double history save
+      editor.isUndoRedoInProgress = true;
+
+      // Apply new code and update state
+      editor.setCode(newCode); // Don't skip state update
+
+      // Reset flag after state update propagates
+      setTimeout(() => {
+        editor.isUndoRedoInProgress = false;
+      }, 0);
 
       console.log(`💾 Undo historie: ${editor.history?.past?.length || 0} kroků`);
+    } else {
+      // Fallback if editor not available
+      state.set('editor.code', newCode);
     }
-
-    state.set('editor.code', newCode);
 
     return appliedCount > 0;
   }
 
-  addLineNumbers(code) {
+  addLineNumbers(code, metadata = null) {
     if (!code) return '';
     const lines = code.split('\n');
-    return lines.map((line, i) => `${String(i + 1).padStart(4, ' ')}| ${line}`).join('\n');
+
+    if (!metadata || !metadata.isTruncated) {
+      // Normal numbering
+      return lines.map((line, i) => `${String(i + 1).padStart(4, ' ')}| ${line}`).join('\n');
+    }
+
+    // Truncated code - preserve original line numbers
+    const result = [];
+    let currentLine = 1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Check if this is the truncation marker
+      if (line.includes('🔽 ZKRÁCENO')) {
+        result.push(`     | ${line}`);
+        // Add warning about missing lines
+        const missingStart = metadata.topLinesCount + 1;
+        const missingEnd = metadata.bottomStartLine - 1;
+        result.push(`     | ⚠️ ŘÁDKY ${missingStart}-${missingEnd} NEJSOU VIDITELNÉ! ⚠️`);
+        result.push(`     | ⚠️ PRO EDITACI TĚCHTO ŘÁDKŮ POŽÁDEJ O ZOBRAZENÍ CELÉHO SOUBORU! ⚠️`);
+        // Jump to bottom section line numbers
+        currentLine = metadata.bottomStartLine;
+      } else {
+        result.push(`${String(currentLine).padStart(4, ' ')}| ${line}`);
+        currentLine++;
+      }
+    }
+
+    return result.join('\n');
   }
 
   /**
    * Truncate code intelligently - show beginning, end, and indicate middle is truncated
+   * Returns object with code and metadata about line numbers
    */
   truncateCodeIntelligently(code, maxChars = 3000) {
     if (!code || code.length <= maxChars) {
-      return code;
+      return { code, isTruncated: false, topLinesCount: 0, bottomStartLine: 0 };
     }
 
     const lines = code.split('\n');
     const totalLines = lines.length;
 
-    // Show first ~40% and last ~40% of allowed space
-    const charsPerSection = Math.floor(maxChars * 0.4);
+    // Show first ~45% and last ~45% of allowed space (více prostoru pro kontext)
+    const charsPerSection = Math.floor(maxChars * 0.45);
 
     let topLines = [];
     let bottomLines = [];
     let topChars = 0;
     let bottomChars = 0;
 
-    // Get top lines
+    // Get top lines (včetně <head> a začátku <body>)
     for (let i = 0; i < lines.length; i++) {
       if (topChars + lines[i].length + 1 > charsPerSection) break;
       topLines.push(lines[i]);
       topChars += lines[i].length + 1;
     }
 
-    // Get bottom lines
+    // Get bottom lines (včetně <script> a </html>)
     for (let i = lines.length - 1; i >= 0; i--) {
       if (bottomChars + lines[i].length + 1 > charsPerSection) break;
       bottomLines.unshift(lines[i]);
@@ -2589,11 +2759,22 @@ NEW:
     }
 
     const truncatedLineCount = totalLines - topLines.length - bottomLines.length;
-    const middleLineNumber = topLines.length;
+    const middleStartLine = topLines.length + 1;
+    const middleEndLine = middleStartLine + truncatedLineCount - 1;
+    const bottomStartLine = middleEndLine + 1;
 
-    return topLines.join('\n') +
-      `\n\n... (🔽 zkráceno ${truncatedLineCount} řádků - řádky ${middleLineNumber + 1}-${middleLineNumber + truncatedLineCount}) ...\n\n` +
+    const truncatedCode = topLines.join('\n') +
+      `\n\n... 🔽 ZKRÁCENO ${truncatedLineCount} řádků (${middleStartLine}-${middleEndLine}) 🔽 ...\n` +
+      `... ⚠️ Pro úpravy v této oblasti použij přibližná čísla řádků nebo požádej o zobrazení této části ...\n\n` +
       bottomLines.join('\n');
+
+    return {
+      code: truncatedCode,
+      isTruncated: true,
+      topLinesCount: topLines.length,
+      bottomStartLine: bottomStartLine,
+      totalLines: totalLines
+    };
   }
 
   insertCodeToEditor(code, isModification = false) {
@@ -2909,6 +3090,51 @@ NEW:
     const div = document.createElement('div');
     div.innerHTML = text;
     return div.textContent;
+  }
+
+  /**
+   * Calculate similarity between two strings (0-1)
+   * Uses Levenshtein distance ratio
+   */
+  calculateSimilarity(str1, str2) {
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+
+    if (longer.length === 0) return 1.0;
+
+    const editDistance = this.levenshteinDistance(longer, shorter);
+    return (longer.length - editDistance) / longer.length;
+  }
+
+  /**
+   * Calculate Levenshtein distance between two strings
+   */
+  levenshteinDistance(str1, str2) {
+    const matrix = [];
+
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+
+    return matrix[str2.length][str1.length];
   }
 
   generateProviderOptions() {

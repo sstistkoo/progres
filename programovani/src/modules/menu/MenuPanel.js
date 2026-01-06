@@ -1820,10 +1820,32 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
       justify-content: center;
       z-index: 10000;
       backdrop-filter: blur(4px);
+      padding: 20px;
+      box-sizing: border-box;
+      overflow-y: auto;
     `;
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 800px; background: var(--bg-primary, #1e1e1e); border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); overflow: hidden;">
-        <div class="modal-header" style="padding: 24px 30px; background: var(--bg-secondary, #2d2d2d); border-bottom: 1px solid var(--border-color, #444); display: flex; justify-content: space-between; align-items: center;">
+      <div class="modal-content" style="
+        width: 100%;
+        max-width: 800px;
+        max-height: calc(100vh - 40px);
+        background: var(--bg-primary, #1e1e1e);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        margin: auto;
+      ">
+        <div class="modal-header" style="
+          padding: 24px 30px;
+          background: var(--bg-secondary, #2d2d2d);
+          border-bottom: 1px solid var(--border-color, #444);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-shrink: 0;
+        ">
           <h3 style="margin: 0; color: var(--text-primary, #fff); font-size: 20px;">🔍 Hledat HTML repozitáře na GitHub</h3>
           <button class="modal-close" id="githubSearchClose" style="background: transparent; border: none; color: var(--text-primary, #fff); font-size: 24px; cursor: pointer; padding: 4px 8px; opacity: 0.7; transition: opacity 0.2s;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
@@ -1831,7 +1853,12 @@ DŮLEŽITÉ: Vrať POUZE kód bez jakéhokoliv dalšího textu, vysvětlení neb
             </svg>
           </button>
         </div>
-        <div class="modal-body" style="padding: 30px; background: var(--bg-primary, #1e1e1e);">
+        <div class="modal-body" style="
+          padding: 30px;
+          background: var(--bg-primary, #1e1e1e);
+          overflow-y: auto;
+          flex: 1;
+        ">
           <div style="margin-bottom: 20px;">
             <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary, #fff);">Co hledáte?</label>
             <input type="text" id="githubSearchQuery" placeholder="Např. calculator, landing page, portfolio (česky i anglicky)" style="width: 100%; padding: 12px; border: 1px solid var(--border-color, #444); border-radius: 8px; font-size: 14px; background: var(--bg-secondary, #2d2d2d); color: var(--text-primary, #fff); box-sizing: border-box;">
