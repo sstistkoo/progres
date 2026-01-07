@@ -2660,14 +2660,21 @@ NEW:
     if (editor) {
       // Save current state to history BEFORE making changes
       const currentEditorCode = editor.getCode();
+      console.log('📝 Před AI změnou - aktuální kód:', currentEditorCode.substring(0, 100) + '...');
+
       if (currentEditorCode && editor.history) {
         const last = editor.history.past[editor.history.past.length - 1];
+        console.log('📝 Historie před změnou:', editor.history.past.length, 'kroků');
+
         if (currentEditorCode !== last) {
           editor.history.past.push(currentEditorCode);
           if (editor.history.past.length > editor.history.maxSize) {
             editor.history.past.shift();
           }
           editor.history.future = []; // Clear redo stack
+          console.log('✅ Uloženo do historie - nyní:', editor.history.past.length, 'kroků');
+        } else {
+          console.log('⚠️ Kód už je v historii - neukládám duplicitně');
         }
       }
 
@@ -2680,13 +2687,10 @@ NEW:
       // Manually update state
       state.set('editor.code', newCode);
 
-      console.log(`💾 Undo historie: ${editor.history?.past?.length || 0} kroků`);
+      console.log(`💾 Undo historie po změně: ${editor.history?.past?.length || 0} kroků`);
     } else {
-      // Fallback if editor not available
-      state.set('editor.code', newCode);
+      console.error('❌ Editor nenalezen - nelze uložit do historie');
     }
-
-    return appliedCount > 0;
   }
 
   addLineNumbers(code, metadata = null) {

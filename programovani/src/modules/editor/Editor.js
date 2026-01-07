@@ -204,7 +204,10 @@ export class Editor {
   }
 
   undo() {
+    console.log('🔙 Undo kliknuto - historie:', this.history.past.length, 'kroků');
+
     if (this.history.past.length < 1) {
+      console.warn('⚠️ Historie je prázdná!');
       eventBus.emit('toast:show', {
         message: '⚠️ Žádná historie pro vrácení zpět',
         type: 'warning',
@@ -218,6 +221,9 @@ export class Editor {
     const current = this.getCode();
     const previous = this.history.past.pop();
 
+    console.log('📝 Vracím z:', current.substring(0, 50) + '...');
+    console.log('📝 Vracím na:', previous.substring(0, 50) + '...');
+
     this.history.future.unshift(current);
     this.setCode(previous);
 
@@ -229,6 +235,7 @@ export class Editor {
       duration: 1000
     });
 
+    console.log('✅ Undo dokončeno - zbývá:', this.history.past.length, 'kroků v historii');
     eventBus.emit('editor:undo', { code: previous });
   }
 
