@@ -81,11 +81,11 @@ export class MenuPanel {
   createMenu() {
     this.menuElement = document.createElement('div');
     this.menuElement.className = 'side-menu';
-    
+
     // Create menu content using textContent and createElement (not innerHTML!)
     const header = this.createMenuHeader();
     const nav = this.createMenuNav();
-    
+
     this.menuElement.appendChild(header);
     this.menuElement.appendChild(nav);
 
@@ -96,33 +96,33 @@ export class MenuPanel {
   createMenuHeader() {
     const header = document.createElement('div');
     header.className = 'menu-header';
-    
+
     const title = document.createElement('h2');
     title.textContent = 'Menu';
-    
+
     const closeBtn = document.createElement('button');
     closeBtn.className = 'menu-close';
     closeBtn.id = 'menuClose';
     closeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M18 6L6 18M6 6l12 12"/>
     </svg>`;
-    
+
     header.appendChild(title);
     header.appendChild(closeBtn);
-    
+
     return header;
   }
 
   createMenuNav() {
     const nav = document.createElement('nav');
     nav.className = 'menu-nav';
-    
+
     // Settings section
     nav.appendChild(this.createMenuSection('⚙️ Nastavení', [
       { icon: '🤖', label: 'Nastavení AI', action: 'aiSettings' },
       { icon: '🎨', label: 'Přepnout téma', action: 'theme' }
     ]));
-    
+
     // Advanced tools section
     nav.appendChild(this.createMenuSection('🛠️ Pokročilé nástroje', [
       { icon: '📐', label: 'CSS Grid/Flex editor', action: 'gridEditor' },
@@ -130,7 +130,7 @@ export class MenuPanel {
       { icon: '📝', label: 'Vytvořit .gitignore', action: 'gitignore' },
       { icon: '🔄', label: 'Nahradit v kódu', action: 'replace', shortcut: 'Ctrl+H' }
     ]));
-    
+
     // Content section
     nav.appendChild(this.createMenuSection('📋 Obsah', [
       { icon: '🤖', label: 'AI Generátor komponent', action: 'ai-component' },
@@ -138,24 +138,24 @@ export class MenuPanel {
       { icon: '📋', label: 'Šablony', action: 'templates' },
       { icon: '🖼️', label: 'Obrázky', action: 'images' }
     ]));
-    
+
     // Sharing section
     nav.appendChild(this.createMenuSection('🔗 Sdílení', [
       { icon: '🔗', label: 'Sdílet odkaz', action: 'share' }
     ]));
-    
+
     // GitHub section
     nav.appendChild(this.createMenuSection('🐙 GitHub', [
       { icon: '🔍', label: 'Hledat na GitHubu', action: 'github-search' },
       { icon: '🚀', label: 'Deploy projekt', action: 'deploy' }
     ]));
-    
+
     // Dev tools section
     nav.appendChild(this.createMenuSection('🔧 Vývojářské nástroje', [
       { icon: '📊', label: 'Audit projektu', action: 'audit' },
       { icon: '🐞', label: 'Otevřít DevTools', action: 'devtools' }
     ]));
-    
+
     // Footer
     const footer = document.createElement('div');
     footer.className = 'menu-footer';
@@ -163,43 +163,43 @@ export class MenuPanel {
     footerText.innerHTML = '💡 Pro základní akce použijte <strong>logo ⚡</strong> nebo <strong>Ctrl+K</strong>';
     footer.appendChild(footerText);
     nav.appendChild(footer);
-    
+
     return nav;
   }
 
   createMenuSection(title, items) {
     const section = document.createElement('div');
     section.className = 'menu-section';
-    
+
     const heading = document.createElement('h3');
     heading.textContent = title;
     section.appendChild(heading);
-    
+
     items.forEach(item => {
       const btn = document.createElement('button');
       btn.className = 'menu-item';
       btn.dataset.action = item.action;
-      
+
       const icon = document.createElement('span');
       icon.className = 'menu-icon';
       icon.textContent = item.icon;
-      
+
       const label = document.createElement('span');
       label.textContent = item.label;
-      
+
       btn.appendChild(icon);
       btn.appendChild(label);
-      
+
       if (item.shortcut) {
         const shortcut = document.createElement('span');
         shortcut.className = 'menu-shortcut';
         shortcut.textContent = item.shortcut;
         btn.appendChild(shortcut);
       }
-      
+
       section.appendChild(btn);
     });
-    
+
     return section;
   }
 
@@ -260,7 +260,9 @@ export class MenuPanel {
 
       // GitHub
       case 'github-search':
-        GitHubService.githubSearch();
+        // Zavolej GitHub search z AI panelu
+        eventBus.emit('ai:github-search');
+        this.hide();
         break;
       case 'deploy':
         this.deployProject();
@@ -290,63 +292,63 @@ export class MenuPanel {
   // ===== Components Modal =====
   showComponents() {
     const components = ComponentLibrary.getComponents();
-    
+
     const content = document.createElement('div');
     content.style.padding = '20px';
-    
+
     const grid = document.createElement('div');
     grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;';
-    
+
     Object.entries(components).forEach(([key, component]) => {
       const card = document.createElement('div');
       card.style.cssText = 'border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s;';
       card.onmouseover = () => card.style.borderColor = 'var(--primary-color)';
       card.onmouseout = () => card.style.borderColor = 'var(--border-color)';
-      
+
       const name = document.createElement('h4');
       name.textContent = component.name;
       name.style.marginBottom = '8px';
-      
+
       const category = document.createElement('small');
       category.textContent = component.category;
       category.style.color = 'var(--text-secondary)';
-      
+
       card.appendChild(name);
       card.appendChild(category);
-      
+
       card.onclick = () => {
         ComponentLibrary.insertComponent(component.code);
         modal.close();
       };
-      
+
       grid.appendChild(card);
     });
-    
+
     content.appendChild(grid);
-    
+
     const modal = new Modal({
       title: '🧩 Knihovna komponent',
       content: content.outerHTML,
       width: '900px'
     });
-    
+
     modal.open();
   }
 
   // ===== Templates Modal =====
   showTemplates() {
     const { builtInTemplates, customTemplates } = TemplateManager.getTemplates();
-    
+
     const content = document.createElement('div');
     content.style.padding = '20px';
-    
+
     // Built-in templates
     const builtInSection = document.createElement('div');
     builtInSection.innerHTML = '<h4>📋 Vestavěné šablony</h4>';
-    
+
     const builtInGrid = document.createElement('div');
     builtInGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin-bottom: 24px;';
-    
+
     Object.entries(builtInTemplates).forEach(([key, template]) => {
       const card = this.createTemplateCard(template, () => {
         TemplateManager.applyTemplate(template.code);
@@ -354,18 +356,18 @@ export class MenuPanel {
       });
       builtInGrid.appendChild(card);
     });
-    
+
     builtInSection.appendChild(builtInGrid);
     content.appendChild(builtInSection);
-    
+
     // Custom templates
     if (Object.keys(customTemplates).length > 0) {
       const customSection = document.createElement('div');
       customSection.innerHTML = '<h4>🎨 Vlastní šablony</h4>';
-      
+
       const customGrid = document.createElement('div');
       customGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px;';
-      
+
       Object.entries(customTemplates).forEach(([key, template]) => {
         const card = this.createTemplateCard(template, () => {
           TemplateManager.applyTemplate(template.code);
@@ -373,17 +375,17 @@ export class MenuPanel {
         });
         customGrid.appendChild(card);
       });
-      
+
       customSection.appendChild(customGrid);
       content.appendChild(customSection);
     }
-    
+
     const modal = new Modal({
       title: '📋 Knihovna šablon',
       content: content.outerHTML,
       width: '900px'
     });
-    
+
     modal.open();
   }
 
@@ -392,74 +394,74 @@ export class MenuPanel {
     card.style.cssText = 'border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s;';
     card.onmouseover = () => card.style.borderColor = 'var(--primary-color)';
     card.onmouseout = () => card.style.borderColor = 'var(--border-color)';
-    
+
     const name = document.createElement('h4');
     name.textContent = template.name;
     name.style.marginBottom = '8px';
-    
+
     const desc = document.createElement('small');
     desc.textContent = template.description || '';
     desc.style.color = 'var(--text-secondary)';
-    
+
     card.appendChild(name);
     card.appendChild(desc);
     card.onclick = onClick;
-    
+
     return card;
   }
 
   // ===== Images Modal =====
   showImages() {
     const categories = ImageLibrary.getImageCategories();
-    
+
     const content = document.createElement('div');
     content.style.padding = '20px';
-    
+
     Object.entries(categories).forEach(([key, category]) => {
       const section = document.createElement('div');
       section.style.marginBottom = '24px';
-      
+
       const heading = document.createElement('h4');
       heading.textContent = category.name;
       section.appendChild(heading);
-      
+
       const grid = document.createElement('div');
       grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 12px;';
-      
+
       category.images.forEach(image => {
         const card = document.createElement('div');
         card.style.cssText = 'border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; text-align: center;';
-        
+
         const img = document.createElement('img');
         img.src = image.url;
         img.alt = image.name;
         img.style.cssText = 'width: 100%; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;';
-        
+
         const label = document.createElement('div');
         label.textContent = image.name;
         label.style.fontSize = '13px';
-        
+
         card.appendChild(img);
         card.appendChild(label);
-        
+
         card.onclick = () => {
           ImageLibrary.insertImage(image.url, image.width, image.height, image.name);
           modal.close();
         };
-        
+
         grid.appendChild(card);
       });
-      
+
       section.appendChild(grid);
       content.appendChild(section);
     });
-    
+
     const modal = new Modal({
       title: '🖼️ Knihovna obrázků',
       content: content.outerHTML,
       width: '900px'
     });
-    
+
     modal.open();
   }
 
@@ -491,41 +493,41 @@ export class MenuPanel {
         </div>
       </div>
     `;
-    
+
     const modal = new Modal({
       title: '🤖 AI Generátor komponent',
       content,
       width: '600px'
     });
-    
+
     modal.open();
-    
+
     const promptTextarea = document.getElementById('aiComponentPrompt');
     const generateBtn = document.getElementById('aiComponentGenerate');
     const resultDiv = document.getElementById('aiComponentResult');
     const codeElement = document.getElementById('aiComponentCode');
     const insertBtn = document.getElementById('aiComponentInsert');
     let generatedCode = '';
-    
+
     generateBtn?.addEventListener('click', async () => {
       const description = promptTextarea?.value.trim();
       if (!description) return;
-      
+
       generateBtn.textContent = '⏳ Generuji...';
       generateBtn.disabled = true;
-      
+
       const code = await ComponentLibrary.generateAIComponent(description);
-      
+
       if (code) {
         generatedCode = code;
         codeElement.textContent = code;
         resultDiv.style.display = 'block';
       }
-      
+
       generateBtn.textContent = '🚀 Vygenerovat';
       generateBtn.disabled = false;
     });
-    
+
     insertBtn?.addEventListener('click', () => {
       if (generatedCode) {
         eventBus.emit('editor:insert', generatedCode);
@@ -535,7 +537,7 @@ export class MenuPanel {
   }
 
   // ===== Stub methods (TODO: implement or delegate) =====
-  
+
   showGridEditor() {
     eventBus.emit('toast:show', {
       message: 'Grid Editor bude implementován',

@@ -35,7 +35,8 @@ export class AIPanel {
       { event: 'ai:hide', handler: () => this.hide() },
       { event: 'ai:sendMessage', handler: (data) => this.sendMessage(data.message) },
       { event: 'aiSettings:show', handler: () => this.showSettings() },
-      { event: 'console:errorCountChanged', handler: (data) => this.updateErrorIndicator(data.count) }
+      { event: 'console:errorCountChanged', handler: (data) => this.updateErrorIndicator(data.count) },
+      { event: 'ai:github-search', handler: () => this.showGitHubSearchDialog() }
     ];
 
     listeners.forEach(({ event, handler }) => {
@@ -1042,7 +1043,6 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     if (exportChatBtn) {
       exportChatBtn.addEventListener('click', () => {
         // Show export options
-        const options = ['💾 JSON', '📝 Markdown'];
         const choice = confirm('Exportovat jako:\n1 = JSON\n2 = Markdown\n\nZvolte 1 nebo 2 a stiskněte OK');
         if (choice) {
           const format = prompt('Zadejte 1 pro JSON nebo 2 pro Markdown:', '1');
@@ -1137,10 +1137,17 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     // VS Code Mode toggle
     const vsCodeModeToggle = this.modal.element.querySelector('#vsCodeModeToggle');
     if (vsCodeModeToggle) {
-      // Restore saved state
-      const savedMode = state.get('ai.vsCodeMode') || false;
-      vsCodeModeToggle.checked = savedMode;
-      this.toolSystem.setEnabled(savedMode);
+      // Restore saved state (default to true for better UX)
+      const savedMode = state.get('ai.vsCodeMode');
+      const vsCodeMode = savedMode !== undefined ? savedMode : true;
+
+      vsCodeModeToggle.checked = vsCodeMode;
+      this.toolSystem.setEnabled(vsCodeMode);
+
+      // Save initial state if not set
+      if (savedMode === undefined) {
+        state.set('ai.vsCodeMode', vsCodeMode);
+      }
 
       vsCodeModeToggle.addEventListener('change', (e) => {
         const enabled = e.target.checked;
@@ -1227,9 +1234,6 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     messagesContainer.appendChild(loadingMsg);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-    // Start timing
-    const startTime = performance.now();
-
     // Add to history
     this.chatHistory.push({
       role: 'user',
@@ -1255,10 +1259,47 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       const activeFileId = state.get('files.active');
       const activeFile = openFiles.find(f => f.id === activeFileId);
 
-      // Build files context
+      // Build files context - ENHANCED with content
       let filesContext = '';
       if (openFiles.length > 0) {
-        filesContext = `\n\nOtevřené soubory:\n${openFiles.map(f => `- ${f.name}${f.id === activeFileId ? ' (aktivní)' : ''}`).join('\n')}`;
+        // Pokud je více souborů, přidej jejich obsah
+        if (openFiles.length > 1) {
+          const MAX_TOTAL_SIZE = 30000; // Max 30k znaků pro všechny soubory
+          let totalSize = 0;
+          const filesWithContent = [];
+
+          for (const f of openFiles) {
+            const content = f.content || '';
+            if (totalSize + content.length < MAX_TOTAL_SIZE) {
+              filesWithContent.push({
+                name: f.name,
+                language: f.language || 'html',
+                lines: content.split('\n').length,
+                content,
+                isActive: f.id === activeFileId,
+              });
+              totalSize += content.length;
+            } else {
+              filesWithContent.push({
+                name: f.name,
+                truncated: true,
+                isActive: f.id === activeFileId,
+              });
+            }
+          }
+
+          filesContext = `\n\nOtevřené soubory (${openFiles.length}):\n\n`;
+          filesWithContent.forEach(f => {
+            if (f.truncated) {
+              filesContext += `📄 **${f.name}**${f.isActive ? ' (aktivní)' : ''} - [obsah vynechán kvůli velikosti]\n\n`;
+            } else {
+              filesContext += `📄 **${f.name}**${f.isActive ? ' (aktivní)' : ''} (${f.lines} řádků, ${f.language}):\n\`\`\`${f.language}\n${f.content}\n\`\`\`\n\n`;
+            }
+          });
+        } else {
+          // Jen jeden soubor - základní info
+          filesContext = `\n\nOtevřené soubory:\n${openFiles.map(f => `- ${f.name}${f.id === activeFileId ? ' (aktivní)' : ''}`).join('\n')}`;
+        }
       }
 
       // Build chat history context (last 10 messages)
@@ -1306,7 +1347,13 @@ Vytvořit plně funkční, moderní webovou aplikaci podle zadání uživatele.
 - Přístupnost (labels, ARIA, keyboard navigation)
 - Clean code - komentáře u složitějších částí
 
-🔄 PŘED ODESLÁNÍM:
+�️ MULTI-FILE NÁSTROJE:
+- **create_file(fileName, content, language)** - Vytvoř nový soubor (styles.css, app.js...)
+- **read_file(fileName)** - Přečti obsah souboru
+- **list_files()** - Seznam všech souborů
+- Pro komplexnější projekty VYTVOŘ VÍCE SOUBORŮ místo inline kódu!
+
+�🔄 PŘED ODESLÁNÍM:
 1. Zkontroluj duplicitní proměnné
 2. Ověř že všechny eventy jsou navázané
 3. Ujisti se že kód funguje samostatně
@@ -1326,24 +1373,24 @@ ${filesContext}
 💾 Aktuální kód v editoru (${currentCode ? currentCode.split('\n').length : 0} řádků):
 \`\`\`html
 ${currentCode ? (() => {
-  // Detect if AI will likely use EDIT:LINES mode
-  const msg = message ? message.toLowerCase() : '';
-  const willEdit = hasCode && (
-    msg.match(/\b(změň|change|uprav|edit|oprav|fix|přidej|add|odstraň|remove|smaž|delete)\b/) ||
-    msg.includes('celý soubor') ||
-    msg.includes('celý kód') ||
-    msg.includes('zobraz vše')
-  );
+    // Detect if AI will likely use EDIT:LINES mode
+    const msg = message ? message.toLowerCase() : '';
+    const willEdit = hasCode && (
+      msg.match(/\b(změň|change|uprav|edit|oprav|fix|přidej|add|odstraň|remove|smaž|delete)\b/) ||
+      msg.includes('celý soubor') ||
+      msg.includes('celý kód') ||
+      msg.includes('zobraz vše')
+    );
 
-  // For EDIT mode or small files, send full code with line numbers
-  if (willEdit || currentCode.length < 8000) {
-    return this.addLineNumbers(currentCode);
-  }
+    // For EDIT mode or small files, send full code with line numbers
+    if (willEdit || currentCode.length < 8000) {
+      return this.addLineNumbers(currentCode);
+    }
 
-  // Otherwise truncate for context
-  const truncated = this.truncateCodeIntelligently(currentCode, 3000);
-  return this.addLineNumbers(typeof truncated === 'string' ? truncated : truncated.code, typeof truncated === 'object' ? truncated : null);
-})() : '(prázdný editor)'}
+    // Otherwise truncate for context
+    const truncated = this.truncateCodeIntelligently(currentCode, 3000);
+    return this.addLineNumbers(typeof truncated === 'string' ? truncated : truncated.code, typeof truncated === 'object' ? truncated : null);
+  })() : '(prázdný editor)'}
 \`\`\`
 
 💬 ${historyContext}
@@ -1379,7 +1426,17 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
 - Pro úpravy více souborů najednou uveď každý zvlášť se správným code blokem (\\\`\\\`\\\`html, \\\`\\\`\\\`css, \\\`\\\`\\\`javascript)
 - Relativní cesty v HTML fungují automaticky díky injection systému
 
-💡 ODPOVĚDI:
+�️ K DISPOZICI NÁSTROJE PRO PRÁCI S VÍCE SOUBORY:
+- **read_file(fileName)** - Přečte obsah konkrétního souboru
+- **list_files(includeContent)** - Seznam všech otevřených souborů s metadaty
+- **edit_file(fileName, content, switchBack)** - Upraví konkrétní soubor
+- **create_file(fileName, content, language, switchTo)** - Vytvoří nový soubor
+- **switch_file(fileName)** - Přepne na jiný soubor
+- **read_all_files(maxFilesSize)** - Přečte všechny soubory najednou
+- Pokud potřebuješ obsah souboru který není v kontextu, POUŽIJ tool read_file!
+- Pro vytváření nových souborů POUŽIJ tool create_file místo žádání uživatele!
+
+�💡 ODPOVĚDI:
 - Stručně a prakticky v češtině
 - Kód zabal do \\\`\\\`\\\`html...\\\`\\\`\\\` (nebo \\\`\\\`\\\`css\\\`\\\`\\\`, \\\`\\\`\\\`javascript\\\`\\\`\\\`)
 - Pro vysvětlení použij jasný jazyk
@@ -1563,7 +1620,7 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
     }
   }
 
-  addChatMessage(role, content, responseTime = null) {
+  addChatMessage(role, content) {
     const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
     const messageId = `msg-${Date.now()}-${Math.random()}`;
 
@@ -1571,26 +1628,9 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
     messageEl.className = `ai-message ${role}`;
     messageEl.id = messageId;
 
-    // Render markdown if marked is available and it's not user message
-    if (role === 'assistant' && typeof marked !== 'undefined') {
-      try {
-        // Configure marked
-        marked.setOptions({
-          breaks: true,
-          gfm: true,
-          headerIds: false
-        });
-
-        // Parse markdown
-        const htmlContent = marked.parse(content);
-        messageEl.innerHTML = htmlContent;
-      } catch (error) {
-        console.error('Markdown parsing error:', error);
-        messageEl.innerHTML = `<p>${this.escapeHtml(content)}</p>`;
-      }
-    } else {
-      messageEl.innerHTML = `<p>${this.escapeHtml(content)}</p>`;
-    }
+    // Format content with basic markdown-like formatting
+    const formattedContent = this.formatMessageContent(content);
+    messageEl.innerHTML = formattedContent;
 
     messagesContainer.appendChild(messageEl);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -1771,7 +1811,7 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
-  acceptChange(changeId, actionsContainer, isAuto = false, isModification = false) {
+  acceptChange(changeId, actionsContainer, _isAuto = false, isModification = false) {
     const change = this.pendingChanges.get(changeId);
     if (!change) return;
 
@@ -3323,7 +3363,7 @@ NEW:
         .join('');
 
       // Add double-click handler for favoriting
-      modelSelect.addEventListener('dblclick', (e) => {
+      modelSelect.addEventListener('dblclick', () => {
         const selectedOption = modelSelect.options[modelSelect.selectedIndex];
         if (selectedOption) {
           this.toggleModelFavorite(provider, selectedOption.value);
@@ -3767,40 +3807,74 @@ NEW:
   showGitHubSearchDialog() {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 800px;">
-        <div class="modal-header">
-          <h3>🔍 Hledat HTML na GitHub</h3>
-          <button class="modal-close" id="githubSearchClose">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <div class="modal-content" style="max-width: 850px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">🔍 Hledat na GitHub</h3>
+          <button class="modal-close" id="githubSearchClose" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
               <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
           </button>
         </div>
-        <div class="modal-body" style="padding: 30px;">
-          <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Co hledáte?</label>
-            <input type="text" id="githubSearchQuery" placeholder="Např. landing page, portfolio, navbar..." style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px;">
+        <div class="modal-body" style="padding: 0; overflow-y: auto;">
+
+          <!-- Rozbalovací formulář -->
+          <div id="searchFormSection" style="border-bottom: 1px solid #333;">
+            <button id="toggleSearchForm" style="width: 100%; padding: 15px 25px; background: transparent; border: none; color: #ffffff; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; transition: background 0.2s;">
+              <span>⚙️ Nastavení vyhledávání</span>
+              <span id="toggleIcon" style="font-size: 18px; transition: transform 0.3s;">▼</span>
+            </button>
+
+            <div id="searchFormContent" style="padding: 0 25px 25px 25px;">
+              <div style="margin-bottom: 12px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cccccc;">GitHub Token (volitelné pro více výsledků)</label>
+                <input type="password" id="githubToken" placeholder="ghp_..." value="${localStorage.getItem('github_token') || ''}" style="width: 100%; padding: 10px; border: 1px solid #333; border-radius: 6px; font-size: 13px; background: #0d0d0d; color: #ffffff;">
+                <p style="font-size: 11px; color: #888888; margin-top: 4px;">
+                  Token se uloží do prohlížeče. <a href="https://github.com/settings/tokens" target="_blank" style="color: #0066cc;">Vytvořit token</a>
+                </p>
+              </div>
+              <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cccccc;">Co hledáte?</label>
+                <input type="text" id="githubSearchQuery" placeholder="Např. landing page, portfolio, navbar..." style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; font-size: 14px; background: #0d0d0d; color: #ffffff;">
+              </div>
+              <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cccccc;">Jazyk (volitelné)</label>
+                <select id="githubLanguage" style="width: 100%; padding: 10px; border: 1px solid #333; border-radius: 6px; font-size: 13px; background: #0d0d0d; color: #ffffff;">
+                  <option value="">Všechny jazyky</option>
+                  <option value="html">HTML</option>
+                  <option value="css">CSS</option>
+                  <option value="javascript">JavaScript</option>
+                  <option value="typescript">TypeScript</option>
+                  <option value="python">Python</option>
+                  <option value="java">Java</option>
+                  <option value="php">PHP</option>
+                  <option value="ruby">Ruby</option>
+                </select>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <button id="searchRepos" style="padding: 14px; background: #0066cc; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;">
+                  📦 Hledat repozitáře
+                </button>
+                <button id="searchCode" style="padding: 14px; background: #333; color: #ffffff; border: 1px solid #555; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;">
+                  📄 Hledat kód
+                </button>
+              </div>
+            </div>
           </div>
-          <div style="margin-bottom: 20px;">
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-              <input type="checkbox" id="singleFileSearch" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 500;">Hledat pouze jeden HTML soubor s kompletním kódem</span>
-            </label>
-            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; margin-left: 26px;">
-              Vyhledá samostatné HTML soubory místo celých repozitářů
-            </p>
-          </div>
-          <button id="startGithubSearch" style="width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px;">
-            🔍 Hledat
-          </button>
-          <div id="githubSearchResults" style="margin-top: 30px; display: none;">
-            <h4 style="margin-bottom: 15px; color: var(--text-primary);">Výsledky hledání:</h4>
-            <div id="githubResultsList" style="display: grid; gap: 10px; max-height: 400px; overflow-y: auto;"></div>
-          </div>
-          <div id="githubSearchLoading" style="display: none; text-align: center; padding: 40px;">
-            <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--border-color); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;"></div>
-            <p style="margin-top: 15px; color: var(--text-secondary);">Hledání na GitHub...</p>
+
+          <!-- Výsledky a loading -->
+          <div style="padding: 25px;">
+            <div id="githubSearchResults" style="display: none;">
+              <div id="githubResultsHeader" style="margin-bottom: 12px;"></div>
+              <div id="githubResultsList" style="display: grid; gap: 10px; max-height: 450px; overflow-y: auto;"></div>
+              <div id="githubPagination" style="margin-top: 16px;"></div>
+            </div>
+            <div id="githubSearchLoading" style="display: none; text-align: center; padding: 40px;">
+              <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #333; border-top-color: #0066cc; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+              <p style="margin-top: 15px; color: #888888;">Hledání na GitHub...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -3808,161 +3882,490 @@ NEW:
 
     document.body.appendChild(modal);
 
+    let currentPage = 1;
+    let totalCount = 0;
+    let formCollapsed = false;
+
     const closeModal = () => modal.remove();
     modal.querySelector('#githubSearchClose').addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
       if (e.target === modal) closeModal();
     });
 
-    modal.querySelector('#startGithubSearch').addEventListener('click', async () => {
+    // Toggle formuláře
+    const toggleBtn = modal.querySelector('#toggleSearchForm');
+    const toggleIcon = modal.querySelector('#toggleIcon');
+    const formContent = modal.querySelector('#searchFormContent');
+
+    toggleBtn.addEventListener('click', () => {
+      formCollapsed = !formCollapsed;
+      if (formCollapsed) {
+        formContent.style.display = 'none';
+        toggleIcon.textContent = '▶';
+        toggleIcon.style.transform = 'rotate(0deg)';
+      } else {
+        formContent.style.display = 'block';
+        toggleIcon.textContent = '▼';
+        toggleIcon.style.transform = 'rotate(0deg)';
+      }
+    });
+
+    let lastSearchType = 'repositories'; // Výchozí hledání repozitářů
+
+    const performSearch = async (searchType, page = 1) => {
+      currentPage = page;
       const query = modal.querySelector('#githubSearchQuery').value.trim();
-      const singleFile = modal.querySelector('#singleFileSearch').checked;
+      const language = modal.querySelector('#githubLanguage').value;
+      const token = modal.querySelector('#githubToken').value.trim();
+
+      lastSearchType = searchType; // Ulož pro použití ve výsledcích
 
       if (!query) {
-        alert('Zadejte prosím hledaný výraz');
+        eventBus.emit('toast:show', {
+          message: 'Zadejte hledaný výraz',
+          type: 'warning'
+        });
         return;
+      }
+
+      // Po zahájení hledání sbal formulář
+      if (!formCollapsed && page === 1) {
+        formCollapsed = true;
+        formContent.style.display = 'none';
+        toggleIcon.textContent = '▶';
+      }
+
+      // Ulož token
+      if (token) {
+        localStorage.setItem('github_token', token);
       }
 
       const loadingDiv = modal.querySelector('#githubSearchLoading');
       const resultsDiv = modal.querySelector('#githubSearchResults');
       const resultsList = modal.querySelector('#githubResultsList');
+      const resultsHeader = modal.querySelector('#githubResultsHeader');
+      const paginationDiv = modal.querySelector('#githubPagination');
 
       loadingDiv.style.display = 'block';
       resultsDiv.style.display = 'none';
       resultsList.innerHTML = '';
+      resultsHeader.innerHTML = '';
+      paginationDiv.innerHTML = '';
 
       try {
         let results;
-        if (singleFile) {
-          // Hledat jednotlivé HTML soubory
-          results = await this.searchGitHubFiles(query);
+        const searchQuery = language ? `${query}+language:${language}` : query;
+
+        if (searchType === 'repositories') {
+          results = await this.searchGitHubRepos(query, language, page, token);
         } else {
-          // Hledat celé repozitáře s HTML
-          results = await this.searchGitHubRepos(query);
+          results = await this.searchGitHubCode(query, language, page, token);
         }
 
         loadingDiv.style.display = 'none';
         resultsDiv.style.display = 'block';
 
-        if (results.length === 0) {
+        if (results.items.length === 0) {
           resultsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenalezeny žádné výsledky</p>';
           return;
         }
 
-        results.forEach(result => {
-          const resultCard = document.createElement('div');
-          resultCard.style.cssText = 'padding: 15px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; transition: all 0.2s;';
-          resultCard.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
-              <div style="flex: 1;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-                  <h5 style="margin: 0; color: var(--accent); font-size: 14px;">${result.name}</h5>
-                  <a href="${result.url}" target="_blank" rel="noopener noreferrer" style="color: var(--text-secondary); text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; background: var(--bg-tertiary); border-radius: 4px; transition: all 0.2s;" title="Otevřít na GitHub">
-                    🔗 GitHub
-                  </a>
-                </div>
-                <p style="margin: 0 0 8px 0; font-size: 12px; color: var(--text-secondary);">${result.description || 'Bez popisu'}</p>
-                ${singleFile ?
-                  `<div style="font-size: 11px; color: var(--text-secondary);">📄 ${result.path}</div>` :
-                  `<div style="display: flex; gap: 15px; font-size: 11px; color: var(--text-secondary);">
-                    <span>⭐ ${result.stars}</span>
-                    <span>🍴 ${result.forks}</span>
-                  </div>`
-                }
-              </div>
-              <button class="load-github-code" data-url="${result.url}" data-name="${result.name}" style="padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
-                📥 Načíst kód
-              </button>
-            </div>
-          `;
+        totalCount = results.total_count;
 
-          resultCard.querySelector('.load-github-code').addEventListener('click', async (e) => {
+        // Header s počtem výsledků
+        const githubSearchUrl = `https://github.com/search?q=${encodeURIComponent(query)}${language ? `+language:${language}` : ''}&type=${searchType === 'repositories' ? 'repositories' : 'code'}`;
+        resultsHeader.innerHTML = `
+          <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px; text-align: center;">
+            <div style="font-weight: 600; margin-bottom: 6px; color: var(--accent);">
+              📊 Nalezeno ${totalCount.toLocaleString('cs-CZ')} výsledků | Stránka ${page}
+            </div>
+            <a href="${githubSearchUrl}" target="_blank" style="color: var(--accent); text-decoration: none; font-size: 13px;">
+              🔗 Otevřít na GitHubu
+            </a>
+          </div>
+        `;
+
+        results.items.forEach(result => {
+          const resultCard = document.createElement('div');
+          resultCard.style.cssText = 'padding: 15px; background: #242424; border: 1px solid #333; border-radius: 8px; transition: all 0.2s;';
+
+          if (lastSearchType === 'repositories') {
+            resultCard.innerHTML = `
+              <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
+                <div style="flex: 1;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                    <h5 style="margin: 0; color: #0066cc; font-size: 14px;">${result.name}</h5>
+                    <a href="${result.html_url}" target="_blank" style="color: #888888; text-decoration: none; font-size: 11px;">🔗</a>
+                  </div>
+                  <p style="margin: 0 0 8px 0; font-size: 12px; color: #cccccc;">${result.description || 'Bez popisu'}</p>
+                  <div style="display: flex; gap: 15px; font-size: 11px; color: #888888;">
+                    <span>⭐ ${result.stargazers_count}</span>
+                    <span>🍴 ${result.forks_count}</span>
+                  </div>
+                </div>
+                <button class="load-github-repo" data-fullname="${result.full_name}" data-name="${result.name}" style="padding: 8px 16px; background: #0066cc; color: #ffffff; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                  📥 Načíst
+                </button>
+              </div>
+            `;
+          } else {
+            resultCard.innerHTML = `
+              <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
+                <div style="flex: 1;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                    <h5 style="margin: 0; color: #0066cc; font-size: 14px;">${result.name}</h5>
+                    <a href="${result.html_url}" target="_blank" style="color: #888888; text-decoration: none; font-size: 11px;">🔗</a>
+                  </div>
+                  <p style="margin: 0 0 6px 0; font-size: 11px; color: #cccccc;">📦 ${result.repository.full_name}</p>
+                  <p style="margin: 0; font-size: 11px; color: #888888;">📄 ${result.path}</p>
+                </div>
+                <button class="load-github-file" data-url="${result.html_url}" data-name="${result.name}" style="padding: 8px 16px; background: #0066cc; color: #ffffff; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                  📥 Načíst
+                </button>
+              </div>
+            `;
+          }
+
+          // Event listeners pro načtení
+          const loadBtn = resultCard.querySelector('.load-github-repo, .load-github-file');
+          loadBtn?.addEventListener('click', async (e) => {
             e.stopPropagation();
             const btn = e.currentTarget;
             btn.disabled = true;
             btn.textContent = '⏳ Načítání...';
 
             try {
-              // Zavřít dialog PŘED načítáním
               closeModal();
+              this.showLoadingOverlay('📥 Načítám z GitHub...');
 
-              // Zobrazit loading overlay
-              this.showLoadingOverlay('📥 Načítám soubory z GitHub...', name);
+              if (lastSearchType === 'repositories') {
+                const fullName = btn.dataset.fullname;
+                await this.loadGitHubRepo(fullName, btn.dataset.name);
+              } else {
+                await this.loadGitHubCode(result.html_url, result.name, true);
+              }
 
-              await this.loadGitHubCode(result.url, result.name, singleFile);
-
-              // Skrýt loading overlay
               this.hideLoadingOverlay();
-
               eventBus.emit('toast:show', {
                 message: '✅ Kód načten z GitHub',
-                type: 'success',
-                duration: 2000
+                type: 'success'
               });
             } catch (error) {
               this.hideLoadingOverlay();
               eventBus.emit('toast:show', {
-                message: '❌ Chyba při načítání: ' + error.message,
-                type: 'error',
-                duration: 3000
+                message: '❌ ' + error.message,
+                type: 'error'
               });
               btn.disabled = false;
-              btn.textContent = '📥 Načíst kód';
+              btn.textContent = '📥 Načíst';
             }
           });
 
           resultsList.appendChild(resultCard);
         });
 
+        // Pagination
+        const maxPages = Math.min(Math.ceil(totalCount / 10), 100);
+        if (maxPages > 1) {
+          const paginationHTML = this.createPaginationHTML(page, maxPages);
+          paginationDiv.innerHTML = paginationHTML;
+
+          // Bind pagination clicks
+          paginationDiv.querySelectorAll('[data-page]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const newPage = parseInt(btn.dataset.page);
+              performSearch(lastSearchType, newPage);
+            });
+          });
+        }
+
       } catch (error) {
         loadingDiv.style.display = 'none';
         resultsDiv.style.display = 'block';
-        resultsList.innerHTML = `<p style="text-align: center; color: #ef4444; padding: 20px;">Chyba: ${error.message}</p>`;
+        resultsList.innerHTML = `<p style="text-align: center; color: #ff6b6b; padding: 20px;">❌ ${error.message}</p>`;
       }
+    };
+
+    // Tlačítko pro hledání repozitářů
+    modal.querySelector('#searchRepos').addEventListener('click', () => performSearch('repositories', 1));
+
+    // Tlačítko pro hledání kódu
+    modal.querySelector('#searchCode').addEventListener('click', () => performSearch('code', 1));
+
+    // Enter pro hledání repozitářů (výchozí)
+    modal.querySelector('#githubSearchQuery').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') performSearch('repositories', 1);
     });
   }
 
-  async searchGitHubFiles(query) {
-    const searchQuery = encodeURIComponent(`${query} extension:html`);
-    const response = await fetch(`https://api.github.com/search/code?q=${searchQuery}&per_page=10`);
+  createPaginationHTML(page, maxPages) {
+    let html = '<div style="display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap;">';
 
-    if (!response.ok) {
-      throw new Error('GitHub API chyba: ' + response.statusText);
+    // Previous
+    html += `<button data-page="${page - 1}" ${page === 1 ? 'disabled' : ''} style="padding: 8px 12px; background: ${page === 1 ? '#333' : '#0066cc'}; color: #ffffff; border: none; border-radius: 6px; cursor: ${page === 1 ? 'not-allowed' : 'pointer'}; font-weight: 600;">←</button>`;
+
+    let startPage = Math.max(1, page - 2);
+    let endPage = Math.min(maxPages, page + 2);
+
+    if (page <= 3) endPage = Math.min(5, maxPages);
+    else if (page >= maxPages - 2) startPage = Math.max(1, maxPages - 4);
+
+    // First + ellipsis
+    if (startPage > 1) {
+      html += `<button data-page="1" style="padding: 8px 12px; background: #242424; color: #ffffff; border: 1px solid #333; border-radius: 6px; cursor: pointer; font-weight: 600;">1</button>`;
+      if (startPage > 2) html += '<span style="padding: 8px 4px; color: #888888;">...</span>';
     }
 
-    const data = await response.json();
+    // Pages
+    for (let i = startPage; i <= endPage; i++) {
+      const isActive = i === page;
+      html += `<button data-page="${i}" style="padding: 8px 12px; background: ${isActive ? '#0066cc' : '#242424'}; color: #ffffff; border: 1px solid ${isActive ? '#0066cc' : '#333'}; border-radius: 6px; cursor: pointer; font-weight: 600;">${i}</button>`;
+    }
 
-    return data.items.map(item => ({
-      name: item.name,
-      path: item.path,
-      description: item.repository.description,
-      url: item.html_url,
-      downloadUrl: `https://raw.githubusercontent.com/${item.repository.full_name}/${item.repository.default_branch}/${item.path}`,
-      stars: item.repository.stargazers_count,
-      forks: item.repository.forks_count
-    }));
+    // Ellipsis + last
+    if (endPage < maxPages) {
+      if (endPage < maxPages - 1) html += '<span style="padding: 8px 4px; color: #888888;">...</span>';
+      html += `<button data-page="${maxPages}" style="padding: 8px 12px; background: #242424; color: #ffffff; border: 1px solid #333; border-radius: 6px; cursor: pointer; font-weight: 600;">${maxPages}</button>`;
+    }
+
+    // Next
+    html += `<button data-page="${page + 1}" ${page >= maxPages ? 'disabled' : ''} style="padding: 8px 12px; background: ${page >= maxPages ? '#333' : '#0066cc'}; color: #ffffff; border: none; border-radius: 6px; cursor: ${page >= maxPages ? 'not-allowed' : 'pointer'}; font-weight: 600;">→</button>`;
+
+    html += '</div>';
+    return html;
   }
 
-  async searchGitHubRepos(query) {
-    const searchQuery = encodeURIComponent(`${query} language:html`);
-    const response = await fetch(`https://api.github.com/search/repositories?q=${searchQuery}&sort=stars&per_page=10`);
+  async searchGitHubCode(query, language, page = 1, token = null) {
+    const searchQuery = language ? `${query}+language:${language}` : query;
+    const headers = { 'Accept': 'application/vnd.github+json' };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      headers['X-GitHub-Api-Version'] = '2022-11-28';
+    }
+
+    const response = await fetch(
+      `https://api.github.com/search/code?q=${encodeURIComponent(searchQuery)}&per_page=10&page=${page}`,
+      { headers }
+    );
 
     if (!response.ok) {
       throw new Error('GitHub API chyba: ' + response.statusText);
     }
 
-    const data = await response.json();
+    return await response.json();
+  }
 
-    return data.items.map(repo => ({
-      name: repo.name,
-      description: repo.description,
-      url: repo.html_url,
-      cloneUrl: repo.clone_url,
-      stars: repo.stargazers_count,
-      forks: repo.forks_count,
-      defaultBranch: repo.default_branch,
-      fullName: repo.full_name
-    }));
+  async searchGitHubRepos(query, language, page = 1, token = null) {
+    const searchQuery = language ? `${query}+language:${language}` : query;
+    const headers = { 'Accept': 'application/vnd.github+json' };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      headers['X-GitHub-Api-Version'] = '2022-11-28';
+    }
+
+    const response = await fetch(
+      `https://api.github.com/search/repositories?q=${searchQuery}&sort=stars&per_page=10&page=${page}`,
+      { headers }
+    );
+
+    if (!response.ok) {
+      throw new Error('GitHub API chyba: ' + response.statusText);
+    }
+
+    return await response.json();
+  }
+
+  async loadGitHubRepo(fullName, repoName) {
+    try {
+      // Nejdřív zkus získat strukturu repozitáře
+      const token = localStorage.getItem('github_token');
+      const headers = { 'Accept': 'application/vnd.github+json' };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['X-GitHub-Api-Version'] = '2022-11-28';
+      }
+
+      // Získej obsah root složky
+      let branch = 'main';
+      let response = await fetch(`https://api.github.com/repos/${fullName}/contents?ref=main`, { headers });
+
+      if (!response.ok) {
+        // Zkus master větev
+        branch = 'master';
+        response = await fetch(`https://api.github.com/repos/${fullName}/contents?ref=master`, { headers });
+      }
+
+      if (!response.ok) {
+        throw new Error('Nepodařilo se načíst obsah repozitáře');
+      }
+
+      const files = await response.json();
+
+      // Najdi hlavní soubory podle priority
+      const priorities = [
+        { name: 'index.html', weight: 10 },
+        { name: 'index.htm', weight: 9 },
+        { name: 'main.html', weight: 8 },
+        { name: 'home.html', weight: 7 },
+        { name: 'index.js', weight: 6 },
+        { name: 'main.js', weight: 5 },
+        { name: 'app.js', weight: 4 },
+        { name: 'main.py', weight: 3 },
+        { name: 'app.py', weight: 2 },
+        { name: 'README.md', weight: 1 }
+      ];
+
+      // Seřaď soubory podle priority
+      let mainFile = null;
+      let maxWeight = 0;
+
+      for (const file of files) {
+        if (file.type === 'file') {
+          const priority = priorities.find(p => p.name === file.name);
+          if (priority && priority.weight > maxWeight) {
+            maxWeight = priority.weight;
+            mainFile = file;
+          }
+        }
+      }
+
+      if (!mainFile) {
+        // Pokud není žádný prioritní soubor, vezmi první HTML/JS/PY
+        mainFile = files.find(f =>
+          f.type === 'file' &&
+          (f.name.endsWith('.html') || f.name.endsWith('.js') || f.name.endsWith('.py'))
+        );
+      }
+
+      if (!mainFile) {
+        // Pokud pořád nic, nabídni uživateli seznam souborů
+        this.showRepoFileSelector(fullName, branch, files, repoName);
+        return;
+      }
+
+      // Načti obsah hlavního souboru
+      const codeResponse = await fetch(mainFile.download_url);
+      if (!codeResponse.ok) {
+        throw new Error('Nepodařilo se načíst soubor');
+      }
+
+      const code = await codeResponse.text();
+      await this.handleGitHubCodeLoad(code, mainFile.name);
+
+    } catch (error) {
+      throw new Error('Nepodařilo se načíst repozitář: ' + error.message);
+    }
+  }
+
+  showRepoFileSelector(fullName, branch, files, repoName) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">📦 Vyberte soubor z ${repoName}</h3>
+          <button id="closeFileSelector" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 20px; overflow-y: auto;">
+          <p style="margin-bottom: 15px; color: #cccccc;">Nebyl nalezen automaticky detekovatelný hlavní soubor. Vyberte soubor, který chcete načíst:</p>
+          <div id="fileList" style="display: grid; gap: 8px;"></div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const fileList = modal.querySelector('#fileList');
+    const codeFiles = files.filter(f =>
+      f.type === 'file' &&
+      !f.name.startsWith('.') &&
+      (f.name.endsWith('.html') || f.name.endsWith('.htm') ||
+       f.name.endsWith('.js') || f.name.endsWith('.py') ||
+       f.name.endsWith('.css') || f.name.endsWith('.json') ||
+       f.name.endsWith('.md') || f.name.endsWith('.txt'))
+    );
+
+    if (codeFiles.length === 0) {
+      fileList.innerHTML = '<p style="color: #888888; text-align: center; padding: 20px;">Žádné načitatelné soubory nenalezeny</p>';
+    } else {
+      codeFiles.forEach(file => {
+        const btn = document.createElement('button');
+        btn.style.cssText = 'padding: 12px; background: #242424; color: #ffffff; border: 1px solid #333; border-radius: 6px; cursor: pointer; text-align: left; transition: all 0.2s; display: flex; align-items: center; gap: 10px;';
+
+        const icon = this.getFileIcon(file.name);
+        btn.innerHTML = `
+          <span style="font-size: 20px;">${icon}</span>
+          <span style="flex: 1;">${file.name}</span>
+          <span style="font-size: 11px; color: #888888;">${this.formatBytes(file.size)}</span>
+        `;
+
+        btn.addEventListener('mouseenter', () => {
+          btn.style.background = '#333';
+          btn.style.borderColor = '#0066cc';
+        });
+
+        btn.addEventListener('mouseleave', () => {
+          btn.style.background = '#242424';
+          btn.style.borderColor = '#333';
+        });
+
+        btn.addEventListener('click', async () => {
+          modal.remove();
+          this.showLoadingOverlay('📥 Načítám soubor...');
+
+          try {
+            const response = await fetch(file.download_url);
+            if (!response.ok) throw new Error('Nepodařilo se načíst soubor');
+
+            const code = await response.text();
+            this.hideLoadingOverlay();
+            await this.handleGitHubCodeLoad(code, file.name);
+          } catch (error) {
+            this.hideLoadingOverlay();
+            eventBus.emit('toast:show', {
+              message: '❌ ' + error.message,
+              type: 'error'
+            });
+          }
+        });
+
+        fileList.appendChild(btn);
+      });
+    }
+
+    modal.querySelector('#closeFileSelector').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
+  getFileIcon(fileName) {
+    const ext = fileName.split('.').pop().toLowerCase();
+    const icons = {
+      'html': '📄',
+      'htm': '📄',
+      'css': '🎨',
+      'js': '📜',
+      'json': '📋',
+      'py': '🐍',
+      'md': '📝',
+      'txt': '📃'
+    };
+    return icons[ext] || '📄';
+  }
+
+  formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
   async loadGitHubCode(url, name, isSingleFile) {
@@ -3982,65 +4385,101 @@ NEW:
       }
 
       const code = await response.text();
+      await this.handleGitHubCodeLoad(code, name);
+    }
+  }
 
-      // Vytvořit nový soubor
-      eventBus.emit('file:create', {
-        name: name,
-        content: code
+  async handleGitHubCodeLoad(code, fileName) {
+    // Zkontroluj jestli je nějaký kód v editoru
+    const currentCode = state.get('editor.code') || '';
+    const hasCode = currentCode.trim().length > 0;
+
+    if (hasCode) {
+      // Nabídni možnosti
+      const modal = document.createElement('div');
+      modal.className = 'modal-backdrop';
+      modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; overflow: hidden;">
+          <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333;">
+            <h3 style="margin: 0; color: #ffffff; font-size: 18px;">📥 Načíst kód z GitHub</h3>
+          </div>
+          <div class="modal-body" style="padding: 25px;">
+            <p style="margin-bottom: 20px; color: #cccccc; line-height: 1.6;">
+              V editoru už máte kód. Co chcete udělat?
+            </p>
+            <div style="display: grid; gap: 12px;">
+              <button id="replaceCode" style="padding: 14px; background: #0066cc; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                🔄 Nahradit aktuální kód
+              </button>
+              <button id="createNewFile" style="padding: 14px; background: #242424; color: #ffffff; border: 2px solid #333; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                ➕ Vytvořit nový soubor
+              </button>
+              <button id="cancelLoad" style="padding: 14px; background: transparent; color: #888888; border: 1px solid #333; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                ❌ Zrušit
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      return new Promise((resolve) => {
+        const closeModal = () => {
+          modal.remove();
+          resolve();
+        };
+
+        modal.querySelector('#replaceCode').addEventListener('click', () => {
+          // Nahraď kód v aktuálním souboru
+          state.set('editor.code', code);
+          eventBus.emit('editor:change', { code });
+
+          // Aktualizuj content v tabs
+          const activeFileId = state.get('files.active');
+          const tabs = state.get('files.tabs') || [];
+          const updatedTabs = tabs.map(f =>
+            f.id === activeFileId ? { ...f, content: code } : f
+          );
+          state.set('files.tabs', updatedTabs);
+
+          eventBus.emit('toast:show', {
+            message: '✅ Kód byl nahrazen',
+            type: 'success'
+          });
+          closeModal();
+        });
+
+        modal.querySelector('#createNewFile').addEventListener('click', () => {
+          // Vytvoř nový soubor
+          eventBus.emit('file:create', { name: fileName, content: code });
+          eventBus.emit('toast:show', {
+            message: `✅ Vytvořen nový soubor: ${fileName}`,
+            type: 'success'
+          });
+          closeModal();
+        });
+
+        modal.querySelector('#cancelLoad').addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) closeModal();
+        });
       });
-
     } else {
-      // Pro repozitář - zkusit najít index.html
-      const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
-      if (!match) {
-        throw new Error('Neplatná URL GitHub repozitáře');
+      // Prázdný editor - prostě nahraď
+      state.set('editor.code', code);
+      eventBus.emit('editor:change', { code });
+
+      // Aktualizuj i v tabs pokud existuje aktivní soubor
+      const activeFileId = state.get('files.active');
+      if (activeFileId) {
+        const tabs = state.get('files.tabs') || [];
+        const updatedTabs = tabs.map(f =>
+          f.id === activeFileId ? { ...f, content: code } : f
+        );
+        state.set('files.tabs', updatedTabs);
       }
-
-      const [, owner, repo] = match;
-
-      // Zkusit načíst index.html
-      const possibleFiles = ['index.html', 'index.htm', 'home.html', 'main.html'];
-      let code = null;
-
-      for (const file of possibleFiles) {
-        try {
-          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${file}`;
-          const response = await fetch(rawUrl);
-          if (response.ok) {
-            code = await response.text();
-            break;
-          }
-        } catch (e) {
-          // Zkusit další soubor
-          continue;
-        }
-      }
-
-      if (!code) {
-        // Zkusit master branch
-        for (const file of possibleFiles) {
-          try {
-            const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/master/${file}`;
-            const response = await fetch(rawUrl);
-            if (response.ok) {
-              code = await response.text();
-              break;
-            }
-          } catch (e) {
-            continue;
-          }
-        }
-      }
-
-      if (!code) {
-        throw new Error('Nenalezen žádný HTML soubor v repozitáři. Zkuste hledat samostatné soubory.');
-      }
-
-      // Vytvořit nový soubor
-      eventBus.emit('file:create', {
-        name: `${name}.html`,
-        content: code
-      });
     }
   }
 
@@ -4420,7 +4859,7 @@ NEW:
     }
   }
 
-  getMockRepositories(username) {
+  getMockRepositories(_username) {
     // Load from localStorage or return mock data
     const stored = localStorage.getItem('github_repos');
     if (stored) {
@@ -4857,12 +5296,56 @@ NEW:
     if (!window.CrewAI || !window.CrewAI.isAvailable) {
       agentsGrid.innerHTML = `
         <div class="crewai-warning">
-          <h4>⚠️ CrewAI server není dostupný</h4>
-          <p>Spusť Python server příkazem:</p>
-          <code>python crewai_api.py</code>
-          <p>Server běží na http://localhost:5005</p>
+          <h4>🤖 CrewAI Python agenti</h4>
+          <p style="margin: 10px 0;">Server není spuštěný, ale můžeš ho snadno spustit:</p>
+
+          <div style="background: #2a2a2a; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <p style="margin: 5px 0; font-weight: bold; color: #4EC9B0;">📦 Nejjednodušší způsob:</p>
+            <p style="margin: 5px 0;">Dvojklik na soubor:</p>
+            <code style="display: block; background: #1e1e1e; padding: 8px; border-radius: 4px; margin: 5px 0;">start-crewai.bat</code>
+          </div>
+
+          <details style="margin: 15px 0; cursor: pointer;">
+            <summary style="font-weight: bold; color: #4EC9B0; padding: 5px 0;">🔧 Další možnosti spuštění</summary>
+            <div style="padding: 10px 0;">
+              <p><strong>NPM příkaz:</strong></p>
+              <code style="display: block; background: #1e1e1e; padding: 8px; border-radius: 4px; margin: 5px 0;">npm run crewai:start</code>
+
+              <p style="margin-top: 10px;"><strong>Nebo ručně:</strong></p>
+              <code style="display: block; background: #1e1e1e; padding: 8px; border-radius: 4px; margin: 5px 0;">python python/crewai_api.py</code>
+            </div>
+          </details>
+
+          <button class="btn btn-primary" id="retryCrewAIConnection" style="width: 100%; margin-top: 10px;">
+            🔄 Zkontrolovat připojení
+          </button>
+
+          <p style="margin-top: 15px; font-size: 0.9em; color: #999;">
+            💡 Po spuštění serveru klikni na "Zkontrolovat připojení"
+          </p>
         </div>
       `;
+
+      // Přidej handler pro retry button
+      const retryBtn = agentsGrid.querySelector('#retryCrewAIConnection');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', async () => {
+          retryBtn.disabled = true;
+          retryBtn.textContent = '⏳ Kontroluji...';
+
+          await window.CrewAI.checkConnection();
+
+          if (window.CrewAI.isAvailable) {
+            toast.show('✅ CrewAI server připojen!', 'success');
+            this.loadCrewAIAgents(agentsGrid);
+          } else {
+            toast.show('⚠️ Server stále není dostupný', 'warning');
+            retryBtn.disabled = false;
+            retryBtn.textContent = '🔄 Zkontrolovat připojení';
+          }
+        });
+      }
+
       return;
     }
 
@@ -4920,17 +5403,19 @@ NEW:
       agentName.textContent = `CrewAI - ${agentId}`;
     }
 
+    let loadingMsg = null;
+
     if (messagesContainer) {
       // Add user message
       const userMsg = document.createElement('div');
       userMsg.className = 'agent-message user';
-      userMsg.innerHTML = `<strong>Ty:</strong><p>${task}</p>`;
+      userMsg.innerHTML = '<strong>Ty:</strong><p>' + this.escapeHtml(task) + '</p>';
       messagesContainer.appendChild(userMsg);
 
       // Add loading message
-      const loadingMsg = document.createElement('div');
+      loadingMsg = document.createElement('div');
       loadingMsg.className = 'agent-message assistant loading';
-      loadingMsg.innerHTML = `<strong>CrewAI:</strong><p>Zpracovávám úkol...</p>`;
+      loadingMsg.innerHTML = '<strong>CrewAI:</strong><p>Zpracovávám úkol...</p>';
       messagesContainer.appendChild(loadingMsg);
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
@@ -4938,12 +5423,12 @@ NEW:
     try {
       const result = await window.CrewAI.runSingleAgent(agentId, task);
 
-      if (messagesContainer) {
+      if (messagesContainer && loadingMsg) {
         loadingMsg.remove();
 
         const responseMsg = document.createElement('div');
         responseMsg.className = 'agent-message assistant';
-        responseMsg.innerHTML = `<strong>CrewAI:</strong><p>${result.result}</p>`;
+        responseMsg.innerHTML = '<strong>CrewAI:</strong><p>' + this.escapeHtml(result.result) + '</p>';
         messagesContainer.appendChild(responseMsg);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
@@ -5367,12 +5852,14 @@ ODPOVĚZ VE FORMÁTU:
       if (agentName) agentName.textContent = 'CrewAI - Celý tým';
     }
 
+    let loadingMsg = null;
+
     if (messagesContainer) {
       messagesContainer.innerHTML = '<div class="agent-message system">🐍 Spouštím CrewAI tým...</div>';
 
-      const loadingMsg = document.createElement('div');
+      loadingMsg = document.createElement('div');
       loadingMsg.className = 'agent-message assistant loading';
-      loadingMsg.innerHTML = `<strong>CrewAI:</strong><p>Agenti pracují na úkolu (může trvat několik minut)...</p>`;
+      loadingMsg.innerHTML = '<strong>CrewAI:</strong><p>Agenti pracují na úkolu (může trvat několik minut)...</p>';
       messagesContainer.appendChild(loadingMsg);
     }
 

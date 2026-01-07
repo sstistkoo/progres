@@ -2,6 +2,8 @@
 
 Moderní mobilní HTML editor s AI asistencí, live preview a GitHub integrací - **refaktorováno s modulární architekturou**.
 
+> 🤖 **Nové!** [AI Extensions Guide](docs/guides/AI_EXTENSIONS_RYCHLY_START.md) - Doporučená VS Code rozšíření pro práci s AI
+
 ## ✨ Co je nového v 2.0
 
 - 🏗️ **Modulární architektura** - Čistě oddělené moduly namísto monolitického souboru
@@ -63,7 +65,29 @@ npm run dev
 
 Otevře se na `http://localhost:3000`
 
-### 3. Production build
+### 3. CrewAI server (volitelné)
+
+**Automatické spuštění:**
+
+- CrewAI server se **automaticky spustí** když ho použiješ v aplikaci
+- Stačí kliknout na CrewAI agenty a následovat instrukce
+
+**Manuální spuštění:**
+
+```bash
+# Nejjednodušší (Windows):
+start-crewai.bat
+
+# Nebo NPM:
+npm run crewai:start
+
+# Nebo ručně:
+python python/crewai_api.py
+```
+
+📖 [Detailní průvodce](docs/guides/CREWAI_AUTO_START.md)
+
+### 4. Production build
 
 ```bash
 npm run build
@@ -71,7 +95,7 @@ npm run build
 
 Build se vytvoří v `dist/` složce.
 
-### 4. Preview production buildu
+### 5. Preview production buildu
 
 ```bash
 npm run preview
@@ -194,6 +218,53 @@ npm run test        # Unit testy
 npm run test:watch  # Watch mode
 npm run test:coverage  # Coverage report
 ```
+
+## 🤖 AI Integration
+
+### VS Code Mode (Tool System)
+
+- 🛠️ **Automaticky zapnuto** při prvním spuštění
+- 💾 **Ukládá se do localStorage** - preference přežijí refresh
+- 🔧 AI může používat nástroje: `read_file`, `search`, `analyze`, atd.
+- 📖 [Implementace detaily](docs/guides/VSCODE_MODE_IMPLEMENTACE.md)
+
+### Doporučená VS Code Extensions
+
+Pracujte s tímto projektem efektivněji pomocí AI asistentů:
+
+#### 🥇 Top 3 doporučení:
+
+1. **Continue** - Zdarma, Claude + GPT-4, vlastní API
+
+   ```bash
+   code --install-extension Continue.continue
+   ```
+
+2. **Cline** - Autonomní AI coding agent
+
+   ```bash
+   code --install-extension saoudrizwan.claude-dev
+   ```
+
+3. **Codeium** - Úplně zdarma, instant autocomplete
+   ```bash
+   code --install-extension Codeium.codeium
+   ```
+
+📚 **Kompletní průvodce:** [AI Extensions Guide](docs/guides/AI_EXTENSIONS_RYCHLY_START.md)
+
+### .cursorrules
+
+Projekt obsahuje `.cursorrules` soubor s:
+
+- 📋 Coding standards
+- 🏗️ Architecture patterns
+- ✅ Best practices
+- 🚫 Co nedělat
+
+AI asistenti (Continue, Cline, Cursor) automaticky použijí tato pravidla!
+
+---
 
 ## 📚 Migrace ze staré verze
 
