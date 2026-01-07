@@ -21,13 +21,13 @@
     <link rel="stylesheet" href="src/styles/main.css?v=2.4.0" />
 
     <!-- AI Module -->
-    <script src="ai_module.js"></script>
+    <script src="src/modules/ai/core/AIModule.js"></script>
 
     <!-- AI Agents System -->
-    <script src="ai_agents.js"></script>
+    <script src="src/modules/ai/agents/AIAgents.js"></script>
 
     <!-- CrewAI Connector -->
-    <script src="crewai_connector.js"></script>
+    <script src="src/modules/ai/integrations/CrewAIConnector.js"></script>
 
     <!-- Markdown Parser -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
@@ -131,10 +131,10 @@
           </button>
           <button class="toolbar-btn" id="findReplaceBtn" title="Najít a nahradit text (Ctrl+H)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="M21 21l-4.35-4.35"/>
-              <path d="M11 8v6"/>
-              <path d="M8 11h6"/>
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+              <path d="M11 8v6" />
+              <path d="M8 11h6" />
             </svg>
             <span>Najít a nahradit</span>
           </button>
@@ -190,9 +190,13 @@
         <section class="editor-section">
           <div class="editor-tabs-container">
             <div class="editor-tabs" id="editorTabs">
-              <button class="tabs-layout-toggle" id="tabsLayoutToggle" title="Přepínání zobrazení tabů (horizontálně/vertikálně)">
+              <button
+                class="tabs-layout-toggle"
+                id="tabsLayoutToggle"
+                title="Přepínání zobrazení tabů (horizontálně/vertikálně)"
+              >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 12h18M3 6h18M3 18h18"/>
+                  <path d="M3 12h18M3 6h18M3 18h18" />
                 </svg>
               </button>
               <!-- Tabs will be dynamically added here -->
@@ -223,14 +227,16 @@
         <div class="console-footer">
           <button class="console-clear" id="consoleClearBtn" title="Vymazat konzoli">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              <path
+                d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+              />
             </svg>
             Vymazat
           </button>
           <button class="console-send-ai" id="consoleSendAIBtn" title="Poslat chyby do AI k opravě">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/>
-              <path d="M12 6v6l4 2"/>
+              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
+              <path d="M12 6v6l4 2" />
             </svg>
             🤖 Opravit chyby
           </button>
@@ -246,7 +252,9 @@
       const lastVersion = localStorage.getItem('app_version');
 
       // Detect mobile device
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      );
 
       if (lastVersion !== APP_VERSION) {
         console.log('🔄 Detekována nová verze, mazání cache...');
@@ -309,7 +317,10 @@
           // - github_repos (seznam repozitářů)
 
           localStorage.setItem('app_version', APP_VERSION);
-          console.log('✅ Cache vymazána (localStorage zachován), verze aktualizována na', APP_VERSION);
+          console.log(
+            '✅ Cache vymazána (localStorage zachován), verze aktualizována na',
+            APP_VERSION
+          );
         }
       }
 
@@ -345,11 +356,11 @@
         // View switchers - both header and toolbar buttons
         const viewEditorBtns = [
           document.getElementById('viewEditorBtn'),
-          document.getElementById('toolbarEditorBtn')
+          document.getElementById('toolbarEditorBtn'),
         ];
         const viewPreviewBtns = [
           document.getElementById('viewPreviewBtn'),
-          document.getElementById('toolbarPreviewBtn')
+          document.getElementById('toolbarPreviewBtn'),
         ];
 
         viewEditorBtns.forEach(btn => {
