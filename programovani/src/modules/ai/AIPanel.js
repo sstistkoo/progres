@@ -8,6 +8,8 @@ import { state } from '../../core/state.js';
 import { Modal } from '../../ui/components/Modal.js';
 import { toast } from '../../ui/components/Toast.js';
 import { AITester } from './AITester.js';
+import { toolSystem } from './tools/ToolSystem.js';
+import { initializeTools } from './tools/index.js';
 
 export class AIPanel {
   constructor() {
@@ -18,6 +20,11 @@ export class AIPanel {
     this.aiTester = new AITester();
     this.isProcessing = false; // Race condition protection
     this.eventListeners = []; // Track event listeners for cleanup
+    this.toolSystem = toolSystem; // Tool System pro VS Code Mode
+
+    // Inicializuj tools
+    initializeTools();
+
     this.setupEventListeners();
   }
 
@@ -122,6 +129,13 @@ export class AIPanel {
               <select id="aiModel" class="ai-select">
                 <option value="">Načítání...</option>
               </select>
+            </div>
+            <div class="ai-vscode-mode">
+              <label class="checkbox-label">
+                <input type="checkbox" id="vsCodeModeToggle" />
+                <span>🛠️ VS Code Mode (Tool System)</span>
+              </label>
+              <div class="mode-info">AI může používat nástroje jako read_file, search, analyze</div>
             </div>
           </div>
         </div>
@@ -1120,6 +1134,28 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       this.updateModels(providerSelect.value);
     }
 
+    // VS Code Mode toggle
+    const vsCodeModeToggle = this.modal.element.querySelector('#vsCodeModeToggle');
+    if (vsCodeModeToggle) {
+      // Restore saved state
+      const savedMode = state.get('ai.vsCodeMode') || false;
+      vsCodeModeToggle.checked = savedMode;
+      this.toolSystem.setEnabled(savedMode);
+
+      vsCodeModeToggle.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        this.toolSystem.setEnabled(enabled);
+        state.set('ai.vsCodeMode', enabled);
+
+        toast.show(
+          enabled ? '🛠️ VS Code Mode aktivován - AI může používat nástroje' : '💬 VS Code Mode vypnut - standardní chat',
+          'info'
+        );
+
+        console.log('VS Code Mode:', enabled ? 'ON' : 'OFF');
+      });
+    }
+
     // Testing tab handlers
     this.attachTestingHandlers();
   }
@@ -1363,7 +1399,13 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
         console.log(`✨ Auto-vybrán nejlepší model: ${provider}/${model}`);
       }
 
-      const response = await window.AI.ask(message, {
+      // Přidej Tool System prompt pokud je VS Code Mode aktivní
+      if (this.toolSystem.isEnabled) {
+        systemPrompt += this.toolSystem.getToolSystemPrompt();
+        console.log('🛠️ VS Code Mode: Tool System aktivní');
+      }
+
+      let response = await window.AI.ask(message, {
         provider: provider,
         model: model,
         system: systemPrompt,
@@ -1371,6 +1413,52 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
         autoFallback: true,  // Auto-switch on rate limit
         history: this.chatHistory.slice(-10) // Send last 10 messages as context
       });
+
+      // Zpracuj tool calls pokud VS Code Mode je aktivní
+      if (this.toolSystem.isEnabled) {
+        let toolCallIteration = 0;
+        const maxIterations = 5;
+
+        while (toolCallIteration < maxIterations) {
+          const toolProcessing = await this.toolSystem.processResponse(response);
+
+          if (!toolProcessing.hasToolCalls) {
+            // Žádné tool calls - pokračuj normálně
+            response = toolProcessing.cleanedContent;
+            break;
+          }
+
+          // Zobraz tool calls info
+          console.log(`🔧 Tool call ${toolCallIteration + 1}:`, toolProcessing.toolResults);
+
+          // Přidej info o tool calls do chatu
+          const toolInfo = toolProcessing.toolResults.map(tr =>
+            `🔧 **${tr.tool}**: ${tr.result.success ? '✅ Úspěch' : '❌ Chyba'}`
+          ).join('\n');
+
+          this.addChatMessage('system', `Tool System:\n${toolInfo}`);
+
+          // Pošli výsledky zpět AI pro další response
+          const toolResultsText = this.toolSystem.formatToolResults(toolProcessing.toolResults);
+
+          response = await window.AI.ask(
+            `${toolProcessing.cleanedContent}\n\n${toolResultsText}\n\nNa základě těchto výsledků odpověz uživateli.`,
+            {
+              provider: provider,
+              model: model,
+              system: systemPrompt,
+              temperature: 0.7,
+              history: this.chatHistory.slice(-10)
+            }
+          );
+
+          toolCallIteration++;
+        }
+
+        if (toolCallIteration >= maxIterations) {
+          response += '\n\n⚠️ Maximum tool iterations reached';
+        }
+      }
 
       // Add to history
       this.chatHistory.push({
