@@ -1426,6 +1426,7 @@
   overflow-x: hidden;
   padding: 12px;
   opacity: 1;
+  /* Modern scrollbar styling (Firefox 64+, Chrome 121+) */
   scrollbar-width: thin;
   scrollbar-color: var(--accent) var(--bg-secondary);
 }
@@ -1656,32 +1657,72 @@
 
 .crewai-warning,
 .crewai-error {
-  padding: 20px;
+  padding: 24px;
   background: var(--bg-tertiary);
-  border-radius: 8px;
-  text-align: center;
+  border-radius: 12px;
+  text-align: left;
+  border: 2px solid var(--border);
 }
 
 .crewai-warning h4,
 .crewai-error h4 {
-  margin: 0 0 12px 0;
+  margin: 0 0 8px 0;
   color: var(--text-primary);
+  font-size: 1.2em;
 }
 
 .crewai-warning p,
 .crewai-error p {
   margin: 8px 0;
   color: var(--text-secondary);
+  line-height: 1.6;
 }
 
 .crewai-warning code {
   display: block;
-  padding: 12px;
+  padding: 10px 12px;
   background: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: 6px;
   font-family: var(--font-mono);
   color: var(--accent);
-  margin: 12px 0;
+  font-size: 0.9em;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.crewai-warning details {
+  background: var(--bg-secondary);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.crewai-warning details[open] {
+  border-color: var(--accent);
+}
+
+.crewai-warning details summary {
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.crewai-warning details summary:hover {
+  color: var(--accent);
+}
+
+.crewai-warning button {
+  transition: all 0.2s ease;
+}
+
+.crewai-warning button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(78, 201, 176, 0.3);
+}
+
+.crewai-warning button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .agents-grid {
@@ -2706,7 +2747,6 @@
 
 .search-btn {
   flex: 1;
-  min-width: -webkit-fill-available;
   min-width: fit-content;
   padding: 10px 16px;
   border: 1px solid var(--border-color);

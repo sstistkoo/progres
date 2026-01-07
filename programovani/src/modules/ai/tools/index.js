@@ -7,6 +7,7 @@ import { fileTools } from './FileTools.js';
 import { searchTools } from './SearchTools.js';
 import { codeTools } from './CodeTools.js';
 import { projectSourceTools } from './ProjectSourceTools.js';
+import { multiFileTools } from './MultiFileTools.js';
 
 /**
  * Inicializuje všechny tools
@@ -32,6 +33,11 @@ export function initializeTools() {
     toolSystem.registerTool(name, tool.schema, tool.handler);
   }
 
+  // Multi-File Tools (práce s více soubory)
+  for (const [name, tool] of Object.entries(multiFileTools)) {
+    toolSystem.registerTool(name, tool.schema, tool.handler);
+  }
+
   console.log(`✅ Tool System initialized with ${toolSystem.tools.size} tools`);
 }
 
@@ -44,7 +50,7 @@ export function getToolsList() {
   for (const [name, tool] of toolSystem.tools) {
     // Kategorizace
     let category = 'General';
-    if (name.includes('file') || name.includes('read') || name.includes('write')) {
+    if (name.includes('file') || name.includes('read') || name.includes('write') || name.includes('create') || name.includes('switch') || name.includes('edit') || name.includes('list')) {
       category = 'File Operations';
     } else if (name.includes('search') || name.includes('find') || name.includes('grep')) {
       category = 'Search';
