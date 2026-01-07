@@ -16,28 +16,64 @@ export class AIPanel {
     this.pendingChanges = new Map(); // Store pending changes for accept/reject
     this.originalCode = null; // Store original code before changes
     this.aiTester = new AITester();
+    this.isProcessing = false; // Race condition protection
+    this.eventListeners = []; // Track event listeners for cleanup
     this.setupEventListeners();
   }
 
   setupEventListeners() {
-    eventBus.on('ai:show', () => this.show());
-    eventBus.on('ai:hide', () => this.hide());
-    eventBus.on('ai:sendMessage', (data) => this.sendMessage(data.message));
-    eventBus.on('aiSettings:show', () => this.showSettings());
-    eventBus.on('console:errorCountChanged', (data) => this.updateErrorIndicator(data.count));
+    // Track listeners for cleanup
+    const listeners = [
+      { event: 'ai:show', handler: () => this.show() },
+      { event: 'ai:hide', handler: () => this.hide() },
+      { event: 'ai:sendMessage', handler: (data) => this.sendMessage(data.message) },
+      { event: 'aiSettings:show', handler: () => this.showSettings() },
+      { event: 'console:errorCountChanged', handler: (data) => this.updateErrorIndicator(data.count) }
+    ];
+
+    listeners.forEach(({ event, handler }) => {
+      eventBus.on(event, handler);
+      this.eventListeners.push({ event, handler });
+    });
+  }
+
+  cleanup() {
+    // Remove all event listeners to prevent memory leaks
+    this.eventListeners.forEach(({ event, handler }) => {
+      eventBus.off(event, handler);
+    });
+    this.eventListeners = [];
+
+    // Cleanup modal
+    if (this.modal) {
+      this.modal.close();
+      this.modal = null;
+    }
+
+    // Clear pending changes
+    this.pendingChanges.clear();
   }
 
   showSettings() {
     // Open AI modal and automatically expand settings
     this.show();
-    // Wait for modal to be created and opened
-    setTimeout(() => {
+
+    // Use requestAnimationFrame for better DOM ready check
+    const expandSettings = () => {
       const settingsToggle = this.modal?.element?.querySelector('.ai-settings-toggle');
       const settingsContent = this.modal?.element?.querySelector('.ai-header-settings');
-      if (settingsToggle && settingsContent && settingsContent.classList.contains('hidden')) {
-        settingsToggle.click();
+
+      if (settingsToggle && settingsContent) {
+        if (settingsContent.classList.contains('hidden')) {
+          settingsToggle.click();
+        }
+      } else {
+        // Retry if elements not found yet
+        requestAnimationFrame(expandSettings);
       }
-    }, 100);
+    };
+
+    requestAnimationFrame(expandSettings);
   }
 
   show() {
@@ -1127,6 +1163,14 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
   }
 
   async sendMessage(message) {
+    // Race condition protection
+    if (this.isProcessing) {
+      toast.warn('⏳ Čekám na dokončení předchozího požadavku...', 2000);
+      return;
+    }
+
+    this.isProcessing = true;
+
     // Add user message to chat
     this.addChatMessage('user', message);
 
@@ -1426,6 +1470,8 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
 
       this.addChatMessage('system', `❌ Chyba: ${errorMsg}`);
       console.error('AI Error:', error);
+    } finally {
+      this.isProcessing = false; // Always reset processing flag
     }
   }
 
