@@ -15,6 +15,8 @@ import { GitHubService } from './services/GitHubService.js';
 import { CodeEditorService } from './services/CodeEditorService.js';
 import { TemplatesService } from './services/TemplatesService.js';
 import { FileAttachmentService } from './services/FileAttachmentService.js';
+import { AgentsService } from './services/AgentsService.js';
+import { ChatHistoryService } from './services/ChatHistoryService.js';
 
 export class AIPanel {
   constructor() {
@@ -31,6 +33,8 @@ export class AIPanel {
     this.codeEditorService = new CodeEditorService(this); // Code editing service
     this.templatesService = new TemplatesService(this); // Templates and prompts service
     this.fileAttachmentService = new FileAttachmentService(this); // File attachment service
+    this.agentsService = new AgentsService(this); // AI agents and orchestration service
+    this.chatHistoryService = new ChatHistoryService(this); // Chat history management service
 
     // Inicializuj tools
     initializeTools();
@@ -112,7 +116,7 @@ export class AIPanel {
       this.createModal();
     }
     this.modal.open();
-    this.restoreChatMessages();
+    this.chatHistoryService.restoreChatMessages();
   }
 
   hide() {
@@ -1077,7 +1081,7 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     const clearHistoryBtn = this.modal.element.querySelector('#clearHistoryBtn');
     if (clearHistoryBtn) {
       clearHistoryBtn.addEventListener('click', () => {
-        this.clearChatHistory();
+        this.chatHistoryService.clearChatHistory();
       });
     }
 
@@ -1090,16 +1094,16 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
         if (choice) {
           const format = prompt('Zadejte 1 pro JSON nebo 2 pro Markdown:', '1');
           if (format === '1') {
-            this.exportChatHistory();
+            this.chatHistoryService.exportChatHistory();
           } else if (format === '2') {
-            this.exportChatAsMarkdown();
+            this.chatHistoryService.exportChatAsMarkdown();
           }
         }
       });
     }
 
     // Update history info
-    this.updateHistoryInfo();
+    this.chatHistoryService.updateHistoryInfo();
 
     // Quick actions
     const quickActionBtns = this.modal.element.querySelectorAll('.quick-action-btn');
@@ -1164,7 +1168,7 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     }
 
     // AI Agents handlers
-    this.attachAgentsHandlers();
+    this.agentsService.attachAgentsHandlers();
 
     // Provider change
     const providerSelect = this.modal.element.querySelector('#aiProvider');
@@ -1317,7 +1321,7 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     state.set('ai.chatHistory', this.chatHistory);
 
     // Update history counter
-    this.updateHistoryInfo();
+    this.chatHistoryService.updateHistoryInfo();
 
     try {
       // Get current provider and model from UI or use auto-selection
@@ -1708,7 +1712,7 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
       state.set('ai.chatHistory', this.chatHistory);
 
       // Update history counter
-      this.updateHistoryInfo();
+      this.chatHistoryService.updateHistoryInfo();
 
       // Odstranit loading animaci
       const loadingElement = document.getElementById(loadingId);
@@ -2578,121 +2582,9 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
     eventBus.emit('editor:setCode', { code: defaultCode });
 
     // Clear chat history
-    this.clearChatHistory();
+    this.chatHistoryService.clearChatHistory();
 
     toast.show('✨ Nový projekt vytvořen!', 'success');
-  }
-
-  clearChatHistory() {
-    this.chatHistory = [];
-    state.set('ai.chatHistory', []);
-    const messagesContainer = this.modal?.element?.querySelector('#aiChatMessages');
-    if (messagesContainer) {
-      messagesContainer.innerHTML = `
-        <div class="ai-message system">
-          <p>Historie konverzace byla vymazána. Můžeš začít novou konverzaci!</p>
-        </div>
-      `;
-    }
-    this.updateHistoryInfo();
-    toast.show('🗑️ Historie konverzace vymazána', 'info');
-  }
-
-  restoreChatMessages() {
-    if (!this.modal || !this.chatHistory || this.chatHistory.length === 0) {
-      return;
-    }
-
-    const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
-    if (!messagesContainer) return;
-
-    // Vymazat existující zprávy
-    messagesContainer.innerHTML = '';
-
-    // Obnovit všechny zprávy z historie
-    this.chatHistory.forEach((msg) => {
-      if (msg.role === 'user') {
-        this.addChatMessage('user', msg.content);
-      } else if (msg.role === 'assistant') {
-        // Zkontroluj, jestli obsahuje kód (triple backticks)
-        const hasCodeBlock = /```[\s\S]*?```/.test(msg.content);
-        if (hasCodeBlock) {
-          this.addChatMessageWithCode('assistant', msg.content, '', false, msg.codeStatus || {});
-        } else {
-          this.addChatMessage('assistant', msg.content);
-        }
-      }
-    });
-
-    // Scrollovat na konec
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  }
-
-  exportChatHistory() {
-    if (this.chatHistory.length === 0) {
-      toast.show('⚠️ Žádná konverzace k exportu', 'warning');
-      return;
-    }
-
-    const exportData = {
-      timestamp: new Date().toISOString(),
-      messageCount: this.chatHistory.length,
-      messages: this.chatHistory.map((msg, idx) => ({
-        index: idx + 1,
-        role: msg.role,
-        content: msg.content,
-        timestamp: msg.timestamp || new Date().toISOString()
-      }))
-    };
-
-    // Export as JSON
-    const json = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ai-chat-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.show('💾 Konverzace exportována', 'success');
-  }
-
-  exportChatAsMarkdown() {
-    if (this.chatHistory.length === 0) {
-      toast.show('⚠️ Žádná konverzace k exportu', 'warning');
-      return;
-    }
-
-    let markdown = `# AI Chat Export\n\n`;
-    markdown += `**Datum:** ${new Date().toLocaleString('cs-CZ')}\n`;
-    markdown += `**Počet zpráv:** ${this.chatHistory.length}\n\n`;
-    markdown += `---\n\n`;
-
-    this.chatHistory.forEach((msg, idx) => {
-      const role = msg.role === 'user' ? '👤 Uživatel' : '🤖 AI';
-      markdown += `## ${idx + 1}. ${role}\n\n`;
-      markdown += `${msg.content}\n\n`;
-      markdown += `---\n\n`;
-    });
-
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ai-chat-${new Date().toISOString().slice(0, 10)}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.show('💾 Konverzace exportována jako Markdown', 'success');
-  }
-
-  updateHistoryInfo() {
-    const historyInfo = this.modal?.element?.querySelector('#chatHistoryInfo');
-    if (historyInfo) {
-      const messageCount = this.chatHistory.length;
-      historyInfo.textContent = `Historie: ${messageCount} ${messageCount === 1 ? 'zpráva' : messageCount < 5 ? 'zprávy' : 'zpráv'}`;
-    }
   }
 
   removeChatMessage(messageId) {
@@ -4053,92 +3945,12 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
     // In production, this would open repo details or clone it
   }
 
-  /**
-   * AI Agents Methods
-   */
-  attachAgentsHandlers() {
-    // Store current engine
-    this.currentAgentEngine = 'javascript';
+  // ============== TESTING HANDLERS ==============
 
-    // Load agents grid
-    this.loadAgentsGrid();
-
-    // Check CrewAI connection
-    this.checkCrewAIConnection();
-
-    // Engine selector
-    const engineRadios = this.modal.element.querySelectorAll('input[name="agentEngine"]');
-    engineRadios.forEach(radio => {
-      radio.addEventListener('change', (e) => {
-        this.currentAgentEngine = e.target.value;
-        this.loadAgentsGrid();
-        if (window.showNotification) {
-          window.showNotification(`Přepnuto na ${e.target.value === 'javascript' ? 'JavaScript' : 'CrewAI'} agenty`, 'info');
-        }
-      });
-    });
-
-    // Orchestrated task button
-    const orchestratedBtn = this.modal.element.querySelector('#orchestratedTaskBtn');
-    if (orchestratedBtn) {
-      orchestratedBtn.addEventListener('click', () => this.startOrchestratedTask());
-    }
-
-    // Collaborative task button
-    const collaborativeBtn = this.modal.element.querySelector('#collaborativeTaskBtn');
-    if (collaborativeBtn) {
-      collaborativeBtn.addEventListener('click', () => this.startCollaborativeTask());
-    }
-
-    // Clear agents button
-    const clearAgentsBtn = this.modal.element.querySelector('#clearAgentsBtn');
-    if (clearAgentsBtn) {
-      clearAgentsBtn.addEventListener('click', () => this.clearAgentsHistory());
-    }
-
-    // Send to agent button
-    const sendToAgentBtn = this.modal.element.querySelector('#sendToAgentBtn');
-    const agentChatInput = this.modal.element.querySelector('#agentChatInput');
-
-    if (sendToAgentBtn && agentChatInput) {
-      sendToAgentBtn.addEventListener('click', () => {
-        const message = agentChatInput.value.trim();
-        if (message && this.currentAgent) {
-          this.sendToCurrentAgent(message);
-          agentChatInput.value = '';
-        }
-      });
-
-      agentChatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          sendToAgentBtn.click();
-        }
-      });
-    }
-  }
-
-  async checkCrewAIConnection() {
-    if (!window.CrewAI) {
-      setTimeout(() => this.checkCrewAIConnection(), 200);
-      return;
-    }
-
-    const isConnected = await window.CrewAI.checkConnection();
-    const statusIndicator = this.modal.element.querySelector('#crewaiStatus');
-
-    if (statusIndicator) {
-      if (isConnected) {
-        statusIndicator.textContent = '✅';
-        statusIndicator.title = 'CrewAI server běží na http://localhost:5005';
-      } else {
-        statusIndicator.textContent = '○';
-        statusIndicator.title = 'CrewAI server není dostupný. Spusť: python crewai_api.py';
-      }
-    }
-  }
-
-  loadAgentsGrid() {
+  attachTestingHandlers() {
+    // Start all tests button
+    const startAllBtn = this.modal.element.querySelector('#startAllTestsBtn');
+    if (startAllBtn) {
     const agentsGrid = this.modal.element.querySelector('#agentsGrid');
     if (!agentsGrid) return;
 
@@ -4608,7 +4420,7 @@ ODPOVĚZ VE FORMÁTU:
       }
 
       // Update history counter
-      this.updateHistoryInfo();
+      this.chatHistoryService.updateHistoryInfo();
 
     } catch (error) {
       console.error('Orchestrator error:', error);
@@ -5423,7 +5235,7 @@ ODPOVĚZ VE FORMÁTU:
 
     // DŮLEŽITÉ: Vymazat chat historii aby AI neviděla starý kód
     this.chatHistory = [];
-    this.updateHistoryInfo();
+    this.chatHistoryService.updateHistoryInfo();
 
     // Visual feedback for user
     toast.info('🗑️ Editor a historie vymazány - začínáme nový projekt', 2000);
