@@ -1474,10 +1474,65 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
       const CRITICAL_EDIT_RULES = `
 
 ═══════════════════════════════════════════════════════════
-🚨🚨🚨 ABSOLUTNÍ ZÁKAZ ZKRATEK V EDIT:LINES! 🚨🚨🚨
+🚨🚨🚨 PREFEROVANÝ FORMÁT: SEARCH/REPLACE (VS Code style) 🚨🚨🚨
 ═══════════════════════════════════════════════════════════
 
-KDYŽ MĚNÍŠ KÓD, MUSÍŠ POUŽÍT TENTO FORMÁT:
+KDYŽ MĚNÍŠ KÓD, POUŽIJ **SEARCH/REPLACE FORMÁT** (spolehlivější):
+
+\`\`\`SEARCH
+[přesný kód který chceš najít a nahradit]
+\`\`\`
+\`\`\`REPLACE
+[nový kód]
+\`\`\`
+
+✅ VÝHODY SEARCH/REPLACE:
+✅ Nemusíš znát čísla řádků
+✅ Automaticky najde správné místo v kódu
+✅ Funguje i když se kód změnil
+✅ Stejný princip jako VS Code (najdi a nahraď)
+
+💡 PŘÍKLAD:
+\`\`\`SEARCH
+.button {
+  background: blue;
+  color: white;
+}
+\`\`\`
+\`\`\`REPLACE
+.button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transition: transform 0.3s;
+}
+\`\`\`
+
+⚠️ DŮLEŽITÉ PRO SEARCH BLOK:
+• Zkopíruj PŘESNĚ kód který vidíš v editoru
+• Včetně všech whitespace a odsazení
+• Nesmí obsahovat "..." nebo jiné zkratky
+• Měl by být dostatečně unikátní (ne moc krátký)
+
+🔄 Můžeš použít více SEARCH/REPLACE bloků najednou:
+\`\`\`SEARCH
+const x = 1;
+\`\`\`
+\`\`\`REPLACE
+const x = 2;
+\`\`\`
+\`\`\`SEARCH
+const y = 3;
+\`\`\`
+\`\`\`REPLACE
+const y = 4;
+\`\`\`
+
+═══════════════════════════════════════════════════════════
+📝 ZÁLOŽNÍ FORMÁT: EDIT:LINES (pouze pokud SEARCH/REPLACE nelze použít)
+═══════════════════════════════════════════════════════════
+
+Pokud SEARCH/REPLACE nelze použít (např. kód se opakuje mnohokrát),
+můžeš použít starší formát s čísly řádků:
 
 \`\`\`EDIT:LINES:45-47
 OLD:
@@ -1497,31 +1552,6 @@ NEW:
 ✅ VŠECHNY řádky od startLine do endLine
 ✅ PŘESNÉ odsazení (whitespace)
 ✅ ÚPLNÝ kód bez zkratek
-
-💡 PŘÍKLAD SPRÁVNĚ:
-\`\`\`EDIT:LINES:60-63
-OLD:
-.button {
-  background: blue;
-  color: white;
-}
-NEW:
-.button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  transition: transform 0.3s;
-}
-\`\`\`
-
-❌ PŘÍKLAD ŠPATNĚ (BUDE ZAMÍTNUTO!):
-\`\`\`EDIT:LINES:60-63
-OLD:
-.button {
-  // ... stávající styly
-}
-NEW:
-...
-\`\`\`
 
 ⚠️ POKUD NEVIDÍŠ CELÝ KÓD:
 Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
@@ -1609,11 +1639,29 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
       const loadingElement = document.getElementById(loadingId);
       if (loadingElement) loadingElement.remove();
 
-      // First check if response contains EDIT:LINES instructions
+      // Try SEARCH/REPLACE first (VS Code style - more reliable)
+      const searchReplaceEdits = this.parseSearchReplaceInstructions(response);
+
+      if (searchReplaceEdits.length > 0) {
+        console.log(`🔧 Detekováno ${searchReplaceEdits.length} SEARCH/REPLACE instrukcí (VS Code style)`);
+
+        // Show preview of changes
+        const preview = searchReplaceEdits.map((e, i) =>
+          `📝 Změna ${i + 1}:\n🔍 Hledám: ${e.searchCode.substring(0, 60)}...\n✅ Nahradím: ${e.replaceCode.substring(0, 60)}...`
+        ).join('\n\n');
+
+        console.log('📋 Náhled změn:\n' + preview);
+
+        // Show confirmation dialog with preview
+        await this.showChangeConfirmation(searchReplaceEdits, response);
+        return; // Exit after handling confirmation
+      }
+
+      // Fallback to EDIT:LINES (legacy format, less reliable)
       const editInstructions = this.parseEditInstructions(response);
 
       if (editInstructions.length > 0) {
-        console.log(`🔧 Detekováno ${editInstructions.length} EDIT:LINES instrukcí`);
+        console.log(`🔧 Detekováno ${editInstructions.length} EDIT:LINES instrukcí (legacy format)`);
 
         // Show preview of changes
         const preview = editInstructions.map(e =>
@@ -1625,8 +1673,8 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
         // Show confirmation dialog with preview
         await this.showChangeConfirmation(editInstructions, response);
         return; // Exit after handling confirmation
-      } else if (response.includes('EDIT:LINES')) {
-        // EDIT:LINES bloky byly detekovány ale ignorovány kvůli prázdným OLD blokům
+      } else if (response.includes('EDIT:LINES') || response.includes('SEARCH')) {
+        // EDIT:LINES/SEARCH bloky byly detekovány ale ignorovány kvůli prázdným blokům
 
         // Zobraz AI response v chatu, aby uživatel viděl co AI poslala
         this.addChatMessage('assistant', response);
@@ -2573,7 +2621,56 @@ NEW:
   }
 
   /**
-   * Parse EDIT:LINES instructions from AI response
+   * Parse SEARCH/REPLACE instructions from AI response (VS Code style - PREFERRED)
+   * More reliable than line numbers - finds code by content
+   *
+   * Format:
+   * ```SEARCH
+   * <exact code to find>
+   * ```
+   * ```REPLACE
+   * <new code to replace with>
+   * ```
+   *
+   * @param {string} response - AI response text
+   * @returns {Array} Array of {searchCode, replaceCode, type: 'search-replace'} objects
+   */
+  parseSearchReplaceInstructions(response) {
+    if (!response) return [];
+
+    const edits = [];
+
+    // Pattern: ```SEARCH ... ``` followed by ```REPLACE ... ```
+    const pattern = /```\s*SEARCH\s*\n([\s\S]*?)\n```\s*```\s*REPLACE\s*\n([\s\S]*?)\n```/gi;
+
+    let match;
+    while ((match = pattern.exec(response)) !== null) {
+      const searchCode = match[1].trim();
+      const replaceCode = match[2].trim();
+
+      // Validate search code - reject empty or placeholder content
+      if (!searchCode || searchCode === '...' || (searchCode.includes('...') && searchCode.length < 10)) {
+        console.warn(`⚠️ Ignoruji SEARCH/REPLACE: SEARCH blok je prázdný nebo obsahuje zkratky`);
+        console.warn(`   📝 SEARCH obsah: "${searchCode.substring(0, 100)}${searchCode.length > 100 ? '...' : ''}"`);
+        continue;
+      }
+
+      edits.push({
+        searchCode: searchCode,
+        replaceCode: replaceCode,
+        type: 'search-replace'
+      });
+    }
+
+    if (edits.length > 0) {
+      console.log(`✅ Detekováno ${edits.length} SEARCH/REPLACE změn (VS Code style)`);
+    }
+
+    return edits;
+  }
+
+  /**
+   * Parse EDIT:LINES instructions from AI response (LEGACY - less reliable)
    * Format: ```EDIT:LINES:5-10
    *         OLD:
    *         <old code>
@@ -2687,21 +2784,43 @@ NEW:
     confirmationEl.innerHTML = `
       <strong>🔍 Náhled navrhovaných změn (${editInstructions.length})</strong>
       <div style="margin-top: 10px; max-height: 400px; overflow-y: auto;">
-        ${editInstructions.map((e, i) => `
-          <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
-            <div style="font-weight: bold; margin-bottom: 5px;">
-              ${i + 1}. Řádky ${e.startLine}-${e.endLine}
-            </div>
-            <div style="margin: 5px 0; color: #ef4444;">
-              <strong>❌ Původní:</strong>
-              <pre style="background: rgba(239,68,68,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.oldCode.substring(0, 200))}${e.oldCode.length > 200 ? '...' : ''}</pre>
-            </div>
-            <div style="margin: 5px 0; color: #10b981;">
-              <strong>✅ Nový:</strong>
-              <pre style="background: rgba(16,185,129,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.newCode.substring(0, 200))}${e.newCode.length > 200 ? '...' : ''}</pre>
-            </div>
-          </div>
-        `).join('')}
+        ${editInstructions.map((e, i) => {
+          if (e.type === 'search-replace') {
+            // SEARCH/REPLACE format
+            return `
+              <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                <div style="font-weight: bold; margin-bottom: 5px;">
+                  ${i + 1}. SEARCH/REPLACE (VS Code style)
+                </div>
+                <div style="margin: 5px 0; color: #3b82f6;">
+                  <strong>🔍 Hledám:</strong>
+                  <pre style="background: rgba(59,130,246,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.searchCode.substring(0, 200))}${e.searchCode.length > 200 ? '...' : ''}</pre>
+                </div>
+                <div style="margin: 5px 0; color: #10b981;">
+                  <strong>✅ Nahradím:</strong>
+                  <pre style="background: rgba(16,185,129,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.replaceCode.substring(0, 200))}${e.replaceCode.length > 200 ? '...' : ''}</pre>
+                </div>
+              </div>
+            `;
+          } else {
+            // EDIT:LINES format (legacy)
+            return `
+              <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                <div style="font-weight: bold; margin-bottom: 5px;">
+                  ${i + 1}. Řádky ${e.startLine}-${e.endLine}
+                </div>
+                <div style="margin: 5px 0; color: #ef4444;">
+                  <strong>❌ Původní:</strong>
+                  <pre style="background: rgba(239,68,68,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.oldCode.substring(0, 200))}${e.oldCode.length > 200 ? '...' : ''}</pre>
+                </div>
+                <div style="margin: 5px 0; color: #10b981;">
+                  <strong>✅ Nový:</strong>
+                  <pre style="background: rgba(16,185,129,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.newCode.substring(0, 200))}${e.newCode.length > 200 ? '...' : ''}</pre>
+                </div>
+              </div>
+            `;
+          }
+        }).join('')}
       </div>
       <div style="margin-top: 15px; display: flex; gap: 10px;">
         <button class="confirm-changes-btn" style="flex: 1; padding: 14px; background: #10b981; color: white; border: 2px solid #059669; border-radius: 8px; cursor: pointer; font-size: 1.1em; font-weight: 700; box-shadow: 0 4px 6px rgba(16,185,129,0.4); transition: all 0.2s;">
@@ -2725,13 +2844,24 @@ NEW:
         console.log('✅ Uživatel potvrdil změny');
         confirmationEl.remove();
 
-        // Apply changes
-        const applied = this.applyLineEdits(editInstructions);
+        // Apply changes - detect format type
+        let applied;
+        if (editInstructions.length > 0 && editInstructions[0].type === 'search-replace') {
+          // SEARCH/REPLACE format (VS Code style)
+          applied = this.applySearchReplaceEdits(editInstructions);
+        } else {
+          // EDIT:LINES format (legacy)
+          applied = this.applyLineEdits(editInstructions);
+        }
 
         if (applied) {
-          const summary = editInstructions.map((e, i) =>
-            `${i + 1}. Řádky ${e.startLine}-${e.endLine}: ✅`
-          ).join('\n');
+          const summary = editInstructions.map((e, i) => {
+            if (e.type === 'search-replace') {
+              return `${i + 1}. SEARCH/REPLACE: ✅`;
+            } else {
+              return `${i + 1}. Řádky ${e.startLine}-${e.endLine}: ✅`;
+            }
+          }).join('\n');
 
           this.addChatMessage('assistant', `✅ Změny aplikovány (${editInstructions.length}x):\n\n${summary}`);
           toast.success(`✅ Aplikováno ${editInstructions.length} změn`, 3000);
@@ -3030,6 +3160,169 @@ NEW:
       console.warn('⚠️ Editor instance nenalezena - aktualizuji pouze state');
       state.set('editor.code', newCode);
     }
+  }
+
+  /**
+   * Apply SEARCH/REPLACE edits (VS Code style)
+   * @param {Array} edits - Array of {searchCode, replaceCode, type: 'search-replace'}
+   * @returns {boolean} - True if all edits applied successfully
+   */
+  applySearchReplaceEdits(edits) {
+    console.log('🔍 Aplikuji SEARCH/REPLACE změny (VS Code style):', edits.length);
+
+    // Get current code
+    const editor = document.querySelector('.editor-container')?.__editor;
+    let currentCode = editor?.getCode() || state.get('editor.code') || '';
+
+    if (!currentCode) {
+      toast.error('Editor je prázdný - nelze aplikovat změny');
+      return false;
+    }
+
+    // Save current state to history BEFORE making changes
+    if (editor && editor.history) {
+      const last = editor.history.past[editor.history.past.length - 1];
+      if (currentCode !== last) {
+        editor.history.past.push(currentCode);
+        if (editor.history.past.length > editor.history.maxSize) {
+          editor.history.past.shift();
+        }
+        editor.history.future = [];
+        console.log('✅ Uloženo do historie před SEARCH/REPLACE');
+      }
+    }
+
+    let workingCode = currentCode;
+    let appliedCount = 0;
+    let failedEdits = [];
+
+    // Apply each edit sequentially
+    for (let i = 0; i < edits.length; i++) {
+      const edit = edits[i];
+      const { searchCode, replaceCode } = edit;
+
+      // Validate that we have valid search and replace code
+      if (!searchCode || searchCode.trim() === '') {
+        failedEdits.push({
+          index: i + 1,
+          reason: 'Prázdný SEARCH blok',
+          search: searchCode,
+          replace: replaceCode
+        });
+        continue;
+      }
+
+      // Note: replaceCode can be empty (deletion), so we don't validate it
+      // But we should trim it for consistency
+      const finalReplaceCode = replaceCode || '';
+
+      // Find the search code in working code
+      const index = workingCode.indexOf(searchCode);
+
+      if (index === -1) {
+        // Try fuzzy matching with whitespace normalization
+        const normalizedWorking = workingCode.replace(/\s+/g, ' ');
+        const normalizedSearch = searchCode.replace(/\s+/g, ' ');
+        const normalizedIndex = normalizedWorking.indexOf(normalizedSearch);
+
+        if (normalizedIndex !== -1) {
+          // Found with normalization - need to find original boundaries
+          // This is complex, so we'll use a simpler approach: try String.replace with original
+          const beforeReplace = workingCode;
+          // Escape special regex characters in searchCode for safe replacement
+          // Build regex that treats whitespace flexibly but everything else literally
+          const searchRegex = searchCode
+            .split(/(\s+)/) // Split on whitespace while keeping the whitespace
+            .map(part => {
+              if (/^\s+$/.test(part)) {
+                // This is whitespace - replace with flexible whitespace matcher
+                return '\\s+';
+              } else {
+                // This is non-whitespace - escape special regex chars
+                return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              }
+            })
+            .join('');
+
+          try {
+            const regex = new RegExp(searchRegex);
+            workingCode = workingCode.replace(regex, finalReplaceCode);
+
+            if (workingCode !== beforeReplace) {
+              console.warn(`⚠️ SEARCH #${i + 1} nalezen s fuzzy matching (ignoruje rozdíly v whitespace)`);
+              appliedCount++;
+              continue;
+            }
+          } catch (e) {
+            console.warn(`⚠️ Fuzzy matching selhalo:`, e);
+          }
+        }
+
+        // Not found even with normalization
+        failedEdits.push({
+          index: i + 1,
+          reason: 'SEARCH text nenalezen v kódu',
+          search: searchCode,
+          replace: replaceCode
+        });
+        continue;
+      }
+
+      // Check for multiple occurrences - this could be dangerous
+      const lastIndex = workingCode.lastIndexOf(searchCode);
+      if (lastIndex !== index) {
+        // Count total occurrences
+        let count = 0;
+        let pos = 0;
+        while ((pos = workingCode.indexOf(searchCode, pos)) !== -1) {
+          count++;
+          pos += searchCode.length;
+        }
+
+        console.warn(`⚠️ SEARCH #${i + 1} nalezen ${count}× - nahrazuji první výskyt`);
+        console.warn(`   💡 TIP: Pokud chceš nahradit jiný výskyt, upřesni SEARCH blok (přidej více kontextu)`);
+      }
+
+      // Apply replacement (using finalReplaceCode for consistency)
+      workingCode = workingCode.substring(0, index) + finalReplaceCode + workingCode.substring(index + searchCode.length);
+      appliedCount++;
+      console.log(`✅ SEARCH/REPLACE #${i + 1} aplikován ${finalReplaceCode === '' ? '(SMAZÁNO)' : ''}`);
+    }
+
+    // Handle failures
+    if (failedEdits.length > 0) {
+      console.warn('⚠️ Některé SEARCH/REPLACE změny selhaly:', failedEdits);
+
+      this.addChatMessage('system',
+        `⚠️ Částečné selhání - aplikováno ${appliedCount}/${edits.length} SEARCH/REPLACE změn.\n\n` +
+        `Kód byl mezitím změněn nebo AI neviděla aktuální verzi.\n\n` +
+        `💡 **Doporučení:**\n` +
+        `• Zkuste: "zobraz celý aktuální kód"\n` +
+        `• Nebo: Vraťte změny (Ctrl+Z) a zkuste znovu`
+      );
+
+      failedEdits.forEach(f => {
+        console.group(`❌ SEARCH/REPLACE #${f.index}`);
+        console.log('Důvod:', f.reason);
+        console.log('SEARCH text:');
+        console.log(f.search);
+        console.log('REPLACE text:');
+        console.log(f.replace);
+        console.groupEnd();
+      });
+    } else {
+      toast.success(`✅ Aplikováno ${appliedCount} SEARCH/REPLACE změn`, 3000);
+    }
+
+    // Update editor
+    if (editor?.setCode) {
+      editor.setCode(workingCode);
+    } else {
+      console.warn('⚠️ Editor instance nenalezena - aktualizuji pouze state');
+      state.set('editor.code', workingCode);
+    }
+
+    return failedEdits.length === 0;
   }
 
   addLineNumbers(code, metadata = null) {
