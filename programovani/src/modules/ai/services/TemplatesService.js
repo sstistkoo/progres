@@ -562,34 +562,59 @@ Odpověz podle typu požadavku a použij správný formát.`;
 (Stručný přehled - 2-3 věty)
 
 ## 📋 Struktura dokumentu
-- **HTML hlavička**: Co obsahuje <head> sekce
-- **Obsah stránky**: Hlavní sekce v <body>
-- **Skripty**: Jaké JS funkce jsou použity
+
+### HTML hlavička
+Co obsahuje <head> sekce - meta tagy, title, styly.
+
+### Obsah stránky
+Hlavní sekce v <body> - navigace, hlavní obsah, formuláře.
+
+### Skripty
+Jaké JS funkce jsou použity a kdy se spouštějí.
 
 ## 🎨 Styling a design
-- Jaké CSS je použito
-- Barevné schéma
-- Responzivita
-- Hlavní vizuální prvky
+
+- **CSS přístup**: Inline, external, CSS proměnné
+- **Barevné schéma**: Jaké barvy jsou použity
+- **Responzivita**: Jak se stránka přizpůsobuje
+- **Vizuální prvky**: Tlačítka, karty, grafika
 
 ## ⚙️ Funkčnost a interaktivita
-- Jaké funkce má JavaScript
-- Jaké jsou hlavní události
-- Co se děje při načtení stránky
-- Jak reaguje na uživatelské akce
+
+### JavaScript funkce
+Seznam hlavních funkcí s popisem co dělají.
+
+### Události a interakce
+Co se děje při kliknutí, načtení, změnách.
+
+### Automatické procesy
+Co se spouští samo (výpočty, aktualizace).
 
 ## 💡 Klíčové prvky
-(Seznam nejdůležitějších částí kódu s vysvětlením)
+
+1. **První důležitý prvek**: Popis a účel
+2. **Druhý důležitý prvek**: Popis a účel
+3. **Třetí důležitý prvek**: Popis a účel
 
 ## 🔍 Technické detaily
-- Použité technologie
-- Zvláštnosti implementace
-- Zajímavé části kódu
+
+- **Technologie**: HTML5, CSS3, Vanilla JS
+- **Knihovny**: Pokud nějaké jsou
+- **API**: Pokud se používají
+- **Zvláštnosti**: Zajímavé implementace
 
 ## ✨ Shrnutí
-(Závěrečné zhodnocení - co stránka dělá a jak)
 
-⚠️ DŮLEŽITÉ: Použij nadpisy (##), odrážky (-), bold (**text**) a emoji pro přehlednost!`;
+Závěrečné zhodnocení - co stránka dělá celkově a jak dobře je implementovaná.
+
+---
+
+⚠️ KRITICKÉ:
+- KAŽDÁ SEKCE ZAČÍNÁ ## NA NOVÉM ŘÁDKU
+- MEZI SEKCEMI JE PRÁZDNÝ ŘÁDEK
+- POUŽÍVEJ MARKDOWN (##, ###, -, **, číslování)
+- NE JEDEN DLOUHÝ ODSTAVEC!
+- STRUKTURUJ TEXT DO SEKCÍ!`;
     }
 
     // If no code or user asks for new project
