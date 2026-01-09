@@ -11,6 +11,7 @@ import { toast } from '../../ui/components/Toast.js';
 import { AITester } from './AITester.js';
 import { toolSystem } from './tools/ToolSystem.js';
 import { initializeTools } from './tools/index.js';
+import { GitHubService } from './services/GitHubService.js';
 
 export class AIPanel {
   constructor() {
@@ -25,6 +26,7 @@ export class AIPanel {
     this.attachedFiles = []; // Attached files for context
     this.diskFiles = []; // Files loaded from disk
     this.formatCache = new Map(); // Cache for formatted messages
+    this.githubService = new GitHubService(this); // GitHub integration service
 
     // Inicializuj tools
     initializeTools();
@@ -1136,24 +1138,24 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     githubActionBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         const action = btn.dataset.action;
-        this.handleGitHubAction(action);
+        this.githubService.handleGitHubAction(action);
       });
     });
 
     // GitHub token save button
     const saveGithubToken = this.modal.element.querySelector('#saveGithubToken');
     if (saveGithubToken) {
-      saveGithubToken.addEventListener('click', () => this.saveGitHubToken());
+      saveGithubToken.addEventListener('click', () => this.githubService.saveGitHubToken(this.modal));
     }
 
     // GitHub OAuth login
     const githubOAuthLogin = this.modal.element.querySelector('#githubOAuthLogin');
     if (githubOAuthLogin) {
-      githubOAuthLogin.addEventListener('click', () => this.initiateGitHubOAuth());
+      githubOAuthLogin.addEventListener('click', () => this.githubService.initiateGitHubOAuth());
     }
 
     // Check token on load
-    this.checkGitHubConnection();
+    this.githubService.checkGitHubConnection(this.modal);
 
     // New project button
     const newProjectBtn = this.modal.element.querySelector('#aiNewProjectBtn');
@@ -4632,25 +4634,46 @@ NEW:
     }
   }
 
-  // GitHub integration
+  // GitHub integration - Delegated to GitHubService
   handleGitHubAction(action) {
-    const actions = {
-      'repos': () => this.showRepoManager(),
-      'search-repos': () => this.showGitHubSearchDialog(),
-      'clone': () => this.cloneRepo(),
-      'create-gist': () => this.createGist(),
-      'issues': () => eventBus.emit('github:showIssues'),
-      'pull-requests': () => eventBus.emit('github:showPullRequests'),
-      'deploy': () => eventBus.emit('github:deployPages')
-    };
-
-    const actionFn = actions[action];
-    if (actionFn) {
-      actionFn();
-    }
+    return this.githubService.handleGitHubAction(action);
   }
 
   showGitHubSearchDialog() {
+    return this.githubService.showGitHubSearchDialog();
+  }
+
+  createPaginationHTML(page, maxPages) {
+    return this.githubService.createPaginationHTML(page, maxPages);
+  }
+
+  async searchGitHubCode(query, language, page = 1, token = null) {
+    return this.githubService.searchGitHubCode(query, language, page, token);
+  }
+
+  async searchGitHubRepos(query, language, page = 1, token = null) {
+    return this.githubService.searchGitHubRepos(query, language, page, token);
+  }
+
+  async loadGitHubRepo(fullName, repoName) {
+    return this.githubService.loadGitHubRepo(fullName, repoName);
+  }
+
+  showRepoLoadOptions(repoName, allFiles) {
+    return this.githubService.showRepoLoadOptions(repoName, allFiles);
+  }
+
+  getFileType(fileName) {
+    return this.githubService.getFileType(fileName);
+  }
+
+  isTextFile(fileName) {
+    return this.githubService.isTextFile(fileName);
+  }
+
+  showRepoFileSelector(fullName, branch, files, repoName) {
+    // This method is not yet migrated to GitHubService
+    // Keep original implementation for now
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
@@ -5371,394 +5394,49 @@ NEW:
   }
 
   async loadGitHubCode(url, name, isSingleFile) {
-    if (isSingleFile) {
-      // Načíst obsah souboru
-      const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)/);
-      if (!match) {
-        throw new Error('Neplatná URL GitHub souboru');
-      }
-
-      const [, owner, repo, branch, path] = match;
-      const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
-
-      const response = await fetch(rawUrl);
-      if (!response.ok) {
-        throw new Error('Nepodařilo se načíst soubor z GitHub');
-      }
-
-      const code = await response.text();
-      await this.handleGitHubCodeLoad(code, name);
-    }
+    return this.githubService.loadGitHubCode(url, name, isSingleFile);
   }
 
   async handleGitHubCodeLoad(code, fileName) {
-    // Zkontroluj jestli je nějaký kód v editoru
-    const currentCode = state.get('editor.code') || '';
-    const hasCode = currentCode.trim().length > 0;
-
-    if (hasCode) {
-      // Nabídni možnosti
-      const modal = document.createElement('div');
-      modal.className = 'modal-backdrop';
-      modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-      modal.innerHTML = `
-        <div class="modal-content" style="max-width: 500px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; overflow: hidden;">
-          <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333;">
-            <h3 style="margin: 0; color: #ffffff; font-size: 18px;">📥 Načíst kód z GitHub</h3>
-          </div>
-          <div class="modal-body" style="padding: 25px;">
-            <p style="margin-bottom: 20px; color: #cccccc; line-height: 1.6;">
-              V editoru už máte kód. Co chcete udělat?
-            </p>
-            <div style="display: grid; gap: 12px;">
-              <button id="replaceCode" style="padding: 14px; background: #0066cc; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                🔄 Nahradit aktuální kód
-              </button>
-              <button id="createNewFile" style="padding: 14px; background: #242424; color: #ffffff; border: 2px solid #333; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                ➕ Vytvořit nový soubor
-              </button>
-              <button id="cancelLoad" style="padding: 14px; background: transparent; color: #888888; border: 1px solid #333; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                ❌ Zrušit
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-
-      document.body.appendChild(modal);
-
-      return new Promise((resolve) => {
-        const closeModal = () => {
-          modal.remove();
-          resolve();
-        };
-
-        modal.querySelector('#replaceCode').addEventListener('click', () => {
-          console.log('🔄 Nahrazuji kód z GitHubu:', fileName, 'délka:', code.length);
-
-          // NEJDŘÍV aktualizuj content v tabs - vytvoř nové pole místo mutace
-          const activeFileId = state.get('files.active');
-          if (activeFileId) {
-            const tabs = state.get('files.tabs') || [];
-            const updatedTabs = tabs.map(f =>
-              f.id === activeFileId ? { ...f, content: code, modified: false } : f
-            );
-            // Uložení nových tabů do state
-            state.set('files.tabs', [...updatedTabs]);
-            console.log('✅ Tabs aktualizovány, aktivní soubor:', activeFileId);
-          }
-
-          // PAK nahraď kód v editoru
-          // force: true vynucuje nahrazení i když je kód stejný
-          eventBus.emit('editor:replaceAll', { code, force: true });
-          console.log('✅ Event editor:replaceAll odeslán');
-
-          eventBus.emit('toast:show', {
-            message: `✅ Kód byl nahrazen z ${fileName}`,
-            type: 'success',
-            duration: 2000
-          });
-          closeModal();
-        });
-
-        modal.querySelector('#createNewFile').addEventListener('click', () => {
-          // Vytvoř nový soubor
-          eventBus.emit('file:create', { name: fileName, content: code });
-          eventBus.emit('toast:show', {
-            message: `✅ Vytvořen nový soubor: ${fileName}`,
-            type: 'success'
-          });
-          closeModal();
-        });
-
-        modal.querySelector('#cancelLoad').addEventListener('click', closeModal);
-        modal.addEventListener('click', (e) => {
-          if (e.target === modal) closeModal();
-        });
-      });
-    } else {
-      // Prázdný editor - aktualizuj tabs NEJDŘÍV, pak nahraď
-      const activeFileId = state.get('files.active');
-      if (activeFileId) {
-        const tabs = state.get('files.tabs') || [];
-        const updatedTabs = tabs.map(f =>
-          f.id === activeFileId ? { ...f, content: code, modified: false } : f
-        );
-        state.set('files.tabs', [...updatedTabs]);
-        console.log('✅ Tabs aktualizovány pro prázdný editor');
-      }
-
-      // Pak nahraď kód pomocí replaceAll eventu s force
-      eventBus.emit('editor:replaceAll', { code, force: true });
-
-      eventBus.emit('toast:show', {
-        message: `✅ Načten kód z ${fileName}`,
-        type: 'success',
-        duration: 2000
-      });
-    }
+    return this.githubService.handleGitHubCodeLoad(code, fileName);
   }
 
   cloneRepo() {
-    const url = prompt('URL GitHub repozitáře:');
-    if (url) {
-      eventBus.emit('github:clone', { url });
-    }
+    return this.githubService.cloneRepo();
   }
 
   createGist() {
-    const code = state.get('editor.content') || '';
-    const description = prompt('Popis Gistu:');
-
-    if (description !== null) {
-      eventBus.emit('github:createGist', {
-        code,
-        description,
-        filename: 'index.html'
-      });
-      eventBus.emit('toast:show', {
-        message: 'Gist byl vytvořen',
-        type: 'success'
-      });
-    }
+    return this.githubService.createGist();
   }
 
-  // GitHub token management
+  // GitHub token management - Delegated to GitHubService
   getStoredToken() {
-    return localStorage.getItem('github_token') || '';
+    return this.githubService.getStoredToken();
   }
 
   saveGitHubToken() {
-    const tokenInput = this.modal.element.querySelector('#githubToken');
-    if (!tokenInput) return;
-
-    const token = tokenInput.value.trim();
-
-    if (!token) {
-      eventBus.emit('toast:show', {
-        message: 'Zadejte GitHub token',
-        type: 'error'
-      });
-      return;
-    }
-
-    // Basic validation
-    if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
-      eventBus.emit('toast:show', {
-        message: 'Neplatný formát tokenu. Token by měl začínat ghp_ nebo github_pat_',
-        type: 'warning'
-      });
-    }
-
-    // Save token
-    localStorage.setItem('github_token', token);
-
-    // Update connection status
-    this.checkGitHubConnection();
-
-    eventBus.emit('toast:show', {
-      message: 'GitHub token byl uložen',
-      type: 'success'
-    });
+    return this.githubService.saveGitHubToken(this.modal);
   }
 
   checkGitHubConnection() {
-    const token = this.getStoredToken();
-    const statusElement = this.modal?.element?.querySelector('#githubConnected');
-
-    if (statusElement) {
-      if (token) {
-        statusElement.textContent = '✅ Připojeno';
-        statusElement.style.color = '#10b981';
-      } else {
-        statusElement.textContent = '❌ Nepřipojeno';
-        statusElement.style.color = '#ef4444';
-      }
-    }
+    return this.githubService.checkGitHubConnection(this.modal);
   }
 
-  // GitHub OAuth
   async initiateGitHubOAuth() {
-    eventBus.emit('toast:show', {
-      message: 'Zahajuji GitHub přihlášení...',
-      type: 'info'
-    });
-
-    // Show GitHub login modal instead of prompt
-    const result = await this.showGitHubLoginModal();
-    if (!result || !result.username) return;
-
-    // Store username and token
-    localStorage.setItem('github_username', result.username);
-    if (result.token) {
-      localStorage.setItem('github_token', result.token);
-    }
-
-    eventBus.emit('toast:show', {
-      message: 'Připojeno jako @' + result.username + (result.token ? '' : '. Nezapomeňte nastavit token pro API přístup.'),
-      type: 'success'
-    });
-
-    this.checkGitHubConnection();
+    return this.githubService.initiateGitHubOAuth();
   }
 
-  // Show GitHub Login Modal
   showGitHubLoginModal() {
-    return new Promise((resolve) => {
-      // Prevent multiple modals
-      const existingModal = document.querySelector('.github-login-modal');
-      if (existingModal) {
-        existingModal.remove();
-      }
-
-      const modal = document.createElement('div');
-      modal.className = 'modal-overlay github-login-modal';
-      modal.innerHTML = `
-        <div class="modal-content">
-          <div class="modal-header">
-            <h2>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
-                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
-              </svg>
-              Přihlášení na GitHub
-            </h2>
-            <button class="modal-close" aria-label="Zavřít">&times;</button>
-          </div>
-          <div class="modal-body">
-            <p class="modal-description" style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; margin-bottom: 20px;">
-              💡 V produkční verzi by se zde otevřelo OAuth okno od GitHubu.
-              Pro demo zadejte své GitHub údaje:
-            </p>
-            <form id="githubLoginForm">
-              <div class="form-group" style="margin-bottom: 16px;">
-                <label for="githubUsername" style="display: block; margin-bottom: 6px; font-weight: 500;">GitHub uživatelské jméno</label>
-                <input
-                  type="text"
-                  id="githubUsername"
-                  name="github-user"
-                  placeholder="např. octocat"
-                  required
-                  autocomplete="off"
-                  autocorrect="off"
-                  autocapitalize="off"
-                  spellcheck="false"
-                  style="width: 100%; padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 14px;"
-                />
-              </div>
-              <div class="form-group" style="margin-bottom: 16px;">
-                <label for="githubToken" style="display: block; margin-bottom: 6px; font-weight: 500;">Personal Access Token (volitelné)</label>
-                <input
-                  type="password"
-                  id="githubToken"
-                  name="github-token"
-                  placeholder="ghp_xxxxxxxxxxxx"
-                  autocomplete="new-password"
-                  style="width: 100%; padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 14px;"
-                />
-                <small style="display: block; margin-top: 6px; font-size: 12px; color: var(--text-secondary);">
-                  Pro API přístup. <a href="https://github.com/settings/tokens" target="_blank" style="color: var(--primary);">Vytvořit token</a>
-                </small>
-              </div>
-              <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid var(--border);">
-                <button type="button" class="btn btn-secondary" data-action="cancel" style="padding: 10px 20px; border: none; border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; min-width: 44px; min-height: 44px;">Zrušit</button>
-                <button type="submit" class="btn btn-primary" style="padding: 10px 20px; border: none; border-radius: 6px; background: var(--primary); color: white; cursor: pointer; min-width: 44px; min-height: 44px;">Přihlásit</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      `;
-
-      const closeModal = (result = null) => {
-        modal.classList.add('closing');
-        setTimeout(() => {
-          modal.remove();
-          document.removeEventListener('keydown', escHandler);
-          resolve(result);
-        }, 300);
-      };
-
-      // Prevent event bubbling on modal content
-      modal.querySelector('.modal-content')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-      });
-
-      // Close button
-      modal.querySelector('.modal-close')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeModal();
-      });
-
-      modal.querySelector('[data-action="cancel"]')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeModal();
-      });
-
-      // Close on backdrop click
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          closeModal();
-        }
-      });
-
-      // Close on ESC
-      const escHandler = (e) => {
-        if (e.key === 'Escape') {
-          closeModal();
-        }
-      };
-      document.addEventListener('keydown', escHandler);
-
-      // Form submit
-      modal.querySelector('#githubLoginForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const username = modal.querySelector('#githubUsername').value.trim();
-        const token = modal.querySelector('#githubToken').value.trim();
-        if (username) {
-          closeModal({ username, token });
-        }
-      });
-
-      document.body.appendChild(modal);
-
-      // Trigger animation
-      setTimeout(() => {
-        modal.classList.add('show');
-      }, 10);
-
-      // Focus first input
-      setTimeout(() => modal.querySelector('#githubUsername').focus(), 100);
-    });
+    return this.githubService.showGitHubLoginModal();
   }
 
-  // Repository Manager
   async showRepoManager() {
-    const token = this.getStoredToken();
-    if (!token) {
-      eventBus.emit('toast:show', {
-        message: 'Nejprve nastavte GitHub token',
-        type: 'error'
-      });
-      return;
-    }
-
-    // Create modal for repo manager
-    const repoModal = new Modal({
-      title: '📁 Správce repozitářů',
-      content: this.createRepoManagerContent(),
-      className: 'repo-manager-modal',
-      size: 'large'
-    });
-
-    repoModal.create();
-    repoModal.open();
-
-    // Attach handlers after modal is created
-    this.attachRepoManagerHandlers(repoModal);
-
-    // Load repositories
-    await this.loadRepositories(repoModal);
+    return this.githubService.showRepoManager();
   }
 
+  // Keep repository manager methods as they're complex and will be refactored later
+
+  // Keep repository manager methods as they're complex and will be refactored later
   createRepoManagerContent() {
     const undoHistory = this.getUndoHistory();
     const redoHistory = this.getRedoHistory();
