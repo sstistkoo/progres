@@ -22,6 +22,9 @@ export class AIPanel {
     this.isProcessing = false; // Race condition protection
     this.eventListeners = []; // Track event listeners for cleanup
     this.toolSystem = toolSystem; // Tool System pro VS Code Mode
+    this.attachedFiles = []; // Attached files for context
+    this.diskFiles = []; // Files loaded from disk
+    this.formatCache = new Map(); // Cache for formatted messages
 
     // Inicializuj tools
     initializeTools();
@@ -237,17 +240,30 @@ export class AIPanel {
               <div class="token-counter" id="tokenCounter">
                 <span class="token-count">0</span> tokenů (~<span class="char-count">0</span> znaků)
               </div>
+              <div class="ai-attached-files" id="aiAttachedFiles" style="display: none; margin-bottom: 10px;"></div>
               <textarea
                 id="aiChatInput"
                 placeholder="Napiš zprávu... (Shift+Enter pro nový řádek)"
                 rows="3"
               ></textarea>
               <div class="ai-chat-buttons">
+                <button class="ai-attach-btn" id="aiAttachBtn" title="Přidat soubor do kontextu">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                  <span>Přidat soubor</span>
+                </button>
                 <button class="ai-send-btn" id="aiSendBtn">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                   </svg>
                   <span>Odeslat</span>
+                </button>
+                <button class="ai-cancel-btn" style="display: none; padding: 10px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; gap: 8px; transition: all 0.2s;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                  <span>Zrušit</span>
                 </button>
                 <button class="ai-orchestrator-btn" id="aiOrchestratorBtn" title="Orchestrator zpracuje zadání a rozdělí úkoly mezi agenty">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -936,9 +952,8 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
   }
 
   escapeHTML(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    // Deprecated: Use escapeHtml instead
+    return this.escapeHtml(text);
   }
 
   setupTokenCounter() {
@@ -978,7 +993,7 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
 
         // Special handling for editor tab - close modal and focus editor
         if (tabName === 'editor') {
-          Modal.close();
+          this.modal.close();
           // Focus editor
           const editorTextarea = document.querySelector('#editor');
           if (editorTextarea) {
@@ -1004,6 +1019,15 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     // Chat Input & Send
     const chatInput = this.modal.element.querySelector('#aiChatInput');
     const sendBtn = this.modal.element.querySelector('#aiSendBtn');
+    const attachBtn = this.modal.element.querySelector('#aiAttachBtn');
+
+    // Initialize attached files array
+    this.attachedFiles = [];
+
+    // File attachment button
+    if (attachBtn) {
+      attachBtn.addEventListener('click', () => this.showFileAttachmentModal());
+    }
 
     if (chatInput && sendBtn) {
       const sendMessage = () => {
@@ -1012,6 +1036,9 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
           this.sendMessage(message);
           chatInput.value = '';
           chatInput.style.height = 'auto';
+          // Clear attached files after sending
+          this.attachedFiles = [];
+          this.updateAttachedFilesDisplay();
         }
       };
 
@@ -1222,14 +1249,27 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
   async sendMessage(message) {
     // Race condition protection
     if (this.isProcessing) {
-      toast.warn('⏳ Čekám na dokončení předchozího požadavku...', 2000);
+      toast.warning('⏳ Čekám na dokončení předchozího požadavku...', 2000);
       return;
     }
 
     this.isProcessing = true;
 
-    // Add user message to chat
-    this.addChatMessage('user', message);
+    // Show cancel button
+    const cancelBtn = this.modal.element.querySelector('.ai-cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.style.display = 'flex';
+      cancelBtn.onclick = () => {
+        this.cancelRequest();
+      };
+    }
+
+    // Add user message to chat (with attached files indicator)
+    let displayMessage = message;
+    if (this.attachedFiles && this.attachedFiles.length > 0) {
+      displayMessage += `\n\n📎 Přiložené soubory (${this.attachedFiles.length}): ${this.attachedFiles.map(f => f.name).join(', ')}`;
+    }
+    this.addChatMessage('user', displayMessage);
 
     // Přidat loading animaci
     const loadingId = 'ai-loading-' + Date.now();
@@ -1273,8 +1313,20 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       const activeFileId = state.get('files.active');
       const activeFile = openFiles.find(f => f.id === activeFileId);
 
-      // Build files context - ENHANCED with content
+      // Build files context - ENHANCED with content and attached files
       let filesContext = '';
+
+      // Add attached files first (priority context)
+      if (this.attachedFiles && this.attachedFiles.length > 0) {
+        filesContext += '\n\n## 📎 Přiložené soubory pro kontext:\n\n';
+        this.attachedFiles.forEach(file => {
+          const lines = file.content.split('\n').length;
+          const ext = file.name.split('.').pop();
+          const language = this.detectLanguage(ext);
+          filesContext += `### ${file.name} (${lines} řádků):\n\`\`\`${language}\n${file.content}\n\`\`\`\n\n`;
+        });
+      }
+
       if (openFiles.length > 0) {
         // Pokud je více souborů, přidej jejich obsah
         if (openFiles.length > 1) {
@@ -1302,7 +1354,7 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
             }
           }
 
-          filesContext = `\n\nOtevřené soubory (${openFiles.length}):\n\n`;
+          filesContext += `\n\nOtevřené soubory (${openFiles.length}):\n\n`;
           filesWithContent.forEach(f => {
             if (f.truncated) {
               filesContext += `📄 **${f.name}**${f.isActive ? ' (aktivní)' : ''} - [obsah vynechán kvůli velikosti]\n\n`;
@@ -1312,7 +1364,7 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
           });
         } else {
           // Jen jeden soubor - základní info
-          filesContext = `\n\nOtevřené soubory:\n${openFiles.map(f => `- ${f.name}${f.id === activeFileId ? ' (aktivní)' : ''}`).join('\n')}`;
+          filesContext += `\n\nOtevřené soubory:\n${openFiles.map(f => `- ${f.name}${f.id === activeFileId ? ' (aktivní)' : ''}`).join('\n')}`;
         }
       }
 
@@ -1710,24 +1762,194 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
       console.error('AI Error:', error);
     } finally {
       this.isProcessing = false; // Always reset processing flag
+
+      // Hide cancel button
+      const cancelBtn = this.modal.element.querySelector('.ai-cancel-btn');
+      if (cancelBtn) {
+        cancelBtn.style.display = 'none';
+      }
     }
   }
 
-  addChatMessage(role, content) {
+  /**
+   * Cancel current AI request
+   */
+  cancelRequest() {
+    console.log('❌ Uživatel zrušil AI request');
+
+    // Reset processing flag
+    this.isProcessing = false;
+
+    // Hide cancel button
+    const cancelBtn = this.modal.element.querySelector('.ai-cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.style.display = 'none';
+    }
+
+    // Remove loading animations
+    const loadingElements = this.modal.element.querySelectorAll('.ai-message.loading');
+    loadingElements.forEach(el => el.remove());
+
+    // Add cancellation message
+    this.addChatMessage('system', '❌ Operace zrušena uživatelem');
+
+    toast.warning('Operace zrušena', 2000);
+  }
+
+  addChatMessage(role, content, messageId = null) {
     const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
-    const messageId = `msg-${Date.now()}-${Math.random()}`;
+    const msgId = messageId || `msg-${Date.now()}-${Math.random()}`;
 
     const messageEl = document.createElement('div');
     messageEl.className = `ai-message ${role}`;
-    messageEl.id = messageId;
+    messageEl.id = msgId;
+    messageEl.setAttribute('data-message-id', msgId);
 
-    // Format content with basic HTML escaping
-    messageEl.innerHTML = `<p>${this.escapeHtml(content)}</p>`;
+    // Enhanced formatting for AI responses (GitHub Copilot style)
+    if (role === 'assistant' || role === 'ai') {
+      messageEl.innerHTML = this.formatAIMessage(content);
+    } else {
+      // Simple formatting for user and system messages
+      messageEl.innerHTML = `<p>${this.escapeHtml(content).replace(/\n/g, '<br>')}</p>`;
+    }
 
     messagesContainer.appendChild(messageEl);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-    return messageId;
+    return msgId;
+  }
+
+  /**
+   * Format AI message with GitHub Copilot-style rendering
+   * Supports: markdown, code blocks, thinking process, lists, emphasis
+   */
+  formatAIMessage(content) {
+    // Input validation
+    if (!content || typeof content !== 'string') {
+      console.warn('Invalid content passed to formatAIMessage:', content);
+      return '<p>Prázdná odpověď</p>';
+    }
+
+    let formatted = content;
+
+    // 1. Extract and format thinking process (if present)
+    const thinkingMatch = formatted.match(/<thinking>([\s\S]*?)<\/thinking>/i);
+    if (thinkingMatch) {
+      const thinkingContent = thinkingMatch[1].trim();
+      formatted = formatted.replace(thinkingMatch[0], `
+<details class="ai-thinking" style="margin: 10px 0; padding: 12px; background: rgba(139,92,246,0.1); border-left: 3px solid #8b5cf6; border-radius: 6px;">
+  <summary style="cursor: pointer; font-weight: 600; color: #a78bfa; user-select: none;">🧠 Thinking process...</summary>
+  <div style="margin-top: 10px; color: #c4b5fd; font-size: 0.9em; font-style: italic;">${this.escapeHtml(thinkingContent).replace(/\n/g, '<br>')}</div>
+</details>
+`);
+    }
+
+    // 2. Format code blocks with syntax highlighting
+    formatted = formatted.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+      const language = lang || 'plaintext';
+      const trimmedCode = code.trim();
+      // Escape for HTML attribute - prevent XSS
+      const escapedForAttr = this.escapeHtml(trimmedCode).replace(/"/g, '&quot;');
+      return `
+<div class="code-block" style="margin: 12px 0;">
+  <div class="code-header" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #1e1e1e; border-radius: 6px 6px 0 0; font-size: 0.85em;">
+    <span style="color: #888;">${language}</span>
+    <button onclick="navigator.clipboard.writeText(this.dataset.code); this.textContent='✓ Zkopírováno!'; setTimeout(() => this.innerHTML='<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"width: 16px; height: 16px;\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\" ry=\"2\"/><path d=\"M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1\"/></svg>', 2000)"
+            data-code="${escapedForAttr}"
+            style="padding: 4px 8px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 0.9em; display: flex; align-items: center; gap: 4px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+    </button>
+  </div>
+  <pre style="margin: 0; padding: 16px; background: #1a1a1a; border-radius: 0 0 6px 6px; overflow-x: auto; line-height: 1.5;"><code class="language-${language}" style="color: #d4d4d4; font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 0.9em;">${this.highlightCode(trimmedCode, language)}</code></pre>
+</div>`;
+    });
+
+    // 3. Format inline code
+    formatted = formatted.replace(/`([^`]+)`/g, '<code style="padding: 2px 6px; background: rgba(110,118,129,0.4); border-radius: 3px; font-family: monospace; font-size: 0.9em; color: #e3e3e3;">$1</code>');
+
+    // 4. Format bold **text** (non-greedy, word boundaries)
+    formatted = formatted.replace(/\*\*([^*\n]+?)\*\*/g, '<strong style="font-weight: 600; color: #fff;">$1</strong>');
+
+    // 5. Format italic *text* (but not ** or math like a*b)
+    formatted = formatted.replace(/(?<!\*)\*(?!\*)([^*\n]+?)\*(?!\*)/g, '<em style="font-style: italic; color: #ddd;">$1</em>');
+
+    // 6. Format headers
+    formatted = formatted.replace(/^### (.+)$/gm, '<h4 style="margin: 16px 0 8px; font-size: 1.1em; font-weight: 600; color: #fff;">$1</h4>');
+    formatted = formatted.replace(/^## (.+)$/gm, '<h3 style="margin: 18px 0 10px; font-size: 1.3em; font-weight: 600; color: #fff;">$1</h3>');
+    formatted = formatted.replace(/^# (.+)$/gm, '<h2 style="margin: 20px 0 12px; font-size: 1.5em; font-weight: 700; color: #fff;">$1</h2>');
+
+    // 7. Format lists
+    formatted = formatted.replace(/^- (.+)$/gm, '<li style="margin-left: 20px; margin-bottom: 4px; color: #ddd;">$1</li>');
+    formatted = formatted.replace(/^\d+\. (.+)$/gm, '<li style="margin-left: 20px; margin-bottom: 4px; color: #ddd; list-style-type: decimal;">$1</li>');
+
+    // 8. Format links
+    formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color: #3b82f6; text-decoration: underline;">$1</a>');
+
+    // 9. Format blockquotes
+    formatted = formatted.replace(/^> (.+)$/gm, '<blockquote style="margin: 10px 0; padding: 10px 15px; border-left: 3px solid #3b82f6; background: rgba(59,130,246,0.1); color: #ddd; font-style: italic;">$1</blockquote>');
+
+    // 10. Wrap paragraphs
+    const lines = formatted.split('\n');
+    let result = '';
+    let inList = false;
+
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
+
+      // Check if line is already formatted (HTML tag)
+      if (line.startsWith('<')) {
+        if (line.startsWith('<li')) {
+          if (!inList) {
+            result += '<ul style="margin: 8px 0;">';
+            inList = true;
+          }
+          result += line;
+        } else {
+          if (inList) {
+            result += '</ul>';
+            inList = false;
+          }
+          result += line;
+        }
+      } else {
+        if (inList) {
+          result += '</ul>';
+          inList = false;
+        }
+        result += `<p style="margin: 8px 0; line-height: 1.6; color: #ddd;">${line}</p>`;
+      }
+    }
+
+    if (inList) result += '</ul>';
+
+    return result;
+  }
+
+  /**
+   * Simple syntax highlighting
+   */
+  highlightCode(code, language) {
+    const escaped = this.escapeHtml(code);
+
+    // Basic keyword highlighting for common languages
+    if (language === 'javascript' || language === 'js') {
+      return escaped
+        .replace(/\b(const|let|var|function|return|if|else|for|while|class|import|export|async|await)\b/g, '<span style="color: #c586c0;">$1</span>')
+        .replace(/\b(true|false|null|undefined)\b/g, '<span style="color: #569cd6;">$1</span>')
+        .replace(/(['"`])(.+?)\1/g, '<span style="color: #ce9178;">$1$2$1</span>')
+        .replace(/\/\/.+$/gm, '<span style="color: #6a9955;">$&</span>');
+    } else if (language === 'html') {
+      return escaped
+        .replace(/(&lt;\/?[a-zA-Z][^&gt;]*&gt;)/g, '<span style="color: #569cd6;">$1</span>')
+        .replace(/([a-zA-Z-]+)=/g, '<span style="color: #9cdcfe;">$1</span>=');
+    } else if (language === 'css') {
+      return escaped
+        .replace(/([.#][a-zA-Z-_][a-zA-Z0-9-_]*)/g, '<span style="color: #d7ba7d;">$1</span>')
+        .replace(/([a-zA-Z-]+):/g, '<span style="color: #9cdcfe;">$1</span>:');
+    }
+
+    return escaped;
   }
 
   addChatMessageWithCode(role, content, originalMessage = '', isModification = false, codeStatus = {}) {
@@ -3374,7 +3596,13 @@ NEW:
         return { found: true, index: code.indexOf(match[0]) };
       }
     } catch (e) {
-      console.warn('Fuzzy regex failed:', e);
+      // Detailed error info for debugging
+      console.warn('⚠️ Fuzzy regex matching selhalo:', {
+        error: e.message,
+        regexLength: searchRegex?.length,
+        codeLength: code?.length,
+        searchPreview: search?.substring(0, 50)
+      });
     }
 
     return { found: false, index: -1 };
@@ -3597,7 +3825,10 @@ NEW:
     // Check if there's chat history - if yes, it's likely a modification
     const hasHistory = this.chatHistory && this.chatHistory.length > 1;
 
-    if (isModification || hasHistory) {
+    // IMPORTANT: If orchestrator was used and there's existing content, treat as modification
+    const isOrchestratorModification = hasHistory && hasExistingContent && currentCode.includes('<!DOCTYPE');
+
+    if (isModification || isOrchestratorModification) {
       // This is a modification of existing project
       console.log('✏️ Úprava existujícího projektu - aktualizuji editor');
     } else if (isCompleteProject && hasExistingContent) {
@@ -6346,6 +6577,28 @@ ANALYZUJ požadavek a rozděl ho na konkrétní úkoly pro tyto agenty:
 2. CSS Agent - design, layout, responsivita
 3. JavaScript Agent - interaktivita, logika, funkce
 
+⚠️ KRITICKÉ PRAVIDLO PRO ÚPRAVY EXISTUJÍCÍCH PROJEKTŮ:
+${currentCode ? `
+**PROJEKT UŽ EXISTUJE! NEPOUŽÍVEJ komplettní kód - použij SEARCH/REPLACE!**
+
+Použij tento formát pro úpravu existujícího kódu:
+
+\`\`\`SEARCH
+[přesný kód který chceš najít a nahradit]
+\`\`\`
+\`\`\`REPLACE
+[nový kód]
+\`\`\`
+
+Můžeš použít více SEARCH/REPLACE bloků najednou.
+**NIKDY nepoužívej komplettní kód - jen SEARCH/REPLACE bloky!**
+` : `
+**NOVÝ PROJEKT - použij komplettní kód:**
+\`\`\`html
+[zde vlož KOMPLETNÍ fungující kód s UNIKÁTNÍMI názvy proměnných]
+\`\`\`
+`}
+
 ODPOVĚZ VE FORMÁTU:
 📋 **Analýza požadavku:**
 [Krátká analýza co uživatel chce]
@@ -6383,7 +6636,26 @@ ODPOVĚZ VE FORMÁTU:
       const thinkingEl = this.modal.element.querySelector(`[data-message-id="${thinkingId}"]`);
       if (thinkingEl) thinkingEl.remove();
 
-      // Extract and apply code if present
+      // Check for SEARCH/REPLACE format (for existing projects)
+      const searchReplaceEdits = this.parseSearchReplaceInstructions(response);
+
+      if (searchReplaceEdits.length > 0) {
+        console.log(`🔧 Orchestrator použil SEARCH/REPLACE - aplikuji ${searchReplaceEdits.length} změn`);
+
+        // Extract description (before first SEARCH block)
+        const descriptionMatch = response.match(/([\s\S]*?)```\s*SEARCH/);
+        const description = descriptionMatch ? descriptionMatch[1].trim() : '✅ Orchestrator provedl změny.';
+
+        // Add description to chat
+        this.addChatMessage('ai', description);
+
+        // Show confirmation for changes
+        await this.showChangeConfirmation(searchReplaceEdits);
+
+        return;
+      }
+
+      // Extract and apply code if present (for new projects)
       const codeMatch = response.match(/```(?:html)?\n([\s\S]*?)```/);
       if (codeMatch && codeMatch[1]) {
         const code = codeMatch[1].trim();
@@ -7651,5 +7923,534 @@ Každý agent pracuje na své části, výsledky se kombinují do finálního pr
       overlay.remove();
     }
   }
-}
 
+  /**
+   * Show file attachment modal to select files for context
+   */
+  showFileAttachmentModal() {
+    const modal = new Modal({
+      title: '📎 Přidat soubory do kontextu',
+      content: `
+        <div class="file-attachment-modal">
+          <p class="file-attachment-description">
+            Vyberte soubory z projektu nebo nahrajte z disku.
+            <strong>Tip:</strong> Menší soubory = rychlejší odpovědi AI.
+          </p>
+
+          <!-- Tab Switcher -->
+          <div class="file-source-tabs" style="display: flex; gap: 10px; margin-bottom: 16px; border-bottom: 2px solid var(--border);">
+            <button class="file-source-tab active" data-source="project" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid var(--accent); color: var(--accent); cursor: pointer; font-weight: 600;">
+              📁 Soubory projektu
+            </button>
+            <button class="file-source-tab" data-source="disk" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; color: var(--text-secondary); cursor: pointer; font-weight: 600;">
+              💾 Nahrát z disku
+            </button>
+          </div>
+
+          <!-- Project Files Tab -->
+          <div class="file-source-content" data-content="project">
+            <div class="file-filter">
+              <input type="text" id="fileFilterInput" placeholder="🔍 Filtrovat soubory..." class="file-filter-input">
+              <div class="file-filter-tips" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                💡 <strong>Tip:</strong> Ctrl+Click pro výběr více souborů najednou
+              </div>
+            </div>
+
+            <div class="file-list-container" id="fileListContainer">
+              <div class="file-list" id="attachFileList">
+                ${this.renderProjectFiles()}
+              </div>
+            </div>
+          </div>
+
+          <!-- Disk Upload Tab -->
+          <div class="file-source-content" data-content="disk" style="display: none;">
+            <div class="disk-upload-area" style="padding: 40px; border: 2px dashed var(--border); border-radius: 8px; text-align: center; background: var(--bg-secondary);">
+              <div style="font-size: 48px; margin-bottom: 16px;">📤</div>
+              <p style="margin-bottom: 16px; color: var(--text-primary); font-size: 16px;">
+                <strong>Klikněte pro výběr souborů</strong> nebo je přetáhněte sem
+              </p>
+              <input type="file" id="diskFileInput" multiple accept=".txt,.js,.jsx,.ts,.tsx,.html,.css,.json,.md,.py,.java,.cpp,.c,.php,.rb,.go,.rs,.xml,.yaml,.yml" style="display: none;">
+              <button type="button" id="selectDiskFilesBtn" style="padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                📂 Vybrat soubory
+              </button>
+              <p style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
+                Podporované: .txt, .js, .html, .css, .json, .md, .py a další
+              </p>
+            </div>
+            <div id="selectedDiskFiles" style="margin-top: 16px;"></div>
+          </div>
+
+          <div class="attachment-summary" id="attachmentSummary">
+            <strong>Vybráno:</strong> <span id="selectedCount">0</span> souborů
+            (<span id="selectedSize">0</span> znaků) -
+            <span id="sizeWarning" style="color: #f59e0b; display: none;">⚠️ Velké soubory mohou zpomalit AI</span>
+          </div>
+        </div>
+      `,
+      width: '600px',
+      buttons: [
+        {
+          text: '✅ Přidat vybrané',
+          variant: 'primary',
+          onClick: () => {
+            this.attachSelectedFiles();
+            modal.close();
+          }
+        },
+        {
+          text: '❌ Zrušit',
+          variant: 'secondary',
+          onClick: () => modal.close()
+        }
+      ]
+    });
+
+    modal.open();
+
+    // Setup file selection handlers
+    this.setupFileAttachmentHandlers(modal);
+  }
+
+  /**
+   * Render project files for selection
+   */
+  renderProjectFiles() {
+    const files = [
+      // Get current file
+      {
+        name: state.get('file.name') || 'index.html',
+        content: state.get('editor.content') || '',
+        path: state.get('file.name') || 'index.html',
+        size: (state.get('editor.content') || '').length
+      }
+    ];
+
+    // Add files from localStorage/state if available
+    const savedFiles = state.get('project.files') || {};
+    Object.entries(savedFiles).forEach(([path, content]) => {
+      if (path !== files[0].path) {
+        files.push({
+          name: path.split('/').pop(),
+          content: content,
+          path: path,
+          size: content.length
+        });
+      }
+    });
+
+    if (files.length === 0) {
+      return '<p class="no-files">Žádné soubory k dispozici</p>';
+    }
+
+    return files.map((file, index) => `
+      <div class="file-item" data-file-index="${index}" data-file-path="${file.path}">
+        <input type="checkbox" id="file-${index}" class="file-checkbox">
+        <label for="file-${index}" class="file-label">
+          <span class="file-icon">📄</span>
+          <span class="file-name">${this.escapeHtml(file.name)}</span>
+          <span class="file-size">${this.formatFileSize(file.size)}</span>
+        </label>
+      </div>
+    `).join('');
+  }
+
+  /**
+   * Setup handlers for file attachment modal
+   */
+  setupFileAttachmentHandlers(modal) {
+    const filterInput = modal.element.querySelector('#fileFilterInput');
+    const fileList = modal.element.querySelector('#attachFileList');
+    const checkboxes = modal.element.querySelectorAll('.file-checkbox');
+    const summary = modal.element.querySelector('#attachmentSummary');
+    const sizeWarning = modal.element.querySelector('#sizeWarning');
+
+    // Tab switching
+    const tabs = modal.element.querySelectorAll('.file-source-tab');
+    const contents = modal.element.querySelectorAll('.file-source-content');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const source = tab.dataset.source;
+
+        // Update tab styles
+        tabs.forEach(t => {
+          t.classList.remove('active');
+          t.style.borderBottomColor = 'transparent';
+          t.style.color = 'var(--text-secondary)';
+        });
+        tab.classList.add('active');
+        tab.style.borderBottomColor = 'var(--accent)';
+        tab.style.color = 'var(--accent)';
+
+        // Show corresponding content
+        contents.forEach(c => {
+          c.style.display = c.dataset.content === source ? 'block' : 'none';
+        });
+      });
+    });
+
+    // Disk file upload
+    const diskFileInput = modal.element.querySelector('#diskFileInput');
+    const selectBtn = modal.element.querySelector('#selectDiskFilesBtn');
+    const diskUploadArea = modal.element.querySelector('.disk-upload-area');
+
+    if (selectBtn && diskFileInput) {
+      selectBtn.addEventListener('click', () => diskFileInput.click());
+
+      diskFileInput.addEventListener('change', (e) => {
+        this.handleDiskFilesSelected(e.target.files, modal);
+      });
+
+      // Drag and drop support
+      diskUploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        diskUploadArea.style.borderColor = 'var(--accent)';
+        diskUploadArea.style.background = 'rgba(59, 130, 246, 0.1)';
+      });
+
+      diskUploadArea.addEventListener('dragleave', () => {
+        diskUploadArea.style.borderColor = 'var(--border)';
+        diskUploadArea.style.background = 'var(--bg-secondary)';
+      });
+
+      diskUploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        diskUploadArea.style.borderColor = 'var(--border)';
+        diskUploadArea.style.background = 'var(--bg-secondary)';
+        this.handleDiskFilesSelected(e.dataTransfer.files, modal);
+      });
+    }
+
+    // Filter files
+    if (filterInput) {
+      filterInput.addEventListener('input', (e) => {
+        const filter = e.target.value.toLowerCase();
+        const items = fileList.querySelectorAll('.file-item');
+
+        items.forEach(item => {
+          const name = item.querySelector('.file-name').textContent.toLowerCase();
+          item.style.display = name.includes(filter) ? 'flex' : 'none';
+        });
+      });
+
+      // Quick focus on filter input
+      filterInput.focus();
+    }
+
+    // Update summary when selection changes
+    const updateSummary = () => {
+      const checked = Array.from(checkboxes).filter(cb => cb.checked);
+      const totalSize = checked.reduce((sum, cb) => {
+        const fileItem = cb.closest('.file-item');
+        const path = fileItem.dataset.filePath;
+        const content = this.getFileContent(path);
+        return sum + (content?.length || 0);
+      }, 0);
+
+      modal.element.querySelector('#selectedCount').textContent = checked.length;
+      modal.element.querySelector('#selectedSize').textContent = totalSize.toLocaleString();
+
+      // Show warning for large files
+      if (sizeWarning) {
+        sizeWarning.style.display = totalSize > 50000 ? 'inline' : 'none';
+      }
+    };
+
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', updateSummary);
+
+      // Add keyboard support
+      cb.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          cb.checked = !cb.checked;
+          cb.dispatchEvent(new Event('change'));
+        }
+      });
+    });
+  }
+
+  /**
+   * Get file content by path
+   */
+  getFileContent(path) {
+    const currentFile = state.get('file.name') || 'index.html';
+    if (path === currentFile) {
+      return state.get('editor.content') || '';
+    }
+
+    const savedFiles = state.get('project.files') || {};
+    return savedFiles[path] || '';
+  }
+
+  /**
+   * Handle files selected from disk
+   */
+  async handleDiskFilesSelected(files, modal) {
+    const selectedContainer = modal.element.querySelector('#selectedDiskFiles');
+    const MAX_FILE_SIZE = 500000; // 500KB per file
+
+    if (!files || files.length === 0) return;
+
+    const filePromises = Array.from(files).map(file => {
+      return new Promise((resolve, reject) => {
+        if (file.size > MAX_FILE_SIZE) {
+          toast.warning(`⚠️ Soubor ${file.name} je příliš velký (max 500KB)`, 3000);
+          resolve(null);
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve({
+            name: file.name,
+            path: `disk:/${file.name}`,
+            content: e.target.result,
+            size: file.size,
+            source: 'disk'
+          });
+        };
+        reader.onerror = () => {
+          toast.error(`❌ Chyba při čtení ${file.name}`, 3000);
+          resolve(null);
+        };
+        reader.readAsText(file);
+      });
+    });
+
+    try {
+      const loadedFiles = (await Promise.all(filePromises)).filter(f => f !== null);
+
+      if (loadedFiles.length === 0) {
+        return;
+      }
+
+      // Store disk files temporarily
+      if (!this.diskFiles) this.diskFiles = [];
+      this.diskFiles = [...this.diskFiles, ...loadedFiles];
+
+      // Display loaded files
+      selectedContainer.innerHTML = `
+        <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px; margin-top: 12px;">
+          <strong style="color: var(--text-primary);">Načtené soubory (${this.diskFiles.length}):</strong>
+          <div style="margin-top: 8px;">
+            ${this.diskFiles.map((file, index) => `
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px; background: var(--bg-primary); border-radius: 4px; margin-top: 4px;">
+                <span style="color: var(--text-primary);">📄 ${this.escapeHtml(file.name)} (${this.formatFileSize(file.size)})</span>
+                <button onclick="window.aiPanel.removeDiskFile(${index})" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px;">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      toast.show(`📎 Načteno ${loadedFiles.length} souborů z disku`, 'success');
+    } catch (error) {
+      console.error('Error loading disk files:', error);
+      toast.error('❌ Chyba při načítání souborů', 3000);
+    }
+  }
+
+  /**
+   * Remove disk file
+   */
+  removeDiskFile(index) {
+    if (!this.diskFiles) return;
+
+    this.diskFiles.splice(index, 1);
+
+    // Re-render the list
+    const selectedContainer = document.querySelector('#selectedDiskFiles');
+    if (selectedContainer && this.diskFiles.length > 0) {
+      selectedContainer.innerHTML = `
+        <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px; margin-top: 12px;">
+          <strong style="color: var(--text-primary);">Načtené soubory (${this.diskFiles.length}):</strong>
+          <div style="margin-top: 8px;">
+            ${this.diskFiles.map((file, idx) => `
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px; background: var(--bg-primary); border-radius: 4px; margin-top: 4px;">
+                <span style="color: var(--text-primary);">📄 ${this.escapeHtml(file.name)} (${this.formatFileSize(file.size)})</span>
+                <button onclick="window.aiPanel.removeDiskFile(${idx})" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px;">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    } else if (selectedContainer) {
+      selectedContainer.innerHTML = '';
+    }
+
+    toast.show('🗑️ Soubor odebrán', 'info');
+  }
+
+  /**
+   * Attach selected files
+   */
+  attachSelectedFiles() {
+    try {
+      const checkboxes = document.querySelectorAll('.file-checkbox:checked');
+      const files = [];
+      let totalSize = 0;
+      const MAX_TOTAL_SIZE = 100000; // 100KB limit
+
+      checkboxes.forEach(cb => {
+        const fileItem = cb.closest('.file-item');
+        if (!fileItem) return;
+
+        const path = fileItem.dataset.filePath;
+        const nameElement = fileItem.querySelector('.file-name');
+        if (!nameElement) return;
+
+        const name = nameElement.textContent;
+        const content = this.getFileContent(path);
+
+        if (!content) {
+          console.warn(`Soubor ${name} nemá žádný obsah`);
+          return;
+        }
+
+        totalSize += content.length;
+        if (totalSize > MAX_TOTAL_SIZE) {
+          toast.warning(`⚠️ Celková velikost souborů překračuje ${(MAX_TOTAL_SIZE / 1024).toFixed(0)}KB limit. Některé soubory nebyly přidány.`, 4000);
+          return;
+        }
+
+        files.push({ name, path, content });
+      });
+
+      if (files.length === 0) {
+        toast.warning('❌ Žádné soubory k připojení', 2000);
+        return;
+      }
+
+      // Include disk files
+      if (this.diskFiles && this.diskFiles.length > 0) {
+        files.push(...this.diskFiles);
+        totalSize += this.diskFiles.reduce((sum, f) => sum + f.size, 0);
+      }
+
+      this.attachedFiles = files;
+      this.updateAttachedFilesDisplay();
+
+      // Clear disk files after attaching
+      this.diskFiles = [];
+
+      toast.show(`📎 Přidáno ${files.length} souborů (${(totalSize / 1024).toFixed(1)}KB)`, 'success');
+    } catch (error) {
+      console.error('Error attaching files:', error);
+      toast.error('❌ Chyba při připojování souborů', 3000);
+    }
+  }
+
+  /**
+   * Update attached files display
+   */
+  updateAttachedFilesDisplay() {
+    const container = this.modal?.element?.querySelector('#aiAttachedFiles');
+    if (!container) return;
+
+    if (this.attachedFiles.length === 0) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+
+    container.style.display = 'flex';
+    container.style.flexWrap = 'wrap';
+    container.style.gap = '8px';
+
+    container.innerHTML = this.attachedFiles.map((file, index) => `
+      <div class="attached-file-chip" data-file-index="${index}">
+        <span class="file-chip-icon">📄</span>
+        <span class="file-chip-name">${this.escapeHtml(file.name)}</span>
+        <button class="file-chip-remove" onclick="window.aiPanel.removeAttachedFile(${index})" title="Odebrat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    `).join('');
+  }
+
+  /**
+   * Remove attached file
+   */
+  removeAttachedFile(index) {
+    this.attachedFiles.splice(index, 1);
+    this.updateAttachedFilesDisplay();
+    toast.show('🗑️ Soubor odebrán z kontextu', 'info');
+  }
+
+  /**
+   * Format file size
+   */
+  formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  /**
+   * Detect language from file extension
+   */
+  detectLanguage(ext) {
+    const languageMap = {
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'ts': 'typescript',
+      'tsx': 'typescript',
+      'html': 'html',
+      'htm': 'html',
+      'css': 'css',
+      'scss': 'scss',
+      'sass': 'sass',
+      'json': 'json',
+      'md': 'markdown',
+      'py': 'python',
+      'java': 'java',
+      'cpp': 'cpp',
+      'c': 'c',
+      'rb': 'ruby',
+      'php': 'php',
+      'go': 'go',
+      'rs': 'rust',
+      'swift': 'swift',
+      'kt': 'kotlin',
+      'xml': 'xml',
+      'yaml': 'yaml',
+      'yml': 'yaml',
+      'sh': 'bash',
+      'sql': 'sql'
+    };
+
+    return languageMap[ext.toLowerCase()] || 'plaintext';
+  }
+
+  /**
+   * Debounce utility for performance optimization
+   */
+  debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  /**
+   * Clear formatting cache to free memory
+   */
+  clearFormatCache() {
+    if (this.formatCache.size > 50) {
+      // Keep only last 20 entries
+      const entries = Array.from(this.formatCache.entries());
+      this.formatCache.clear();
+      entries.slice(-20).forEach(([key, value]) => {
+        this.formatCache.set(key, value);
+      });
+    }
+  }}

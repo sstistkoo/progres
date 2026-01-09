@@ -147,13 +147,15 @@ export class MenuPanel {
     // GitHub section
     nav.appendChild(this.createMenuSection('🐙 GitHub', [
       { icon: '🔍', label: 'Hledat na GitHubu', action: 'github-search' },
+      { icon: '🌐', label: 'Načíst z URL', action: 'load-from-url' },
       { icon: '🚀', label: 'Deploy projekt', action: 'deploy' }
     ]));
 
     // Dev tools section
     nav.appendChild(this.createMenuSection('🔧 Vývojářské nástroje', [
       { icon: '📊', label: 'Audit projektu', action: 'audit' },
-      { icon: '🐞', label: 'Otevřít DevTools', action: 'devtools' }
+      { icon: '�', label: 'Error Log', action: 'error-log' },
+      { icon: '�🐞', label: 'Otevřít DevTools', action: 'devtools' }
     ]));
 
     // Footer
@@ -264,6 +266,9 @@ export class MenuPanel {
         eventBus.emit('ai:github-search');
         this.hide();
         break;
+      case 'load-from-url':
+        this.loadFromURL();
+        break;
       case 'deploy':
         this.deployProject();
         break;
@@ -271,6 +276,9 @@ export class MenuPanel {
       // Dev tools
       case 'devtools':
         this.openDevTools();
+        break;
+      case 'error-log':
+        this.showErrorLog();
         break;
       case 'audit':
         this.showAuditReport();
@@ -559,6 +567,286 @@ export class MenuPanel {
     });
   }
 
+  async loadFromURL() {
+    const modal = new Modal({
+      title: '🌐 Načíst z URL',
+      content: `
+        <div style="padding: 20px;">
+          <p style="margin-bottom: 15px; color: #999;">
+            Načti obsah HTML, CSS, JS nebo textového souboru z URL adresy.
+          </p>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ddd;">
+              URL adresa:
+            </label>
+            <input
+              type="url"
+              id="urlInput"
+              placeholder="https://example.com/file.html"
+              style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 14px;"
+            />
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ddd;">
+              Akce:
+            </label>
+            <select
+              id="urlAction"
+              style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 14px; cursor: pointer;"
+            >
+              <option value="replace">Nahradit celý editor</option>
+              <option value="append">Přidat na konec</option>
+              <option value="new-file">Vytvořit nový soubor</option>
+            </select>
+          </div>
+
+          <div style="padding: 12px; background: rgba(59,130,246,0.1); border-left: 3px solid #3b82f6; border-radius: 4px; margin-bottom: 15px;">
+            <strong style="color: #60a5fa;">💡 Tip:</strong>
+            <ul style="margin: 8px 0 0 20px; color: #999; font-size: 0.9em;">
+              <li>Podporované: HTML, CSS, JS, TXT, MD</li>
+              <li>Pro CORS problémy použijeme proxy</li>
+              <li>GitHub: Použij "raw" URL</li>
+            </ul>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button
+              id="loadUrlBtn"
+              style="flex: 1; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+              onmouseover="this.style.background='#2563eb'"
+              onmouseout="this.style.background='#3b82f6'"
+            >
+              📥 Načíst
+            </button>
+            <button
+              id="cancelUrlBtn"
+              style="flex: 1; padding: 12px; background: #6b7280; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+              onmouseover="this.style.background='#4b5563'"
+              onmouseout="this.style.background='#6b7280'"
+            >
+              ❌ Zrušit
+            </button>
+          </div>
+
+          <div id="urlStatus" style="margin-top: 15px; display: none;"></div>
+        </div>
+      `,
+      className: 'load-url-modal',
+      closeOnEscape: true,
+      closeOnOverlay: true
+    });
+
+    modal.create();
+    modal.open();
+
+    // Event listeners
+    const urlInput = modal.element.querySelector('#urlInput');
+    const urlAction = modal.element.querySelector('#urlAction');
+    const loadBtn = modal.element.querySelector('#loadUrlBtn');
+    const cancelBtn = modal.element.querySelector('#cancelUrlBtn');
+    const statusDiv = modal.element.querySelector('#urlStatus');
+
+    // Auto-focus input
+    setTimeout(() => urlInput?.focus(), 100);
+
+    // Cancel button
+    cancelBtn?.addEventListener('click', () => {
+      modal.close();
+    });
+
+    // Load button
+    loadBtn?.addEventListener('click', async () => {
+      const url = urlInput?.value?.trim();
+      const action = urlAction?.value || 'replace';
+
+      if (!url) {
+        this.showUrlStatus(statusDiv, 'error', '❌ Zadejte URL adresu');
+        return;
+      }
+
+      // Validate URL
+      try {
+        new URL(url);
+      } catch (e) {
+        this.showUrlStatus(statusDiv, 'error', '❌ Neplatná URL adresa');
+        return;
+      }
+
+      // Disable button during loading
+      loadBtn.disabled = true;
+      loadBtn.textContent = '⏳ Načítám...';
+      this.showUrlStatus(statusDiv, 'loading', '⏳ Stahuji obsah...');
+
+      try {
+        const content = await this.fetchFromURL(url);
+
+        if (!content) {
+          throw new Error('Prázdný obsah');
+        }
+
+        // Apply based on action
+        this.applyURLContent(content, action, url);
+
+        this.showUrlStatus(statusDiv, 'success', `✅ Načteno ${content.length} znaků`);
+
+        setTimeout(() => {
+          modal.close();
+          eventBus.emit('toast:show', {
+            message: '✅ Obsah úspěšně načten',
+            type: 'success',
+            duration: 3000
+          });
+        }, 1000);
+
+      } catch (error) {
+        console.error('Load from URL error:', error);
+        this.showUrlStatus(statusDiv, 'error', `❌ Chyba: ${error.message}`);
+        loadBtn.disabled = false;
+        loadBtn.textContent = '📥 Načíst';
+      }
+    });
+
+    // Enter to submit
+    urlInput?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        loadBtn?.click();
+      }
+    });
+  }
+
+  /**
+   * Fetch content from URL with CORS proxy fallback
+   */
+  async fetchFromURL(url) {
+    // Try direct fetch first
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/html,text/plain,text/css,application/javascript,text/javascript'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const content = await response.text();
+      return content;
+
+    } catch (directError) {
+      console.warn('Direct fetch failed, trying CORS proxy:', directError.message);
+
+      // Try CORS proxies
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        `https://cors-anywhere.herokuapp.com/${url}`
+      ];
+
+      for (const proxyUrl of proxies) {
+        try {
+          const response = await fetch(proxyUrl);
+
+          if (response.ok) {
+            const content = await response.text();
+            console.log('✅ Loaded via proxy:', proxyUrl);
+            return content;
+          }
+        } catch (proxyError) {
+          console.warn('Proxy failed:', proxyUrl, proxyError.message);
+          continue;
+        }
+      }
+
+      // All attempts failed
+      throw new Error('Nepodařilo se načíst obsah (CORS problém). Zkuste použít "raw" URL z GitHubu nebo jiný zdroj.');
+    }
+  }
+
+  /**
+   * Apply loaded content to editor
+   */
+  applyURLContent(content, action, url) {
+    const currentCode = state.get('editor.code') || '';
+    const filename = this.extractFilenameFromURL(url);
+
+    switch (action) {
+      case 'replace':
+        state.set('editor.code', content);
+        eventBus.emit('editor:update', content);
+        console.log('📝 Editor replaced with URL content');
+        break;
+
+      case 'append':
+        const newCode = currentCode + '\n\n<!-- Loaded from: ' + url + ' -->\n' + content;
+        state.set('editor.code', newCode);
+        eventBus.emit('editor:update', newCode);
+        console.log('📝 Content appended to editor');
+        break;
+
+      case 'new-file':
+        // Create new file in files system
+        const files = state.get('files.list') || [];
+        const newFile = {
+          name: filename,
+          content: content,
+          lastModified: new Date().toISOString()
+        };
+        files.push(newFile);
+        state.set('files.list', files);
+        state.set('files.active', filename);
+        state.set('editor.code', content);
+        eventBus.emit('editor:update', content);
+        eventBus.emit('files:update');
+        console.log('📁 New file created:', filename);
+        break;
+    }
+  }
+
+  /**
+   * Extract filename from URL
+   */
+  extractFilenameFromURL(url) {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const filename = pathname.split('/').pop() || 'untitled.html';
+
+      // If no extension, add .html
+      if (!filename.includes('.')) {
+        return filename + '.html';
+      }
+
+      return filename;
+    } catch (e) {
+      return 'loaded-from-url.html';
+    }
+  }
+
+  /**
+   * Show status message in modal
+   */
+  showUrlStatus(statusDiv, type, message) {
+    if (!statusDiv) return;
+
+    const colors = {
+      loading: '#3b82f6',
+      success: '#10b981',
+      error: '#ef4444'
+    };
+
+    statusDiv.style.display = 'block';
+    statusDiv.style.padding = '12px';
+    statusDiv.style.background = `${colors[type]}20`;
+    statusDiv.style.border = `1px solid ${colors[type]}`;
+    statusDiv.style.borderRadius = '6px';
+    statusDiv.style.color = colors[type];
+    statusDiv.textContent = message;
+  }
+
   deployProject() {
     eventBus.emit('toast:show', {
       message: 'Deploy bude implementován',
@@ -575,6 +863,82 @@ export class MenuPanel {
         type: 'warning'
       });
     }
+  }
+
+  showErrorLog() {
+    const errors = state.get('debug.errors') || [];
+
+    if (errors.length === 0) {
+      eventBus.emit('toast:show', {
+        message: '✅ Žádné chyby nezaznamenány!',
+        type: 'success',
+        duration: 2000
+      });
+      return;
+    }
+
+    // Create error log HTML
+    const errorHtml = errors.map((error, index) => {
+      const time = new Date(error.timestamp).toLocaleTimeString('cs-CZ');
+      const type = error.type === 'promise' ? '⚠️ Promise' : '❌ Error';
+
+      return `
+        <div style="margin-bottom: 15px; padding: 12px; background: ${error.type === 'promise' ? 'rgba(251,191,36,0.1)' : 'rgba(239,68,68,0.1)'}; border-left: 3px solid ${error.type === 'promise' ? '#fbbf24' : '#ef4444'}; border-radius: 4px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <strong>${type} #${errors.length - index}</strong>
+            <span style="color: #999; font-size: 0.9em;">${time}</span>
+          </div>
+          <div style="font-family: monospace; font-size: 0.9em; color: #ddd; margin-bottom: 8px;">
+            ${this.escapeHtml(error.message)}
+          </div>
+          ${error.filename ? `<div style="font-size: 0.85em; color: #999;">📄 ${error.filename}:${error.lineno}:${error.colno}</div>` : ''}
+          ${error.stack ? `
+            <details style="margin-top: 8px;">
+              <summary style="cursor: pointer; color: #3b82f6; font-size: 0.9em;">🔍 Stack trace</summary>
+              <pre style="margin-top: 8px; padding: 8px; background: #1a1a1a; border-radius: 4px; overflow-x: auto; font-size: 0.8em; color: #999;">${this.escapeHtml(error.stack.substring(0, 500))}</pre>
+            </details>
+          ` : ''}
+        </div>
+      `;
+    }).reverse().join('');
+
+    const modal = new Modal({
+      title: `🐛 Error Log (${errors.length} chyb)`,
+      content: `
+        <div style="max-height: 500px; overflow-y: auto;">
+          <div style="margin-bottom: 15px; padding: 12px; background: rgba(59,130,246,0.1); border-radius: 6px;">
+            <strong>ℹ️ O Error Logu:</strong>
+            <ul style="margin: 8px 0 0 20px; color: #999;">
+              <li>Zobrazuje posledních 50 chyb</li>
+              <li>Duplicitní chyby jsou potlačeny (max 1× za 5s)</li>
+              <li>Pro detailní debugging použijte <code>?debug</code> v URL</li>
+            </ul>
+          </div>
+          ${errorHtml}
+        </div>
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+          <button onclick="navigator.clipboard.writeText(JSON.stringify(${JSON.stringify(errors)}, null, 2)); this.textContent='✓ Zkopírováno!'"
+                  style="flex: 1; padding: 10px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+            📋 Kopírovat log
+          </button>
+          <button onclick="localStorage.setItem('state', JSON.stringify({...JSON.parse(localStorage.getItem('state') || '{}'), debug: {errors: []}})); location.reload()"
+                  style="flex: 1; padding: 10px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">
+            🗑️ Vymazat log
+          </button>
+        </div>
+      `,
+      className: 'error-log-modal',
+      size: 'large'
+    });
+
+    modal.create();
+    modal.open();
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   async showAuditReport() {

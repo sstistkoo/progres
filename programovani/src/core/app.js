@@ -115,6 +115,8 @@ class App {
     );
     if (aiSuccess) {
       this.aiPanel = aiResult;
+      // Expose globally for onclick handlers
+      window.aiPanel = aiResult;
       console.log('✓ AI Panel initialized');
     } else {
       console.error('❌ AI Panel initialization failed');
@@ -311,15 +313,136 @@ class App {
   }
 
   setupErrorHandling() {
+    // Error rate limiting - zabrání spamů stejných chyb
+    const errorCache = new Map();
+    const ERROR_THROTTLE_TIME = 5000; // 5 sekund
+
+    const shouldShowError = (errorKey) => {
+      const now = Date.now();
+      const lastShown = errorCache.get(errorKey);
+
+      if (!lastShown || now - lastShown > ERROR_THROTTLE_TIME) {
+        errorCache.set(errorKey, now);
+        return true;
+      }
+      return false;
+    };
+
+    // Globální chyby
     window.addEventListener('error', e => {
+      const errorKey = `${e.message}:${e.filename}:${e.lineno}`;
+
+      if (!shouldShowError(errorKey)) {
+        console.warn('⚠️ Duplicitní chyba potlačena:', e.message);
+        return;
+      }
+
       console.error('Global error:', e.error);
-      toast.error(`Chyba: ${e.message}`, 5000);
+
+      // Dev mode - ukáž stack trace
+      if (state.get('ui.theme') === 'dark' || window.location.search.includes('debug')) {
+        console.error('Stack trace:', e.error?.stack);
+      }
+
+      // User-friendly message
+      const userMessage = this.getUserFriendlyError(e.error || e.message);
+      toast.error(userMessage, 5000);
+
+      // Log to state for error reporting
+      this.logError({
+        type: 'error',
+        message: e.message,
+        filename: e.filename,
+        lineno: e.lineno,
+        colno: e.colno,
+        stack: e.error?.stack,
+        timestamp: new Date().toISOString()
+      });
     });
 
+    // Unhandled promise rejections
     window.addEventListener('unhandledrejection', e => {
+      const errorKey = `promise:${e.reason}`;
+
+      if (!shouldShowError(errorKey)) {
+        console.warn('⚠️ Duplicitní promise rejection potlačena:', e.reason);
+        return;
+      }
+
       console.error('Unhandled rejection:', e.reason);
-      toast.error(`Promise error: ${e.reason}`, 5000);
+
+      // Dev mode
+      if (state.get('ui.theme') === 'dark' || window.location.search.includes('debug')) {
+        console.error('Promise stack:', e.reason?.stack);
+      }
+
+      const userMessage = this.getUserFriendlyError(e.reason);
+      toast.error(`Promise chyba: ${userMessage}`, 5000);
+
+      // Log to state
+      this.logError({
+        type: 'promise',
+        message: e.reason?.message || String(e.reason),
+        stack: e.reason?.stack,
+        timestamp: new Date().toISOString()
+      });
     });
+  }
+
+  /**
+   * Convert technical errors to user-friendly messages
+   * @param {Error|string} error - Error object or message
+   * @returns {string} User-friendly message
+   */
+  getUserFriendlyError(error) {
+    const message = error?.message || String(error);
+
+    // Common error patterns
+    const patterns = [
+      { pattern: /API key/i, message: '🔑 Chybí API klíč - nastavte ho v nastavení' },
+      { pattern: /network/i, message: '🌐 Problém se sítí - zkontrolujte připojení' },
+      { pattern: /timeout/i, message: '⏱️ Časový limit vypršel - zkuste znovu' },
+      { pattern: /not a function/i, message: '🐛 Interní chyba - obnovte stránku' },
+      { pattern: /Cannot read propert/i, message: '🐛 Chyba v kódu - zkontrolujte syntax' },
+      { pattern: /fetch/i, message: '📡 Chyba při načítání dat' },
+      { pattern: /JSON/i, message: '📄 Chyba formátu dat' },
+      { pattern: /modal/i, message: '💬 Chyba dialogu - zkuste ho zavřít a otevřít znovu' }
+    ];
+
+    for (const { pattern, message: friendlyMsg } of patterns) {
+      if (pattern.test(message)) {
+        return friendlyMsg;
+      }
+    }
+
+    // Generic fallback
+    if (message.length > 100) {
+      return '❌ Nastala chyba - zkuste obnovit stránku';
+    }
+
+    return `❌ ${message}`;
+  }
+
+  /**
+   * Log error for debugging and potential reporting
+   * @param {Object} errorInfo - Error information
+   */
+  logError(errorInfo) {
+    // Get current error log
+    const errorLog = state.get('debug.errors') || [];
+
+    // Keep max 50 errors
+    if (errorLog.length >= 50) {
+      errorLog.shift();
+    }
+
+    errorLog.push(errorInfo);
+    state.set('debug.errors', errorLog);
+
+    // In dev mode, also show in console.table for easy debugging
+    if (window.location.search.includes('debug')) {
+      console.table([errorInfo]);
+    }
   }
 
   sendErrorToAI(errorMessage) {
