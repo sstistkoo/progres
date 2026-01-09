@@ -5,6 +5,7 @@
 
 import { eventBus } from '../../core/events.js';
 import { state } from '../../core/state.js';
+import { SafeOps } from '../../core/safeOps.js';
 import { Modal } from '../../ui/components/Modal.js';
 import { toast } from '../../ui/components/Toast.js';
 import { AITester } from './AITester.js';
@@ -36,7 +37,20 @@ export class AIPanel {
       { event: 'ai:sendMessage', handler: (data) => this.sendMessage(data.message) },
       { event: 'aiSettings:show', handler: () => this.showSettings() },
       { event: 'console:errorCountChanged', handler: (data) => this.updateErrorIndicator(data.count) },
-      { event: 'ai:github-search', handler: () => this.showGitHubSearchDialog() }
+      { event: 'ai:github-search', handler: () => this.showGitHubSearchDialog() },
+      {
+        event: 'github:showLoginModal',
+        handler: async ({ callback }) => {
+          try {
+            const result = await this.showGitHubLoginModal();
+            if (result && callback) {
+              callback(result);
+            }
+          } catch (error) {
+            console.error('GitHub login modal error:', error);
+          }
+        }
+      }
     ];
 
     listeners.forEach(({ event, handler }) => {
@@ -1456,6 +1470,68 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
         console.log(`✨ Auto-vybrán nejlepší model: ${provider}/${model}`);
       }
 
+      // 🚨 PŘIDEJ KRITICKÁ PRAVIDLA NA ZAČÁTEK SYSTEM PROMPTU
+      const CRITICAL_EDIT_RULES = `
+
+═══════════════════════════════════════════════════════════
+🚨🚨🚨 ABSOLUTNÍ ZÁKAZ ZKRATEK V EDIT:LINES! 🚨🚨🚨
+═══════════════════════════════════════════════════════════
+
+KDYŽ MĚNÍŠ KÓD, MUSÍŠ POUŽÍT TENTO FORMÁT:
+
+\`\`\`EDIT:LINES:45-47
+OLD:
+[PŘESNÝ původní kód zkopírovaný z editoru - VIDÍŠ ho výše s čísly řádků!]
+NEW:
+[nový kód]
+\`\`\`
+
+🔴 ABSOLUTNĚ ZAKÁZÁNO V OLD BLOKU:
+❌ "..." nebo "// ..." nebo "/* ... */"
+❌ "zkráceno" nebo "...zbytek kódu..."
+❌ jakékoliv zkratky nebo placeholder text
+❌ "STEJNÉ JAKO NAHOŘE" nebo reference
+
+✅ OLD BLOK MUSÍ OBSAHOVAT:
+✅ PŘESNOU KOPII kódu z daných řádků (vidíš čísla řádků!)
+✅ VŠECHNY řádky od startLine do endLine
+✅ PŘESNÉ odsazení (whitespace)
+✅ ÚPLNÝ kód bez zkratek
+
+💡 PŘÍKLAD SPRÁVNĚ:
+\`\`\`EDIT:LINES:60-63
+OLD:
+.button {
+  background: blue;
+  color: white;
+}
+NEW:
+.button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transition: transform 0.3s;
+}
+\`\`\`
+
+❌ PŘÍKLAD ŠPATNĚ (BUDE ZAMÍTNUTO!):
+\`\`\`EDIT:LINES:60-63
+OLD:
+.button {
+  // ... stávající styly
+}
+NEW:
+...
+\`\`\`
+
+⚠️ POKUD NEVIDÍŠ CELÝ KÓD:
+Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
+"Potřebuji vidět řádky X-Y pro editaci"
+
+═══════════════════════════════════════════════════════════
+`;
+
+      systemPrompt = CRITICAL_EDIT_RULES + systemPrompt;
+
       // Přidej Tool System prompt pokud je VS Code Mode aktivní
       if (this.toolSystem.isEnabled) {
         systemPrompt += this.toolSystem.getToolSystemPrompt();
@@ -1546,57 +1622,26 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
 
         console.log('📋 Náhled změn:\n' + preview);
 
-        // Apply edits automatically (no user confirmation for speed)
-        const applied = this.applyLineEdits(editInstructions);
-
-        if (applied) {
-          // Add success message with summary
-          const summary = editInstructions.map((e, i) =>
-            `${i + 1}. Řádky ${e.startLine}-${e.endLine}: ✅`
-          ).join('\n');
-
-          this.addChatMessage('assistant', `✅ Automaticky aplikováno ${editInstructions.length} změn:\n\n${summary}\n\n${response}`);
-
-          // Close modal on success
-          if (this.modal) {
-            setTimeout(() => this.modal.close(), 500);
-          }
-          return;
-        } else {
-          // Edits failed - show helpful message with current code context
-          const currentCode = state.get('editor.code');
-          const lines = currentCode ? currentCode.split('\n') : [];
-
-          // Show context around failed lines
-          let contextMessage = '📄 **Aktuální kód v editoru:**\n\n';
-          for (const edit of editInstructions) {
-            const startLine = Math.max(1, edit.startLine - 2);
-            const endLine = Math.min(lines.length, edit.endLine + 2);
-            const contextLines = lines.slice(startLine - 1, endLine).map((line, i) =>
-              `${startLine + i}: ${line}`
-            ).join('\n');
-            contextMessage += `Řádky ${edit.startLine}-${edit.endLine} (+ kontext):\n\`\`\`\n${contextLines}\n\`\`\`\n\n`;
-          }
-
-          this.addChatMessage('assistant',
-            `⚠️ Nepodařilo se aplikovat změny - kód v editoru se liší od očekávání.\n\n` +
-            `${contextMessage}\n` +
-            `💡 **Co dělat:**\n` +
-            `- Zkus požádat znovu s aktuálním stavem kódu\n` +
-            `- Nebo upřesni co chceš změnit\n\n` +
-            `**AI odpověď:**\n${response}`
-          );
-          return;
-        }
+        // Show confirmation dialog with preview
+        await this.showChangeConfirmation(editInstructions, response);
+        return; // Exit after handling confirmation
       } else if (response.includes('EDIT:LINES')) {
         // EDIT:LINES bloky byly detekovány ale ignorovány kvůli prázdným OLD blokům
+
+        // Zobraz AI response v chatu, aby uživatel viděl co AI poslala
+        this.addChatMessage('assistant', response);
+
+        // Zobraz error toast
         toast.error(
           `❌ AI použila ZAKÁZANÉ zkratky v OLD blocích!\n\n` +
-          `💡 AI musí zkopírovat PŘESNÝ kód, ne "...", "// ...", "/* ... */"\n\n` +
-          `🔄 Zkus požádat AI znovu nebo buď konkrétnější.`,
-          8000
+          `🚨 OLD blok MUSÍ obsahovat PŘESNÝ kód z editoru!\n` +
+          `❌ ZAKÁZÁNO: "...", "// ...", "/* ... */", "zkráceno"\n\n` +
+          `💡 Zkus požádat AI znovu - například:\n` +
+          `"Změň řádek 45 - použij PŘESNÝ kód z OLD bloku"`,
+          10000
         );
         console.error('❌ EDIT:LINES bloky ignorovány - obsahují prázdné nebo zkrácené OLD bloky');
+        console.error('📄 Zobrazuji AI response v chatu pro debugging...');
       }
 
       // Check if this is modification of existing code (has history and code)
@@ -1628,9 +1673,8 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
     messageEl.className = `ai-message ${role}`;
     messageEl.id = messageId;
 
-    // Format content with basic markdown-like formatting
-    const formattedContent = this.formatMessageContent(content);
-    messageEl.innerHTML = formattedContent;
+    // Format content with basic HTML escaping
+    messageEl.innerHTML = `<p>${this.escapeHtml(content)}</p>`;
 
     messagesContainer.appendChild(messageEl);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -2566,11 +2610,31 @@ NEW:
       while ((match = regex.exec(response)) !== null) {
         const oldCode = match[3].trim();
         const newCode = match[4].trim();
+        const lineRange = `${match[1]}-${match[2]}`;
 
         // Validate OLD code - reject empty or placeholder content
         if (!oldCode || oldCode === '...' || oldCode === '// ...' || oldCode === '/* ... */' ||
             oldCode.includes('...') && oldCode.length < 10) {
-          console.warn(`⚠️ Ignoruji EDIT:LINES ${match[1]}-${match[2]}: OLD blok je prázdný nebo obsahuje zkratky`);
+          console.warn(`⚠️ Ignoruji EDIT:LINES ${lineRange}: OLD blok je prázdný nebo obsahuje zkratky`);
+          console.warn(`   📝 OLD blok obsahuje: "${oldCode.substring(0, 100)}${oldCode.length > 100 ? '...' : ''}"`);
+          continue;
+        }
+
+        // Additional check for common placeholder patterns
+        const forbiddenPatterns = [
+          /\.\.\./,           // Triple dots
+          /\/\/\s*\.\.\./,   // Comment with dots
+          /\/\*\s*\.\.\.\s*\*\//,  // Block comment with dots
+          /zkráceno/i,        // Czech "truncated"
+          /zbytek/i,          // Czech "rest"
+          /stávající/i,       // Czech "existing" (when used as placeholder)
+          /stejné jako/i      // Czech "same as"
+        ];
+
+        const hasPlaceholder = forbiddenPatterns.some(pattern => pattern.test(oldCode));
+        if (hasPlaceholder) {
+          console.warn(`⚠️ Ignoruji EDIT:LINES ${lineRange}: OLD blok obsahuje zakázaný placeholder`);
+          console.warn(`   📝 Detekovaný pattern v: "${oldCode.substring(0, 100)}${oldCode.length > 100 ? '...' : ''}"`);
           continue;
         }
 
@@ -2603,6 +2667,89 @@ NEW:
    * @param {Array} edits - Array of {startLine, endLine, oldCode, newCode}
    * @returns {boolean} True if at least one edit was applied
    */
+
+  /**
+   * Show confirmation dialog for code changes
+   */
+  async showChangeConfirmation(editInstructions, fullResponse) {
+    console.log(`💬 Zobrazuji confirmation dialog pro ${editInstructions.length} změn`);
+
+    const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
+
+    // Remove any existing confirmation dialogs first (from previous attempts)
+    const existingConfirmations = messagesContainer.querySelectorAll('.ai-confirmation-dialog');
+    existingConfirmations.forEach(el => el.remove());
+    console.log(`🧹 Odstraněno ${existingConfirmations.length} starých confirmation dialogů`);
+
+    // Create confirmation UI
+    const confirmationEl = document.createElement('div');
+    confirmationEl.className = 'ai-message assistant ai-confirmation-dialog'; // Added class for cleanup
+    confirmationEl.innerHTML = `
+      <strong>🔍 Náhled navrhovaných změn (${editInstructions.length})</strong>
+      <div style="margin-top: 10px; max-height: 400px; overflow-y: auto;">
+        ${editInstructions.map((e, i) => `
+          <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+            <div style="font-weight: bold; margin-bottom: 5px;">
+              ${i + 1}. Řádky ${e.startLine}-${e.endLine}
+            </div>
+            <div style="margin: 5px 0; color: #ef4444;">
+              <strong>❌ Původní:</strong>
+              <pre style="background: rgba(239,68,68,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.oldCode.substring(0, 200))}${e.oldCode.length > 200 ? '...' : ''}</pre>
+            </div>
+            <div style="margin: 5px 0; color: #10b981;">
+              <strong>✅ Nový:</strong>
+              <pre style="background: rgba(16,185,129,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.newCode.substring(0, 200))}${e.newCode.length > 200 ? '...' : ''}</pre>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="margin-top: 15px; display: flex; gap: 10px;">
+        <button class="confirm-changes-btn" style="flex: 1; padding: 14px; background: #10b981; color: white; border: 2px solid #059669; border-radius: 8px; cursor: pointer; font-size: 1.1em; font-weight: 700; box-shadow: 0 4px 6px rgba(16,185,129,0.4); transition: all 0.2s;">
+          ✅ Potvrdit a aplikovat
+        </button>
+        <button class="reject-changes-btn" style="flex: 1; padding: 14px; background: #ef4444; color: white; border: 2px solid #dc2626; border-radius: 8px; cursor: pointer; font-size: 1.1em; font-weight: 700; box-shadow: 0 4px 6px rgba(239,68,68,0.4); transition: all 0.2s;">
+          ❌ Zamítnout
+        </button>
+      </div>
+    `;
+
+    messagesContainer.appendChild(confirmationEl);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Wait for user decision
+    return new Promise((resolve) => {
+      const confirmBtn = confirmationEl.querySelector('.confirm-changes-btn');
+      const rejectBtn = confirmationEl.querySelector('.reject-changes-btn');
+
+      confirmBtn.addEventListener('click', async () => {
+        console.log('✅ Uživatel potvrdil změny');
+        confirmationEl.remove();
+
+        // Apply changes
+        const applied = this.applyLineEdits(editInstructions);
+
+        if (applied) {
+          const summary = editInstructions.map((e, i) =>
+            `${i + 1}. Řádky ${e.startLine}-${e.endLine}: ✅`
+          ).join('\n');
+
+          this.addChatMessage('assistant', `✅ Změny aplikovány (${editInstructions.length}x):\n\n${summary}`);
+          toast.success(`✅ Aplikováno ${editInstructions.length} změn`, 3000);
+        } else {
+          toast.error('⚠️ Některé změny selhaly - viz konzole', 5000);
+        }
+        resolve();
+      });
+
+      rejectBtn.addEventListener('click', () => {
+        console.log('❌ Uživatel zamítl změny');
+        confirmationEl.remove();
+        this.addChatMessage('assistant', '❌ Změny zamítnuty uživatelem.\n\nMůžete zadat nový požadavek.');
+        resolve();
+      });
+    });
+  }
+
   applyLineEdits(edits) {
     if (!edits || edits.length === 0) {
       console.warn('⚠️ Žádné EDIT:LINES bloky k aplikaci');
@@ -2626,103 +2773,119 @@ NEW:
     console.log(`📝 Aplikuji ${edits.length} změn od konce k začátku (aby se čísla řádků neměnila):`,
       edits.map(e => `${e.startLine}-${e.endLine}`).join(', '));
 
+    // Process edits one by one, re-reading code after each successful change
+    let workingLines = [...lines];
+
     for (const edit of edits) {
       const { startLine, endLine, oldCode, newCode } = edit;
 
       // Validate line numbers
-      if (startLine < 1 || endLine > lines.length || startLine > endLine) {
+      if (startLine < 1 || endLine > workingLines.length || startLine > endLine) {
         failedEdits.push(`Řádky ${startLine}-${endLine}: Neplatný rozsah`);
         continue;
       }
 
       // Get current code at those lines
-      const actualCode = lines.slice(startLine - 1, endLine).join('\n');
+      const actualCode = workingLines.slice(startLine - 1, endLine).join('\n');
 
-      // Verify OLD code matches
-      if (actualCode.trim() !== oldCode.trim()) {
-        const expectedPreview = oldCode.length > 50 ? oldCode.substring(0, 50) + '...' : oldCode;
-        const actualPreview = actualCode.length > 50 ? actualCode.substring(0, 50) + '...' : actualCode;
+      // Aggressive normalization FIRST - normalize both versions for comparison
+      const actualNormalized = actualCode.replace(/\s+/g, '').toLowerCase();
+      const oldNormalized = oldCode.replace(/\s+/g, '').toLowerCase();
 
-        // Show detailed error with option to see full context
-        console.error(`❌ Řádky ${startLine}-${endLine}: OLD kód nesedí`);
-        console.log('📋 Očekáváno AI:', oldCode);
-        console.log('📄 Skutečný kód:', actualCode);
-
-        // Try fuzzy match - maybe just whitespace differs
-        const actualNormalized = actualCode.replace(/\s+/g, ' ').trim();
-        const oldNormalized = oldCode.replace(/\s+/g, ' ').trim();
-
-        if (actualNormalized === oldNormalized) {
-          console.log('✓ Whitespace mismatch - aplikuji stejně');
-          // Continue with the change (but don't skip the apply logic below)
-        } else {
-          // Try to find similar content nearby (within 10 lines for larger files)
-          const totalLines = lines.length;
-          const searchRange = Math.min(10, Math.floor(totalLines / 100));
-          let foundMatch = false;
-
-          for (let offset = -searchRange; offset <= searchRange; offset++) {
-            if (offset === 0) continue;
-            const offsetStart = startLine + offset - 1;
-            const offsetEnd = endLine + offset;
-            if (offsetStart < 0 || offsetEnd > lines.length) continue;
-
-            const offsetCode = lines.slice(offsetStart, offsetEnd).join('\n');
-            const offsetNormalized = offsetCode.replace(/\s+/g, ' ').trim();
-
-            // Exact match after normalization
-            if (offsetNormalized === oldNormalized) {
-              console.log(`✓ Našel jsem shodu na řádcích ${offsetStart + 1}-${offsetEnd} (offset ${offset})`);
-              // Apply change at correct location
-              const newLines = newCode.split('\n');
-              lines.splice(offsetStart, offsetEnd - offsetStart, ...newLines);
-              appliedCount++;
-              foundMatch = true;
-              break;
-            }
-
-            // Partial match (obsahuje alespoň 90% stejného textu)
-            if (!foundMatch && oldCode.length > 20) {
-              const similarity = this.calculateSimilarity(offsetNormalized, oldNormalized);
-              if (similarity > 0.90) {
-                console.log(`✓ Našel jsem podobnou shodu (${Math.round(similarity * 100)}%) na řádcích ${offsetStart + 1}-${offsetEnd}`);
-                const newLines = newCode.split('\n');
-                lines.splice(offsetStart, offsetEnd - offsetStart, ...newLines);
-                appliedCount++;
-                foundMatch = true;
-                break;
-              }
-            }
-          }
-
-          if (!foundMatch) {
-            failedEdits.push({
-              lines: `${startLine}-${endLine}`,
-              reason: 'OLD kód nesedí',
-              expected: expectedPreview,
-              actual: actualPreview,
-              fullExpected: oldCode,
-              fullActual: actualCode,
-              newCode: newCode
-            });
-            continue;
-          }
-        }
-      } else {
-        // Apply change normally
+      // Check if they match after normalization (ignores ALL whitespace differences)
+      if (actualNormalized === oldNormalized) {
+        console.log(`✅ Shoda řádků ${startLine}-${endLine} (po normalizaci whitespace)`);
         const newLines = newCode.split('\n');
-        lines.splice(startLine - 1, endLine - startLine + 1, ...newLines);
+        workingLines.splice(startLine - 1, endLine - startLine + 1, ...newLines);
         appliedCount++;
+        continue; // Skip to next edit - SUCCESS!
       }
 
-      // Apply change
-      const newLines = newCode.split('\n');
-      lines.splice(startLine - 1, endLine - startLine + 1, ...newLines);
-      appliedCount++;
+      // No exact match even after normalization - try fuzzy search nearby
+      // ULTRA-WIDE SEARCH: Try much wider range (up to 100 lines) to handle AI mistakes
+      const totalLines = workingLines.length;
+      const searchRange = Math.min(100, Math.floor(totalLines / 20) + 20); // Was: 10 lines, now: 100 lines
+      let foundMatch = false;
+      let bestMatch = null;
+      let bestSimilarity = 0;
+
+      console.log(`🔍 Hledám v rozsahu ±${searchRange} řádků od ${startLine}...`);
+
+      for (let offset = -searchRange; offset <= searchRange; offset++) {
+        if (offset === 0) continue;
+        const offsetStart = startLine + offset - 1;
+        const offsetEnd = endLine + offset;
+        if (offsetStart < 0 || offsetEnd > workingLines.length) continue;
+
+        const offsetCode = workingLines.slice(offsetStart, offsetEnd).join('\n');
+        // Use aggressive normalization like above
+        const offsetNormalized = offsetCode.replace(/\s+/g, '').toLowerCase();
+
+        // Exact match after aggressive normalization
+        if (offsetNormalized === oldNormalized) {
+          console.log(`✅ Našel jsem PŘESNOU shodu na řádcích ${offsetStart + 1}-${offsetEnd} (offset ${offset})`);
+          // Apply change at correct location
+          const newLines = newCode.split('\n');
+          workingLines.splice(offsetStart, offsetEnd - offsetStart, ...newLines);
+          appliedCount++;
+          foundMatch = true;
+          break;
+        }
+
+        // Track best partial match (threshold lowered to 70% from 85%)
+        if (!foundMatch && oldCode.length > 20) {
+          const similarity = this.calculateSimilarity(offsetNormalized, oldNormalized);
+          if (similarity > bestSimilarity) {
+            bestSimilarity = similarity;
+            bestMatch = { offsetStart, offsetEnd, offset };
+          }
+        }
+      }
+
+      // If exact match found, continue to next edit
+      if (foundMatch) continue;
+
+      // Try best partial match if similarity is decent (80%+ is safer than 70%)
+      if (bestMatch && bestSimilarity > 0.80) {
+        console.log(`✅ Našel jsem podobnou shodu (${Math.round(bestSimilarity * 100)}%) na řádcích ${bestMatch.offsetStart + 1}-${bestMatch.offsetEnd}`);
+        const newLines = newCode.split('\n');
+        workingLines.splice(bestMatch.offsetStart, bestMatch.offsetEnd - bestMatch.offsetStart, ...newLines);
+        appliedCount++;
+        continue;
+      }
+
+      // Still not found - log error
+      console.error(`❌ Řádky ${startLine}-${endLine}: OLD kód nenalezen ani přibližně (nejlepší shoda: ${Math.round(bestSimilarity * 100)}%)`);
+      console.log('📋 Očekáváno AI:', oldCode);
+      console.log('📄 Skutečný kód na daných řádcích:', actualCode);
+      console.log('🔍 Normalizováno AI:', oldNormalized.substring(0, 100));
+      console.log('🔍 Normalizováno skutečný:', actualNormalized.substring(0, 100));
+
+      const expectedPreview = oldCode.length > 50 ? oldCode.substring(0, 50) + '...' : oldCode;
+      const actualPreview = actualCode.length > 50 ? actualCode.substring(0, 50) + '...' : actualCode;
+
+      failedEdits.push({
+        lines: `${startLine}-${endLine}`,
+        reason: `OLD kód nenalezen (nejlepší: ${Math.round(bestSimilarity * 100)}%)`,
+        expected: expectedPreview,
+        actual: actualPreview,
+        fullExpected: oldCode,
+        fullActual: actualCode,
+        newCode: newCode
+      });
     }
 
     if (failedEdits.length > 0) {
       console.warn('⚠️ Některé změny selhaly:', failedEdits);
+
+      // Show user-friendly suggestion in chat
+      this.addChatMessage('system',
+        `⚠️ Částečné selhání - aplikováno ${appliedCount}/${edits.length} změn.\n\n` +
+        `Kód byl mezitím změněn nebo AI neviděla aktuální verzi.\n\n` +
+        `💡 **Doporučení:**\n` +
+        `• Zkuste: "zobraz celý kód s kalkulačkou"\n` +
+        `• Nebo: Vraťte změny (Ctrl+Z) a zkuste znovu s přesnějšími instrukcemi`
+      );
 
       // Show failed edits with context in console
       failedEdits.forEach((f, i) => {
@@ -2828,7 +2991,7 @@ NEW:
     }
 
     // Update editor with undo support
-    const newCode = lines.join('\n');
+    const newCode = workingLines.join('\n');
     const editor = document.querySelector('.editor-container')?.__editor;
 
     if (editor) {
@@ -2854,16 +3017,18 @@ NEW:
 
       // Apply new code - use setCode without skip to trigger normal flow
       // But don't save to history again (we just did above)
-      editor.isUndoRedoInProgress = true;
-      editor.setCode(newCode, true); // Skip state update
-      editor.isUndoRedoInProgress = false;
+      if (editor.setCode && typeof editor.setCode === 'function') {
+        editor.isUndoRedoInProgress = true;
+        editor.setCode(newCode, true); // Skip state update
+        editor.isUndoRedoInProgress = false;
+        console.log(`💾 Undo historie po změně: ${editor.history?.past?.length || 0} kroků`);
+      }
 
-      // Manually update state
+      // Manually update state regardless of editor
       state.set('editor.code', newCode);
-
-      console.log(`💾 Undo historie po změně: ${editor.history?.past?.length || 0} kroků`);
     } else {
-      console.error('❌ Editor nenalezen - nelze uložit do historie');
+      console.warn('⚠️ Editor instance nenalezena - aktualizuji pouze state');
+      state.set('editor.code', newCode);
     }
   }
 
@@ -4179,6 +4344,8 @@ NEW:
 
   async loadGitHubRepo(fullName, repoName) {
     try {
+      this.showLoadingOverlay('📥 Načítám repozitář...');
+
       // Nejdřív zkus získat strukturu repozitáře
       const token = localStorage.getItem('github_token');
       const headers = { 'Accept': 'application/vnd.github+json' };
@@ -4199,65 +4366,219 @@ NEW:
       }
 
       if (!response.ok) {
+        this.hideLoadingOverlay();
         throw new Error('Nepodařilo se načíst obsah repozitáře');
       }
 
-      const files = await response.json();
+      const rootFiles = await response.json();
 
-      // Najdi hlavní soubory podle priority
-      const priorities = [
-        { name: 'index.html', weight: 10 },
-        { name: 'index.htm', weight: 9 },
-        { name: 'main.html', weight: 8 },
-        { name: 'home.html', weight: 7 },
-        { name: 'index.js', weight: 6 },
-        { name: 'main.js', weight: 5 },
-        { name: 'app.js', weight: 4 },
-        { name: 'main.py', weight: 3 },
-        { name: 'app.py', weight: 2 },
-        { name: 'README.md', weight: 1 }
-      ];
+      // Načti obsah všech souborů z root složky
+      const allFiles = [];
 
-      // Seřaď soubory podle priority
-      let mainFile = null;
-      let maxWeight = 0;
-
-      for (const file of files) {
-        if (file.type === 'file') {
-          const priority = priorities.find(p => p.name === file.name);
-          if (priority && priority.weight > maxWeight) {
-            maxWeight = priority.weight;
-            mainFile = file;
+      for (const file of rootFiles) {
+        if (file.type === 'file' && !file.name.startsWith('.')) {
+          // Načti pouze textové soubory
+          if (this.isTextFile(file.name)) {
+            try {
+              const contentResponse = await fetch(file.download_url);
+              if (contentResponse.ok) {
+                const content = await contentResponse.text();
+                allFiles.push({
+                  name: file.name,
+                  content: content,
+                  path: file.path
+                });
+              }
+            } catch (err) {
+              console.warn(`⚠️ Nepodařilo se načíst soubor ${file.name}:`, err);
+            }
           }
         }
       }
 
-      if (!mainFile) {
-        // Pokud není žádný prioritní soubor, vezmi první HTML/JS/PY
-        mainFile = files.find(f =>
-          f.type === 'file' &&
-          (f.name.endsWith('.html') || f.name.endsWith('.js') || f.name.endsWith('.py'))
-        );
+      this.hideLoadingOverlay();
+
+      if (allFiles.length === 0) {
+        throw new Error('V repozitáři nejsou žádné načitatelné soubory');
       }
 
-      if (!mainFile) {
-        // Pokud pořád nic, nabídni uživateli seznam souborů
-        this.showRepoFileSelector(fullName, branch, files, repoName);
-        return;
-      }
+      console.log(`📦 Načteno ${allFiles.length} souborů z ${repoName}`);
 
-      // Načti obsah hlavního souboru
-      const codeResponse = await fetch(mainFile.download_url);
-      if (!codeResponse.ok) {
-        throw new Error('Nepodařilo se načíst soubor');
-      }
+      // Zkontroluj jestli už jsou nějaké otevřené soubory
+      const existingTabs = state.get('files.tabs') || [];
+      const hasExistingFiles = existingTabs.length > 0;
 
-      const code = await codeResponse.text();
-      await this.handleGitHubCodeLoad(code, mainFile.name);
+      if (hasExistingFiles) {
+        // Zobraz dialog s volbami
+        this.showRepoLoadOptions(repoName, allFiles);
+      } else {
+        // Prázdný projekt - načti rovnou
+        eventBus.emit('github:project:loaded', {
+          name: repoName,
+          files: allFiles
+        });
+
+        eventBus.emit('toast:show', {
+          message: `✅ Načten repozitář ${repoName} (${allFiles.length} souborů)`,
+          type: 'success',
+          duration: 3000
+        });
+      }
 
     } catch (error) {
+      this.hideLoadingOverlay();
       throw new Error('Nepodařilo se načíst repozitář: ' + error.message);
     }
+  }
+
+  showRepoLoadOptions(repoName, allFiles) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 500px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; overflow: hidden;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333;">
+          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">📥 Načíst repozitář ${repoName}</h3>
+        </div>
+        <div class="modal-body" style="padding: 25px;">
+          <p style="margin-bottom: 20px; color: #cccccc; line-height: 1.6;">
+            Načteno <strong>${allFiles.length} souborů</strong>. Už máte otevřené soubory. Co chcete udělat?
+          </p>
+          <div style="display: grid; gap: 12px;">
+            <button id="replaceAllFiles" style="padding: 14px; background: #0066cc; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+              🔄 Nahradit všechny soubory
+            </button>
+            <button id="addToExisting" style="padding: 14px; background: #242424; color: #ffffff; border: 2px solid #333; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+              ➕ Přidat k existujícím
+            </button>
+            <button id="cancelRepoLoad" style="padding: 14px; background: transparent; color: #888888; border: 1px solid #333; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+              ❌ Zrušit
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeModal = () => {
+      modal.remove();
+    };
+
+    modal.querySelector('#replaceAllFiles').addEventListener('click', async () => {
+      // Nahraď všechny soubory pomocí safe batch update
+      const success = await SafeOps.safeBatch(async () => {
+        eventBus.emit('github:project:loaded', {
+          name: repoName,
+          files: allFiles
+        });
+      }, 'Replace all GitHub files');
+
+      if (success) {
+        eventBus.emit('toast:show', {
+          message: `✅ Nahrazeno ${allFiles.length} souborů z ${repoName}`,
+          type: 'success',
+          duration: 3000
+        });
+      } else {
+        eventBus.emit('toast:show', {
+          message: `❌ Chyba při nahrávání souborů`,
+          type: 'error',
+          duration: 3000
+        });
+      }
+      closeModal();
+    });
+
+    modal.querySelector('#addToExisting').addEventListener('click', async () => {
+      // Přidej k existujícím souborům pomocí safe transaction
+      const success = await SafeOps.safeTransaction(async () => {
+        const existingTabs = state.get('files.tabs') || [];
+        let nextId = state.get('files.nextId') || 1;
+
+        const newTabs = [];
+        allFiles.forEach(file => {
+          newTabs.push({
+            id: nextId++,
+            name: file.name,
+            content: file.content,
+            modified: false,
+            type: this.getFileType(file.name),
+            path: file.path
+          });
+        });
+
+        // Slouč existující a nové taby
+        const allTabs = [...existingTabs, ...newTabs];
+        state.set('files.tabs', allTabs);
+        state.set('files.nextId', nextId);
+
+        // Nastav první nový soubor jako aktivní
+        if (newTabs.length > 0) {
+          state.set('files.active', newTabs[0].id);
+          // Použij event místo přímého volání
+          eventBus.emit('editor:setCode', {
+            code: newTabs[0].content,
+            skipStateUpdate: false,
+            force: true
+          });
+        }
+      }, 'Add GitHub files to existing');
+
+      if (success) {
+        eventBus.emit('sidebar:show');
+        eventBus.emit('files:changed');
+
+        eventBus.emit('toast:show', {
+          message: `✅ Přidáno ${allFiles.length} souborů z ${repoName}`,
+          type: 'success',
+          duration: 3000
+        });
+      } else {
+        eventBus.emit('toast:show', {
+          message: `❌ Chyba při přidávání souborů`,
+          type: 'error',
+          duration: 3000
+        });
+      }
+      closeModal();
+    });
+
+    modal.querySelector('#cancelRepoLoad').addEventListener('click', closeModal);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+  }
+
+  getFileType(fileName) {
+    const ext = fileName.split('.').pop().toLowerCase();
+    const types = {
+      html: 'html', htm: 'html',
+      css: 'css',
+      js: 'javascript', jsx: 'javascript',
+      ts: 'typescript', tsx: 'typescript',
+      json: 'json',
+      md: 'markdown',
+      py: 'python',
+      java: 'java',
+      php: 'php',
+      rb: 'ruby',
+      go: 'go',
+      rs: 'rust',
+      c: 'c', cpp: 'cpp', h: 'c'
+    };
+    return types[ext] || 'text';
+  }
+
+  isTextFile(fileName) {
+    const textExtensions = [
+      '.html', '.htm', '.css', '.js', '.json', '.txt', '.md',
+      '.xml', '.svg', '.py', '.java', '.c', '.cpp', '.h',
+      '.php', '.rb', '.go', '.rs', '.ts', '.jsx', '.tsx',
+      '.vue', '.yml', '.yaml', '.toml', '.ini', '.cfg'
+    ];
+    return textExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
   }
 
   showRepoFileSelector(fullName, branch, files, repoName) {
@@ -4432,21 +4753,29 @@ NEW:
         };
 
         modal.querySelector('#replaceCode').addEventListener('click', () => {
-          // Nahraď kód v aktuálním souboru
-          state.set('editor.code', code);
-          eventBus.emit('editor:change', { code });
+          console.log('🔄 Nahrazuji kód z GitHubu:', fileName, 'délka:', code.length);
 
-          // Aktualizuj content v tabs
+          // NEJDŘÍV aktualizuj content v tabs - vytvoř nové pole místo mutace
           const activeFileId = state.get('files.active');
-          const tabs = state.get('files.tabs') || [];
-          const updatedTabs = tabs.map(f =>
-            f.id === activeFileId ? { ...f, content: code } : f
-          );
-          state.set('files.tabs', updatedTabs);
+          if (activeFileId) {
+            const tabs = state.get('files.tabs') || [];
+            const updatedTabs = tabs.map(f =>
+              f.id === activeFileId ? { ...f, content: code, modified: false } : f
+            );
+            // Uložení nových tabů do state
+            state.set('files.tabs', [...updatedTabs]);
+            console.log('✅ Tabs aktualizovány, aktivní soubor:', activeFileId);
+          }
+
+          // PAK nahraď kód v editoru
+          // force: true vynucuje nahrazení i když je kód stejný
+          eventBus.emit('editor:replaceAll', { code, force: true });
+          console.log('✅ Event editor:replaceAll odeslán');
 
           eventBus.emit('toast:show', {
-            message: '✅ Kód byl nahrazen',
-            type: 'success'
+            message: `✅ Kód byl nahrazen z ${fileName}`,
+            type: 'success',
+            duration: 2000
           });
           closeModal();
         });
@@ -4467,19 +4796,25 @@ NEW:
         });
       });
     } else {
-      // Prázdný editor - prostě nahraď
-      state.set('editor.code', code);
-      eventBus.emit('editor:change', { code });
-
-      // Aktualizuj i v tabs pokud existuje aktivní soubor
+      // Prázdný editor - aktualizuj tabs NEJDŘÍV, pak nahraď
       const activeFileId = state.get('files.active');
       if (activeFileId) {
         const tabs = state.get('files.tabs') || [];
         const updatedTabs = tabs.map(f =>
-          f.id === activeFileId ? { ...f, content: code } : f
+          f.id === activeFileId ? { ...f, content: code, modified: false } : f
         );
-        state.set('files.tabs', updatedTabs);
+        state.set('files.tabs', [...updatedTabs]);
+        console.log('✅ Tabs aktualizovány pro prázdný editor');
       }
+
+      // Pak nahraď kód pomocí replaceAll eventu s force
+      eventBus.emit('editor:replaceAll', { code, force: true });
+
+      eventBus.emit('toast:show', {
+        message: `✅ Načten kód z ${fileName}`,
+        type: 'success',
+        duration: 2000
+      });
     }
   }
 

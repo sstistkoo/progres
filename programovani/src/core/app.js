@@ -7,13 +7,14 @@ import config from './config.js';
 import { registerDefaultShortcuts } from '../utils/shortcuts.js';
 import { ready } from '../utils/dom.js';
 import toast from '../ui/components/Toast.js';
+import { SafeOps, ModuleErrorBoundary } from './safeOps.js';
 
-// Import modules
-import Editor from '../modules/editor/Editor.js';
-import Preview from '../modules/preview/Preview.js';
-import { AIPanel } from '../modules/ai/AIPanel.js';
-import { ShortcutsPanel } from '../modules/shortcuts/ShortcutsPanel.js';
-import { MenuPanel } from '../modules/menu/MenuPanel.js';
+// Import modules - použití index.js pro čistší importy
+import { Editor } from '../modules/editor/index.js';
+import { Preview } from '../modules/preview/index.js';
+import { AIPanel } from '../modules/ai/index.js';
+import { ShortcutsPanel } from '../modules/shortcuts/index.js';
+import { MenuPanel } from '../modules/menu/index.js';
 import { SearchPanel } from '../modules/search/SearchPanel.js';
 import { SidePanel } from '../modules/panel/SidePanel.js';
 import { Sidebar } from '../modules/sidebar/Sidebar.js';
@@ -68,47 +69,98 @@ class App {
   }
 
   async initializeModules() {
-    // Editor
+    // Vytvoř error boundaries pro každý modul
+    const boundaries = {
+      editor: new ModuleErrorBoundary('Editor'),
+      preview: new ModuleErrorBoundary('Preview'),
+      ai: new ModuleErrorBoundary('AIPanel'),
+      sidebar: new ModuleErrorBoundary('Sidebar'),
+      menu: new ModuleErrorBoundary('MenuPanel'),
+    };
+
+    // Editor - s error boundary
     const editorContainer = document.getElementById('editorContainer');
     if (editorContainer) {
-      this.editor = new Editor(editorContainer);
-      console.log('✓ Editor initialized');
+      const { success, result } = await SafeOps.execute(
+        () => new Editor(editorContainer),
+        { name: 'Editor initialization', rollbackOnError: false }
+      );
+      if (success) {
+        this.editor = result;
+        console.log('✓ Editor initialized');
+      } else {
+        console.error('❌ Editor initialization failed');
+      }
     }
 
-    // Preview
+    // Preview - s error boundary
     const previewContainer = document.getElementById('previewContainer');
     if (previewContainer) {
-      this.preview = new Preview(previewContainer);
-      console.log('✓ Preview initialized');
+      const { success, result } = await SafeOps.execute(
+        () => new Preview(previewContainer),
+        { name: 'Preview initialization', rollbackOnError: false }
+      );
+      if (success) {
+        this.preview = result;
+        console.log('✓ Preview initialized');
+      } else {
+        console.error('❌ Preview initialization failed');
+      }
     }
 
-    // AI Panel
-    this.aiPanel = new AIPanel();
-    console.log('✓ AI Panel initialized');
+    // AI Panel - s error boundary
+    const { success: aiSuccess, result: aiResult } = await SafeOps.execute(
+      () => new AIPanel(),
+      { name: 'AI Panel initialization', rollbackOnError: false }
+    );
+    if (aiSuccess) {
+      this.aiPanel = aiResult;
+      console.log('✓ AI Panel initialized');
+    } else {
+      console.error('❌ AI Panel initialization failed');
+    }
 
-    // Shortcuts Panel
-    this.shortcutsPanel = new ShortcutsPanel();
-    console.log('✓ Shortcuts Panel initialized');
+    // Ostatní moduly - základní error handling
+    try {
+      this.shortcutsPanel = new ShortcutsPanel();
+      console.log('✓ Shortcuts Panel initialized');
+    } catch (error) {
+      console.error('❌ Shortcuts Panel failed:', error);
+    }
 
-    // Menu Panel
-    this.menuPanel = new MenuPanel();
-    console.log('✓ Menu Panel initialized');
+    try {
+      this.menuPanel = new MenuPanel();
+      console.log('✓ Menu Panel initialized');
+    } catch (error) {
+      console.error('❌ Menu Panel failed:', error);
+    }
 
-    // Search Panel
-    this.searchPanel = new SearchPanel();
-    console.log('✓ Search Panel initialized');
+    try {
+      this.searchPanel = new SearchPanel();
+      console.log('✓ Search Panel initialized');
+    } catch (error) {
+      console.error('❌ Search Panel failed:', error);
+    }
 
-    // Side Panel (pravý) - DISABLED, používáme pouze Sidebar
-    // this.sidePanel = new SidePanel();
-    // console.log('✓ Side Panel initialized');
+    try {
+      this.sidebar = new Sidebar();
+      console.log('✓ Sidebar initialized');
+    } catch (error) {
+      console.error('❌ Sidebar failed:', error);
+    }
 
-    // Sidebar (levý)
-    this.sidebar = new Sidebar();
-    console.log('✓ Sidebar initialized');
+    try {
+      this.findReplacePanel = new FindReplacePanel();
+      console.log('✓ Find Replace Panel initialized');
+    } catch (error) {
+      console.error('❌ Find Replace Panel failed:', error);
+    }
 
-    // Find and Replace Panel
-    this.findReplacePanel = new FindReplacePanel();
-    console.log('✓ Find Replace Panel initialized');
+    // Centrální error handler pro moduly
+    eventBus.on('module:error', (errorInfo) => {
+      console.error('🚨 Module error:', errorInfo);
+      toast.error(`Chyba v modulu ${errorInfo.module}`, 3000);
+    });
   }
 
   setupEventListeners() {
@@ -170,6 +222,11 @@ class App {
     eventBus.on('action:undo', () => this.editor?.undo());
     eventBus.on('action:redo', () => this.editor?.redo());
     eventBus.on('action:search', () => this.showSearch());
+
+    // Nové akce pro správu tabů
+    eventBus.on('action:closeOtherTabs', () => this.closeOtherTabs());
+    eventBus.on('action:closeAllTabs', () => this.closeAllTabs());
+    eventBus.on('action:saveAllTabs', () => this.saveAllTabs());
     eventBus.on('console:toggle', () => this.toggleConsole());
     eventBus.on('console:clear', () => this.clearConsole());
     eventBus.on('console:sendErrorsToAI', () => this.sendAllErrorsToAI());
@@ -1165,6 +1222,81 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
 
   getRecentFiles() {
     return JSON.parse(localStorage.getItem('recentFiles') || '[]');
+  }
+
+  closeOtherTabs() {
+    const activeFileId = state.get('files.active');
+    if (!activeFileId) {
+      toast.info('Žádný aktivní soubor', 2000);
+      return;
+    }
+
+    const tabs = state.get('files.tabs') || [];
+    const activeTab = tabs.find(t => t.id === activeFileId);
+
+    if (!activeTab) return;
+
+    // Zkontroluj jestli mají ostatní taby neuložené změny
+    const modifiedOthers = tabs.filter(t => t.id !== activeFileId && t.modified);
+
+    if (modifiedOthers.length > 0) {
+      if (!confirm(`${modifiedOthers.length} ${modifiedOthers.length === 1 ? 'soubor má' : 'soubory mají'} neuložené změny. Opravdu zavřít?`)) {
+        return;
+      }
+    }
+
+    // Nech jen aktivní tab
+    state.set('files.tabs', [activeTab]);
+    eventBus.emit('files:changed');
+
+    toast.success(`Zavřeno ${tabs.length - 1} ${tabs.length - 1 === 1 ? 'soubor' : 'souborů'}`, 2000);
+  }
+
+  closeAllTabs() {
+    const tabs = state.get('files.tabs') || [];
+
+    if (tabs.length === 0) {
+      toast.info('Žádné otevřené soubory', 2000);
+      return;
+    }
+
+    const modifiedTabs = tabs.filter(t => t.modified);
+
+    if (modifiedTabs.length > 0) {
+      if (!confirm(`${modifiedTabs.length} ${modifiedTabs.length === 1 ? 'soubor má' : 'souborů má'} neuložené změny. Opravdu zavřít všechny?`)) {
+        return;
+      }
+    }
+
+    // Vymaž všechny taby
+    state.set('files.tabs', []);
+    state.set('files.active', null);
+
+    if (this.editor) {
+      this.editor.setCode(this.editor.getDefaultCode());
+    }
+
+    eventBus.emit('files:changed');
+    toast.success(`Zavřeno ${tabs.length} ${tabs.length === 1 ? 'soubor' : 'souborů'}`, 2000);
+  }
+
+  saveAllTabs() {
+    const tabs = state.get('files.tabs') || [];
+    const modifiedTabs = tabs.filter(t => t.modified);
+
+    if (modifiedTabs.length === 0) {
+      toast.info('Všechny soubory jsou uložené', 2000);
+      return;
+    }
+
+    // Označ všechny jako neuložené = false
+    const savedTabs = tabs.map(t => ({ ...t, modified: false }));
+    state.set('files.tabs', savedTabs);
+
+    // Trigger re-render tabů
+    eventBus.emit('files:changed');
+
+    toast.success(`Uloženo ${modifiedTabs.length} ${modifiedTabs.length === 1 ? 'soubor' : 'souborů'}`, 2000);
   }
 
   destroy() {

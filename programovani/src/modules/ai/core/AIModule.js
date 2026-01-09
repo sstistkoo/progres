@@ -3166,5 +3166,8 @@ const AI = {
 // Automatická inicializace
 AI.init();
 
-// Expose globally
-window.AI = AI;
+// Expose globally pro běžné script tagy
+// Pro ES6 moduly použij import { aiService } from './modules/ai'
+if (typeof window !== 'undefined') {
+  window.AI = AI;
+}
