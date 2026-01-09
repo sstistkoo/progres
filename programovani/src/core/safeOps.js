@@ -21,7 +21,7 @@ export class SafeOps {
     } = options;
 
     let lastError = null;
-    
+
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         if (attempt > 0) {
@@ -52,7 +52,7 @@ export class SafeOps {
 
     // Všechny pokusy selhaly
     console.error(`❌ ${name} failed after ${retries + 1} attempts`);
-    
+
     if (fallback !== null) {
       console.log(`📦 Using fallback for ${name}`);
       return { success: false, result: fallback, error: lastError };
@@ -180,14 +180,14 @@ export class ModuleErrorBoundary {
     };
 
     this.errors.push(errorInfo);
-    
+
     // Omez historii chyb
     if (this.errors.length > this.maxErrors) {
       this.errors.shift();
     }
 
     console.error(`🚨 [${this.moduleName}.${methodName}] Error:`, error);
-    
+
     // Emit event pro centrální error handling
     if (typeof window !== 'undefined' && window.eventBus) {
       window.eventBus.emit('module:error', errorInfo);

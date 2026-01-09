@@ -3,6 +3,7 @@
 ## Co jsem přidala
 
 ### 1. **State Schema Validace** ✅
+
 Každý `state.set()` se validuje proti schématu.
 
 ```javascript
@@ -10,12 +11,13 @@ Každý `state.set()` se validuje proti schématu.
 state.set('files.active', 'invalid'); // Rozbilo by to!
 
 // ✅ NYNÍ: Validace odmítne nevalidní data
-state.set('files.active', 'invalid'); 
+state.set('files.active', 'invalid');
 // → ❌ State validation failed for 'files.active': invalid
 // → ❌ Refused to set invalid value
 ```
 
 **Validovaná pole:**
+
 - `files.active` - musí být číslo > 0 a tab musí existovat
 - `files.tabs` - musí být pole
 - `editor.code` - musí být string
@@ -25,6 +27,7 @@ state.set('files.active', 'invalid');
 ---
 
 ### 2. **Transaction systém s Rollback** ✅
+
 Pokud operace selže, stav se vrátí zpět.
 
 ```javascript
@@ -41,18 +44,19 @@ if (!success) {
 ```
 
 **Použití v praxi:**
+
 ```javascript
 // Bezpečné přepnutí tabu
 await state.transaction(async () => {
   const oldTab = state.get('files.active');
   const newTab = 5;
-  
+
   // Ověř že nový tab existuje
   const tabs = state.get('files.tabs');
   if (!tabs.find(t => t.id === newTab)) {
     throw new Error('Tab neexistuje');
   }
-  
+
   state.set('files.active', newTab);
   state.set('editor.code', tabs.find(t => t.id === newTab).content);
 });
@@ -61,6 +65,7 @@ await state.transaction(async () => {
 ---
 
 ### 3. **Immutability Protection** ✅
+
 State objekty jsou automaticky deep-clonované.
 
 ```javascript
@@ -77,6 +82,7 @@ state.set('files.tabs', tabs); // Nastaví novou hodnotu
 ---
 
 ### 4. **Error Boundaries** ✅
+
 Chyba v jednom modulu nesesyplé celou aplikaci.
 
 ```javascript
@@ -84,10 +90,9 @@ Chyba v jednom modulu nesesyplé celou aplikaci.
 this.aiPanel = new AIPanel(); // 💥 Boom!
 
 // ✅ NYNÍ: Chyba je izolována
-const { success, result } = await SafeOps.execute(
-  () => new AIPanel(),
-  { name: 'AI Panel initialization' }
-);
+const { success, result } = await SafeOps.execute(() => new AIPanel(), {
+  name: 'AI Panel initialization',
+});
 if (!success) {
   console.error('AI Panel selhal, ale app běží dál');
 }
@@ -96,6 +101,7 @@ if (!success) {
 ---
 
 ### 5. **Safe Operations Wrapper** ✅
+
 Všechny kritické operace mají retry + timeout.
 
 ```javascript
@@ -117,9 +123,9 @@ const { success, result } = await SafeOps.execute(
   },
   {
     name: 'Load file',
-    timeout: 10000,      // 10s timeout
-    retries: 3,          // 3 pokusy
-    rollbackOnError: true // Rollback při chybě
+    timeout: 10000, // 10s timeout
+    retries: 3, // 3 pokusy
+    rollbackOnError: true, // Rollback při chybě
   }
 );
 ```
@@ -129,6 +135,7 @@ const { success, result } = await SafeOps.execute(
 ## Příklady použití v praxi
 
 ### Bezpečné načtení GitHub repo
+
 ```javascript
 // Místo:
 state.set('files.tabs', newTabs);
@@ -141,20 +148,21 @@ await SafeOps.safeBatch(async () => {
 ```
 
 ### Bezpečné smazání tabu
+
 ```javascript
 await state.transaction(async () => {
   const tabs = state.get('files.tabs');
   const activeId = state.get('files.active');
-  
+
   // Ověř že není poslední tab
   if (tabs.length <= 1) {
     throw new Error('Cannot delete last tab');
   }
-  
+
   // Smaz tab
   const newTabs = tabs.filter(t => t.id !== tabId);
   state.set('files.tabs', newTabs);
-  
+
   // Pokud byl aktivní, přepni na jiný
   if (activeId === tabId) {
     state.set('files.active', newTabs[0].id);
@@ -163,6 +171,7 @@ await state.transaction(async () => {
 ```
 
 ### Bezpečná změna settings
+
 ```javascript
 // Automatická validace
 state.set('settings.fontSize', 20); // ✅ OK
@@ -175,6 +184,7 @@ state.set('ui.theme', 'blue'); // ❌ Odmítnuto (jen dark/light)
 ## Co to prakticky znamená
 
 ### ✅ **Tyto problémy NEMOHOU nastat:**
+
 - ❌ Nastavení neexistujícího tabu jako aktivního
 - ❌ Nevalidní fontSize (8-32)
 - ❌ Nevalidní theme
@@ -183,6 +193,7 @@ state.set('ui.theme', 'blue'); // ❌ Odmítnuto (jen dark/light)
 - ❌ Pád celé aplikace když jeden modul selže
 
 ### ⚠️ **Tyto problémy MŮŽOU zůstat (ale jsou rare):**
+
 - ❌ Race condition ve vlastním asynchronním kódu
 - ❌ Logická chyba v custom business logice
 - ❌ Browser crash / Out of memory
@@ -195,19 +206,19 @@ state.set('ui.theme', 'blue'); // ❌ Odmítnuto (jen dark/light)
 // V konzoli:
 
 // Zobraz aktuální state
-state.state
+state.state;
 
 // Rollback na předchozí stav
-state.rollback()
+state.rollback();
 
 // Zobraz historii (50 snapshotů)
-state.history
+state.history;
 
 // Vypni validaci (pro debug)
-state.validationEnabled = false
+state.validationEnabled = false;
 
 // Zobraz chyby z modulu
-window.app.aiPanel?.boundary?.getErrors()
+window.app.aiPanel?.boundary?.getErrors();
 ```
 
 ---
@@ -215,11 +226,13 @@ window.app.aiPanel?.boundary?.getErrors()
 ## Výsledek
 
 **Riziko rozbití při úpravách:**
+
 - **Před vším:** 60% 😰
 - **Po první vlně:** 15% 😊
 - **NYNÍ:** **5%** 🎉🛡️
 
 **Co zbývá (1-2%):**
+
 - TypeScript pro compile-time checking
 - Unit testy pro kritické funkce
 - E2E testy pro user flows
