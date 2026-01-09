@@ -3951,50 +3951,35 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
     // Start all tests button
     const startAllBtn = this.modal.element.querySelector('#startAllTestsBtn');
     if (startAllBtn) {
-    const agentsGrid = this.modal.element.querySelector('#agentsGrid');
-    if (!agentsGrid) return;
-
-    if (this.currentAgentEngine === 'crewai') {
-      this.loadCrewAIAgents(agentsGrid);
-    } else {
-      this.loadJavaScriptAgents(agentsGrid);
+      startAllBtn.addEventListener('click', () => this.runAllTests());
     }
+
+    // Stop tests button
+    const stopBtn = this.modal.element.querySelector('#stopTestsBtn');
+    if (stopBtn) {
+      stopBtn.addEventListener('click', () => {
+        this.aiTester.stop();
+        toast.show('Testování zastaveno', 'info');
+      });
+    }
+
+    // Export results button
+    const exportBtn = this.modal.element.querySelector('#exportResultsBtn');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => this.exportTestResults());
+    }
+
+    // Provider test buttons
+    const providerBtns = this.modal.element.querySelectorAll('.provider-test-btn');
+    providerBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const provider = btn.dataset.provider;
+        this.runProviderTest(provider);
+      });
+    });
   }
 
-  loadJavaScriptAgents(agentsGrid) {
-    // Wait for AIAgents to be initialized
-    if (!window.AIAgents || !window.AIAgents.initialized) {
-      setTimeout(() => this.loadAgentsGrid(), 100);
-      return;
-    }
-
-    const agents = window.AIAgents.getAgents();
-
-    agentsGrid.innerHTML = agents.map(agent => `
-      <div class="agent-card ${agent.active ? 'active' : ''}" data-agent-id="${agent.id}">
-        <div class="agent-icon">${agent.icon}</div>
-        <div class="agent-info">
-          <h4 class="agent-name">${agent.name}</h4>
-          <p class="agent-role">${agent.role}</p>
-          <div class="agent-capabilities">
-            ${agent.capabilities.slice(0, 3).map(cap =>
-              `<span class="capability-tag">${cap}</span>`
-            ).join('')}
-          </div>
-        </div>
-        <div class="agent-actions">
-          <button class="btn-agent-toggle" data-agent-id="${agent.id}">
-            ${agent.active ? '✅ Aktivní' : '⚪ Aktivovat'}
-          </button>
-          <button class="btn-agent-chat" data-agent-id="${agent.id}" style="${agent.active ? '' : 'display:none;'}">
-            💬 Chat
-          </button>
-          <button class="btn-agent-prompt" data-agent-id="${agent.id}" title="Předvyplnit prompt">
-            ✨ Prompt
-          </button>
-        </div>
-      </div>
-    `).join('');
+  async runAllTests() {
 
     // Attach card handlers
     const toggleBtns = agentsGrid.querySelectorAll('.btn-agent-toggle');
