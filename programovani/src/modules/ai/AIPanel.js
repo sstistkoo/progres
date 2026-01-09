@@ -3179,6 +3179,85 @@ NEW:
       return false;
     }
 
+    // PHASE 1: Batch validation - najdi všechny edity před aplikací (VS Code style)
+    const validatedEdits = [];
+    const validationErrors = [];
+
+    for (let i = 0; i < edits.length; i++) {
+      const edit = edits[i];
+      const { searchCode, replaceCode } = edit;
+
+      // Validate search code
+      if (!searchCode || searchCode.trim() === '') {
+        validationErrors.push({
+          index: i + 1,
+          reason: 'Prázdný SEARCH blok',
+          edit: edit
+        });
+        continue;
+      }
+
+      // Find position in code
+      let index = currentCode.indexOf(searchCode);
+      let usedFuzzy = false;
+
+      // Try fuzzy matching if exact match fails
+      if (index === -1) {
+        const fuzzyResult = this.fuzzySearchCode(currentCode, searchCode);
+        if (fuzzyResult.found) {
+          index = fuzzyResult.index;
+          usedFuzzy = true;
+          console.warn(`⚠️ Edit #${i + 1}: Použit fuzzy matching`);
+        }
+      }
+
+      if (index === -1) {
+        // Not found - try to suggest similar code
+        const suggestion = this.findSimilarCode(currentCode, searchCode);
+        validationErrors.push({
+          index: i + 1,
+          reason: 'SEARCH text nenalezen',
+          edit: edit,
+          suggestion: suggestion
+        });
+        continue;
+      }
+
+      // Check for multiple occurrences
+      const occurrences = this.countOccurrences(currentCode, searchCode);
+      if (occurrences > 1) {
+        console.warn(`⚠️ Edit #${i + 1}: Nalezeno ${occurrences}× - použiji první výskyt`);
+      }
+
+      validatedEdits.push({
+        ...edit,
+        index: index,
+        usedFuzzy: usedFuzzy,
+        occurrences: occurrences
+      });
+    }
+
+    // PHASE 2: Conflict detection - kontrola překrývajících se editů
+    const conflicts = this.detectEditConflicts(validatedEdits);
+    if (conflicts.length > 0) {
+      console.error('❌ Detekován konflikt mezi edity:', conflicts);
+      this.addChatMessage('system',
+        `❌ Konflikty v editech:\n\n${conflicts.map(c => `Edit #${c.edit1} a #${c.edit2} se překrývají`).join('\n')}\n\n` +
+        `Požádej AI o opravu - každý edit by měl měnit jiné místo v kódu.`
+      );
+      return false;
+    }
+
+    // Show validation results
+    if (validationErrors.length > 0) {
+      console.warn(`⚠️ Validation: ${validationErrors.length} editů selhalo, ${validatedEdits.length} je validních`);
+      this.showValidationErrors(validationErrors);
+
+      if (validatedEdits.length === 0) {
+        return false; // All edits failed
+      }
+    }
+
     // Save current state to history BEFORE making changes
     if (editor && editor.history) {
       const last = editor.history.past[editor.history.past.length - 1];
@@ -3192,126 +3271,62 @@ NEW:
       }
     }
 
+    // PHASE 3: Apply validated edits (sorted by position, descending)
+    validatedEdits.sort((a, b) => b.index - a.index);
+
     let workingCode = currentCode;
     let appliedCount = 0;
-    let failedEdits = [];
+    const appliedEditsInfo = [];
 
-    // Apply each edit sequentially
-    for (let i = 0; i < edits.length; i++) {
-      const edit = edits[i];
-      const { searchCode, replaceCode } = edit;
-
-      // Validate that we have valid search and replace code
-      if (!searchCode || searchCode.trim() === '') {
-        failedEdits.push({
-          index: i + 1,
-          reason: 'Prázdný SEARCH blok',
-          search: searchCode,
-          replace: replaceCode
-        });
-        continue;
-      }
-
-      // Note: replaceCode can be empty (deletion), so we don't validate it
-      // But we should trim it for consistency
+    for (const edit of validatedEdits) {
+      const { searchCode, replaceCode, index: originalIndex, usedFuzzy } = edit;
       const finalReplaceCode = replaceCode || '';
 
-      // Find the search code in working code
-      const index = workingCode.indexOf(searchCode);
+      // Re-find position in working code (může se posunout kvůli předchozím editům)
+      let index = workingCode.indexOf(searchCode);
 
       if (index === -1) {
-        // Try fuzzy matching with whitespace normalization
-        const normalizedWorking = workingCode.replace(/\s+/g, ' ');
-        const normalizedSearch = searchCode.replace(/\s+/g, ' ');
-        const normalizedIndex = normalizedWorking.indexOf(normalizedSearch);
-
-        if (normalizedIndex !== -1) {
-          // Found with normalization - need to find original boundaries
-          // This is complex, so we'll use a simpler approach: try String.replace with original
-          const beforeReplace = workingCode;
-          // Escape special regex characters in searchCode for safe replacement
-          // Build regex that treats whitespace flexibly but everything else literally
-          const searchRegex = searchCode
-            .split(/(\s+)/) // Split on whitespace while keeping the whitespace
-            .map(part => {
-              if (/^\s+$/.test(part)) {
-                // This is whitespace - replace with flexible whitespace matcher
-                return '\\s+';
-              } else {
-                // This is non-whitespace - escape special regex chars
-                return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              }
-            })
-            .join('');
-
-          try {
-            const regex = new RegExp(searchRegex);
-            workingCode = workingCode.replace(regex, finalReplaceCode);
-
-            if (workingCode !== beforeReplace) {
-              console.warn(`⚠️ SEARCH #${i + 1} nalezen s fuzzy matching (ignoruje rozdíly v whitespace)`);
-              appliedCount++;
-              continue;
-            }
-          } catch (e) {
-            console.warn(`⚠️ Fuzzy matching selhalo:`, e);
-          }
+        // Try fuzzy match again (position may have shifted)
+        const fuzzyResult = this.fuzzySearchCode(workingCode, searchCode);
+        if (fuzzyResult.found) {
+          index = fuzzyResult.index;
+        } else {
+          console.error(`❌ Edit se nepovedl - kód se změnil mezi validací a aplikací`);
+          continue;
         }
-
-        // Not found even with normalization
-        failedEdits.push({
-          index: i + 1,
-          reason: 'SEARCH text nenalezen v kódu',
-          search: searchCode,
-          replace: replaceCode
-        });
-        continue;
       }
 
-      // Check for multiple occurrences - this could be dangerous
-      const lastIndex = workingCode.lastIndexOf(searchCode);
-      if (lastIndex !== index) {
-        // Count total occurrences
-        let count = 0;
-        let pos = 0;
-        while ((pos = workingCode.indexOf(searchCode, pos)) !== -1) {
-          count++;
-          pos += searchCode.length;
-        }
+      // Calculate line/column for better debugging (VS Code style)
+      const beforeEdit = workingCode.substring(0, index);
+      const line = beforeEdit.split('\n').length;
+      const lastNewline = beforeEdit.lastIndexOf('\n');
+      const column = index - lastNewline;
 
-        console.warn(`⚠️ SEARCH #${i + 1} nalezen ${count}× - nahrazuji první výskyt`);
-        console.warn(`   💡 TIP: Pokud chceš nahradit jiný výskyt, upřesni SEARCH blok (přidej více kontextu)`);
-      }
-
-      // Apply replacement (using finalReplaceCode for consistency)
+      // Apply replacement
       workingCode = workingCode.substring(0, index) + finalReplaceCode + workingCode.substring(index + searchCode.length);
       appliedCount++;
-      console.log(`✅ SEARCH/REPLACE #${i + 1} aplikován ${finalReplaceCode === '' ? '(SMAZÁNO)' : ''}`);
+
+      appliedEditsInfo.push({
+        line: line,
+        column: column,
+        usedFuzzy: usedFuzzy,
+        deleted: finalReplaceCode === ''
+      });
+
+      console.log(`✅ Edit aplikován na řádku ${line}:${column} ${usedFuzzy ? '(fuzzy)' : ''} ${finalReplaceCode === '' ? '(SMAZÁNO)' : ''}`);
     }
 
-    // Handle failures
-    if (failedEdits.length > 0) {
-      console.warn('⚠️ Některé SEARCH/REPLACE změny selhaly:', failedEdits);
+    // Success report
+    if (appliedCount === validatedEdits.length) {
+      const fuzzyCount = appliedEditsInfo.filter(e => e.usedFuzzy).length;
+      let message = `✅ Aplikováno ${appliedCount} změn`;
+      if (fuzzyCount > 0) {
+        message += ` (${fuzzyCount}× fuzzy matching)`;
+      }
+      toast.success(message, 3000);
 
-      this.addChatMessage('system',
-        `⚠️ Částečné selhání - aplikováno ${appliedCount}/${edits.length} SEARCH/REPLACE změn.\n\n` +
-        `Kód byl mezitím změněn nebo AI neviděla aktuální verzi.\n\n` +
-        `💡 **Doporučení:**\n` +
-        `• Zkuste: "zobraz celý aktuální kód"\n` +
-        `• Nebo: Vraťte změny (Ctrl+Z) a zkuste znovu`
-      );
-
-      failedEdits.forEach(f => {
-        console.group(`❌ SEARCH/REPLACE #${f.index}`);
-        console.log('Důvod:', f.reason);
-        console.log('SEARCH text:');
-        console.log(f.search);
-        console.log('REPLACE text:');
-        console.log(f.replace);
-        console.groupEnd();
-      });
-    } else {
-      toast.success(`✅ Aplikováno ${appliedCount} SEARCH/REPLACE změn`, 3000);
+      // Show detailed info in console
+      console.table(appliedEditsInfo);
     }
 
     // Update editor
@@ -3323,6 +3338,148 @@ NEW:
     }
 
     return failedEdits.length === 0;
+  }
+
+  /**
+   * Fuzzy search with whitespace normalization
+   * @param {string} code - Code to search in
+   * @param {string} search - Text to find
+   * @returns {{found: boolean, index: number}} - Result with position
+   */
+  fuzzySearchCode(code, search) {
+    const normalizedCode = code.replace(/\s+/g, ' ');
+    const normalizedSearch = search.replace(/\s+/g, ' ');
+    const normalizedIndex = normalizedCode.indexOf(normalizedSearch);
+
+    if (normalizedIndex === -1) {
+      return { found: false, index: -1 };
+    }
+
+    // Try to find original position using regex
+    const searchRegex = search
+      .split(/(\s+)/)
+      .map(part => {
+        if (/^\s+$/.test(part)) {
+          return '\\s+';
+        } else {
+          return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+      })
+      .join('');
+
+    try {
+      const regex = new RegExp(searchRegex);
+      const match = code.match(regex);
+      if (match) {
+        return { found: true, index: code.indexOf(match[0]) };
+      }
+    } catch (e) {
+      console.warn('Fuzzy regex failed:', e);
+    }
+
+    return { found: false, index: -1 };
+  }
+
+  /**
+   * Find similar code using basic similarity matching
+   * @param {string} code - Code to search in
+   * @param {string} search - Text to find
+   * @returns {string|null} - Most similar code snippet or null
+   */
+  findSimilarCode(code, search) {
+    // Simple approach: find lines that share words with search
+    const searchWords = search.toLowerCase().match(/\w{3,}/g) || [];
+    if (searchWords.length === 0) return null;
+
+    const lines = code.split('\n');
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineText = lines.slice(i, Math.min(i + 5, lines.length)).join('\n').toLowerCase();
+      let score = 0;
+
+      for (const word of searchWords) {
+        if (lineText.includes(word)) score++;
+      }
+
+      if (score > bestScore && score >= searchWords.length * 0.3) {
+        bestScore = score;
+        bestMatch = lines.slice(i, Math.min(i + 5, lines.length)).join('\n');
+      }
+    }
+
+    return bestMatch;
+  }
+
+  /**
+   * Count occurrences of text in code
+   * @param {string} code - Code to search in
+   * @param {string} search - Text to find
+   * @returns {number} - Number of occurrences
+   */
+  countOccurrences(code, search) {
+    let count = 0;
+    let pos = 0;
+    while ((pos = code.indexOf(search, pos)) !== -1) {
+      count++;
+      pos += search.length;
+    }
+    return count;
+  }
+
+  /**
+   * Detect overlapping edits (conflicts)
+   * @param {Array} edits - Validated edits with index positions
+   * @returns {Array} - Array of conflicts
+   */
+  detectEditConflicts(edits) {
+    const conflicts = [];
+
+    for (let i = 0; i < edits.length; i++) {
+      for (let j = i + 1; j < edits.length; j++) {
+        const edit1 = edits[i];
+        const edit2 = edits[j];
+
+        const end1 = edit1.index + edit1.searchCode.length;
+        const end2 = edit2.index + edit2.searchCode.length;
+
+        // Check if ranges overlap
+        if (
+          (edit1.index <= edit2.index && end1 > edit2.index) ||
+          (edit2.index <= edit1.index && end2 > edit1.index)
+        ) {
+          conflicts.push({
+            edit1: i + 1,
+            edit2: j + 1,
+            range1: [edit1.index, end1],
+            range2: [edit2.index, end2]
+          });
+        }
+      }
+    }
+
+    return conflicts;
+  }
+
+  /**
+   * Show validation errors with suggestions
+   * @param {Array} errors - Validation errors
+   */
+  showValidationErrors(errors) {
+    let message = `⚠️ Některé změny nelze aplikovat (${errors.length}):\n\n`;
+
+    errors.forEach(err => {
+      message += `❌ Edit #${err.index}: ${err.reason}\n`;
+      if (err.suggestion) {
+        message += `💡 Možná jste mysleli:\n\`\`\`\n${err.suggestion.substring(0, 100)}...\n\`\`\`\n`;
+      }
+      message += '\n';
+    });
+
+    message += `💡 Tip: Zkuste "zobraz aktuální kód" a zkuste znovu.`;
+
+    this.addChatMessage('system', message);
   }
 
   addLineNumbers(code, metadata = null) {
