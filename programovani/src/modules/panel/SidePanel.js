@@ -208,14 +208,18 @@ export class SidePanel {
 
     this.panel.querySelector('[data-action="github-login"]')?.addEventListener('click', async () => {
       try {
-        const { username, token } = await window.app.aiPanel.showGitHubLoginModal();
-        if (username && token) {
-          toast.success(`Přihlášen jako ${username}`, 2000);
-          const statusEl = this.panel.querySelector('#panelGitHubStatus');
-          if (statusEl) {
-            statusEl.innerHTML = `<p style="color: var(--success); font-size: 14px; margin: 0;">✓ Přihlášen jako <strong>${username}</strong></p>`;
+        // Použij event místo přímého volání window.app
+        eventBus.emit('github:showLoginModal', {
+          callback: ({ username, token }) => {
+            if (username && token) {
+              toast.success(`Přihlášen jako ${username}`, 2000);
+              const statusEl = this.panel.querySelector('#panelGitHubStatus');
+              if (statusEl) {
+                statusEl.innerHTML = `<p style="color: var(--success); font-size: 14px; margin: 0;">✓ Přihlášen jako <strong>${username}</strong></p>`;
+              }
+            }
           }
-        }
+        });
       } catch (error) {
         console.error('GitHub login error:', error);
       }

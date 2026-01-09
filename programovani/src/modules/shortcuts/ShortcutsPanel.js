@@ -88,6 +88,18 @@ export class ShortcutsPanel {
                 <span class="action-icon">❌</span>
                 <span class="action-label">Zavřít</span>
               </button>
+              <button class="action-btn" data-action="closeOtherTabs" title="Zavřít ostatní taby">
+                <span class="action-icon">🗑️</span>
+                <span class="action-label">Zavřít ostatní</span>
+              </button>
+              <button class="action-btn" data-action="closeAllTabs" title="Zavřít všechny taby">
+                <span class="action-icon">🧹</span>
+                <span class="action-label">Zavřít vše</span>
+              </button>
+              <button class="action-btn" data-action="saveAllTabs" title="Uložit všechny taby">
+                <span class="action-icon">💾✨</span>
+                <span class="action-label">Uložit vše</span>
+              </button>
             </div>
           </div>
 
@@ -323,6 +335,9 @@ export class ShortcutsPanel {
       undo: 'action:undo',
       redo: 'action:redo',
       closeTab: 'action:closeTab',
+      closeOtherTabs: 'action:closeOtherTabs',
+      closeAllTabs: 'action:closeAllTabs',
+      saveAllTabs: 'action:saveAllTabs',
       colorScheme: 'theme:toggle',
       publish: 'action:publish',
       seo: 'seo:show',

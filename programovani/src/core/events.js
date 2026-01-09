@@ -20,13 +20,23 @@ export class EventBus {
       this.events.set(event, new Set());
     }
 
+    const handlers = this.events.get(event);
+
+    // OCHRANA: Zkontroluj jestli už není stejný handler zaregistrovaný
+    for (const h of handlers) {
+      if (h.callback === callback) {
+        console.warn(`⚠️ EventBus: Duplicitní handler pro '${event}' byl ignorován`);
+        return () => this.off(event, callback);
+      }
+    }
+
     const handler = {
       callback,
       priority: options.priority || 0,
       context: options.context,
     };
 
-    this.events.get(event).add(handler);
+    handlers.add(handler);
 
     // Return unsubscribe function
     return () => this.off(event, callback);

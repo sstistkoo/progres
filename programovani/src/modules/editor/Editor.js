@@ -28,6 +28,11 @@ export class Editor {
       selectionchange: null,
     };
 
+    // Debounced save function - ukládá max 1x za 300ms
+    this.debouncedSaveToActiveTab = debounce(() => {
+      this.saveToActiveTab();
+    }, 300);
+
     this.init();
     this.setupEventListeners();
     this.initTabs();
@@ -55,6 +60,9 @@ export class Editor {
     this.wrapper.appendChild(this.lineNumbers);
     this.wrapper.appendChild(this.textarea);
     this.container.appendChild(this.wrapper);
+
+    // Store editor instance on container for external access
+    this.container.__editor = this;
 
     // Load initial code
     const initialCode = state.get('editor.code') || this.getDefaultCode();
@@ -101,8 +109,14 @@ export class Editor {
     eventBus.on('action:undo', () => this.undo());
     eventBus.on('action:redo', () => this.redo());
     eventBus.on('editor:insertText', ({ text }) => this.insertText(text));
-    eventBus.on('editor:replaceAll', ({ code }) => this.setCode(code));
+    eventBus.on('editor:replaceAll', ({ code, force }) => {
+      this.setCode(code, false, force);
+    });
     eventBus.on('editor:replace', ({ search, replace, options }) => this.replace(search, replace, options));
+    // Nový event pro nastavení kódu bez window.editor závislosti
+    eventBus.on('editor:setCode', ({ code, skipStateUpdate, force }) => {
+      this.setCode(code, skipStateUpdate, force);
+    });
   }
 
   handleInput() {
@@ -115,6 +129,9 @@ export class Editor {
 
     // Update state
     state.set('editor.code', code);
+
+    // DŮLEŽITÉ: Auto-save změn do aktivního tabu (debounced)
+    this.debouncedSaveToActiveTab();
 
     // Update UI
     this.updateLineNumbers();
@@ -132,9 +149,9 @@ export class Editor {
     return this.textarea.value;
   }
 
-  setCode(code, skipStateUpdate = false) {
-    // Prevent infinite loop - don't set if it's the same
-    if (this.textarea.value === code) {
+  setCode(code, skipStateUpdate = false, force = false) {
+    // Prevent infinite loop - don't set if it's the same (unless forced)
+    if (!force && this.textarea.value === code) {
       return;
     }
     this.textarea.value = code;
@@ -388,6 +405,31 @@ export class Editor {
     this.handlers = null;
   }
 
+  /**
+   * Bezpečně uloží změny do aktivního tabu bez mutace
+   * Volá se při každé změně v editoru
+   */
+  saveToActiveTab() {
+    const activeFileId = state.get('files.active');
+    if (!activeFileId) return;
+
+    const tabs = state.get('files.tabs') || [];
+    const currentCode = this.getCode();
+
+    // Immutabilní aktualizace - vytvoř nové pole s aktualizovaným tabem
+    const updatedTabs = tabs.map(tab =>
+      tab.id === activeFileId
+        ? { ...tab, content: currentCode, modified: true }
+        : tab
+    );
+
+    // Pouze pokud se něco změnilo
+    const hasChanged = tabs.find(t => t.id === activeFileId)?.content !== currentCode;
+    if (hasChanged) {
+      state.set('files.tabs', updatedTabs);
+    }
+  }
+
   initTabs() {
     this.tabsContainer = document.getElementById('editorTabs');
     if (!this.tabsContainer) return;
@@ -483,19 +525,21 @@ export class Editor {
     const tab = tabs.find(t => t.id === tabId);
     if (!tab) return;
 
-    // Save current tab
+    // Save current tab IMMUTABLY
     const currentActive = state.get('files.active');
-    if (currentActive) {
-      const currentTab = tabs.find(t => t.id === currentActive);
-      if (currentTab) {
-        currentTab.content = this.getCode();
-        currentTab.modified = true;
-      }
+    if (currentActive && currentActive !== tabId) {
+      const currentCode = this.getCode();
+      const updatedTabs = tabs.map(t =>
+        t.id === currentActive
+          ? { ...t, content: currentCode, modified: true }
+          : t
+      );
+      state.set('files.tabs', updatedTabs);
     }
 
-    // Switch to new tab
+    // Switch to new tab - force update to ensure content is loaded
     state.set('files.active', tabId);
-    this.setCode(tab.content || '');
+    this.setCode(tab.content || '', false, true); // force=true pro zajištění načtení
     eventBus.emit('tab:switched', { tabId });
   }
 
@@ -532,5 +576,3 @@ export class Editor {
     eventBus.emit('tab:closed', { tabId });
   }
 }
-
-export default Editor;

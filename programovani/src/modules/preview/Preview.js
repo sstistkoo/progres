@@ -9,6 +9,7 @@ export class Preview {
   constructor(container) {
     this.container = container;
     this.iframe = null;
+    this.lastCode = null; // Ukládáme poslední kód pro porovnání
     this.init();
     this.setupEventListeners();
   }
@@ -18,7 +19,7 @@ export class Preview {
     this.iframe = document.createElement('iframe');
     this.iframe.className = 'preview-frame';
     this.iframe.id = 'previewFrame';
-    this.iframe.sandbox = 'allow-scripts allow-same-origin allow-forms';
+    this.iframe.sandbox = 'allow-scripts allow-forms';
 
     this.container.appendChild(this.iframe);
 
@@ -75,6 +76,14 @@ export class Preview {
 
   update(code) {
     try {
+      // OCHRANA: Pokud se kód nezměnil, nepřegeneruj preview
+      if (this.lastCode === code) {
+        return;
+      }
+      this.lastCode = code;
+
+      console.log('🔄 Preview update - kód délka:', code?.length || 0);
+
       // Get all open files to inject CSS/JS
       const tabs = state.get('files.tabs') || [];
       const enhancedCode = this.injectProjectFiles(code, tabs);
@@ -84,25 +93,22 @@ export class Preview {
       const newIframe = document.createElement('iframe');
       newIframe.className = 'preview-frame';
       newIframe.id = 'previewFrame';
-      newIframe.sandbox = 'allow-scripts allow-same-origin allow-forms';
+      newIframe.sandbox = 'allow-scripts allow-forms';
 
       // Replace old iframe
       this.container.replaceChild(newIframe, oldIframe);
       this.iframe = newIframe;
 
-      // Wait for iframe to be ready
-      setTimeout(() => {
-        // Inject console capture script
-        const wrappedCode = this.injectConsoleCapture(enhancedCode);
+      // Inject console capture script
+      const wrappedCode = this.injectConsoleCapture(enhancedCode);
 
-        // Write to new iframe
-        const doc = this.iframe.contentDocument || this.iframe.contentWindow.document;
-        doc.open();
-        doc.write(wrappedCode);
-        doc.close();
+      // Use srcdoc instead of contentDocument to avoid cross-origin issues
+      this.iframe.srcdoc = wrappedCode;
 
+      // Emit update event after iframe loads
+      this.iframe.onload = () => {
         eventBus.emit('preview:updated', { code: enhancedCode });
-      }, 10);
+      };
     } catch (error) {
       console.error('Preview update error:', error);
       this.showError(error);
@@ -311,6 +317,27 @@ export class Preview {
     const consoleScript = `
       <script>
         (function() {
+          // localStorage polyfill for sandboxed iframe - must override BEFORE any user code
+          const storage = {};
+          const localStoragePolyfill = {
+            getItem: function(key) { return storage[key] || null; },
+            setItem: function(key, value) { storage[key] = String(value); },
+            removeItem: function(key) { delete storage[key]; },
+            clear: function() { for (let k in storage) delete storage[k]; },
+            get length() { return Object.keys(storage).length; },
+            key: function(i) { return Object.keys(storage)[i] || null; }
+          };
+
+          // Override localStorage globally
+          try {
+            Object.defineProperty(window, 'localStorage', {
+              get: function() { return localStoragePolyfill; },
+              configurable: true
+            });
+          } catch (e) {
+            window.localStorage = localStoragePolyfill;
+          }
+
           const originalConsole = {
             log: console.log,
             error: console.error,
@@ -367,8 +394,14 @@ export class Preview {
       </script>
     `;
 
-    // Insert before </head> or at start of body
-    if (code.includes('</head>')) {
+    // Insert as the FIRST thing after <head> tag to ensure it runs before any user scripts
+    if (code.includes('<head>')) {
+      return code.replace('<head>', '<head>' + consoleScript);
+    } else if (code.includes('<head')) {
+      // Handle <head with attributes
+      return code.replace(/<head([^>]*)>/i, '<head$1>' + consoleScript);
+    } else if (code.includes('</head>')) {
+      // Fallback: before </head>
       return code.replace('</head>', consoleScript + '</head>');
     } else if (code.includes('<body')) {
       return code.replace('<body', consoleScript + '<body');
@@ -405,10 +438,7 @@ export class Preview {
       </html>
     `;
 
-    const doc = this.iframe.contentDocument || this.iframe.contentWindow.document;
-    doc.open();
-    doc.write(errorHTML);
-    doc.close();
+    this.iframe.srcdoc = errorHTML;
   }
 
   escapeHTML(str) {
@@ -418,10 +448,7 @@ export class Preview {
   }
 
   clear() {
-    const doc = this.iframe.contentDocument || this.iframe.contentWindow.document;
-    doc.open();
-    doc.write('<!DOCTYPE html><html><body></body></html>');
-    doc.close();
+    this.iframe.srcdoc = '<!DOCTYPE html><html><body></body></html>';
   }
 
   refresh() {
@@ -435,5 +462,3 @@ export class Preview {
     }
   }
 }
-
-export default Preview;

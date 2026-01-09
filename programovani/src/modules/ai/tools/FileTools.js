@@ -154,19 +154,12 @@ export const fileTools = {
           };
         }
 
-        const editor = window.editor;
-        if (!editor) {
-          return {
-            success: false,
-            error: 'Editor not initialized',
-          };
-        }
-
+        // Použij state místo přímého přístupu k editoru
         if (append) {
-          const current = editor.getValue();
-          editor.setValue(current + '\n' + content);
+          const current = state.get('editor.code') || '';
+          state.set('editor.code', current + '\n' + content);
         } else {
-          editor.setValue(content);
+          state.set('editor.code', content);
         }
 
         return {
@@ -205,8 +198,8 @@ export const fileTools = {
           };
         }
 
-        const editor = window.editor;
-        const content = editor ? editor.getValue() : activeFile.content || '';
+        // Použij state místo přímého přístupu k editoru
+        const content = state.get('editor.code') || activeFile.content || '';
 
         return {
           success: true,

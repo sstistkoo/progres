@@ -6,7 +6,100 @@ export class AppState {
   constructor() {
     this.subscribers = new Map();
     this.state = this.getInitialState();
+    this.batchMode = false;
+    this.batchUpdates = [];
+    this.history = []; // Pro rollback
+    this.maxHistorySize = 50;
+    this.transactionDepth = 0;
+    this.validationEnabled = true;
     this.loadFromStorage();
+    this.setupSchema();
+  }
+
+  /**
+   * Definice schématu pro validaci
+   */
+  setupSchema() {
+    this.schema = {
+      'files.active': (val) => typeof val === 'number' && val > 0,
+      'files.tabs': (val) => Array.isArray(val),
+      'files.nextId': (val) => typeof val === 'number' && val > 0,
+      'editor.code': (val) => typeof val === 'string',
+      'editor.language': (val) => typeof val === 'string',
+      'ui.theme': (val) => ['dark', 'light'].includes(val),
+      'ui.view': (val) => ['preview', 'editor', 'split'].includes(val),
+      'settings.fontSize': (val) => typeof val === 'number' && val >= 8 && val <= 32,
+      'settings.tabSize': (val) => typeof val === 'number' && val >= 2 && val <= 8,
+    };
+  }
+
+  /**
+   * Validace hodnoty proti schématu
+   */
+  validate(path, value) {
+    if (!this.validationEnabled) return true;
+
+    const validator = this.schema[path];
+    if (!validator) return true; // Není definována validace
+
+    try {
+      const isValid = validator(value);
+      if (!isValid) {
+        console.error(`❌ State validation failed for '${path}':`, value);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error(`❌ State validation error for '${path}':`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Dodatečná validace pro files.active - tab musí existovat
+   */
+  validateFileActive(tabId) {
+    const tabs = this.get('files.tabs') || [];
+    const tabExists = tabs.some(t => t.id === tabId);
+    if (!tabExists) {
+      console.error(`❌ Tab ${tabId} doesn't exist in tabs:`, tabs.map(t => t.id));
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Snapshot aktuálního stavu pro rollback
+   */
+  createSnapshot() {
+    const snapshot = JSON.parse(JSON.stringify(this.state));
+    this.history.push({
+      state: snapshot,
+      timestamp: Date.now()
+    });
+
+    // Omez velikost historie
+    if (this.history.length > this.maxHistorySize) {
+      this.history.shift();
+    }
+  }
+
+  /**
+   * Rollback na předchozí stav
+   */
+  rollback() {
+    if (this.history.length === 0) {
+      console.warn('⚠️ No history to rollback');
+      return false;
+    }
+
+    const snapshot = this.history.pop();
+    this.state = snapshot.state;
+    console.log('🔄 State rolled back to', new Date(snapshot.timestamp));
+
+    // Notifikuj všechny subscribery
+    this.notify('*', this.state, null);
+    return true;
   }
 
   getInitialState() {
@@ -106,11 +199,33 @@ export class AppState {
   }
 
   /**
-   * Nastavení hodnoty do stavu
+   * Nastavení hodnoty do stavu s validací
    * @param {string} path - Cesta ke klíči
    * @param {*} value - Nová hodnota
+   * @param {Object} options - Volitelné parametry
    */
-  set(path, value) {
+  set(path, value, options = {}) {
+    const { skipValidation = false, skipHistory = false } = options;
+
+    // Validace
+    if (!skipValidation) {
+      if (!this.validate(path, value)) {
+        console.error(`❌ Refused to set invalid value for '${path}'`);
+        return false;
+      }
+
+      // Speciální validace pro files.active
+      if (path === 'files.active' && !this.validateFileActive(value)) {
+        console.error(`❌ Refused to set non-existent tab as active: ${value}`);
+        return false;
+      }
+    }
+
+    // Vytvoř snapshot před změnou (pokud nejsme v transakci)
+    if (!skipHistory && this.transactionDepth === 0) {
+      this.createSnapshot();
+    }
+
     const keys = path.split('.');
     const lastKey = keys.pop();
     const obj = keys.reduce((obj, key) => {
@@ -119,10 +234,17 @@ export class AppState {
     }, this.state);
 
     const oldValue = obj[lastKey];
-    obj[lastKey] = value;
 
-    this.notify(path, value, oldValue);
+    // IMMUTABILITY: Deep clone pro objekty a pole
+    if (value !== null && typeof value === 'object') {
+      obj[lastKey] = JSON.parse(JSON.stringify(value));
+    } else {
+      obj[lastKey] = value;
+    }
+
+    this.notify(path, obj[lastKey], oldValue);
     this.saveToStorage();
+    return true;
   }
 
   /**
@@ -175,7 +297,20 @@ export class AppState {
       this.subscribers.set(pathOrCallback, new Set());
     }
 
-    this.subscribers.get(pathOrCallback).add(callback);
+    const subs = this.subscribers.get(pathOrCallback);
+
+    // OCHRANA: Zkontroluj jestli už není stejný subscriber zaregistrovaný
+    if (subs.has(callback)) {
+      console.warn(`⚠️ State: Duplicitní subscriber pro '${pathOrCallback}' byl ignorován`);
+      return () => {
+        subs.delete(callback);
+        if (subs.size === 0) {
+          this.subscribers.delete(pathOrCallback);
+        }
+      };
+    }
+
+    subs.add(callback);
 
     // Return unsubscribe function
     return () => {
@@ -194,6 +329,20 @@ export class AppState {
    * @private
    */
   notify(path, value, oldValue) {
+    // V batch modu ukládáme notifikace místo okamžitého vyvolání
+    if (this.batchMode) {
+      this.batchUpdates.push({ path, value, oldValue });
+      return;
+    }
+
+    this._executeNotify(path, value, oldValue);
+  }
+
+  /**
+   * Provede notifikaci subscriberů
+   * @private
+   */
+  _executeNotify(path, value, oldValue) {
     // Notify exact path subscribers
     if (this.subscribers.has(path)) {
       this.subscribers.get(path).forEach(cb => {
@@ -217,6 +366,64 @@ export class AppState {
       this.subscribers.get('*').forEach(cb => {
         cb(value, oldValue, path);
       });
+    }
+  }
+
+  /**
+   * Spustí batch mód pro hromadné změny
+   * @param {Function} callback - Funkce se změnami
+   * @returns {Promise<void>}
+   */
+  async batch(callback) {
+    this.batchMode = true;
+    this.batchUpdates = [];
+    this.createSnapshot(); // Snapshot před batch operací
+
+    try {
+      await callback();
+    } catch (error) {
+      console.error('❌ Batch operation failed, rolling back:', error);
+      this.rollback();
+      this.batchMode = false;
+      this.batchUpdates = [];
+      throw error; // Re-throw pro další handling
+    } finally {
+      this.batchMode = false;
+
+      // Vyvolej všechny notifikace najednou
+      const uniquePaths = new Map();
+      this.batchUpdates.forEach(update => {
+        // Drž jen poslední hodnotu pro každou cestu
+        uniquePaths.set(update.path, update);
+      });
+
+      uniquePaths.forEach(update => {
+        this._executeNotify(update.path, update.value, update.oldValue);
+      });
+
+      this.batchUpdates = [];
+    }
+  }
+
+  /**
+   * Transakce - seskupí několik operací s možností rollback
+   * @param {Function} callback - Funkce s operacemi
+   * @returns {Promise<boolean>} Success
+   */
+  async transaction(callback) {
+    this.transactionDepth++;
+    this.createSnapshot(); // Snapshot před transakcí
+
+    try {
+      await callback();
+      this.transactionDepth--;
+      console.log('✅ Transaction committed');
+      return true;
+    } catch (error) {
+      console.error('❌ Transaction failed, rolling back:', error);
+      this.rollback();
+      this.transactionDepth--;
+      return false;
     }
   }
 
