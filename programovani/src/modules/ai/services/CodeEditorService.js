@@ -547,6 +547,50 @@ export class CodeEditorService {
   async insertCodeToEditor(code, fullResponse) {
     console.log('[CodeEditor] Inserting code to editor...');
 
+    // Get current editor content
+    const currentCode = SafeOps.safe(
+      () => state.get('editor.code') || '',
+      'Chyba při získávání kódu z editoru'
+    );
+
+    // Režim práce: pokračovat nebo nový projekt
+    const workMode = this.panel.workMode || 'continue';
+    console.log('[CodeEditor] Režim práce:', workMode);
+
+    // 1. NEJDŘÍV: Pokud je režim "nový projekt" a editor má obsah - zobrazit potvrzení
+    if (workMode === 'new-project' && currentCode && currentCode.trim().length > 50) {
+      console.log('[CodeEditor] Režim "Nový projekt" - zobrazuji potvrzení');
+      const confirmed = await this.showNewProjectConfirmation();
+      if (!confirmed) {
+        console.log('[CodeEditor] Uživatel zrušil smazání projektu');
+        return 'Vytvoření nového projektu zrušeno.';
+      }
+      // Vymazat kód v editoru pro nový projekt
+      SafeOps.safe(
+        () => {
+          state.set('editor.code', '');
+          eventBus.emit('editor:setCode', { code: '' });
+        },
+        'Chyba při mazání kódu'
+      );
+      console.log('[CodeEditor] Současný projekt smazán');
+    }
+
+    // 2. POTOM: Zobrazit schvalovací dialog s náhledem změn (VS Code style)
+    const approvedCode = workMode === 'new-project' ? '' : currentCode; // Pro nový projekt ukázat prázdný editor
+    const approved = await this.showCodeApprovalDialog(approvedCode, code);
+    if (!approved) {
+      console.log('[CodeEditor] Uživatel odmítl změny');
+      // Pokud uživatel odmítl, vrátit původní kód (pokud byl smazán)
+      if (workMode === 'new-project' && currentCode) {
+        SafeOps.safe(
+          () => eventBus.emit('editor:setCode', { code: currentCode }),
+          'Chyba při obnovování kódu'
+        );
+      }
+      return '❌ Změny odmítnuty';
+    }
+
     // Detect duplicate variables
     const duplicates = this.detectDuplicateVariables(code);
 
@@ -559,36 +603,7 @@ export class CodeEditorService {
       );
     }
 
-    // Režim práce: pokračovat nebo nový projekt
-    const workMode = this.panel.workMode || 'continue';
-    console.log('[CodeEditor] Režim práce:', workMode);
-
-    // Get current editor content
-    const currentCode = SafeOps.safe(
-      () => state.get('editor.code') || '',
-      'Chyba při získávání kódu z editoru'
-    );
-
-    // Pokud je režim "nový projekt" a editor má obsah - zobrazit potvrzení
-    if (workMode === 'new-project' && currentCode && currentCode.trim().length > 50) {
-      console.log('[CodeEditor] Režim "Nový projekt" - zobrazuji potvrzení');
-      const confirmed = await this.showNewProjectConfirmation();
-      if (!confirmed) {
-        console.log('[CodeEditor] Uživatel zrušil smazání projektu');
-        return 'Vytvoření nového projektu zrušeno.';
-      }
-      // Smazat současný kód
-      SafeOps.safe(
-        () => {
-          state.set('editor.code', '');
-          eventBus.emit('editor:setCode', { code: '' });
-        },
-        'Chyba při mazání kódu'
-      );
-      console.log('[CodeEditor] Současný projekt smazán');
-    }
-
-    // Save current code to history before change (only in continue mode)
+    // Save current code to history before change (only in continue mode and if has content)
     if (workMode === 'continue' && currentCode && currentCode.length > 0) {
       SafeOps.safe(
         () => {
@@ -891,5 +906,125 @@ export class CodeEditorService {
         resolve('cancelled');
       };
     });
+  }
+
+  /**
+   * Show code approval dialog (VS Code style)
+   * @param {string} oldCode - Current code in editor
+   * @param {string} newCode - Proposed new code
+   * @returns {Promise<boolean>} - true if approved, false if rejected
+   */
+  async showCodeApprovalDialog(oldCode, newCode) {
+    return new Promise((resolve) => {
+      // Calculate diff statistics
+      const oldLines = oldCode.split('\n');
+      const newLines = newCode.split('\n');
+      const stats = this.calculateDiffStats(oldLines, newLines);
+
+      // Create dialog overlay
+      const overlay = document.createElement('div');
+      overlay.className = 'code-approval-overlay';
+      overlay.innerHTML = `
+        <div class="code-approval-dialog">
+          <div class="code-approval-header">
+            <h3>🔍 Kontrola změn</h3>
+            <div class="code-approval-stats">
+              <span class="stat-added">+${stats.added} řádků</span>
+              <span class="stat-removed">-${stats.removed} řádků</span>
+              <span class="stat-changed">~${stats.changed} změn</span>
+            </div>
+          </div>
+
+          <div class="code-approval-preview">
+            <div class="preview-section">
+              <div class="preview-label">📝 Současný kód (${oldLines.length} řádků)</div>
+              <pre class="preview-code old-code">${this.escapeHtml(oldCode.substring(0, 2000))}${oldCode.length > 2000 ? '\n...' : ''}</pre>
+            </div>
+            <div class="preview-divider">→</div>
+            <div class="preview-section">
+              <div class="preview-label">✨ Nový kód (${newLines.length} řádků)</div>
+              <pre class="preview-code new-code">${this.escapeHtml(newCode.substring(0, 2000))}${newCode.length > 2000 ? '\n...' : ''}</pre>
+            </div>
+          </div>
+
+          <div class="code-approval-actions">
+            <button class="approval-btn reject-btn">
+              <span class="btn-icon">✗</span>
+              <span class="btn-text">Odmítnout</span>
+            </button>
+            <button class="approval-btn accept-btn">
+              <span class="btn-icon">✓</span>
+              <span class="btn-text">Přijmout změny</span>
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      const acceptBtn = overlay.querySelector('.accept-btn');
+      const rejectBtn = overlay.querySelector('.reject-btn');
+
+      const cleanup = () => {
+        overlay.remove();
+      };
+
+      acceptBtn.onclick = () => {
+        cleanup();
+        toast.show('✅ Změny přijaty', 'success');
+        resolve(true);
+      };
+
+      rejectBtn.onclick = () => {
+        cleanup();
+        toast.show('❌ Změny odmítnuty', 'info');
+        resolve(false);
+      };
+
+      // ESC key closes dialog
+      const handleEsc = (e) => {
+        if (e.key === 'Escape') {
+          cleanup();
+          document.removeEventListener('keydown', handleEsc);
+          resolve(false);
+        }
+      };
+      document.addEventListener('keydown', handleEsc);
+    });
+  }
+
+  /**
+   * Calculate diff statistics
+   */
+  calculateDiffStats(oldLines, newLines) {
+    let added = 0;
+    let removed = 0;
+    let changed = 0;
+
+    const maxLen = Math.max(oldLines.length, newLines.length);
+
+    for (let i = 0; i < maxLen; i++) {
+      const oldLine = oldLines[i];
+      const newLine = newLines[i];
+
+      if (oldLine === undefined) {
+        added++;
+      } else if (newLine === undefined) {
+        removed++;
+      } else if (oldLine !== newLine) {
+        changed++;
+      }
+    }
+
+    return { added, removed, changed };
+  }
+
+  /**
+   * Escape HTML for safe display
+   */
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 }
