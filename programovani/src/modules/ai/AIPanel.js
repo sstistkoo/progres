@@ -1089,16 +1089,7 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     const exportChatBtn = this.modal.element.querySelector('#exportChatBtn');
     if (exportChatBtn) {
       exportChatBtn.addEventListener('click', () => {
-        // Show export options
-        const choice = confirm('Exportovat jako:\n1 = JSON\n2 = Markdown\n\nZvolte 1 nebo 2 a stiskněte OK');
-        if (choice) {
-          const format = prompt('Zadejte 1 pro JSON nebo 2 pro Markdown:', '1');
-          if (format === '1') {
-            this.chatHistoryService.exportChatHistory();
-          } else if (format === '2') {
-            this.chatHistoryService.exportChatAsMarkdown();
-          }
-        }
+        this.showExportDialog();
       });
     }
 
@@ -1834,7 +1825,37 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
 
     // Enhanced formatting for AI responses (GitHub Copilot style)
     if (role === 'assistant' || role === 'ai') {
-      messageEl.innerHTML = this.formatAIMessage(content);
+      const formattedContent = this.formatAIMessage(content);
+
+      // Check if content is long (more than 500 characters) and wrap in collapsible
+      const isLongContent = content.length > 500;
+
+      if (isLongContent) {
+        // Create collapsible wrapper
+        const preview = this.createContentPreview(content);
+        messageEl.innerHTML = `
+          <div class="ai-message-collapsible">
+            <details class="ai-message-details" open>
+              <summary class="ai-message-summary">
+                <span class="summary-text">${preview}</span>
+                <span class="toggle-icon">
+                  <svg class="icon-expanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                  <svg class="icon-collapsed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </span>
+              </summary>
+              <div class="ai-message-content-full">
+                ${formattedContent}
+              </div>
+            </details>
+          </div>
+        `;
+      } else {
+        messageEl.innerHTML = formattedContent;
+      }
     } else {
       // Simple formatting for user and system messages
       messageEl.innerHTML = `<p>${this.escapeHtml(content).replace(/\n/g, '<br>')}</p>`;
@@ -1844,6 +1865,22 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
     return msgId;
+  }
+
+  /**
+   * Create a preview of content for collapsible summary
+   */
+  createContentPreview(content) {
+    // Try to extract the first heading or first sentence
+    const headingMatch = content.match(/^#+ (.+)$/m);
+    if (headingMatch) {
+      return this.escapeHtml(headingMatch[1]);
+    }
+
+    // Otherwise, get first line or first 80 characters
+    const firstLine = content.split('\n')[0].trim();
+    const preview = firstLine.length > 80 ? firstLine.substring(0, 80) + '...' : firstLine;
+    return this.escapeHtml(preview || 'Odpověď AI');
   }
 
   /**
@@ -1895,59 +1932,80 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
     formatted = formatted.replace(/`([^`]+)`/g, '<code style="padding: 2px 6px; background: rgba(110,118,129,0.4); border-radius: 3px; font-family: monospace; font-size: 0.9em; color: #e3e3e3;">$1</code>');
 
     // 4. Format bold **text** (non-greedy, word boundaries)
-    formatted = formatted.replace(/\*\*([^*\n]+?)\*\*/g, '<strong style="font-weight: 600; color: #fff;">$1</strong>');
+    formatted = formatted.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
 
     // 5. Format italic *text* (but not ** or math like a*b)
-    formatted = formatted.replace(/(?<!\*)\*(?!\*)([^*\n]+?)\*(?!\*)/g, '<em style="font-style: italic; color: #ddd;">$1</em>');
+    formatted = formatted.replace(/(?<!\*)\*(?!\*)([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
 
     // 6. Format headers
-    formatted = formatted.replace(/^### (.+)$/gm, '<h4 style="margin: 16px 0 8px; font-size: 1.1em; font-weight: 600; color: #fff;">$1</h4>');
-    formatted = formatted.replace(/^## (.+)$/gm, '<h3 style="margin: 18px 0 10px; font-size: 1.3em; font-weight: 600; color: #fff;">$1</h3>');
-    formatted = formatted.replace(/^# (.+)$/gm, '<h2 style="margin: 20px 0 12px; font-size: 1.5em; font-weight: 700; color: #fff;">$1</h2>');
+    formatted = formatted.replace(/^### (.+)$/gm, '<h4 style="margin: 16px 0 8px; font-size: 1.1em; font-weight: 600;">$1</h4>');
+    formatted = formatted.replace(/^## (.+)$/gm, '<h3 style="margin: 18px 0 10px; font-size: 1.3em; font-weight: 600;">$1</h3>');
+    formatted = formatted.replace(/^# (.+)$/gm, '<h2 style="margin: 20px 0 12px; font-size: 1.5em; font-weight: 700;">$1</h2>');
 
     // 7. Format lists
-    formatted = formatted.replace(/^- (.+)$/gm, '<li style="margin-left: 20px; margin-bottom: 4px; color: #ddd;">$1</li>');
-    formatted = formatted.replace(/^\d+\. (.+)$/gm, '<li style="margin-left: 20px; margin-bottom: 4px; color: #ddd; list-style-type: decimal;">$1</li>');
+    formatted = formatted.replace(/^- (.+)$/gm, '<li style="margin-left: 20px; margin-bottom: 4px;">$1</li>');
+    formatted = formatted.replace(/^\d+\. (.+)$/gm, '<li style="margin-left: 20px; margin-bottom: 4px; list-style-type: decimal;">$1</li>');
 
     // 8. Format links
     formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color: #3b82f6; text-decoration: underline;">$1</a>');
 
     // 9. Format blockquotes
-    formatted = formatted.replace(/^> (.+)$/gm, '<blockquote style="margin: 10px 0; padding: 10px 15px; border-left: 3px solid #3b82f6; background: rgba(59,130,246,0.1); color: #ddd; font-style: italic;">$1</blockquote>');
+    formatted = formatted.replace(/^> (.+)$/gm, '<blockquote style="margin: 10px 0; padding: 10px 15px; border-left: 3px solid #3b82f6; background: rgba(59,130,246,0.1); font-style: italic;">$1</blockquote>');
 
-    // 10. Wrap paragraphs
+    // 10. Wrap paragraphs - improved to handle empty lines as paragraph breaks
     const lines = formatted.split('\n');
     let result = '';
     let inList = false;
+    let currentParagraph = [];
+
+    const flushParagraph = () => {
+      if (currentParagraph.length > 0) {
+        const text = currentParagraph.join(' ').trim();
+        if (text) {
+          result += `<p style="margin: 12px 0; line-height: 1.6;">${text}</p>`;
+        }
+        currentParagraph = [];
+      }
+    };
 
     for (let line of lines) {
-      line = line.trim();
-      if (!line) continue;
+      const trimmedLine = line.trim();
+
+      // Empty line = paragraph break
+      if (!trimmedLine) {
+        flushParagraph();
+        continue;
+      }
 
       // Check if line is already formatted (HTML tag)
-      if (line.startsWith('<')) {
-        if (line.startsWith('<li')) {
+      if (trimmedLine.startsWith('<')) {
+        flushParagraph();
+
+        if (trimmedLine.startsWith('<li')) {
           if (!inList) {
-            result += '<ul style="margin: 8px 0;">';
+            result += '<ul style="margin: 12px 0; padding-left: 24px;">';
             inList = true;
           }
-          result += line;
+          result += trimmedLine;
         } else {
           if (inList) {
             result += '</ul>';
             inList = false;
           }
-          result += line;
+          result += trimmedLine;
         }
       } else {
         if (inList) {
           result += '</ul>';
           inList = false;
         }
-        result += `<p style="margin: 8px 0; line-height: 1.6; color: #ddd;">${line}</p>`;
+        // Add line to current paragraph
+        currentParagraph.push(trimmedLine);
       }
     }
 
+    // Flush any remaining paragraph
+    flushParagraph();
     if (inList) result += '</ul>';
 
     return result;
@@ -1994,7 +2052,10 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
     while ((match = codeBlockRegex.exec(content)) !== null) {
       // Add text before code block
       if (match.index > lastIndex) {
-        formattedContent += `<p>${this.escapeHtml(content.substring(lastIndex, match.index))}</p>`;
+        const textBefore = content.substring(lastIndex, match.index).trim();
+        if (textBefore) {
+          formattedContent += this.formatAIMessage(textBefore);
+        }
       }
 
       const language = match[1] || 'html';
@@ -2020,10 +2081,41 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
 
     // Add remaining text
     if (lastIndex < content.length) {
-      formattedContent += `<p>${this.escapeHtml(content.substring(lastIndex))}</p>`;
+      const remainingText = content.substring(lastIndex).trim();
+      if (remainingText) {
+        formattedContent += this.formatAIMessage(remainingText);
+      }
     }
 
-    messageEl.innerHTML = formattedContent;
+    // Check if content is long (more than 500 characters) and wrap in collapsible
+    const isLongContent = content.length > 500;
+
+    if (isLongContent && role === 'assistant') {
+      const preview = this.createContentPreview(content);
+      messageEl.innerHTML = `
+        <div class="ai-message-collapsible">
+          <details class="ai-message-details" open>
+            <summary class="ai-message-summary">
+              <span class="summary-text">${preview}</span>
+              <span class="toggle-icon">
+                <svg class="icon-expanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                <svg class="icon-collapsed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </span>
+            </summary>
+            <div class="ai-message-content-full">
+              ${formattedContent}
+            </div>
+          </details>
+        </div>
+      `;
+    } else {
+      messageEl.innerHTML = formattedContent;
+    }
+
     messagesContainer.appendChild(messageEl);
 
     // Add action buttons for code blocks
@@ -5662,4 +5754,85 @@ Každý agent pracuje na své části, výsledky se kombinují do finálního pr
         this.formatCache.set(key, value);
       });
     }
-  }}
+  }
+
+  /**
+   * Zobrazí dialog pro export chatu s lepší čitelností
+   */
+  showExportDialog() {
+    if (this.chatHistory.length === 0) {
+      toast.show('⚠️ Žádná konverzace k exportu', 'warning');
+      return;
+    }
+
+    const messageCount = this.chatHistory.length;
+    const modal = document.createElement('div');
+    modal.className = 'export-dialog-overlay';
+    modal.innerHTML = `
+      <div class="export-dialog-content">
+        <div class="export-dialog-header">
+          <h3>Export konverzace</h3>
+          <button class="export-dialog-close" aria-label="Zavřít">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="export-dialog-body">
+          <p class="export-info">Historie obsahuje <strong>${messageCount}</strong> ${messageCount === 1 ? 'zprávu' : messageCount < 5 ? 'zprávy' : 'zpráv'}.</p>
+          <p class="export-question">Vyberte formát pro export:</p>
+          <div class="export-options">
+            <button class="export-option-btn json-export" data-format="json">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <path d="M10 12h4"></path>
+                <path d="M10 16h4"></path>
+              </svg>
+              <span>JSON</span>
+              <small>Strukturovaný datový formát</small>
+            </button>
+            <button class="export-option-btn md-export" data-format="markdown">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+              <span>Markdown</span>
+              <small>Čitelný textový formát</small>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close handlers
+    const closeDialog = () => {
+      modal.classList.add('closing');
+      setTimeout(() => modal.remove(), 200);
+    };
+
+    modal.querySelector('.export-dialog-close').addEventListener('click', closeDialog);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeDialog();
+    });
+
+    // Export handlers
+    modal.querySelector('.json-export').addEventListener('click', () => {
+      this.chatHistoryService.exportChatHistory();
+      closeDialog();
+    });
+
+    modal.querySelector('.md-export').addEventListener('click', () => {
+      this.chatHistoryService.exportChatAsMarkdown();
+      closeDialog();
+    });
+
+    // Animate in
+    requestAnimationFrame(() => modal.classList.add('show'));
+  }
+}
