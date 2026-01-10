@@ -988,8 +988,6 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       // Spočítej celkový počet tokenů včetně system promptu a přiložených souborů
       const currentCode = state.get('editor.code') || '';
       const attachedFiles = this.fileAttachmentService.getAttachedFiles();
-      const openFiles = state.get('editor.openFiles') || [];
-      const activeFileId = state.get('editor.activeFileId');
 
       // Odhad system promptu (průměrně ~2000-3000 tokenů)
       let systemPromptTokens = 2000;
@@ -1442,41 +1440,41 @@ const y = 4;
         const toolProcessing = await this.toolSystem.processResponse(response);
 
         if (!toolProcessing.hasToolCalls) {
-            // Žádné tool calls - pokračuj normálně
-            response = toolProcessing.cleanedContent;
-            break;
+          // Žádné tool calls - pokračuj normálně
+          response = toolProcessing.cleanedContent;
+          break;
+        }
+
+        // Zobraz tool calls info
+        console.log(`🔧 Tool call ${toolCallIteration + 1}:`, toolProcessing.toolResults);
+
+        // Přidej info o tool calls do chatu
+        const toolInfo = toolProcessing.toolResults.map(tr =>
+          `🔧 **${tr.tool}**: ${tr.result.success ? '✅ Úspěch' : '❌ Chyba'}`
+        ).join('\n');
+
+        this.addChatMessage('system', `Tool System:\n${toolInfo}`);
+
+        // Pošli výsledky zpět AI pro další response
+        const toolResultsText = this.toolSystem.formatToolResults(toolProcessing.toolResults);
+
+        response = await window.AI.ask(
+          `${toolProcessing.cleanedContent}\n\n${toolResultsText}\n\nNa základě těchto výsledků odpověz uživateli.`,
+          {
+            provider: provider,
+            model: model,
+            system: systemPrompt,
+            temperature: 0.7,
+            history: this.chatHistory.slice(-10)
           }
+        );
 
-          // Zobraz tool calls info
-          console.log(`🔧 Tool call ${toolCallIteration + 1}:`, toolProcessing.toolResults);
+        toolCallIteration++;
+      }
 
-          // Přidej info o tool calls do chatu
-          const toolInfo = toolProcessing.toolResults.map(tr =>
-            `🔧 **${tr.tool}**: ${tr.result.success ? '✅ Úspěch' : '❌ Chyba'}`
-          ).join('\n');
-
-          this.addChatMessage('system', `Tool System:\n${toolInfo}`);
-
-          // Pošli výsledky zpět AI pro další response
-          const toolResultsText = this.toolSystem.formatToolResults(toolProcessing.toolResults);
-
-          response = await window.AI.ask(
-            `${toolProcessing.cleanedContent}\n\n${toolResultsText}\n\nNa základě těchto výsledků odpověz uživateli.`,
-            {
-              provider: provider,
-              model: model,
-              system: systemPrompt,
-              temperature: 0.7,
-              history: this.chatHistory.slice(-10)
-            }
-          );
-
-          toolCallIteration++;
-        }
-
-        if (toolCallIteration >= maxIterations) {
-          response += '\n\n⚠️ Maximum tool iterations reached';
-        }
+      if (toolCallIteration >= maxIterations) {
+        response += '\n\n⚠️ Maximum tool iterations reached';
+      }
 
       // Add to history
       this.chatService.addToHistory('assistant', response);
