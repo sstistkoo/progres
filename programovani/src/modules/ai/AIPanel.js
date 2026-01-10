@@ -21,6 +21,8 @@ import { ChatService } from './services/ChatService.js';
 import { PromptBuilder } from './services/PromptBuilder.js';
 import { MESSAGES, ICONS } from './constants/Messages.js';
 import { UIRenderingService } from './services/UIRenderingService.js';
+import { ActionsService } from './services/ActionsService.js';
+import { TestingService } from './services/TestingService.js';
 
 export class AIPanel {
   constructor() {
@@ -42,7 +44,12 @@ export class AIPanel {
     this.agentsService = new AgentsService(this); // AI agents and orchestration service
     this.chatHistoryService = new ChatHistoryService(this); // Chat history management service
     this.uiRenderingService = new UIRenderingService(this); // UI rendering service
+    this.actionsService = new ActionsService(this); // Quick actions service
+    this.testingService = new TestingService(this); // Testing service
     this.lastTokenUsage = null; // Store last request token usage
+
+    // Režim práce (continue = pokračovat, new-project = nový projekt)
+    this.workMode = 'continue';
 
     // Inicializuj tools
     initializeTools();
@@ -154,6 +161,9 @@ export class AIPanel {
           <option value="prompts">📝 Prompty</option>
           <option value="testing">🧪 Testing</option>
           <option value="github">🔗 GitHub</option>
+          <option value="export" disabled>──────────</option>
+          <option value="export-action">📥 Export chatu</option>
+          <option value="clear-action">🗑️ Vymazat historii</option>
         </select>
         <button class="ai-error-indicator" id="aiErrorIndicator" title="Klikněte pro odeslání chyb AI">
           <span class="error-icon">✓</span>
@@ -233,22 +243,10 @@ export class AIPanel {
           <div class="ai-chat">
             <div class="ai-chat-header">
               <span class="chat-history-info" id="chatHistoryInfo">Historie: 0 zpráv</span>
-              <div class="chat-header-buttons">
-                <button class="export-chat-btn" id="exportChatBtn" title="Exportovat konverzaci">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Export
-                </button>
-                <button class="clear-history-btn" id="clearHistoryBtn" title="Vymazat historii konverzace">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                  </svg>
-                  Vymazat
-                </button>
-              </div>
+              <button class="ai-mode-toggle" id="aiModeToggle" title="Přepnout režim práce">
+                <span class="mode-icon">📝</span>
+                <span class="mode-text">Pokračovat</span>
+              </button>
             </div>
             <div class="ai-chat-messages" id="aiChatMessages">
               <div class="ai-message system">
@@ -358,58 +356,7 @@ export class AIPanel {
           </div>
         </div>
 
-        <!-- Actions Tab -->
-        <div class="ai-tab-content" data-content="actions">
-          <div class="ai-quick-actions">
-            <h3>Rychlé akce</h3>
-            <div class="quick-actions-grid">
-              <button class="quick-action-btn" data-action="explain">
-                <span class="icon">💡</span>
-                <span>Vysvětli kód</span>
-              </button>
-              <button class="quick-action-btn" data-action="fix">
-                <span class="icon">🔧</span>
-                <span>Oprav chyby</span>
-              </button>
-              <button class="quick-action-btn" data-action="optimize">
-                <span class="icon">⚡</span>
-                <span>Optimalizuj</span>
-              </button>
-              <button class="quick-action-btn" data-action="document">
-                <span class="icon">📝</span>
-                <span>Dokumentuj</span>
-              </button>
-              <button class="quick-action-btn" data-action="test">
-                <span class="icon">🧪</span>
-                <span>Vytvoř testy</span>
-              </button>
-              <button class="quick-action-btn" data-action="refactor">
-                <span class="icon">♻️</span>
-                <span>Refaktoruj</span>
-              </button>
-              <button class="quick-action-btn" data-action="review">
-                <span class="icon">👀</span>
-                <span>Code review</span>
-              </button>
-              <button class="quick-action-btn" data-action="security">
-                <span class="icon">🔒</span>
-                <span>Bezpečnost</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="ai-templates">
-            <h3>Šablony</h3>
-            <div class="templates-list">
-              <button class="template-btn" data-template="blank">Prázdná stránka</button>
-              <button class="template-btn" data-template="landing">Landing page</button>
-              <button class="template-btn" data-template="form">Formulář</button>
-              <button class="template-btn" data-template="dashboard">Dashboard</button>
-              <button class="template-btn" data-template="portfolio">Portfolio</button>
-              <button class="template-btn" data-template="blog">Blog</button>
-            </div>
-          </div>
-        </div>
+        ${this.actionsService.getActionsTabHTML()}
 
         <!-- Prompts Tab -->
         <div class="ai-tab-content" data-content="prompts">
@@ -441,120 +388,7 @@ export class AIPanel {
           </div>
         </div>
 
-        <!-- Testing Tab -->
-        <div class="ai-tab-content" data-content="testing">
-          <div class="ai-testing">
-            <h3>🧪 Test AI Modelů</h3>
-
-            <div class="testing-header">
-              <p style="margin-bottom: 16px; color: var(--text-secondary);">
-                Automaticky otestuj všechny dostupné AI modely a zjisti, které fungují správně.
-              </p>
-
-              <div class="testing-controls">
-                <button class="btn-primary" id="startAllTestsBtn">
-                  <span class="icon">▶️</span>
-                  <span>Spustit všechny testy</span>
-                </button>
-                <button class="btn-secondary" id="exportResultsBtn" style="display: none;">
-                  <span class="icon">💾</span>
-                  <span>Export výsledků</span>
-                </button>
-                <button class="btn-secondary" id="stopTestsBtn" style="display: none;">
-                  <span class="icon">⏹️</span>
-                  <span>Zastavit</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Progress Bar -->
-            <div class="testing-progress" id="testingProgress" style="display: none;">
-              <div class="progress-bar">
-                <div class="progress-fill" id="testProgressFill"></div>
-              </div>
-              <div class="progress-text" id="testProgressText">0 / 0 (0%)</div>
-              <div class="progress-status" id="testProgressStatus">Inicializace...</div>
-            </div>
-
-            <!-- Statistics -->
-            <div class="testing-stats" id="testingStats" style="display: none;">
-              <h4>📊 Statistiky</h4>
-              <div class="stats-grid">
-                <div class="stat-item">
-                  <div class="stat-value" id="statTotal">0</div>
-                  <div class="stat-label">Celkem modelů</div>
-                </div>
-                <div class="stat-item success">
-                  <div class="stat-value" id="statSuccess">0</div>
-                  <div class="stat-label">✅ Úspěch</div>
-                </div>
-                <div class="stat-item error">
-                  <div class="stat-value" id="statError">0</div>
-                  <div class="stat-label">❌ Chyba</div>
-                </div>
-                <div class="stat-item warning">
-                  <div class="stat-value" id="statNoKey">0</div>
-                  <div class="stat-label">⚠️ Bez klíče</div>
-                </div>
-                <div class="stat-item info">
-                  <div class="stat-value" id="statAvgTime">0ms</div>
-                  <div class="stat-label">⚡ Průměrná doba</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Provider Tests -->
-            <div class="testing-providers" id="testingProviders">
-              <h4>Test podle providera</h4>
-              <div class="provider-test-grid">
-                <button class="provider-test-btn" data-provider="gemini">
-                  <span class="icon">💎</span>
-                  <span>Google Gemini</span>
-                </button>
-                <button class="provider-test-btn" data-provider="groq">
-                  <span class="icon">⚡</span>
-                  <span>Groq</span>
-                </button>
-                <button class="provider-test-btn" data-provider="openrouter">
-                  <span class="icon">🌐</span>
-                  <span>OpenRouter</span>
-                </button>
-                <button class="provider-test-btn" data-provider="mistral">
-                  <span class="icon">🌊</span>
-                  <span>Mistral AI</span>
-                </button>
-                <button class="provider-test-btn" data-provider="cohere">
-                  <span class="icon">🧠</span>
-                  <span>Cohere</span>
-                </button>
-                <button class="provider-test-btn" data-provider="huggingface">
-                  <span class="icon">🤗</span>
-                  <span>HuggingFace</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Results Table -->
-            <div class="testing-results" id="testingResults" style="display: none;">
-              <h4>📋 Výsledky testů</h4>
-              <div class="results-table-container">
-                <table class="results-table">
-                  <thead>
-                    <tr>
-                      <th>Provider</th>
-                      <th>Model</th>
-                      <th>Status</th>
-                      <th>Doba odezvy</th>
-                      <th>Chyba</th>
-                    </tr>
-                  </thead>
-                  <tbody id="resultsTableBody">
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
+        ${this.testingService.getTestingTabHTML()}
 
         <!-- GitHub Tab -->
         <div class="ai-tab-content" data-content="github">
@@ -1038,6 +872,18 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       tabSelect.addEventListener('change', (e) => {
         const tabName = e.target.value;
 
+        // Handle export/clear actions from dropdown
+        if (tabName === 'export-action') {
+          this.showExportDialog();
+          tabSelect.value = 'chat'; // Reset to chat
+          return;
+        }
+        if (tabName === 'clear-action') {
+          this.chatHistoryService.clearChatHistory();
+          tabSelect.value = 'chat'; // Reset to chat
+          return;
+        }
+
         // Special handling for editor tab - close modal and focus editor
         if (tabName === 'editor') {
           this.modal.close();
@@ -1114,33 +960,35 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       });
     }
 
-    // Clear History Button
-    const clearHistoryBtn = this.modal.element.querySelector('#clearHistoryBtn');
-    if (clearHistoryBtn) {
-      clearHistoryBtn.addEventListener('click', () => {
-        this.chatHistoryService.clearChatHistory();
-      });
-    }
-
-    // Export Chat Button
-    const exportChatBtn = this.modal.element.querySelector('#exportChatBtn');
-    if (exportChatBtn) {
-      exportChatBtn.addEventListener('click', () => {
-        this.showExportDialog();
+    // AI Mode Toggle Button
+    const modeToggleBtn = this.modal.element.querySelector('#aiModeToggle');
+    if (modeToggleBtn) {
+      modeToggleBtn.addEventListener('click', () => {
+        // Simple toggle - no dialog here
+        // Dialog will show when AI sends code to insert
+        if (this.workMode === 'continue') {
+          this.workMode = 'new-project';
+          modeToggleBtn.querySelector('.mode-icon').textContent = '🆕';
+          modeToggleBtn.querySelector('.mode-text').textContent = 'Nový projekt';
+          modeToggleBtn.classList.add('new-project-mode');
+          modeToggleBtn.title = 'Začít nový projekt (smaže současný kód)';
+          console.log('[AIPanel] Režim změněn na: Nový projekt');
+        } else {
+          this.workMode = 'continue';
+          modeToggleBtn.querySelector('.mode-icon').textContent = '📝';
+          modeToggleBtn.querySelector('.mode-text').textContent = 'Pokračovat';
+          modeToggleBtn.classList.remove('new-project-mode');
+          modeToggleBtn.title = 'Přidávat kód k existujícímu projektu';
+          console.log('[AIPanel] Režim změněn na: Pokračovat');
+        }
       });
     }
 
     // Update history info
     this.chatHistoryService.updateHistoryInfo();
 
-    // Quick actions
-    const quickActionBtns = this.modal.element.querySelectorAll('.quick-action-btn');
-    quickActionBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const action = btn.dataset.action;
-        this.handleQuickAction(action);
-      });
-    });
+    // Quick actions - delegated to ActionsService
+    this.actionsService.attachHandlers();
 
     // Templates
     const templateBtns = this.modal.element.querySelectorAll('.template-btn');
@@ -1213,26 +1061,8 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     this.toolSystem.setEnabled(true);
     console.log('🛠️ Tool System: Vždy aktivní (VS Code style)');
 
-    // Testing tab handlers
-    this.attachTestingHandlers();
-  }
-
-  handleQuickAction(action) {
-    const code = state.get('editor.content') || '';
-
-    const actionPrompts = {
-      explain: `Vysvětli tento kód:\n\n${code}`,
-      fix: `Najdi a oprav chyby v tomto kódu:\n\n${code}`,
-      optimize: `Optimalizuj tento kód pro lepší výkon:\n\n${code}`,
-      document: `Přidej dokumentaci k tomuto kódu:\n\n${code}`,
-      test: `Vytvoř unit testy pro tento kód:\n\n${code}`,
-      refactor: `Refaktoruj tento kód pro lepší čitelnost:\n\n${code}`
-    };
-
-    const prompt = actionPrompts[action];
-    if (prompt) {
-      this.sendMessage(prompt);
-    }
+    // Testing tab handlers - delegated to TestingService
+    this.testingService.attachHandlers();
   }
 
   handleTemplate(template) {
@@ -3362,80 +3192,6 @@ const y = 4;
     // In production, this would open repo details or clone it
   }
 
-  // ============== TESTING HANDLERS ==============
-
-  attachTestingHandlers() {
-    // Start all tests button
-    const startAllBtn = this.modal.element.querySelector('#startAllTestsBtn');
-    if (startAllBtn) {
-      startAllBtn.addEventListener('click', () => this.runAllTests());
-    }
-
-    // Stop tests button
-    const stopBtn = this.modal.element.querySelector('#stopTestsBtn');
-    if (stopBtn) {
-      stopBtn.addEventListener('click', () => {
-        this.aiTester.stop();
-        toast.show('Testování zastaveno', 'info');
-      });
-    }
-
-    // Export results button
-    const exportBtn = this.modal.element.querySelector('#exportResultsBtn');
-    if (exportBtn) {
-      exportBtn.addEventListener('click', () => this.exportTestResults());
-    }
-
-    // Provider test buttons
-    const providerBtns = this.modal.element.querySelectorAll('.provider-test-btn');
-    providerBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const provider = btn.dataset.provider;
-        this.runProviderTest(provider);
-      });
-    });
-  }
-
-  async runAllTests() {
-
-    // Attach card handlers
-    const toggleBtns = agentsGrid.querySelectorAll('.btn-agent-toggle');
-    toggleBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const agentId = btn.dataset.agentId;
-        this.toggleAgent(agentId);
-      });
-    });
-
-    const chatBtns = agentsGrid.querySelectorAll('.btn-agent-chat');
-    chatBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const agentId = btn.dataset.agentId;
-        this.openAgentChat(agentId);
-      });
-    });
-
-    const promptBtns = agentsGrid.querySelectorAll('.btn-agent-prompt');
-    promptBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const agentId = btn.dataset.agentId;
-
-        // Special handling for orchestrator
-        if (agentId === 'orchestrator') {
-          this.openOrchestratorPromptBuilder();
-        } else {
-          this.prefillPromptForAgent(agentId);
-        }
-      });
-    });
-
-    // Update active agents list
-    this.updateActiveAgentsList();
-  }
-
   async loadCrewAIAgents(agentsGrid) {
     if (!window.CrewAI || !window.CrewAI.isAvailable) {
       agentsGrid.innerHTML = `
@@ -4808,175 +4564,6 @@ Každý agent pracuje na své části, výsledky se kombinují do finálního pr
 
       await this.sendMessage('Vytvoř KOMPLETNĚ NOVÝ projekt podle výše uvedených specifikací. Začni od začátku s prázdným editorem. Vygeneruj celý kód v jednom bloku.');
     }
-  }
-
-  // ============== TESTING HANDLERS ==============
-
-  attachTestingHandlers() {
-    // Start all tests button
-    const startAllBtn = this.modal.element.querySelector('#startAllTestsBtn');
-    if (startAllBtn) {
-      startAllBtn.addEventListener('click', () => this.runAllTests());
-    }
-
-    // Stop tests button
-    const stopBtn = this.modal.element.querySelector('#stopTestsBtn');
-    if (stopBtn) {
-      stopBtn.addEventListener('click', () => {
-        this.aiTester.stop();
-        toast.show('Testování zastaveno', 'info');
-      });
-    }
-
-    // Export results button
-    const exportBtn = this.modal.element.querySelector('#exportResultsBtn');
-    if (exportBtn) {
-      exportBtn.addEventListener('click', () => this.exportTestResults());
-    }
-
-    // Provider test buttons
-    const providerBtns = this.modal.element.querySelectorAll('.provider-test-btn');
-    providerBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const provider = btn.dataset.provider;
-        this.runProviderTest(provider);
-      });
-    });
-  }
-
-  async runAllTests() {
-    const progressDiv = this.modal.element.querySelector('#testingProgress');
-    const progressFill = this.modal.element.querySelector('#testProgressFill');
-    const progressText = this.modal.element.querySelector('#testProgressText');
-    const progressStatus = this.modal.element.querySelector('#testProgressStatus');
-    const statsDiv = this.modal.element.querySelector('#testingStats');
-    const resultsDiv = this.modal.element.querySelector('#testingResults');
-    const startBtn = this.modal.element.querySelector('#startAllTestsBtn');
-    const stopBtn = this.modal.element.querySelector('#stopTestsBtn');
-    const exportBtn = this.modal.element.querySelector('#exportResultsBtn');
-
-    // Show progress, hide buttons
-    progressDiv.style.display = 'block';
-    statsDiv.style.display = 'none';
-    resultsDiv.style.display = 'none';
-    startBtn.style.display = 'none';
-    stopBtn.style.display = 'inline-flex';
-    exportBtn.style.display = 'none';
-
-    try {
-      await this.aiTester.testAllModels((progress) => {
-        // Update progress bar
-        progressFill.style.width = `${progress.progress}%`;
-        progressText.textContent = `${progress.current} / ${progress.total} (${progress.progress}%)`;
-        progressStatus.textContent = `Testování: ${progress.provider} - ${progress.model}`;
-      });
-
-      // Show results
-      const stats = this.aiTester.getStats();
-      this.displayTestStats(stats);
-      this.displayTestResults(this.aiTester.results);
-
-      statsDiv.style.display = 'block';
-      resultsDiv.style.display = 'block';
-      exportBtn.style.display = 'inline-flex';
-
-      toast.show(`✅ Test dokončen: ${stats.success}/${stats.total} úspěšných`, 'success');
-    } catch (error) {
-      toast.show(`❌ Chyba při testování: ${error.message}`, 'error');
-    } finally {
-      stopBtn.style.display = 'none';
-      startBtn.style.display = 'inline-flex';
-    }
-  }
-
-  async runProviderTest(providerId) {
-    const progressDiv = this.modal.element.querySelector('#testingProgress');
-    const progressFill = this.modal.element.querySelector('#testProgressFill');
-    const progressText = this.modal.element.querySelector('#testProgressText');
-    const progressStatus = this.modal.element.querySelector('#testProgressStatus');
-    const statsDiv = this.modal.element.querySelector('#testingStats');
-    const resultsDiv = this.modal.element.querySelector('#testingResults');
-
-    progressDiv.style.display = 'block';
-    progressStatus.textContent = `Testování providera: ${providerId}`;
-
-    try {
-      const results = await this.aiTester.testProvider(providerId, (progress) => {
-        const percent = Math.round((progress.current / progress.total) * 100);
-        progressFill.style.width = `${percent}%`;
-        progressText.textContent = `${progress.current} / ${progress.total} (${percent}%)`;
-        progressStatus.textContent = `Testování: ${providerId} - ${progress.model}`;
-      });
-
-      // Display results
-      this.displayTestResults(results);
-      resultsDiv.style.display = 'block';
-
-      const successCount = results.filter(r => r.status === 'success').length;
-      toast.show(`✅ ${providerId}: ${successCount}/${results.length} úspěšných`, 'success');
-    } catch (error) {
-      toast.show(`❌ Chyba při testování ${providerId}: ${error.message}`, 'error');
-    }
-  }
-
-  displayTestStats(stats) {
-    if (!stats) return;
-
-    this.modal.element.querySelector('#statTotal').textContent = stats.total;
-    this.modal.element.querySelector('#statSuccess').textContent = stats.success;
-    this.modal.element.querySelector('#statError').textContent = stats.error;
-    this.modal.element.querySelector('#statNoKey').textContent = stats.noKey;
-    this.modal.element.querySelector('#statAvgTime').textContent = `${stats.avgResponseTime}ms`;
-  }
-
-  displayTestResults(results) {
-    const tbody = this.modal.element.querySelector('#resultsTableBody');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-
-    results.forEach(result => {
-      const row = document.createElement('tr');
-      row.className = `result-row result-${result.status}`;
-
-      const statusIcon = {
-        'success': '✅',
-        'error': '❌',
-        'no-key': ICONS.WARNING,
-        'pending': '⏳'
-      }[result.status] || '❓';
-
-      const statusText = {
-        'success': 'Úspěch',
-        'error': 'Chyba',
-        'no-key': 'Bez klíče',
-        'pending': 'Čeká'
-      }[result.status] || result.status;
-
-      row.innerHTML = `
-        <td>${result.provider}</td>
-        <td>${result.model}</td>
-        <td><span class="status-badge status-${result.status}">${statusIcon} ${statusText}</span></td>
-        <td>${result.responseTime}ms</td>
-        <td class="error-cell">${result.error || '-'}</td>
-      `;
-
-      tbody.appendChild(row);
-    });
-  }
-
-  exportTestResults() {
-    const data = this.aiTester.exportResults();
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ai-test-results-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.show('📥 Výsledky exportovány', 'success');
   }
 
   /**

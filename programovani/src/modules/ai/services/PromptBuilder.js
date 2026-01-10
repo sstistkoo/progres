@@ -154,7 +154,14 @@ export class PromptBuilder {
   buildSystemPrompt(message, currentCode, openFiles, activeFileId) {
     const hasCode = currentCode && currentCode.trim().length > 0;
     const hasHistory = this.aiPanel.chatHistory.length > 1;
-    const isNewOrchestratorProject = currentCode.trim() === '' && this.aiPanel.chatHistory.length <= 1;
+
+    // Získat režim práce z AIPanel
+    const workMode = this.aiPanel.workMode || 'continue';
+
+    // Je nový projekt pokud:
+    // 1. Je explicitně zapnutý režim "new-project" NEBO
+    // 2. Editor je prázdný a není historie
+    const isNewOrchestratorProject = workMode === 'new-project' || (currentCode.trim() === '' && this.aiPanel.chatHistory.length <= 1);
 
     // Build history context
     const historyContext = this.aiPanel.chatService.buildHistoryContext(10, 200);
@@ -165,12 +172,30 @@ export class PromptBuilder {
     // Format current code
     const formattedCode = this.formatCodeContext(currentCode, message, hasCode);
 
+    // Detekce požadavku na popis (musí být před použitím)
+    const isDescriptionRequest = message.toLowerCase().match(/popi[šs]|popis|vysv[ěe]tli|co d[ěe]l[áa]|jak funguje/);
+
     // Build system prompt
     let systemPrompt;
 
     if (isNewOrchestratorProject) {
+      // Extra instrukce pro explicitní režim "Nový projekt"
+      const newProjectNote = workMode === 'new-project'
+        ? `
+⚠️ ⚠️ ⚠️ REŽIM: NOVÝ PROJEKT ⚠️ ⚠️ ⚠️
+
+OKAMŽITĚ vytvoř KOMPLETNÍ fungující kód podle požadavku!
+- NEPIŠ analýzy, neplánuj, neptej se na detaily
+- ROVNOU vytvoř celý HTML soubor od <!DOCTYPE> do </html>
+- Kód MUSÍ být kompletní a funkční
+- Na konci rovnou \`\`\`html blok s celým kódem!
+
+`
+        : '';
+
       systemPrompt = `🎯 Jsi AI vývojář. Vytvoř KOMPLETNÍ fungující webovou aplikaci.
 
+${newProjectNote}
 📋 PRAVIDLA:
 ✅ Každá proměnná UNIKÁTNÍ název (result1, result2, input1, input2...)
 ✅ TESTUJ kód mentálně - žádné chyby, žádné duplicity
@@ -209,9 +234,6 @@ ${formattedCode}
 
 ${isDescriptionRequest ? '📋 **DŮLEŽITÉ PRO POPIS:** Na konci odpovědi VŽDY přidej sekci "📊 SHRNUTÍ" s krátkým přehledem hlavních bodů, aby uživatel viděl, že se zobrazila celá odpověď.' : ''}`;
     } else {
-      // Detekce požadavku na popis
-      const isDescriptionRequest = message.toLowerCase().match(/popi[šs]|popis|vysv[ěe]tli|co d[ěe]l[áa]|jak funguje/);
-
       // SPECIÁLNÍ KRÁTKÝ PROMPT PRO POPIS - bez zbytečných pravidel
       if (isDescriptionRequest) {
         // Pro popis zkrátit velké soubory, aby se vešly do API limitů
@@ -289,7 +311,6 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
     }
 
     // Add search/replace instructions if editing (ale ne pro popis!)
-    const isDescriptionRequest = message.toLowerCase().match(/popi[šs]|popis|vysv[ěe]tli|co d[ěe]l[áa]|jak funguje/);
     if (hasCode && currentCode.trim().length > 100 && !isDescriptionRequest) {
       systemPrompt += `
 

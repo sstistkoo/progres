@@ -542,9 +542,9 @@ export class CodeEditorService {
 
   /**
    * Insert code to editor with validation
-   * Handles duplicate detection and complete project vs modification
+   * Handles duplicate detection, work mode (continue/new-project), and confirmations
    */
-  insertCodeToEditor(code, fullResponse) {
+  async insertCodeToEditor(code, fullResponse) {
     console.log('[CodeEditor] Inserting code to editor...');
 
     // Detect duplicate variables
@@ -559,22 +559,37 @@ export class CodeEditorService {
       );
     }
 
-    // Determine if this is a complete project or modification
-    const fullResponseStr = typeof fullResponse === 'string' ? fullResponse : '';
-    const isCompleteProject =
-      code.includes('<!DOCTYPE') ||
-      code.includes('<html') ||
-      fullResponseStr.toLowerCase().includes('complete') ||
-      fullResponseStr.toLowerCase().includes('celý projekt') ||
-      fullResponseStr.toLowerCase().includes('kompletní kód');
+    // Režim práce: pokračovat nebo nový projekt
+    const workMode = this.panel.workMode || 'continue';
+    console.log('[CodeEditor] Režim práce:', workMode);
 
-    // Save current code to history before change
+    // Get current editor content
     const currentCode = SafeOps.safe(
       () => state.get('editor.code') || '',
       'Chyba při získávání kódu z editoru'
     );
 
-    if (currentCode && currentCode.length > 0) {
+    // Pokud je režim "nový projekt" a editor má obsah - zobrazit potvrzení
+    if (workMode === 'new-project' && currentCode && currentCode.trim().length > 50) {
+      console.log('[CodeEditor] Režim "Nový projekt" - zobrazuji potvrzení');
+      const confirmed = await this.showNewProjectConfirmation();
+      if (!confirmed) {
+        console.log('[CodeEditor] Uživatel zrušil smazání projektu');
+        return 'Vytvoření nového projektu zrušeno.';
+      }
+      // Smazat současný kód
+      SafeOps.safe(
+        () => {
+          state.set('editor.code', '');
+          eventBus.emit('editor:setCode', { code: '' });
+        },
+        'Chyba při mazání kódu'
+      );
+      console.log('[CodeEditor] Současný projekt smazán');
+    }
+
+    // Save current code to history before change (only in continue mode)
+    if (workMode === 'continue' && currentCode && currentCode.length > 0) {
       SafeOps.safe(
         () => {
           const history = state.get('editor.history') || [];
@@ -597,9 +612,23 @@ export class CodeEditorService {
       eventBus.emit('view:change', { view: 'editor' });
     }
 
-    const message = isCompleteProject
-      ? '✅ Kód byl vložen do editoru (kompletní projekt)'
-      : '✅ Kód byl vložen do editoru (modifikace)';
+    // Po vytvoření nového projektu přepnout zpět na "pokračovat"
+    if (workMode === 'new-project') {
+      this.panel.workMode = 'continue';
+      // Aktualizovat UI toggle button
+      const modeToggleBtn = document.querySelector('#aiModeToggle');
+      if (modeToggleBtn) {
+        modeToggleBtn.querySelector('.mode-icon').textContent = '📝';
+        modeToggleBtn.querySelector('.mode-text').textContent = 'Pokračovat';
+        modeToggleBtn.classList.remove('new-project-mode');
+        modeToggleBtn.title = 'Přidávat kód k existujícímu projektu';
+      }
+      console.log('[CodeEditor] Režim přepnut zpět na "Pokračovat"');
+    }
+
+    const message = workMode === 'new-project'
+      ? '✅ Nový projekt vytvořen v editoru'
+      : '✅ Kód byl vložen do editoru';
 
     console.log('[CodeEditor] Code inserted successfully');
     return message;
@@ -677,5 +706,190 @@ export class CodeEditorService {
     }
 
     return matrix[str2.length][str1.length];
+  }
+
+  /**
+   * Show confirmation before deleting current project
+   * Returns Promise<boolean> - true if confirmed, false if cancelled
+   */
+  async showNewProjectConfirmation() {
+    return new Promise((resolve) => {
+      const chatMessages = document.getElementById('aiChatMessages');
+      if (!chatMessages) {
+        resolve(false);
+        return;
+      }
+
+      // Create confirmation modal
+      const modal = document.createElement('div');
+      modal.className = 'code-insert-modal';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <h3>⚠️ Potvrdit smazání projektu?</h3>
+          <p style="margin: 15px 0; color: #e0e0e0;">
+            Současný kód v editoru bude <strong>trvale smazán</strong>.<br>
+            AI vytvoří úplně nový projekt od začátku.
+          </p>
+          <div class="modal-actions">
+            <button class="modal-btn modal-btn-danger" data-action="confirm">
+              <span class="btn-icon">🗑️</span>
+              <div class="btn-text">
+                <strong>Ano, smazat</strong>
+                <small>Začít nový projekt</small>
+              </div>
+            </button>
+            <button class="modal-btn modal-btn-secondary" data-action="cancel">
+              <span class="btn-icon">❌</span>
+              <div class="btn-text">
+                <strong>Ne, zrušit</strong>
+                <small>Zachovat současný kód</small>
+              </div>
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Add to chat
+      chatMessages.appendChild(modal);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      // Handle button clicks
+      const confirmBtn = modal.querySelector('[data-action="confirm"]');
+      const cancelBtn = modal.querySelector('[data-action="cancel"]');
+
+      const cleanup = () => {
+        modal.remove();
+      };
+
+      confirmBtn.addEventListener('click', () => {
+        cleanup();
+        resolve(true);
+      });
+
+      cancelBtn.addEventListener('click', () => {
+        cleanup();
+        resolve(false);
+      });
+    });
+  }
+
+  /**
+   * Show confirmation dialog for code insertion
+   * Offers: Add to existing, Create new project, Cancel
+   */
+  async showCodeInsertConfirmation(newCode, currentCode) {
+    console.log('[CodeEditor] Showing code insert confirmation dialog');
+
+    return new Promise((resolve) => {
+      const messagesContainer = this.panel.modal.element.querySelector('#aiChatMessages');
+
+      // Remove any existing confirmation dialogs
+      const existingConfirmations = messagesContainer.querySelectorAll('.code-insert-confirmation');
+      existingConfirmations.forEach(el => el.remove());
+
+      // Create confirmation UI
+      const confirmationEl = document.createElement('div');
+      confirmationEl.className = 'ai-message assistant code-insert-confirmation';
+
+      const currentLength = currentCode.trim().length;
+      const newLength = newCode.trim().length;
+
+      confirmationEl.innerHTML = `
+        <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; margin: 10px 0;">
+          <h3 style="margin: 0 0 15px 0; color: white; font-size: 1.3em;">
+            🎯 Jak chcete vložit kód?
+          </h3>
+
+          <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-bottom: 20px; color: white;">
+            <div style="margin-bottom: 10px;">
+              <strong>📝 Aktuální editor:</strong> ${currentLength.toLocaleString()} znaků
+            </div>
+            <div>
+              <strong>✨ Nový kód:</strong> ${newLength.toLocaleString()} znaků
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button class="add-to-existing-btn" style="padding: 16px; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1.1em; font-weight: 600; display: flex; align-items: center; gap: 10px; transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+              <span style="font-size: 1.5em;">➕</span>
+              <div style="text-align: left;">
+                <div>Přidat na stávající stránku</div>
+                <div style="font-size: 0.85em; opacity: 0.9; font-weight: 400;">Zachovat současný kód a přidat nový</div>
+              </div>
+            </button>
+
+            <button class="create-new-btn" style="padding: 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1.1em; font-weight: 600; display: flex; align-items: center; gap: 10px; transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+              <span style="font-size: 1.5em;">🆕</span>
+              <div style="text-align: left;">
+                <div>Vytvořit nový projekt</div>
+                <div style="font-size: 0.85em; opacity: 0.9; font-weight: 400;">Nahradit celý editor novým kódem</div>
+              </div>
+            </button>
+
+            <button class="cancel-insert-btn" style="padding: 16px; background: #6b7280; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1.1em; font-weight: 600; display: flex; align-items: center; gap: 10px; transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+              <span style="font-size: 1.5em;">❌</span>
+              <div style="text-align: left;">
+                <div>Zrušit</div>
+                <div style="font-size: 0.85em; opacity: 0.9; font-weight: 400;">Nechat kód v chatu, nevkládat</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      `;
+
+      messagesContainer.appendChild(confirmationEl);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      // Add event listeners
+      const addToExistingBtn = confirmationEl.querySelector('.add-to-existing-btn');
+      const createNewBtn = confirmationEl.querySelector('.create-new-btn');
+      const cancelBtn = confirmationEl.querySelector('.cancel-insert-btn');
+
+      const cleanup = () => {
+        confirmationEl.remove();
+      };
+
+      addToExistingBtn.onclick = () => {
+        console.log('[CodeEditor] User chose: Add to existing');
+        cleanup();
+
+        // Append new code to existing
+        const combinedCode = currentCode + '\n\n' + newCode;
+        eventBus.emit('editor:setCode', { code: combinedCode });
+
+        this.panel.addChatMessage('system', '✅ Kód byl přidán na konec stávajícího kódu');
+
+        // Switch to editor view on mobile
+        if (window.innerWidth < 768) {
+          eventBus.emit('view:change', { view: 'editor' });
+        }
+
+        resolve('added');
+      };
+
+      createNewBtn.onclick = () => {
+        console.log('[CodeEditor] User chose: Create new project');
+        cleanup();
+
+        // Replace entire editor content
+        eventBus.emit('editor:setCode', { code: newCode });
+
+        this.panel.addChatMessage('system', '🆕 Vytvořen nový projekt - editor byl nahrazen novým kódem');
+
+        // Switch to editor view on mobile
+        if (window.innerWidth < 768) {
+          eventBus.emit('view:change', { view: 'editor' });
+        }
+
+        resolve('replaced');
+      };
+
+      cancelBtn.onclick = () => {
+        console.log('[CodeEditor] User cancelled code insertion');
+        cleanup();
+        this.panel.addChatMessage('system', '❌ Vložení kódu zrušeno - kód zůstává dostupný v chatu výše');
+        resolve('cancelled');
+      };
+    });
   }
 }
