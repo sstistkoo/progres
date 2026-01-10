@@ -1277,10 +1277,25 @@ const AI = {
         const model = options.model || this.config.models.gemini;
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
 
-        const body = {
-            contents: [{
+        let contents;
+
+        // If messages are already provided (chat history), convert to Gemini format
+        if (options.messages && Array.isArray(options.messages)) {
+            contents = options.messages
+                .filter(msg => msg.role !== 'system') // System handled separately in Gemini
+                .map(msg => ({
+                    role: msg.role === 'assistant' ? 'model' : 'user',
+                    parts: [{ text: msg.content }]
+                }));
+        } else {
+            // Build from scratch
+            contents = [{
                 parts: [{ text: prompt }]
-            }],
+            }];
+        }
+
+        const body = {
+            contents,
             generationConfig: {
                 temperature: options.temperature ?? 0.7,
                 maxOutputTokens: options.maxTokens ?? 4096
@@ -1291,6 +1306,14 @@ const AI = {
             body.systemInstruction = {
                 parts: [{ text: options.system }]
             };
+        } else if (options.messages) {
+            // Extract system message from messages if present
+            const systemMsg = options.messages.find(msg => msg.role === 'system');
+            if (systemMsg) {
+                body.systemInstruction = {
+                    parts: [{ text: systemMsg.content }]
+                };
+            }
         }
 
         const response = await this.retryWithBackoff(async () => {
@@ -1328,28 +1351,34 @@ const AI = {
 
         let messages = [];
 
-        if (options.system) {
-            messages.push({ role: 'system', content: options.system });
-        }
-
-        const isVisionModel = this.VISION_MODELS.includes(model);
-        const hasImage = options.imageBase64 && options.imageMimeType;
-
-        if (isVisionModel && hasImage) {
-            messages.push({
-                role: 'user',
-                content: [
-                    { type: 'text', text: prompt },
-                    {
-                        type: 'image_url',
-                        image_url: {
-                            url: `data:${options.imageMimeType};base64,${options.imageBase64}`
-                        }
-                    }
-                ]
-            });
+        // If messages are already provided (chat history), use them
+        if (options.messages && Array.isArray(options.messages)) {
+            messages = options.messages;
         } else {
-            messages.push({ role: 'user', content: prompt });
+            // Build messages from scratch
+            if (options.system) {
+                messages.push({ role: 'system', content: options.system });
+            }
+
+            const isVisionModel = this.VISION_MODELS.includes(model);
+            const hasImage = options.imageBase64 && options.imageMimeType;
+
+            if (isVisionModel && hasImage) {
+                messages.push({
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: prompt },
+                        {
+                            type: 'image_url',
+                            image_url: {
+                                url: `data:${options.imageMimeType};base64,${options.imageBase64}`
+                            }
+                        }
+                    ]
+                });
+            } else {
+                messages.push({ role: 'user', content: prompt });
+            }
         }
 
         const requestBody = {
@@ -1412,12 +1441,18 @@ const AI = {
 
         console.info('🌐 OpenRouter request:', model);
 
-        const messages = [];
+        let messages = [];
 
-        if (options.system) {
-            messages.push({ role: 'system', content: options.system });
+        // If messages are already provided (chat history), use them
+        if (options.messages && Array.isArray(options.messages)) {
+            messages = options.messages;
+        } else {
+            // Build from scratch
+            if (options.system) {
+                messages.push({ role: 'system', content: options.system });
+            }
+            messages.push({ role: 'user', content: prompt });
         }
-        messages.push({ role: 'user', content: prompt });
 
         const response = await this.fetchWithTimeout(url, {
             method: 'POST',
@@ -1464,12 +1499,18 @@ const AI = {
         const model = options.model || this.config.models.mistral;
         const url = 'https://api.mistral.ai/v1/chat/completions';
 
-        const messages = [];
+        let messages = [];
 
-        if (options.system) {
-            messages.push({ role: 'system', content: options.system });
+        // If messages are already provided (chat history), use them
+        if (options.messages && Array.isArray(options.messages)) {
+            messages = options.messages;
+        } else {
+            // Build from scratch
+            if (options.system) {
+                messages.push({ role: 'system', content: options.system });
+            }
+            messages.push({ role: 'user', content: prompt });
         }
-        messages.push({ role: 'user', content: prompt });
 
         const response = await this.fetchWithTimeout(url, {
             method: 'POST',
@@ -1509,12 +1550,18 @@ const AI = {
         const model = options.model || this.config.models.cohere || 'command-r-plus-08-2024';
         const url = 'https://api.cohere.com/v2/chat';
 
-        const messages = [];
+        let messages = [];
 
-        if (options.system) {
-            messages.push({ role: 'system', content: options.system });
+        // If messages are already provided (chat history), use them
+        if (options.messages && Array.isArray(options.messages)) {
+            messages = options.messages;
+        } else {
+            // Build from scratch
+            if (options.system) {
+                messages.push({ role: 'system', content: options.system });
+            }
+            messages.push({ role: 'user', content: prompt });
         }
-        messages.push({ role: 'user', content: prompt });
 
         const response = await this.fetchWithTimeout(url, {
             method: 'POST',
@@ -1560,12 +1607,18 @@ const AI = {
         const model = options.model || this.config.models.huggingface || 'mistralai/Mistral-7B-Instruct-v0.3';
         const originalUrl = `https://api-inference.huggingface.co/models/${model}/v1/chat/completions`;
 
-        const messages = [];
+        let messages = [];
 
-        if (options.system) {
-            messages.push({ role: 'system', content: options.system });
+        // If messages are already provided (chat history), use them
+        if (options.messages && Array.isArray(options.messages)) {
+            messages = options.messages;
+        } else {
+            // Build from scratch
+            if (options.system) {
+                messages.push({ role: 'system', content: options.system });
+            }
+            messages.push({ role: 'user', content: prompt });
         }
-        messages.push({ role: 'user', content: prompt });
 
         const body = JSON.stringify({
             model: model,
