@@ -80,6 +80,21 @@ export class SafeOps {
   }
 
   /**
+   * Bezpečné provedení synchronní operace s error handling
+   * @param {Function} fn - Funkce k provedení
+   * @param {string} errorMessage - Chybová zpráva při selhání
+   * @returns {any|null} - Výsledek operace nebo null při chybě
+   */
+  static safe(fn, errorMessage = 'Operation failed') {
+    try {
+      return fn();
+    } catch (error) {
+      console.error(`❌ ${errorMessage}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Bezpečné zavolání state.set s validací
    */
   static safeSet(path, value, options = {}) {
