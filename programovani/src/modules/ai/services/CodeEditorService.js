@@ -84,7 +84,7 @@ export class CodeEditorService {
    */
   applyLineEdits(edits) {
     const currentCode = SafeOps.safe(
-      () => this.panel.editorInstance.getValue(),
+      () => state.get('editor.code') || '',
       'Chyba při získávání kódu z editoru'
     );
 
@@ -92,14 +92,8 @@ export class CodeEditorService {
       return { success: false, message: '❌ Editor je prázdný' };
     }
 
-    // Save editor history before changes
-    SafeOps.safe(
-      () => this.panel.editorInstance.session.getUndoManager().execute({
-        undo: () => { this.panel.editorInstance.setValue(currentCode); },
-        redo: () => { }
-      }),
-      'Chyba při ukládání historie editoru'
-    );
+    // Save original code for potential rollback
+    const originalCode = currentCode;
 
     let successCount = 0;
     let failCount = 0;
@@ -110,7 +104,7 @@ export class CodeEditorService {
 
     for (const edit of sortedEdits) {
       // Re-read code after each change
-      const code = this.panel.editorInstance.getValue();
+      const code = state.get('editor.code') || '';
       const lines = code.split('\n');
 
       // Extract old code from specified lines
@@ -134,7 +128,7 @@ export class CodeEditorService {
       if (actualOldNormalized === oldNormalized) {
         lines.splice(edit.startLine, edit.endLine - edit.startLine + 1, ...edit.newCode.split('\n'));
         const newCode = lines.join('\n');
-        this.panel.editorInstance.setValue(newCode, -1);
+        eventBus.emit('editor:setCode', { code: newCode });
         successCount++;
         details.push(`✅ Řádky ${edit.startLine + 1}-${edit.endLine + 1}: Změněno`);
         continue;
@@ -172,10 +166,10 @@ export class CodeEditorService {
 
       if (bestMatch && bestSimilarity >= SIMILARITY_THRESHOLD) {
         // Found good match - apply edit
-        const currentLines = this.panel.editorInstance.getValue().split('\n');
+        const currentLines = (state.get('editor.code') || '').split('\n');
         currentLines.splice(bestMatch.startLine, bestMatch.endLine - bestMatch.startLine + 1, ...edit.newCode.split('\n'));
         const newCode = currentLines.join('\n');
-        this.panel.editorInstance.setValue(newCode, -1);
+        eventBus.emit('editor:setCode', { code: newCode });
         successCount++;
         details.push(`✅ Řádky ${bestMatch.startLine + 1}-${bestMatch.endLine + 1}: Změněno (fuzzy match, ${Math.round(bestSimilarity * 100)}% shoda)`);
       } else {
@@ -184,11 +178,7 @@ export class CodeEditorService {
       }
     }
 
-    // Update state
-    SafeOps.safe(
-      () => state.actions.updateActiveFile(this.panel.editorInstance.getValue()),
-      'Chyba při aktualizaci aktivního souboru'
-    );
+    // State is updated automatically by editor:setCode event
 
     const message = successCount > 0
       ? `✅ Aplikováno ${successCount}/${edits.length} změn\n\n${details.join('\n')}`
@@ -206,7 +196,7 @@ export class CodeEditorService {
    */
   applySearchReplaceEdits(edits) {
     const currentCode = SafeOps.safe(
-      () => this.panel.editorInstance.getValue(),
+      () => state.get('editor.code') || '',
       'Chyba při získávání kódu z editoru'
     );
 
@@ -214,14 +204,8 @@ export class CodeEditorService {
       return { success: false, message: '❌ Editor je prázdný' };
     }
 
-    // Save editor history before changes
-    SafeOps.safe(
-      () => this.panel.editorInstance.session.getUndoManager().execute({
-        undo: () => { this.panel.editorInstance.setValue(currentCode); },
-        redo: () => { }
-      }),
-      'Chyba při ukládání historie editoru'
-    );
+    // Save original code for potential rollback
+    const originalCode = currentCode;
 
     // ===== PHASE 1: BATCH VALIDATION =====
     console.log('[CodeEditor] Phase 1: Validating all edits...');
@@ -319,13 +303,7 @@ export class CodeEditorService {
     }
 
     // Update editor
-    this.panel.editorInstance.setValue(code, -1);
-
-    // Update state
-    SafeOps.safe(
-      () => state.actions.updateActiveFile(code),
-      'Chyba při aktualizaci aktivního souboru'
-    );
+    eventBus.emit('editor:setCode', { code });
 
     // Generate success message
     let message = `✅ Aplikováno ${appliedEdits.length}/${edits.length} změn:\n\n`;
@@ -592,7 +570,7 @@ export class CodeEditorService {
 
     // Save current code to history before change
     const currentCode = SafeOps.safe(
-      () => this.panel.editorInstance.getValue(),
+      () => state.get('editor.code') || '',
       'Chyba při získávání kódu z editoru'
     );
 
@@ -610,14 +588,8 @@ export class CodeEditorService {
 
     // Insert code
     SafeOps.safe(
-      () => this.panel.editorInstance.setValue(code, -1),
+      () => eventBus.emit('editor:setCode', { code }),
       'Chyba při nastavování hodnoty editoru'
-    );
-
-    // Update state
-    SafeOps.safe(
-      () => state.actions.updateActiveFile(code),
-      'Chyba při aktualizaci aktivního souboru'
     );
 
     // Switch to editor view on mobile

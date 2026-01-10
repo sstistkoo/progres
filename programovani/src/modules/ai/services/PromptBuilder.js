@@ -245,7 +245,7 @@ ${filesContext}
 
 📝 **Aktuální kód v editoru:**
 \`\`\`html
-${codeForPrompt}
+${formattedCode}
 \`\`\`
 
 💬 ${historyContext}
