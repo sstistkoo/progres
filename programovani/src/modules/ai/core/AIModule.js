@@ -542,6 +542,76 @@ const AI = {
     // Pořadí providerů od nejlepšího (pro fallback)
     PROVIDER_PRIORITY: ['gemini', 'groq', 'mistral', 'cohere', 'huggingface', 'openrouter'],
 
+    // ============== INTELIGENTNÍ SPRÁVA RATE LIMITŮ ==============
+    // (Delegováno na ModelSelector modul)
+
+    // Inicializace ModelSelector
+    _modelSelector: null,
+
+    /**
+     * Vrátí ModelSelector instanci (lazy init)
+     */
+    _getModelSelector() {
+        if (!this._modelSelector) {
+            if (typeof window.ModelSelector === 'undefined') {
+                console.error('❌ ModelSelector není načten! Zkontroluj zda je ModelSelector.js načten před AIModule.js');
+                // Fallback - vrátíme dummy objekt
+                return {
+                    isModelAvailable: () => true,
+                    selectBestCodingModel: () => this.selectBestModel(),
+                    recordRequest: () => {},
+                    recordLimitHit: () => {},
+                    getStats: () => [],
+                    resetAllTracking: () => {}
+                };
+            }
+            this._modelSelector = new window.ModelSelector(this);
+        }
+        return this._modelSelector;
+    },
+
+    /**
+     * Deleguje na ModelSelector.isModelAvailable()
+     */
+    isModelAvailable(provider, model) {
+        return this._getModelSelector().isModelAvailable(provider, model);
+    },
+
+    /**
+     * Deleguje na ModelSelector.selectBestCodingModel()
+     */
+    selectBestCodingModel() {
+        return this._getModelSelector().selectBestCodingModel();
+    },
+
+    /**
+     * Deleguje na ModelSelector.recordRequest()
+     */
+    _recordModelRequest(provider, model) {
+        return this._getModelSelector().recordRequest(provider, model);
+    },
+
+    /**
+     * Deleguje na ModelSelector.recordLimitHit()
+     */
+    _recordLimitHit(provider, model, limitType, errorMessage) {
+        return this._getModelSelector().recordLimitHit(provider, model, limitType, errorMessage);
+    },
+
+    /**
+     * Vrátí statistiky rate limitů
+     */
+    getRateLimitStats() {
+        return this._getModelSelector().getStats();
+    },
+
+    /**
+     * Reset všech trackingů
+     */
+    resetRateLimitTracking() {
+        return this._getModelSelector().resetAllTracking();
+    },
+
     // Cache pro OpenRouter tier info
     _openRouterTierCache: {},
 
@@ -1607,11 +1677,22 @@ const AI = {
         const maxKeyRotations = options._keyRotations || 0;
         const autoFallback = options.autoFallback !== false; // Default: true
 
-        this._log(`Request: ${provider}/${model}`, prompt.substring(0, 50) + '...');
-        this.emit('request:start', { provider, model, prompt: prompt.substring(0, 100) });
+        // Safe prompt preview for logging
+        const promptPreview = typeof prompt === 'string'
+            ? prompt.substring(0, 50) + '...'
+            : (prompt.messages ? `[${prompt.messages.length} messages]` : '[object]');
+
+        this._log(`Request: ${provider}/${model}`, promptPreview);
+        this.emit('request:start', { provider, model, prompt: promptPreview });
+
+        // Zaznamenej request pro tracking limitů
+        this._recordModelRequest(provider, model);
 
         // Rate limiting check s automatickou rotací klíčů
         if (!options.skipRateLimit && !this.rateLimit.canMakeRequest(provider, model)) {
+            // Zaznamenej limit hit
+            this._recordLimitHit(provider, model, 'rpm', 'Rate limit exceeded');
+
             // Zkus rotovat klíč
             const keysCount = this.keys.list(provider).length;
             if (keysCount > 1 && maxKeyRotations < keysCount) {
@@ -1661,11 +1742,21 @@ const AI = {
                     throw new Error(`Neznámý poskytovatel: ${provider}`);
             }
         } catch (error) {
-            // Při rate limit chybě zkus rotovat klíč nebo fallback
-            const isRateLimitError = error.message.includes('429') ||
-                                     error.message.includes('rate') ||
-                                     error.message.includes('limit') ||
-                                     error.message.includes('quota');
+            // Detekce různých typů chyb
+            const errorMsg = error.message || '';
+            const isRateLimitError = errorMsg.includes('429') ||
+                                     errorMsg.includes('rate') ||
+                                     errorMsg.includes('limit') ||
+                                     errorMsg.includes('quota');
+
+            const isAPIError = errorMsg.includes('400') ||
+                              errorMsg.includes('401') ||
+                              errorMsg.includes('422') ||
+                              errorMsg.includes('403') ||
+                              errorMsg.includes('Invalid input') ||
+                              errorMsg.includes('Unprocessable') ||
+                              errorMsg.includes('CORS') ||
+                              errorMsg.includes('ERR_FAILED');
 
             if (isRateLimitError) {
                 const keysCount = this.keys.list(provider).length;
@@ -1682,9 +1773,9 @@ const AI = {
                 }
             }
 
-            // Jiná chyba - také zkus fallback
-            if (autoFallback && !options._noMoreFallback) {
-                this._log(`Chyba ${error.message} - zkouším další model...`);
+            // API chyba nebo jiná chyba - také zkus fallback
+            if (autoFallback && !options._noMoreFallback && (isAPIError || isRateLimitError)) {
+                this._log(`Chyba ${errorMsg.substring(0, 100)} - zkouším další model...`);
                 return this._fallbackToNextModel(prompt, options, provider, model);
             }
 
@@ -1714,13 +1805,48 @@ const AI = {
     _fallbackToNextModel(prompt, options, failedProvider, failedModel) {
         console.log('🔄 Fallback from:', failedProvider, failedModel);
 
-        // Najdi index současného providera v PROVIDER_PRIORITY
+        // Nejdřív zkus jiné modely u stejného providera
+        const allProviders = this.getAllProvidersWithModels();
+        const currentProviderModels = allProviders[failedProvider]?.models || [];
+
+        if (currentProviderModels.length > 1) {
+            // Najdi index současného modelu
+            const currentModelIndex = currentProviderModels.findIndex(m => m.value === failedModel);
+
+            // Zkus další modely tohoto providera
+            for (let i = 0; i < currentProviderModels.length; i++) {
+                if (i === currentModelIndex) continue; // Přeskoč selhavší model
+
+                const nextModel = currentProviderModels[i].value;
+                console.log(`✅ Trying another model from ${failedProvider}:`, nextModel);
+
+                try {
+                    return this.ask(prompt, {
+                        ...options,
+                        provider: failedProvider,
+                        model: nextModel,
+                        _keyRotations: 0,
+                        autoFallback: true,
+                        _triedModels: [...(options._triedModels || []), `${failedProvider}:${failedModel}`]
+                    });
+                } catch (e) {
+                    console.log('❌ Model failed:', nextModel, e.message);
+                    continue;
+                }
+            }
+        }
+
+        // Pokud všechny modely selhaly, zkus jiné providery
         const currentProviderIndex = this.PROVIDER_PRIORITY.indexOf(failedProvider);
 
-        // Zkus další providery podle priority
-        for (let i = currentProviderIndex + 1; i < this.PROVIDER_PRIORITY.length; i++) {
-            const nextProvider = this.PROVIDER_PRIORITY[i];
+        // Zkus nejdřív další providery (od aktuálního +1 do konce)
+        // Pak zkus i providery před aktuálním (od začátku do aktuálního)
+        const providersToTry = [
+            ...this.PROVIDER_PRIORITY.slice(currentProviderIndex + 1), // Zbytek seznamu
+            ...this.PROVIDER_PRIORITY.slice(0, currentProviderIndex)   // Začátek seznamu (kromě aktuálního)
+        ];
 
+        for (const nextProvider of providersToTry) {
             // Přeskoč providery bez klíče
             if (!this.getKey(nextProvider)) {
                 console.log('⏭️ Skipping', nextProvider, '(no key)');

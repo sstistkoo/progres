@@ -30,6 +30,39 @@ export class PromptBuilder {
   }
 
   /**
+   * Vytvoří system prompt pro chat režim (obecná konverzace)
+   */
+  buildChatModePrompt(message, hasHistory) {
+    // For pokec chat, we don't need complex history context
+    const historyContext = '';
+
+    return `Jsi přátelský AI asistent s hlubokými znalostmi programování, webového vývoje a technologií.
+
+💬 REŽIM: OBECNÁ KONVERZACE
+
+Můžeš komunikovat o čemkoliv:
+- Programování, algoritmy, architektury
+- Webové technologie (HTML, CSS, JavaScript, frameworky)
+- Návrhy, best practices, design patterns
+- Debugging, optimalizace, code review
+- Obecné otázky, vysvětlování konceptů
+- Diskuze o technologiích a trendech
+
+📋 PRAVIDLA:
+✅ Odpovídej v češtině, přátelsky a srozumitelně
+✅ Když diskutuješ o kódu, použij \`\`\`javascript nebo \`\`\`html bloky
+✅ Buď konkrétní a praktický
+✅ Nabídni příklady když jsou relevantní
+✅ Navazuj na předchozí konverzaci
+❌ Nepokládej zbytečné otázky - odpověz přímo
+❌ Nebuď příliš formální
+
+${historyContext ? `\n📜 HISTORIE KONVERZACE:\n${historyContext}\n` : ''}
+
+Odpověz na zprávu uživatele stručně a užitečně.`;
+  }
+
+  /**
    * Vytvoří files context z otevřených souborů
    */
   buildFilesContext(openFiles, activeFileId) {
@@ -157,9 +190,14 @@ export class PromptBuilder {
   /**
    * Vytvoří kompletní system prompt
    */
-  buildSystemPrompt(message, currentCode, openFiles, activeFileId) {
+  buildSystemPrompt(message, currentCode, openFiles, activeFileId, conversationMode = 'code') {
     const hasCode = currentCode && currentCode.trim().length > 0;
     const hasHistory = this.aiPanel.chatHistory.length > 1;
+
+    // Pokud je režim "chat" (Pokeč), použij obecný system prompt
+    if (conversationMode === 'chat') {
+      return this.buildChatModePrompt(message, hasHistory);
+    }
 
     // Získat režim práce z AIPanel
     const workMode = this.aiPanel.workMode || 'continue';

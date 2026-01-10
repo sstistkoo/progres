@@ -23,6 +23,7 @@ import { MESSAGES, ICONS } from './constants/Messages.js';
 import { UIRenderingService } from './services/UIRenderingService.js';
 import { ActionsService } from './services/ActionsService.js';
 import { TestingService } from './services/TestingService.js';
+import { PokecChatService } from './services/PokecChatService.js';
 
 export class AIPanel {
   constructor() {
@@ -46,10 +47,14 @@ export class AIPanel {
     this.uiRenderingService = new UIRenderingService(this); // UI rendering service
     this.actionsService = new ActionsService(this); // Quick actions service
     this.testingService = new TestingService(this); // Testing service
+    this.pokecChatService = new PokecChatService(this); // Pokec chat service
     this.lastTokenUsage = null; // Store last request token usage
 
     // Režim práce (continue = pokračovat, new-project = nový projekt)
     this.workMode = 'continue';
+
+    // Režim konverzace (code = práce s kódem, chat = obecný pokeč)
+    this.conversationMode = 'code';
 
     // Inicializuj tools
     initializeTools();
@@ -154,9 +159,10 @@ export class AIPanel {
     this.modal = new Modal({
       title: `<div class="modal-title-wrapper">
         <select class="ai-tab-select-header" id="aiTabSelectHeader">
-          <option value="chat" selected>💬 Chat</option>
+          <option value="chat" selected>� Kód</option>
+          <option value="pokec">💬 Pokeč</option>
           <option value="agents">🤖 Agenti</option>
-          <option value="editor">📝 Kód</option>
+          <option value="editor">📝 Editor</option>
           <option value="actions">⚡ Akce</option>
           <option value="prompts">📝 Prompty</option>
           <option value="testing">🧪 Testing</option>
@@ -168,15 +174,21 @@ export class AIPanel {
         <div class="ai-settings-header" id="aiSettingsHeader">
           <button class="ai-settings-toggle" type="button">Nastavení AI <span class="toggle-arrow">▼</span></button>
           <div class="ai-header-settings hidden">
+            <div class="auto-ai-container">
+              <label class="auto-ai-label">
+                <input type="checkbox" id="autoAI" class="auto-ai-checkbox" checked>
+                <span class="auto-ai-text">🤖 Auto AI</span>
+              </label>
+            </div>
             <div class="ai-provider-selector">
               <label for="aiProvider">Provider:</label>
-              <select id="aiProvider" class="ai-select">
+              <select id="aiProvider" class="ai-select" disabled>
                 ${this.generateProviderOptions()}
               </select>
             </div>
             <div class="ai-model-selector">
               <label for="aiModel">Model:</label>
-              <select id="aiModel" class="ai-select">
+              <select id="aiModel" class="ai-select" disabled>
                 <option value="">Načítání...</option>
               </select>
             </div>
@@ -197,11 +209,21 @@ export class AIPanel {
     this.setupErrorIndicator();
     this.setupTokenCounter();
 
+    // Initialize Auto AI state
+    const autoAICheckbox = this.modal.element.querySelector('#autoAI');
+    const savedAutoAI = localStorage.getItem('autoAI');
+    if (savedAutoAI !== null) {
+      autoAICheckbox.checked = savedAutoAI === 'true';
+    }
+
     // Initialize provider/model after DOM is ready
     const providerSelect = this.modal.element.querySelector('#aiProvider');
     if (providerSelect) {
       this.updateModels(providerSelect.value);
     }
+
+    // Update provider/model enabled state based on Auto AI
+    this.updateAutoAIState();
 
     // Add toggle functionality for settings dropdown
     const settingsToggle = this.modal.element.querySelector('.ai-settings-toggle');
@@ -289,6 +311,64 @@ export class AIPanel {
                     <path d="M2 12l10 5 10-5"/>
                   </svg>
                   <span>Orchestrator</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pokec Tab Content (separate chat for general conversation) -->
+        <div class="ai-tab-content" data-content="pokec">
+          <div class="ai-chat-container">
+            <div class="ai-chat-header">
+              <h3>💬 Pokeč s AI</h3>
+              <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0 0;">Obecná konverzace - diskutuj o čemkoliv!</p>
+            </div>
+            <div class="ai-chat-messages" id="aiPokecMessages">
+              <div class="ai-message system">
+                <p>👋 Ahoj! Jsem v režimu volné konverzace. Můžeme si pokecát o programování, technologiích, algoritmech, nebo čemkoliv jiném. Ptej se na co chceš!</p>
+              </div>
+            </div>
+            <div class="ai-chat-input">
+              <div class="token-counter" id="pokecTokenCounter">
+                <span class="token-count">0</span> tokenů zpráva / <span class="total-token-count">~0</span> celkem
+              </div>
+              <textarea
+                id="aiPokecInput"
+                placeholder="Zeptej se na cokoliv... (Shift+Enter pro nový řádek)"
+                rows="3"
+              ></textarea>
+              <div class="ai-chat-buttons">
+                <div class="pokec-prompt-dropdown">
+                  <button class="pokec-prompt-btn" id="pokecPromptBtn" title="Rychlé prompty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                      <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                    <span>Prompty</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; margin-left: 4px;">
+                      <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                  </button>
+                  <div class="pokec-prompt-menu" id="pokecPromptMenu" style="display: none;">
+                    <div class="prompt-item" data-prompt="search-code">
+                      🔍 Hledat kód
+                    </div>
+                    <div class="prompt-item" data-prompt="explain-concept">
+                      💡 Vysvětli koncept
+                    </div>
+                    <div class="prompt-item" data-prompt="best-practices">
+                      ⭐ Best practices
+                    </div>
+                    <div class="prompt-item" data-prompt="debug-help">
+                      🐛 Pomoct s debuggingem
+                    </div>
+                  </div>
+                </div>
+                <button class="ai-send-btn" id="aiPokecSendBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                  </svg>
+                  <span>Odeslat</span>
                 </button>
               </div>
             </div>
@@ -872,6 +952,31 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       tabSelect.addEventListener('change', (e) => {
         const tabName = e.target.value;
 
+        // Handle conversation mode switch
+        if (tabName === 'chat') {
+          this.conversationMode = 'code';
+          toast.show('💻 Režim: Práce s kódem', 'info');
+          // Show chat tab
+          tabContents.forEach(c => c.classList.remove('active'));
+          const chatContent = this.modal.element.querySelector('[data-content="chat"]');
+          if (chatContent) chatContent.classList.add('active');
+          return;
+        }
+        if (tabName === 'pokec') {
+          this.conversationMode = 'chat';
+          toast.show('💬 Režim: Obecná konverzace', 'info');
+          // Show pokec tab
+          tabContents.forEach(c => c.classList.remove('active'));
+          const pokecContent = this.modal.element.querySelector('[data-content="pokec"]');
+          if (pokecContent) pokecContent.classList.add('active');
+          // Focus pokec input
+          const pokecInput = this.modal.element.querySelector('#aiPokecInput');
+          if (pokecInput) {
+            setTimeout(() => pokecInput.focus(), 100);
+          }
+          return;
+        }
+
         // Handle export/clear actions from dropdown
         if (tabName === 'export-action') {
           this.showExportDialog();
@@ -879,8 +984,18 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
           return;
         }
         if (tabName === 'clear-action') {
-          this.chatHistoryService.clearChatHistory();
-          tabSelect.value = 'chat'; // Reset to chat
+          // Clear history based on current conversation mode
+          if (this.conversationMode === 'chat') {
+            // Clear pokec history
+            if (confirm('Opravdu chceš vymazat historii pokec chatu?')) {
+              this.pokecChatService.clearHistory();
+              toast.show('🗑️ Historie pokec chatu vymazána', 'success');
+            }
+          } else {
+            // Clear code chat history
+            this.chatHistoryService.clearChatHistory();
+          }
+          tabSelect.value = this.conversationMode === 'chat' ? 'pokec' : 'chat'; // Reset to current tab
           return;
         }
 
@@ -913,6 +1028,10 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     const chatInput = this.modal.element.querySelector('#aiChatInput');
     const sendBtn = this.modal.element.querySelector('#aiSendBtn');
     const attachBtn = this.modal.element.querySelector('#aiAttachBtn');
+
+    // Pokec Input & Send
+    const pokecInput = this.modal.element.querySelector('#aiPokecInput');
+    const pokecSendBtn = this.modal.element.querySelector('#aiPokecSendBtn');
 
     // File attachment button
     if (attachBtn) {
@@ -959,6 +1078,9 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
         chatInput.style.height = chatInput.scrollHeight + 'px';
       });
     }
+
+    // Pokec chat handlers - delegated to PokecChatService
+    this.pokecChatService.attachHandlers();
 
     // AI Mode Toggle Button
     const modeToggleBtn = this.modal.element.querySelector('#aiModeToggle');
@@ -1055,6 +1177,36 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
 
       // Initialize models for default provider
       this.updateModels(providerSelect.value);
+    }
+
+    // Auto AI checkbox handler
+    const autoAICheckbox = this.modal.element.querySelector('#autoAI');
+    if (autoAICheckbox) {
+      autoAICheckbox.addEventListener('change', () => {
+        localStorage.setItem('autoAI', autoAICheckbox.checked);
+        this.updateAutoAIState();
+
+        if (autoAICheckbox.checked) {
+          toast.success('🤖 Auto AI zapnuto - automatický výběr nejlepšího modelu', 2000);
+        } else {
+          toast.info('👤 Manuální režim - vyberte si providera a model', 2000);
+        }
+      });
+    }
+
+    // Model change - auto-update provider if model from different provider is selected
+    const modelSelect = this.modal.element.querySelector('#aiModel');
+    if (modelSelect && providerSelect) {
+      modelSelect.addEventListener('change', (e) => {
+        const selectedOption = e.target.options[e.target.selectedIndex];
+        const modelProvider = selectedOption?.dataset?.provider;
+
+        // If selected model is from different provider, update provider select
+        if (modelProvider && modelProvider !== providerSelect.value) {
+          providerSelect.value = modelProvider;
+          // No need to update models - they're already loaded
+        }
+      });
     }
 
     // Tool System je vždy aktivní (VS Code style)
@@ -1167,24 +1319,41 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       const openFiles = state.get('files.tabs') || [];
       const activeFileId = state.get('files.active');
 
-      // Build system prompt using PromptBuilder
+      // Build system prompt using PromptBuilder with conversation mode
       let systemPrompt = this.promptBuilder.buildSystemPrompt(
         message,
         currentCode,
         openFiles,
-        activeFileId
+        activeFileId,
+        this.conversationMode // Pass conversation mode to PromptBuilder
       );
 
       // Get provider and model from UI
       let provider = this.modal.element.querySelector('#aiProvider')?.value;
       let model = this.modal.element.querySelector('#aiModel')?.value;
+      const autoAI = this.modal.element.querySelector('#autoAI')?.checked;
 
-      // If user hasn't explicitly selected a model, use the best one
-      if (!model || model === 'null' || model === '') {
+      // If Auto AI is enabled, use intelligent model selection
+      if (autoAI) {
+        const bestModel = window.AI.selectBestCodingModel();
+        provider = bestModel.provider;
+        model = bestModel.model;
+        console.log(`🤖 Auto AI: ${provider}/${model} (kvalita: ${bestModel.quality})`);
+      } else if (!model || model === 'null' || model === '') {
+        // Manual mode but no model selected - use best available
         const bestModel = window.AI.selectBestModel();
         provider = bestModel.provider;
         model = bestModel.model;
         console.log(MESSAGES.AUTO_SELECT_MODEL(provider, model));
+      } else {
+        // Manual mode with specific model selected
+        // Get provider from selected model's data-attribute (in case user selected model from different provider)
+        const modelSelect = this.modal.element.querySelector('#aiModel');
+        const selectedOption = modelSelect?.options[modelSelect.selectedIndex];
+        const modelProvider = selectedOption?.dataset?.provider;
+        if (modelProvider) {
+          provider = modelProvider;
+        }
       }
 
       // 🚨 PŘIDEJ KRITICKÁ PRAVIDLA NA ZAČÁTEK SYSTEM PROMPTU
@@ -2096,7 +2265,7 @@ const y = 4;
           const rpmLabel = `${m.rpm} RPM`;
           const contextLabel = m.context || '';
           const info = `${freeLabel} | ${rpmLabel} | ${contextLabel}`;
-          return `<option value="${m.value}" title="${m.description || ''}" data-favorite="${isFavorite}">${star}${m.label} (${info})</option>`;
+          return `<option value="${m.value}" title="${m.description || ''}" data-favorite="${isFavorite}" data-provider="${provider}">${star}${m.label} (${info})</option>`;
         })
         .join('');
 
@@ -2131,6 +2300,41 @@ const y = 4;
     const providerSelect = this.modal.element.querySelector('#aiProvider');
     if (providerSelect) {
       this.updateModels(providerSelect.value);
+    }
+  }
+
+  /**
+   * Update Auto AI state - enable/disable provider and model selects
+   */
+  updateAutoAIState() {
+    const autoAICheckbox = this.modal.element.querySelector('#autoAI');
+    const providerSelect = this.modal.element.querySelector('#aiProvider');
+    const modelSelect = this.modal.element.querySelector('#aiModel');
+
+    if (!autoAICheckbox) return;
+
+    const isAutoMode = autoAICheckbox.checked;
+
+    // Disable provider/model selects when Auto AI is enabled
+    if (providerSelect) {
+      providerSelect.disabled = isAutoMode;
+      providerSelect.style.opacity = isAutoMode ? '0.6' : '1';
+      providerSelect.style.cursor = isAutoMode ? 'not-allowed' : 'pointer';
+    }
+
+    if (modelSelect) {
+      modelSelect.disabled = isAutoMode;
+      modelSelect.style.opacity = isAutoMode ? '0.6' : '1';
+      modelSelect.style.cursor = isAutoMode ? 'not-allowed' : 'pointer';
+    }
+
+    // Update visual feedback
+    if (isAutoMode) {
+      providerSelect?.setAttribute('title', '🤖 Auto AI aktivní - provider se vybírá automaticky');
+      modelSelect?.setAttribute('title', '🤖 Auto AI aktivní - model se vybírá automaticky podle kvality pro kódování');
+    } else {
+      providerSelect?.setAttribute('title', 'Vyberte AI providera');
+      modelSelect?.setAttribute('title', 'Vyberte AI model');
     }
   }
 
