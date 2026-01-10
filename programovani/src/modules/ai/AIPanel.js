@@ -645,12 +645,12 @@ export class AIPanel {
 
     if (errorCount === 0) {
       errorBtn.className = 'ai-error-indicator success';
-      icon.textContent = '✓';
+      icon.textContent = ICONS.SPARKLES;
       countText.textContent = '0 chyb';
       errorBtn.title = 'Žádné chyby v konzoli';
     } else {
       errorBtn.className = 'ai-error-indicator error';
-      icon.textContent = '⚠';
+      icon.textContent = ICONS.WARNING;
       countText.textContent = `${errorCount} ${errorCount === 1 ? 'chyba' : errorCount < 5 ? 'chyby' : 'chyb'}`;
       errorBtn.title = `Klikněte pro odeslání ${errorCount} chyb AI k opravě`;
     }
@@ -1341,7 +1341,7 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
         const bestModel = window.AI.selectBestModel();
         provider = bestModel.provider;
         model = bestModel.model;
-        console.log(`✨ Auto-vybrán nejlepší model: ${provider}/${model}`);
+        console.log(MESSAGES.AUTO_SELECT_MODEL(provider, model));
       }
 
       // 🚨 PŘIDEJ KRITICKÁ PRAVIDLA NA ZAČÁTEK SYSTEM PROMPTU
@@ -1715,7 +1715,7 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
 <div class="code-block" style="margin: 12px 0;">
   <div class="code-header" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #1e1e1e; border-radius: 6px 6px 0 0; font-size: 0.85em;">
     <span style="color: #888;">${language}</span>
-    <button onclick="navigator.clipboard.writeText(this.dataset.code); this.textContent='✓ Zkopírováno!'; setTimeout(() => this.innerHTML='<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"width: 16px; height: 16px;\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\" ry=\"2\"/><path d=\"M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1\"/></svg>', 2000)"
+    <button onclick="navigator.clipboard.writeText(this.dataset.code); this.textContent='${ICONS.SPARKLES} Zkopírováno!'; setTimeout(() => this.innerHTML='<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"width: 16px; height: 16px;\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\" ry=\"2\"/><path d=\"M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1\"/></svg>', 2000)"
             data-code="${escapedForAttr}"
             style="padding: 4px 8px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #aaa; cursor: pointer; font-size: 0.9em; display: flex; align-items: center; gap: 4px;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
@@ -3389,16 +3389,16 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
   getFileIcon(fileName) {
     const ext = fileName.split('.').pop().toLowerCase();
     const icons = {
-      'html': '📄',
-      'htm': '📄',
+      'html': ICONS.PAGE,
+      'htm': ICONS.PAGE,
       'css': '🎨',
-      'js': '📜',
-      'json': '📋',
+      'js': ICONS.MEMO,
+      'json': ICONS.MEMO,
       'py': '🐍',
-      'md': '📝',
-      'txt': '📃'
+      'md': ICONS.MEMO,
+      'txt': ICONS.MEMO
     };
-    return icons[ext] || '📄';
+    return icons[ext] || ICONS.PAGE;
   }
 
   formatBytes(bytes) {
@@ -5411,7 +5411,7 @@ Každý agent pracuje na své části, výsledky se kombinují do finálního pr
       const statusIcon = {
         'success': '✅',
         'error': '❌',
-        'no-key': '⚠️',
+        'no-key': ICONS.WARNING,
         'pending': '⏳'
       }[result.status] || '❓';
 
