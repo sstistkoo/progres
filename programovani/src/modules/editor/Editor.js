@@ -5,6 +5,7 @@ import { state } from '../../core/state.js';
 import { eventBus } from '../../core/events.js';
 import { debounce } from '../../utils/async.js';
 import { countLines } from '../../utils/string.js';
+import { ChangeTracker } from './ChangeTracker.js';
 
 export class Editor {
   constructor(container) {
@@ -13,6 +14,7 @@ export class Editor {
     this.lineNumbers = null;
     this.wrapper = null;
     this.tabsContainer = null;
+    this.changeTracker = null; // Change tracking system
     this.history = {
       past: [],
       future: [],
@@ -36,6 +38,11 @@ export class Editor {
     this.init();
     this.setupEventListeners();
     this.initTabs();
+
+    // Initialize change tracker after editor is ready
+    setTimeout(() => {
+      this.changeTracker = new ChangeTracker(this);
+    }, 100);
   }
 
   init() {
@@ -376,6 +383,12 @@ export class Editor {
   }
 
   destroy() {
+    // Destroy change tracker
+    if (this.changeTracker) {
+      this.changeTracker.destroy();
+      this.changeTracker = null;
+    }
+
     // Remove event listeners
     if (this.textarea) {
       if (this.handlers.input) {

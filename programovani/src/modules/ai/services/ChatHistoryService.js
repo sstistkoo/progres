@@ -20,16 +20,35 @@ export class ChatHistoryService {
    * Vymaže historii chatu
    */
   clearChatHistory() {
-    this.aiPanel.chatService.clearHistory();
-    this.aiPanel.chatHistory = this.aiPanel.chatService.getHistory();
+    // Rychlé vymazání - vypnout animace a smazat najednou
     const messagesContainer = this.aiPanel.modal?.element?.querySelector('#aiChatMessages');
+
     if (messagesContainer) {
-      messagesContainer.innerHTML = `
-        <div class="ai-message system">
-          <p>Historie konverzace byla vymazána. Můžeš začít novou konverzaci!</p>
-        </div>
-      `;
+      // Zakázat CSS animace pro rychlejší mazání
+      messagesContainer.style.transition = 'none';
+
+      // Rychle vyčistit všechny zprávy
+      while (messagesContainer.firstChild) {
+        messagesContainer.removeChild(messagesContainer.firstChild);
+      }
+
+      // Přidat info zprávu
+      const systemMsg = document.createElement('div');
+      systemMsg.className = 'ai-message system';
+      systemMsg.innerHTML = '<p>Historie konverzace byla vymazána. Můžeš začít novou konverzaci!</p>';
+      messagesContainer.appendChild(systemMsg);
+
+      // Vrátit animace zpět (asynchronně)
+      requestAnimationFrame(() => {
+        messagesContainer.style.transition = '';
+      });
     }
+
+    // Vymazat historii z paměti
+    this.aiPanel.chatService.clearHistory();
+    this.aiPanel.chatHistory = [];
+
+    // Aktualizovat UI
     this.updateHistoryInfo();
     toast.show('🗑️ Historie konverzace vymazána', 'info');
   }
