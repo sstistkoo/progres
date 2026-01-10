@@ -44,13 +44,21 @@ export class PokecChatService {
       // Get provider and model from UI
       let provider = this.aiPanel.modal.element.querySelector('#aiProvider')?.value;
       let model = this.aiPanel.modal.element.querySelector('#aiModel')?.value;
+      const autoAI = this.aiPanel.modal.element.querySelector('#autoAI')?.checked;
 
-      // If user hasn't explicitly selected a model, use the best one
-      if (!model || model === 'null' || model === '') {
+      // If Auto AI is enabled, use intelligent model selection
+      if (autoAI) {
+        const bestModel = window.AI.selectBestCodingModel();
+        provider = bestModel.provider;
+        model = bestModel.model;
+        console.log(`🤖 Auto AI (pokec): ${provider}/${model} (kvalita: ${bestModel.quality})`);
+      } else if (!model || model === 'null' || model === '') {
+        // Manual mode but no model selected - use best available
         const bestModel = window.AI.selectBestModel();
         provider = bestModel.provider;
         model = bestModel.model;
       } else {
+        // Manual mode with specific model selected
         // Get provider from selected model's data-attribute (in case user selected model from different provider)
         const modelSelect = this.aiPanel.modal.element.querySelector('#aiModel');
         const selectedOption = modelSelect?.options[modelSelect.selectedIndex];
@@ -73,7 +81,7 @@ export class PokecChatService {
       const startTime = Date.now();
 
       // Make API call
-      const response = await window.AI.ask({
+      const response = await window.AI.ask(message, {
         provider,
         model,
         messages
