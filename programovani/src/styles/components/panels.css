@@ -1943,6 +1943,36 @@
   transform: scale(1.1);
 }
 
+/* Draggable Modal Header - Desktop Only */
+@media (min-width: 769px) {
+  .modal.ai-modal .modal-header {
+    cursor: move;
+    user-select: none;
+  }
+
+  .modal.ai-modal .modal-header:active {
+    cursor: grabbing;
+  }
+
+  /* Add subtle visual hint that modal is draggable */
+  .modal.ai-modal .modal-header::before {
+    content: '⋮⋮';
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 18px;
+    letter-spacing: -2px;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .modal.ai-modal .modal-content {
+    transition: none; /* Disable transition when dragging */
+  }
+}
+
 /* AI Agents Styles */
 .agents-panel {
   display: flex;
