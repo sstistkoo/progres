@@ -214,11 +214,19 @@ ${isDescriptionRequest ? '📋 **DŮLEŽITÉ PRO POPIS:** Na konci odpovědi VŽ
 
       // SPECIÁLNÍ KRÁTKÝ PROMPT PRO POPIS - bez zbytečných pravidel
       if (isDescriptionRequest) {
+        // Pro popis zkrátit velké soubory, aby se vešly do API limitů
+        let codeForDescription = formattedCode;
+        if (currentCode.length > 30000) {
+          // Zkrátit na začátek + konec (max ~8000 znaků = ~2000 tokenů)
+          const truncated = this.aiPanel.codeEditorService.truncateCodeIntelligently(currentCode, 8000);
+          codeForDescription = truncated.code; // Extract string from object
+        }
+
         systemPrompt = `🎯 Jsi AI asistent specializovaný na analýzu a popis webových aplikací.
 
 📝 **Kód k analýze:**
 \`\`\`html
-${formattedCode}
+${codeForDescription}
 \`\`\`
 
 💬 ${historyContext}
