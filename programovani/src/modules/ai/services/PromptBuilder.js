@@ -205,15 +205,39 @@ ${filesContext}
 ${formattedCode}
 \`\`\`
 
-💬 ${historyContext}`;
+💬 ${historyContext}
+
+${isDescriptionRequest ? '📋 **DŮLEŽITÉ PRO POPIS:** Na konci odpovědi VŽDY přidej sekci "📊 SHRNUTÍ" s krátkým přehledem hlavních bodů, aby uživatel viděl, že se zobrazila celá odpověď.' : ''}`;
     } else {
-      systemPrompt = `🎯 Jsi AI vývojář specializovaný na úpravy kódu.
+      // Detekce požadavku na popis
+      const isDescriptionRequest = message.toLowerCase().match(/popi[šs]|popis|vysv[ěe]tli|co d[ěe]l[áa]|jak funguje/);
+
+      // SPECIÁLNÍ KRÁTKÝ PROMPT PRO POPIS - bez zbytečných pravidel
+      if (isDescriptionRequest) {
+        systemPrompt = `🎯 Jsi AI asistent specializovaný na analýzu a popis webových aplikací.
+
+📝 **Kód k analýze:**
+\`\`\`html
+${formattedCode}
+\`\`\`
+
+💬 ${historyContext}
+
+📋 **INSTRUKCE PRO POPIS:**
+- Popiš co aplikace dělá a jaké má funkce
+- Uveď hlavní sekce a jejich účel
+- Zmíň použité technologie
+- Vysvětli uživatelské rozhraní
+- Na konci VŽDY přidej sekci "📊 SHRNUTÍ" s 3-5 hlavními body, aby uživatel viděl že se zobrazila celá odpověď`;
+      } else {
+        // Standardní prompt pro úpravy kódu
+        systemPrompt = `🎯 Jsi AI vývojář specializovaný na úpravy kódu.
 
 ${filesContext}
 
 📝 **Aktuální kód v editoru:**
 \`\`\`html
-${formattedCode}
+${codeForPrompt}
 \`\`\`
 
 💬 ${historyContext}
@@ -253,10 +277,12 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
 - Pro vysvětlení použij jasný jazyk
 - Navazuj na předchozí konverzaci
 - Pokud doporučuješ více souborů, jasně to označ`;
+      }
     }
 
-    // Add search/replace instructions if editing
-    if (hasCode && currentCode.trim().length > 100) {
+    // Add search/replace instructions if editing (ale ne pro popis!)
+    const isDescriptionRequest = message.toLowerCase().match(/popi[šs]|popis|vysv[ěe]tli|co d[ěe]l[áa]|jak funguje/);
+    if (hasCode && currentCode.trim().length > 100 && !isDescriptionRequest) {
       systemPrompt += `
 
 ═══════════════════════════════════════════════════════════

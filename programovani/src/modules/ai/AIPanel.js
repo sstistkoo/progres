@@ -40,9 +40,18 @@ export class AIPanel {
     this.fileAttachmentService = new FileAttachmentService(this); // File attachment service
     this.agentsService = new AgentsService(this); // AI agents and orchestration service
     this.chatHistoryService = new ChatHistoryService(this); // Chat history management service
+    this.lastTokenUsage = null; // Store last request token usage
 
     // Inicializuj tools
     initializeTools();
+
+    // Poslouchej AI request:complete pro zobrazení token usage
+    if (window.AI) {
+      window.AI.on('request:complete', (data) => {
+        this.lastTokenUsage = data;
+        console.log('📊 Token usage:', `${data.tokensIn}→${data.tokensOut} (${data.duration}ms)`);
+      });
+    }
 
     this.setupEventListeners();
   }
@@ -246,7 +255,7 @@ export class AIPanel {
             </div>
             <div class="ai-chat-input">
               <div class="token-counter" id="tokenCounter">
-                <span class="token-count">0</span> tokenů (~<span class="char-count">0</span> znaků)
+                <span class="token-count">0</span> tokenů zpráva / <span class="total-token-count">~0</span> celkem (se systémem)
               </div>
               <div class="ai-attached-files" id="aiAttachedFiles" style="display: none; margin-bottom: 10px;"></div>
               <textarea
@@ -976,13 +985,43 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       // Rough estimation: 1 token ≈ 4 characters
       const tokenCount = Math.ceil(charCount / 4);
 
-      tokenCounter.querySelector('.token-count').textContent = tokenCount;
-      tokenCounter.querySelector('.char-count').textContent = charCount;
+      // Spočítej celkový počet tokenů včetně system promptu a přiložených souborů
+      const currentCode = state.get('editor.code') || '';
+      const attachedFiles = this.fileAttachmentService.getAttachedFiles();
+      const openFiles = state.get('editor.openFiles') || [];
+      const activeFileId = state.get('editor.activeFileId');
 
-      // Color coding
-      if (tokenCount > 2000) {
+      // Odhad system promptu (průměrně ~2000-3000 tokenů)
+      let systemPromptTokens = 2000;
+      const isDescriptionRequest = text.toLowerCase().match(/popi[šs]|popis|vysv[ěe]tli|co d[ěe]l[áa]|jak funguje/);
+      if (isDescriptionRequest) {
+        systemPromptTokens = 500; // Krátký prompt pro popis
+      }
+
+      // Tokeny z kódu v editoru
+      const codeTokens = Math.ceil(currentCode.length / 4);
+
+      // Tokeny z přiložených souborů
+      let attachedFilesTokens = 0;
+      if (attachedFiles && attachedFiles.length > 0) {
+        attachedFiles.forEach(file => {
+          attachedFilesTokens += Math.ceil(file.content.length / 4);
+        });
+      }
+
+      // Celkový odhad
+      const totalTokens = tokenCount + systemPromptTokens + codeTokens + attachedFilesTokens;
+
+      tokenCounter.querySelector('.token-count').textContent = tokenCount;
+      const totalCountSpan = tokenCounter.querySelector('.total-token-count');
+      if (totalCountSpan) {
+        totalCountSpan.textContent = `~${totalTokens.toLocaleString()}`;
+      }
+
+      // Color coding na základě celkového počtu
+      if (totalTokens > 100000) {
         tokenCounter.style.color = '#ef4444';
-      } else if (tokenCount > 1000) {
+      } else if (totalTokens > 50000) {
         tokenCounter.style.color = '#f59e0b';
       } else {
         tokenCounter.style.color = 'var(--text-secondary)';
@@ -1242,6 +1281,12 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     }
     this.addChatMessage('user', displayMessage);
 
+    // Get current code for loading text detection
+    const currentCode = state.get('editor.code') || '';
+
+    // Detekuj typ požadavku pro správný loading text
+    const loadingText = this.getLoadingTextForRequest(message, currentCode);
+
     // Přidat loading animaci
     const loadingId = 'ai-loading-' + Date.now();
     const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
@@ -1254,7 +1299,7 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
           <div class="thinking-dots">
             <span></span><span></span><span></span>
           </div>
-          <p style="margin: 0;">AI přemýšlí a generuje kód...</p>
+          <p style="margin: 0;">${loadingText}</p>
         </div>
         <button class="ai-cancel-btn" style="padding: 8px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
@@ -1483,6 +1528,16 @@ const y = 4;
 
       // Add assistant message with formatted code (fallback for full code)
       this.addChatMessageWithCode('assistant', response, message, isModification);
+
+      // Zobraz token usage pokud je k dispozici
+      if (this.lastTokenUsage) {
+        const { tokensIn, tokensOut, duration, provider, model } = this.lastTokenUsage;
+        const total = tokensIn + tokensOut;
+        this.addChatMessage('system',
+          `📊 Použito ${total.toLocaleString()} tokenů (${tokensIn.toLocaleString()}→${tokensOut.toLocaleString()}) • ${duration}ms • ${provider}/${model}`
+        );
+        this.lastTokenUsage = null; // Reset
+      }
     } catch (error) {
       // Odstranit loading animaci při chybě
       const loadingElement = document.getElementById(loadingId);
@@ -1528,6 +1583,74 @@ const y = 4;
     this.addChatMessage('system', '❌ Operace zrušena uživatelem');
 
     toast.warning('Operace zrušena', 2000);
+  }
+
+  /**
+   * Detects request type and returns appropriate loading text
+   * @param {string} message - User's request
+   * @param {string} currentCode - Current editor code
+   * @returns {string} Context-aware loading message
+   */
+  getLoadingTextForRequest(message, currentCode = '') {
+    const msg = message.toLowerCase();
+    const hasCode = currentCode && currentCode.trim().length > 100;
+
+    // Popis / vysvětlení
+    if (msg.match(/popi[šs]|popis|vysv[ěe]tli|co d[ěe]l[áa]|jak funguje/)) {
+      return 'AI analyzuje a popisuje stránku...';
+    }
+
+    // Analýza
+    if (msg.match(/analyzuj|analýza|zkontroluj|review/)) {
+      return 'AI analyzuje kód a hledá problémy...';
+    }
+
+    // Optimalizace
+    if (msg.match(/optimalizuj|zrychli|zlepši|optimiz/)) {
+      return 'AI hledá možnosti optimalizace...';
+    }
+
+    // Oprava chyb
+    if (msg.match(/oprav|fix|bug|chyba|nefunguje/)) {
+      return 'AI hledá a opravuje chyby...';
+    }
+
+    // Přidání funkce
+    if (msg.match(/přidej|přidat|vytvoř|vytvořit|add/) && hasCode) {
+      return 'AI přemýšlí a rozšiřuje kód...';
+    }
+
+    // Nový projekt/stránka
+    if (msg.match(/nový|nová|vytvoř|create|new/) && !hasCode) {
+      return 'AI přemýšlí a vytváří projekt...';
+    }
+
+    // Úprava existujícího
+    if (msg.match(/uprav|změň|modify|update/) && hasCode) {
+      return 'AI přemýšlí a upravuje kód...';
+    }
+
+    // Refaktoring
+    if (msg.match(/refaktor|přepiš|rewrite|reorganizuj/)) {
+      return 'AI refaktoruje kód...';
+    }
+
+    // Dokumentace
+    if (msg.match(/dokumentuj|komentář|comment|doc/)) {
+      return 'AI generuje dokumentaci...';
+    }
+
+    // Testy
+    if (msg.match(/test|otestuj/)) {
+      return 'AI vytváří testy...';
+    }
+
+    // Default podle kontextu
+    if (hasCode) {
+      return 'AI přemýšlí a upravuje kód...';
+    } else {
+      return 'AI přemýšlí a generuje kód...';
+    }
   }
 
   addChatMessage(role, content, messageId = null) {
@@ -1579,6 +1702,11 @@ const y = 4;
 
     messagesContainer.appendChild(messageEl);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Ensure scroll after DOM update
+    setTimeout(() => {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }, 100);
 
     return msgId;
   }
@@ -1957,6 +2085,11 @@ const y = 4;
     });
 
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Ensure scroll after DOM update
+    setTimeout(() => {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }, 100);
   }
 
   acceptChange(changeId, actionsContainer, _isAuto = false, isModification = false) {
