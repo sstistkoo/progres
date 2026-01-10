@@ -1263,3 +1263,110 @@
     transform: translateY(0);
   }
 }
+
+/* Pokec Prompt Dropdown */
+.pokec-prompt-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.pokec-prompt-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pokec-prompt-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.pokec-prompt-btn:active {
+  transform: translateY(0);
+}
+
+.pokec-prompt-btn svg {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
+}
+
+.pokec-prompt-btn .chevron {
+  transition: transform 0.2s ease;
+}
+
+.pokec-prompt-btn.active .chevron {
+  transform: rotate(180deg);
+}
+
+.pokec-prompt-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 0.5rem;
+  min-width: 220px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  overflow: hidden;
+  animation: slideInUpFast 0.2s ease-out;
+}
+
+.pokec-prompt-menu.hidden {
+  display: none;
+}
+
+.prompt-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.prompt-item:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.prompt-item:active {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* Dark mode specifics */
+body.dark-theme .prompt-item {
+  color: #e4e6eb;
+}
+
+body.dark-theme .prompt-item:hover {
+  background: #3a3f4f;
+}
+
+body.dark-theme .prompt-item:active {
+  background: #4a4f5f;
+}
+
+@keyframes slideInUpFast {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
