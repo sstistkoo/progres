@@ -1,4 +1,5 @@
 import { state } from '../../../core/state.js';
+import { CodeEditorService } from './CodeEditorService.js';
 
 /**
  * PromptBuilder - Vytváří a spravuje AI prompty
@@ -12,34 +13,21 @@ import { state } from '../../../core/state.js';
 export class PromptBuilder {
   constructor(aiPanel) {
     this.aiPanel = aiPanel;
+    this.codeEditorService = aiPanel.codeEditorService;
   }
 
   /**
-   * Zkrátí kód inteligentně pro kontext
+   * Zkrátí kód inteligentně pro kontext - deleguje na CodeEditorService
    */
   truncateCodeIntelligently(code, maxChars = 3000) {
-    if (code.length <= maxChars) {
-      return code;
-    }
-
-    // Vezmi začátek a konec
-    const halfSize = Math.floor(maxChars / 2);
-    const start = code.substring(0, halfSize);
-    const end = code.substring(code.length - halfSize);
-
-    return {
-      code: start + '\n\n... [ZKRÁCENO] ...\n\n' + end,
-      truncated: true,
-      originalLength: code.length,
-    };
+    return this.codeEditorService.truncateCodeIntelligently(code, maxChars);
   }
 
   /**
-   * Přidá čísla řádků k kódu
+   * Přidá čísla řádků k kódu - deleguje na CodeEditorService
    */
   addLineNumbers(code, metadata = null) {
-    const lines = code.split('\n');
-    return lines.map((line, idx) => `${idx + 1}. ${line}`).join('\n');
+    return this.codeEditorService.addLineNumbers(code, metadata);
   }
 
   /**
