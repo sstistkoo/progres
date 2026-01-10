@@ -219,4 +219,76 @@ export const fileTools = {
       }
     },
   },
+
+  /**
+   * Načte soubor z projektu (přes HTTP)
+   */
+  load_project_file: {
+    schema: {
+      description: 'Load a file from the project directory and optionally insert it into the editor. Files must be accessible via HTTP (e.g., clean-calculator.html, test.html, etc.)',
+      parameters: {
+        type: 'object',
+        properties: {
+          filename: {
+            type: 'string',
+            description: 'Name of the file in project root (e.g., "clean-calculator.html")',
+          },
+          insertToEditor: {
+            type: 'boolean',
+            description: 'If true, insert file content into the editor',
+            default: false,
+          },
+        },
+        required: ['filename'],
+      },
+    },
+    handler: async ({ filename, insertToEditor = false }) => {
+      try {
+        // Načti soubor přes fetch
+        const response = await fetch(`/${filename}`);
+
+        if (!response.ok) {
+          return {
+            success: false,
+            error: `File '${filename}' not found (HTTP ${response.status})`,
+            suggestion: 'Make sure the file exists in project root and is accessible via HTTP',
+          };
+        }
+
+        const content = await response.text();
+        const lines = content.split('\n');
+
+        // Pokud je požadováno vložení do editoru
+        if (insertToEditor) {
+          state.set('editor.code', content);
+
+          return {
+            success: true,
+            action: 'loaded_and_inserted',
+            filename,
+            lines: lines.length,
+            characters: content.length,
+            message: `✅ Soubor '${filename}' byl načten a vložen do editoru`,
+          };
+        }
+
+        // Jinak jen vrať obsah
+        return {
+          success: true,
+          action: 'loaded',
+          filename,
+          lines: lines.length,
+          characters: content.length,
+          content,
+          message: `✅ Soubor '${filename}' byl načten (${lines.length} řádků)`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error.message,
+          suggestion: 'Check console for details',
+        };
+      }
+    },
+  },
 };

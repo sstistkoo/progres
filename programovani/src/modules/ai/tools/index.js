@@ -78,3 +78,10 @@ export function getToolsList() {
 
   return grouped;
 }
+
+// Export toolSystem pro globální přístup (debugging, testy)
+if (typeof window !== 'undefined') {
+  window.toolSystem = toolSystem;
+}
+
+export { toolSystem };

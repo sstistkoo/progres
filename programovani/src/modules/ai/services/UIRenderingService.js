@@ -185,20 +185,59 @@ export class UIRenderingService {
       }
     }
 
-    // Check if content is long (more than 500 characters) and wrap in collapsible
-    const isLongContent = content.length > 500;
+    // Check if content has action bar (undo/keep buttons) or is long
+    const hasActionBar = content.includes('code-action-bar');
+    const lineCount = content.split('\n').length;
+    const isLongContent = lineCount > 10 || content.length > 500;
 
-    if (isLongContent && role === 'assistant') {
+    // Auto-collapse long content or content with action bar
+    if ((isLongContent || hasActionBar) && role === 'assistant') {
       const preview = this.createContentPreview(content);
-      messageEl.innerHTML = `
-        <details class="message-collapsible" open>
-          <summary class="message-summary">
-            <span class="summary-text">${preview}</span>
-            <span class="toggle-icon">▼</span>
-          </summary>
-          <div class="message-content">${formattedContent}</div>
-        </details>
-      `;
+      const shouldStartCollapsed = hasActionBar || lineCount > 15;
+
+      // If has action bar, move it outside of details so it's always visible
+      if (hasActionBar) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = formattedContent;
+        const actionBar = tempDiv.querySelector('.code-action-bar');
+
+        if (actionBar) {
+          // Remove action bar from details content
+          actionBar.remove();
+          messageEl.innerHTML = `
+            ${actionBar.outerHTML}
+            <details class="message-collapsible">
+              <summary class="message-summary">
+                <span class="summary-text">${preview}</span>
+                <span class="toggle-icon">▼</span>
+              </summary>
+              <div class="message-content">${tempDiv.innerHTML}</div>
+            </details>
+          `;
+        } else {
+          // No action bar found, use regular collapsible
+          messageEl.innerHTML = `
+            <details class="message-collapsible" ${shouldStartCollapsed ? '' : 'open'}>
+              <summary class="message-summary">
+                <span class="summary-text">${preview}</span>
+                <span class="toggle-icon">▼</span>
+              </summary>
+              <div class="message-content">${formattedContent}</div>
+            </details>
+          `;
+        }
+      } else {
+        // No action bar, standard long content collapsible
+        messageEl.innerHTML = `
+          <details class="message-collapsible" ${shouldStartCollapsed ? '' : 'open'}>
+            <summary class="message-summary">
+              <span class="summary-text">${preview}</span>
+              <span class="toggle-icon">▼</span>
+            </summary>
+            <div class="message-content">${formattedContent}</div>
+          </details>
+        `;
+      }
     } else {
       messageEl.innerHTML = formattedContent;
     }
@@ -227,7 +266,7 @@ export class UIRenderingService {
       insertBtn.dataset.code = block.code;
       insertBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><path d="M12 5v14M5 12h14"/></svg> Vložit`;
       insertBtn.onclick = () => {
-        this.aiPanel.codeEditorService.insertCodeToEditor(block.code, content);
+        this.aiPanel.codeEditorService.insertCodeToEditor(block.code);
         insertBtn.textContent = `${ICONS.SPARKLES} Vloženo!`;
         setTimeout(() => {
           insertBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><path d="M12 5v14M5 12h14"/></svg> Vložit`;

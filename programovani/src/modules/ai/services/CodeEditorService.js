@@ -27,11 +27,40 @@ export class CodeEditorService {
       const searchCode = match[1].trim();
       const replaceCode = match[2].trim();
 
-      // Validate search code
-      if (!searchCode || searchCode === '...' || searchCode.includes('...existing code...')) {
-        console.warn('[CodeEditor] Invalid search code (empty or placeholder):', searchCode);
+      // Validate search code - skip placeholders and truncated code warnings
+      const invalidPatterns = [
+        '...existing code...',
+        '...rest of code...',
+        '...zbytek kódu...',
+        'ZKRÁCENO',
+        'ZKRACENO',
+        'NEJSOU VIDITELNÉ',
+        'NEJSOU VIDITELNE',
+        'PRO EDITACI TĚCHTO ŘÁDKŮ',
+        'PRO EDITACI TECHTO RADKU',
+        '🔽 ZKRÁCENO',
+        '⚠️ ŘÁDKY',
+        '<!-- smajlík odstraněn -->' // Avoid placeholder comments
+      ];
+
+      // Check for suspicious patterns that indicate placeholders
+      const hasPlaceholder = invalidPatterns.some(pattern =>
+        searchCode.includes(pattern) || replaceCode.includes(pattern)
+      );
+
+      // Check if search code is too short or looks like a placeholder
+      const isTooShort = searchCode.length < 5;
+      const looksLikeComment = /^\/\/\s*\.\.\.|^\/\*\s*\.\.\.|^<!--\s*\.\.\./.test(searchCode.trim());
+
+      if (!searchCode || hasPlaceholder || isTooShort || looksLikeComment) {
+        console.warn('[CodeEditor] Skipping invalid SEARCH/REPLACE block (placeholder detected)');
+        console.warn('  Search:', searchCode.substring(0, 80).replace(/\n/g, '↵'));
+        console.warn('  Replace:', replaceCode.substring(0, 80).replace(/\n/g, '↵'));
         continue;
       }
+
+      console.log('[CodeEditor] ✓ Valid SEARCH/REPLACE block accepted:',
+        searchCode.substring(0, 50).replace(/\n/g, '↵') + '...');
 
       instructions.push({
         searchCode,
@@ -39,6 +68,9 @@ export class CodeEditorService {
         type: 'search-replace'
       });
     }
+
+    console.log(`[CodeEditor] Parsed ${instructions.length} valid SEARCH/REPLACE instructions`);
+    return instructions;
 
     return instructions;
   }
@@ -214,7 +246,12 @@ export class CodeEditorService {
 
     for (let i = 0; i < edits.length; i++) {
       const edit = edits[i];
-      const searchCode = edit.searchCode;
+      let searchCode = edit.searchCode;
+      let replaceCode = edit.replaceCode;
+
+      // Remove line numbers if present (e.g. "50| code" -> "code")
+      searchCode = this.removeLineNumbers(searchCode);
+      replaceCode = this.removeLineNumbers(replaceCode);
 
       // Try exact match first
       let index = currentCode.indexOf(searchCode);
@@ -224,6 +261,7 @@ export class CodeEditorService {
         const occurrences = this.countOccurrences(currentCode, searchCode);
 
         if (occurrences > 1) {
+          console.warn(`[CodeEditor] Edit #${i + 1}: ❌ AMBIGUOUS - Code appears ${occurrences} times`);
           validationErrors.push({
             index: i + 1,
             reason: `Kód se vyskytuje ${occurrences}x - nejednoznačné`,
@@ -232,21 +270,57 @@ export class CodeEditorService {
           continue;
         }
 
-        validatedEdits.push({ ...edit, index, exact: true });
+        console.log(`[CodeEditor] Edit #${i + 1}: ✅ EXACT match found at index ${index}`);
+        validatedEdits.push({
+          ...edit,
+          searchCode,
+          replaceCode,
+          index,
+          exact: true
+        });
         continue;
       }
 
-      // Try fuzzy search
-      console.log(`[CodeEditor] Edit #${i + 1}: Exact match failed, trying fuzzy...`);
+      // Debug: Show why exact match failed
+      console.warn(`[CodeEditor] Edit #${i + 1}: Exact match FAILED`);
+      console.warn(`[CodeEditor] Looking for (first 100 chars):`, searchCode.substring(0, 100).replace(/\n/g, '↵').replace(/\t/g, '→'));
+      console.warn(`[CodeEditor] In code containing (first 200 chars):`, currentCode.substring(0, 200).replace(/\n/g, '↵').replace(/\t/g, '→'));
+
+      // Try semi-strict search (normalize leading whitespace only)
+      console.log(`[CodeEditor] Edit #${i + 1}: 🔍 Trying semi-strict search (tolerant to leading whitespace)...`);
+      const semiStrictResult = this.semiStrictSearch(currentCode, searchCode);
+
+      if (semiStrictResult.found) {
+        validatedEdits.push({
+          ...edit,
+          searchCode,
+          replaceCode,
+          index: semiStrictResult.index,
+          exact: 'semi'
+        });
+        console.log(`[CodeEditor] Edit #${i + 1}: ✅ Found via SEMI-STRICT search at index ${semiStrictResult.index}`);
+        continue;
+      }
+
+      // Try fuzzy search as last resort
+      console.warn(`[CodeEditor] Edit #${i + 1}: ⚠️ Semi-strict failed, trying full fuzzy...`);
+      console.warn(`[CodeEditor] This may lead to incorrect edits! AI should use EXACT code.`);
       const fuzzyResult = this.fuzzySearchCode(currentCode, searchCode);
 
       if (fuzzyResult.found) {
-        validatedEdits.push({ ...edit, index: fuzzyResult.index, exact: false });
-        console.log(`[CodeEditor] Edit #${i + 1}: Found via fuzzy search at index ${fuzzyResult.index}`);
+        validatedEdits.push({
+          ...edit,
+          searchCode,
+          replaceCode,
+          index: fuzzyResult.index,
+          exact: false
+        });
+        console.warn(`[CodeEditor] Edit #${i + 1}: ⚠️ Found via FUZZY search at index ${fuzzyResult.index} - may be wrong location!`);
         continue;
       }
 
       // Not found - try to suggest similar code
+      console.error(`[CodeEditor] Edit #${i + 1}: ❌ NOT FOUND - No match via exact, semi-strict, or fuzzy search`);
       const similarCode = this.findSimilarCode(currentCode, searchCode);
       validationErrors.push({
         index: i + 1,
@@ -299,7 +373,8 @@ export class CodeEditorService {
         exact: edit.exact
       });
 
-      console.log(`[CodeEditor] Applied edit at ${line}:${column} (${edit.exact ? 'exact' : 'fuzzy'})`);
+      const matchType = edit.exact === true ? 'exact' : edit.exact === 'semi' ? 'semi-strict' : 'fuzzy';
+      console.log(`[CodeEditor] Applied edit at ${line}:${column} (${matchType})`);
     }
 
     // Update editor
@@ -307,10 +382,35 @@ export class CodeEditorService {
 
     // Generate success message
     let message = `✅ Aplikováno ${appliedEdits.length}/${edits.length} změn:\n\n`;
+
+    let hasFuzzy = false;
+    let hasSemi = false;
     appliedEdits.forEach((edit, i) => {
-      const prefix = edit.exact ? '✅' : '⚠️ (fuzzy)';
-      message += `${prefix} Edit #${i + 1} at line:col ${edit.position}\n`;
+      let prefix = '✅';
+      let suffix = '';
+
+      if (edit.exact === 'semi') {
+        prefix = '✓';
+        suffix = ' (normalized indent)';
+        hasSemi = true;
+      } else if (!edit.exact) {
+        prefix = '⚠️';
+        suffix = ' (fuzzy)';
+        hasFuzzy = true;
+      }
+
+      message += `${prefix} Edit #${i + 1} at line:col ${edit.position}${suffix}\n`;
     });
+
+    if (hasSemi) {
+      message += `\nℹ️ Některé změny normalizovaly odsazení (AI použil jiný počet mezer).\n`;
+    }
+
+    if (hasFuzzy) {
+      message += `\n⚠️ VAROVÁNÍ: Některé změny použily FUZZY matching!\n`;
+      message += `Zkontroluj výsledek - AI nepoužil PŘESNÝ kód z editoru.\n`;
+      message += `💡 Tip: Požádej AI aby použil přesnější SEARCH blok.\n`;
+    }
 
     if (validationErrors.length > 0) {
       message += `\n⚠️ ${validationErrors.length} změn nebylo aplikováno (viz výše)`;
@@ -322,6 +422,63 @@ export class CodeEditorService {
   /**
    * Fuzzy search with whitespace normalization
    */
+  /**
+   * Semi-strict search: Normalize leading whitespace on each line, but keep everything else exact
+   * This allows AI to use any indentation, but the rest of the code must match exactly
+   */
+  semiStrictSearch(code, search) {
+    try {
+      // Normalize line endings in both code and search to \n
+      const normalizedCode = code.replace(/\r\n/g, '\n');
+      const normalizedSearch = search.replace(/\r\n/g, '\n');
+
+      const searchLines = normalizedSearch.split('\n');
+
+      // Build a regex pattern that matches the search content but allows any leading whitespace
+      // Escape special regex characters except for leading whitespace
+      const patternLines = searchLines.map(line => {
+        const trimmed = line.trimStart();
+        if (trimmed.length === 0) {
+          // Empty or whitespace-only line
+          return '';
+        }
+        // Match any amount of leading whitespace, then the exact content
+        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return '\\s*' + escaped;
+      });
+
+      // Join with exact newline (not flexible whitespace around it)
+      const pattern = patternLines.join('\n');
+      const regex = new RegExp(pattern);
+
+      console.log('[CodeEditor] Semi-strict search:', {
+        searchLines: searchLines.length,
+        patternPreview: pattern.substring(0, 150),
+        searchPreview: normalizedSearch.substring(0, 100).replace(/\n/g, '↵')
+      });
+
+      const match = regex.exec(normalizedCode);
+
+      if (match) {
+        console.log('[CodeEditor] ✅ Semi-strict match found at index:', match.index);
+        return { found: true, index: match.index };
+      }
+
+      console.log('[CodeEditor] ❌ Semi-strict: No match found');
+      return { found: false, index: -1 };
+    } catch (error) {
+      console.error('[CodeEditor] Semi-strict search error:', error);
+      return { found: false, index: -1 };
+    }
+  }
+
+  /**
+   * Remove line numbers from code (e.g. "50| code" -> "code")
+   */
+  removeLineNumbers(code) {
+    return code.replace(/^\s*\d+\|\s*/gm, '');
+  }
+
   fuzzySearchCode(code, search) {
     try {
       // Normalize whitespace
@@ -547,8 +704,8 @@ export class CodeEditorService {
   async insertCodeToEditor(code, fullResponse) {
     console.log('[CodeEditor] Inserting code to editor...');
 
-    // Get current editor content
-    const currentCode = SafeOps.safe(
+    // Get current editor content (PŘED změnami - pro možnost vrácení zpět)
+    const originalCode = SafeOps.safe(
       () => state.get('editor.code') || '',
       'Chyba při získávání kódu z editoru'
     );
@@ -557,38 +714,14 @@ export class CodeEditorService {
     const workMode = this.panel.workMode || 'continue';
     console.log('[CodeEditor] Režim práce:', workMode);
 
-    // 1. NEJDŘÍV: Pokud je režim "nový projekt" a editor má obsah - zobrazit potvrzení
-    if (workMode === 'new-project' && currentCode && currentCode.trim().length > 50) {
+    // Pokud je režim "nový projekt" a editor má obsah - zobrazit potvrzení
+    if (workMode === 'new-project' && originalCode && originalCode.trim().length > 50) {
       console.log('[CodeEditor] Režim "Nový projekt" - zobrazuji potvrzení');
       const confirmed = await this.showNewProjectConfirmation();
       if (!confirmed) {
         console.log('[CodeEditor] Uživatel zrušil smazání projektu');
         return 'Vytvoření nového projektu zrušeno.';
       }
-      // Vymazat kód v editoru pro nový projekt
-      SafeOps.safe(
-        () => {
-          state.set('editor.code', '');
-          eventBus.emit('editor:setCode', { code: '' });
-        },
-        'Chyba při mazání kódu'
-      );
-      console.log('[CodeEditor] Současný projekt smazán');
-    }
-
-    // 2. POTOM: Zobrazit schvalovací dialog s náhledem změn (VS Code style)
-    const approvedCode = workMode === 'new-project' ? '' : currentCode; // Pro nový projekt ukázat prázdný editor
-    const approved = await this.showCodeApprovalDialog(approvedCode, code);
-    if (!approved) {
-      console.log('[CodeEditor] Uživatel odmítl změny');
-      // Pokud uživatel odmítl, vrátit původní kód (pokud byl smazán)
-      if (workMode === 'new-project' && currentCode) {
-        SafeOps.safe(
-          () => eventBus.emit('editor:setCode', { code: currentCode }),
-          'Chyba při obnovování kódu'
-        );
-      }
-      return '❌ Změny odmítnuty';
     }
 
     // Detect duplicate variables
@@ -604,19 +737,19 @@ export class CodeEditorService {
     }
 
     // Save current code to history before change (only in continue mode and if has content)
-    if (workMode === 'continue' && currentCode && currentCode.length > 0) {
+    if (workMode === 'continue' && originalCode && originalCode.length > 0) {
       SafeOps.safe(
         () => {
           const history = state.get('editor.history') || [];
-          history.push({ code: currentCode, timestamp: Date.now() });
+          history.push({ code: originalCode, timestamp: Date.now() });
           if (history.length > 20) history.shift(); // Keep last 20 versions
-          state.actions.set('editor.history', history);
+          state.set('editor.history', history);
         },
         'Chyba při ukládání historie editoru'
       );
     }
 
-    // Insert code
+    // Insert code ROVNOU do editoru
     SafeOps.safe(
       () => eventBus.emit('editor:setCode', { code }),
       'Chyba při nastavování hodnoty editoru'
@@ -647,6 +780,69 @@ export class CodeEditorService {
 
     console.log('[CodeEditor] Code inserted successfully');
     return message;
+  }
+
+  /**
+   * Show Undo/Redo buttons in AI message (VS Code style)
+   */
+  showUndoRedoButtons(originalCode, newCode) {
+    // Najít poslední AI zprávu v chatu
+    const messagesContainer = document.querySelector('#aiChatMessages');
+    if (!messagesContainer) return;
+
+    const aiMessages = messagesContainer.querySelectorAll('.ai-message.assistant');
+    if (aiMessages.length === 0) return;
+
+    const lastAiMessage = aiMessages[aiMessages.length - 1];
+
+    // Odstranit existující action bar (pokud je)
+    const existingActionBar = lastAiMessage.querySelector('.code-action-bar');
+    if (existingActionBar) {
+      existingActionBar.remove();
+    }
+
+    // Vytvořit action bar s tlačítky
+    const actionBar = document.createElement('div');
+    actionBar.className = 'code-action-bar';
+    actionBar.innerHTML = `
+      <div class="action-bar-content">
+        <span class="action-bar-label">Změny aplikovány</span>
+        <div class="action-bar-buttons">
+          <button class="action-btn undo-btn" data-action="undo">
+            <span class="btn-icon">↶</span>
+            <span class="btn-text">Vrátit zpět</span>
+          </button>
+          <button class="action-btn keep-btn" data-action="keep">
+            <span class="btn-icon">✓</span>
+            <span class="btn-text">Zachovat</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Přidat action bar na konec AI zprávy
+    lastAiMessage.appendChild(actionBar);
+
+    // Event listenery pro tlačítka
+    const undoBtn = actionBar.querySelector('.undo-btn');
+    const keepBtn = actionBar.querySelector('.keep-btn');
+
+    undoBtn.onclick = () => {
+      // Vrátit původní kód
+      SafeOps.safe(
+        () => eventBus.emit('editor:setCode', { code: originalCode }),
+        'Chyba při vracení kódu'
+      );
+      actionBar.innerHTML = '<div class="action-bar-result undo">↶ Změny vráceny zpět</div>';
+      toast.show('↶ Změny vráceny zpět', 'info');
+      // NEMAZAT automaticky - ať uživatel vidí výsledek
+    };
+
+    keepBtn.onclick = () => {
+      actionBar.innerHTML = '<div class="action-bar-result keep">✓ Změny zachovány</div>';
+      toast.show('✓ Změny zachovány', 'success');
+      // NEMAZAT automaticky - ať uživatel vidí výsledek
+    };
   }
 
   /**
@@ -908,123 +1104,5 @@ export class CodeEditorService {
     });
   }
 
-  /**
-   * Show code approval dialog (VS Code style)
-   * @param {string} oldCode - Current code in editor
-   * @param {string} newCode - Proposed new code
-   * @returns {Promise<boolean>} - true if approved, false if rejected
-   */
-  async showCodeApprovalDialog(oldCode, newCode) {
-    return new Promise((resolve) => {
-      // Calculate diff statistics
-      const oldLines = oldCode.split('\n');
-      const newLines = newCode.split('\n');
-      const stats = this.calculateDiffStats(oldLines, newLines);
 
-      // Create dialog overlay
-      const overlay = document.createElement('div');
-      overlay.className = 'code-approval-overlay';
-      overlay.innerHTML = `
-        <div class="code-approval-dialog">
-          <div class="code-approval-header">
-            <h3>🔍 Kontrola změn</h3>
-            <div class="code-approval-stats">
-              <span class="stat-added">+${stats.added} řádků</span>
-              <span class="stat-removed">-${stats.removed} řádků</span>
-              <span class="stat-changed">~${stats.changed} změn</span>
-            </div>
-          </div>
-
-          <div class="code-approval-preview">
-            <div class="preview-section">
-              <div class="preview-label">📝 Současný kód (${oldLines.length} řádků)</div>
-              <pre class="preview-code old-code">${this.escapeHtml(oldCode.substring(0, 2000))}${oldCode.length > 2000 ? '\n...' : ''}</pre>
-            </div>
-            <div class="preview-divider">→</div>
-            <div class="preview-section">
-              <div class="preview-label">✨ Nový kód (${newLines.length} řádků)</div>
-              <pre class="preview-code new-code">${this.escapeHtml(newCode.substring(0, 2000))}${newCode.length > 2000 ? '\n...' : ''}</pre>
-            </div>
-          </div>
-
-          <div class="code-approval-actions">
-            <button class="approval-btn reject-btn">
-              <span class="btn-icon">✗</span>
-              <span class="btn-text">Odmítnout</span>
-            </button>
-            <button class="approval-btn accept-btn">
-              <span class="btn-icon">✓</span>
-              <span class="btn-text">Přijmout změny</span>
-            </button>
-          </div>
-        </div>
-      `;
-
-      document.body.appendChild(overlay);
-
-      const acceptBtn = overlay.querySelector('.accept-btn');
-      const rejectBtn = overlay.querySelector('.reject-btn');
-
-      const cleanup = () => {
-        overlay.remove();
-      };
-
-      acceptBtn.onclick = () => {
-        cleanup();
-        toast.show('✅ Změny přijaty', 'success');
-        resolve(true);
-      };
-
-      rejectBtn.onclick = () => {
-        cleanup();
-        toast.show('❌ Změny odmítnuty', 'info');
-        resolve(false);
-      };
-
-      // ESC key closes dialog
-      const handleEsc = (e) => {
-        if (e.key === 'Escape') {
-          cleanup();
-          document.removeEventListener('keydown', handleEsc);
-          resolve(false);
-        }
-      };
-      document.addEventListener('keydown', handleEsc);
-    });
-  }
-
-  /**
-   * Calculate diff statistics
-   */
-  calculateDiffStats(oldLines, newLines) {
-    let added = 0;
-    let removed = 0;
-    let changed = 0;
-
-    const maxLen = Math.max(oldLines.length, newLines.length);
-
-    for (let i = 0; i < maxLen; i++) {
-      const oldLine = oldLines[i];
-      const newLine = newLines[i];
-
-      if (oldLine === undefined) {
-        added++;
-      } else if (newLine === undefined) {
-        removed++;
-      } else if (oldLine !== newLine) {
-        changed++;
-      }
-    }
-
-    return { added, removed, changed };
-  }
-
-  /**
-   * Escape HTML for safe display
-   */
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
 }

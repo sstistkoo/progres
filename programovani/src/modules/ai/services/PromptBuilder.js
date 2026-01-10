@@ -93,18 +93,24 @@ export class PromptBuilder {
     const msg = message ? message.toLowerCase() : '';
 
     // Detect if AI will likely use EDIT:LINES mode
+    // Expanded keywords for better detection of edit requests
     const willEdit = hasCode && (
-      msg.match(/změň|change|uprav|edit|oprav|fix|přidej|add|odstraň|remove|smaž|delete/) ||
+      msg.match(/změň|change|uprav|edit|oprav|fix|přidej|add|odstraň|odstran|remove|smaž|smaz|delete|vymaž|vymaz|nahraď|nahrad|replace|vyhod|vyhoď|zruš|zrus|skryj|vyřaď|vyrad|zbav\s+se|pryč|pryc|hide|clear|erase|get\s+rid|throw\s+out|ať/) ||
       msg.includes('celý soubor') ||
       msg.includes('celý kód') ||
-      msg.includes('zobraz vše')
+      msg.includes('cely soubor') ||
+      msg.includes('cely kod') ||
+      msg.includes('zobraz vše') ||
+      msg.includes('zobraz vse')
     );
 
     // Detect READ-ONLY requests (description, analysis) - need full code!
     const isReadOnly = hasCode && msg.match(/popiš|popis|vysvětli|vysvětlení|analyzuj|analýza|co je|co dělá|jak funguje|jaký je|ukáž|zobraz|přečti/);
 
     // For EDIT mode, READ-ONLY mode, or small files, send full code with line numbers
+    // 🔴 DŮLEŽITÉ: Pro editační požadavky VŽDY posíláme celý kód, aby AI mohl přesně identifikovat co změnit!
     if (willEdit || isReadOnly || currentCode.length < 8000) {
+      console.log('[PromptBuilder] Sending full code for editing (willEdit:', willEdit, ')');
       return this.addLineNumbers(currentCode);
     }
 
@@ -327,11 +333,76 @@ Pro úpravy existujícího kódu PREFERUJ tento formát:
 [nový kód kterým ho nahradíš]
 \`\`\`
 
+� KRITICKÉ! KÓD VIDÍŠ S ČÍSLY ŘÁDKŮ - IGNORUJ JE PŘI KOPÍROVÁNÍ! 🚨
+
+Když vidíš kód jako:
+\`\`\`
+  235|     <div class="calculator-container">
+  236|       <h1>Kalkulačka</h1>
+\`\`\`
+
+Do SEARCH bloku zkopíruj BEZ čísel řádků, ale VČETNĚ mezer před prvním znakem:
+\`\`\`SEARCH
+    <div class="calculator-container">
+      <h1>Kalkulačka</h1>
+\`\`\`
+
+❌ ŠPATNĚ (chybí mezery na začátku):
+\`\`\`SEARCH
+<div class="calculator-container">
+  <h1>Kalkulačka</h1>
+\`\`\`
+
+✅ SPRÁVNĚ (zachovány všechny mezery před prvním znakem):
+\`\`\`SEARCH
+    <div class="calculator-container">
+      <h1>Kalkulačka</h1>
+\`\`\`
+
 🔴 KRITICKÉ PRAVIDLO PRO SEARCH BLOK:
 - SEARCH blok MUSÍ obsahovat PŘESNOU kopii kódu z editoru
+- ✅ VČETNĚ VŠECH MEZER NA ZAČÁTKU KAŽDÉHO ŘÁDKU!
+- ✅ Spočítej mezery před prvním znakem a použij STEJNÝ počet!
 - ❌ NIKDY "..." nebo zkratky
 - ❌ NIKDY "zkráceno" nebo placeholdery
-- ✅ Zkopíruj PŘESNĚ kód ze zdrojového souboru
+- ❌ NIKDY "🔽 ZKRÁCENO" text - to je jen UI značka!
+- ❌ NIKDY "⚠️ ŘÁDKY NEJSOU VIDITELNÉ" - to je jen upozornění!
+- ✅ Zkopíruj PŘESNĚ kód ze zdrojového souboru (včetně všech řádků!)
+- ✅ Zachovej PŘESNÉ odsazení (mezery nebo tabulátory - jak je v originále!)
+- ✅ Zachovaj PŘESNÉ konce řádků (CRLF nebo LF - jak je v originále!)
+- ✅ Pokud kód obsahuje "🔽 ZKRÁCENO", NEJPRVE napiš: "Potřebuji vidět celý kód v této sekci"
+
+⚠️ WHITESPACE JE DŮLEŽITÝ!
+- Kód v editoru může používat MEZERY nebo TABULÁTORY pro odsazení
+- MUSÍŠ použít STEJNÉ znaky jako v originále!
+- Copy-paste kód PŘESNĚ jak je - bez reformátování!
+- Pokud vidíš "    " (4 mezery) v editoru, použij "    " (4 mezery)
+- Pokud vidíš "\t" (tabulátor) v editoru, použij "\t" (tabulátor)
+
+🎯 POKUD CHCEŠ ODSTRANIT/ZMĚNIT VÍCE STEJNÝCH ELEMENTŮ:
+- Použij VÍCERO SEARCH/REPLACE bloků (jeden pro každý element)
+- NEBO použij jeden SEARCH blok obsahující všechny elementy najednou
+- ❌ NIKDY nepoužij jen jeden SEARCH blok pro první výskyt, pokud je jich víc!
+
+💡 PŘÍKLAD - Odstranění dvou smajlíků:
+
+\`\`\`SEARCH
+<div class="emoji-container">
+  <span class="emoji" aria-label="Smutný smajlík">😔</span>
+</div>
+
+<div class="emoji-container left-emoji">
+  <span class="emoji" aria-label="Vysmátý smajlík">😂</span>
+</div>
+\`\`\`
+\`\`\`REPLACE
+<!-- Smajlíky odstraněny -->
+\`\`\`
+
+⚠️ POKUD VIDÍŠ ZKRÁCENÝ KÓD (např. "🔽 ZKRÁCENO 336 ŘÁDKŮ"):
+1. NEPOKOUŠEJ SE editovat zkrácenou část!
+2. Místo toho napiš: "Potřebuji zobrazit celý kód. Požádej uživatele: 'zobraz celý kód' nebo 'zobraz řádky X-Y'"
+3. POČKEJ na celý kód před editací
 
 📝 PŘÍKLAD - SPRÁVNĚ:
 
@@ -349,10 +420,10 @@ console.log(x + y);
 ❌ PŘÍKLAD - ŠPATNĚ (nikdy nedělej!):
 
 \`\`\`SEARCH
-const x = 3;
+🔽 ZKRÁCENO 336 ŘÁDKŮ (42-377) 🔽
 \`\`\`
 \`\`\`REPLACE
-const y = 4;
+ZKRÁCENO 336 ŘÁDKŮ (42-377)
 \`\`\`
 
 ═══════════════════════════════════════════════════════════
