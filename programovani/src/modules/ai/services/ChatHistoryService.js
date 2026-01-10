@@ -20,8 +20,8 @@ export class ChatHistoryService {
    * Vymaže historii chatu
    */
   clearChatHistory() {
-    this.aiPanel.chatHistory = [];
-    state.set('ai.chatHistory', []);
+    this.aiPanel.chatService.clearHistory();
+    this.aiPanel.chatHistory = this.aiPanel.chatService.getHistory();
     const messagesContainer = this.aiPanel.modal?.element?.querySelector('#aiChatMessages');
     if (messagesContainer) {
       messagesContainer.innerHTML = `

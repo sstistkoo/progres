@@ -17,11 +17,16 @@ import { TemplatesService } from './services/TemplatesService.js';
 import { FileAttachmentService } from './services/FileAttachmentService.js';
 import { AgentsService } from './services/AgentsService.js';
 import { ChatHistoryService } from './services/ChatHistoryService.js';
+import { ChatService } from './services/ChatService.js';
+import { PromptBuilder } from './services/PromptBuilder.js';
+import { MESSAGES, ICONS } from './constants/Messages.js';
 
 export class AIPanel {
   constructor() {
     this.modal = null;
-    this.chatHistory = state.get('ai.chatHistory') || [];
+    this.chatService = new ChatService();
+    this.promptBuilder = new PromptBuilder(this);
+    this.chatHistory = this.chatService.getHistory();
     this.pendingChanges = new Map(); // Store pending changes for accept/reject
     this.originalCode = null; // Store original code before changes
     this.aiTester = new AITester();
@@ -1303,15 +1308,8 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
     // Add to history
-    this.chatHistory.push({
-      role: 'user',
-      content: message
-    });
-
-    // Uložit historii do state
-    state.set('ai.chatHistory', this.chatHistory);
-
-    // Update history counter
+    this.chatService.addToHistory('user', message);
+    this.chatHistory = this.chatService.getHistory();
     this.chatHistoryService.updateHistoryInfo();
 
     try {
@@ -1325,208 +1323,14 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       const currentCode = state.get('editor.code') || '';
       const openFiles = state.get('files.tabs') || [];
       const activeFileId = state.get('files.active');
-      const activeFile = openFiles.find(f => f.id === activeFileId);
 
-      // Build files context - ENHANCED with content and attached files
-      let filesContext = '';
-
-      // Add attached files first (priority context)
-      const contextFiles = this.fileAttachmentService.getAttachedFiles();
-      if (contextFiles && contextFiles.length > 0) {
-        filesContext += '\n\n## 📎 Přiložené soubory pro kontext:\n\n';
-        contextFiles.forEach(file => {
-          const lines = file.content.split('\n').length;
-          const ext = file.name.split('.').pop();
-          const language = this.fileAttachmentService.detectLanguage(ext);
-          filesContext += `### ${file.name} (${lines} řádků):\n\`\`\`${language}\n${file.content}\n\`\`\`\n\n`;
-        });
-      }
-
-      if (openFiles.length > 0) {
-        // Pokud je více souborů, přidej jejich obsah
-        if (openFiles.length > 1) {
-          const MAX_TOTAL_SIZE = 30000; // Max 30k znaků pro všechny soubory
-          let totalSize = 0;
-          const filesWithContent = [];
-
-          for (const f of openFiles) {
-            const content = f.content || '';
-            if (totalSize + content.length < MAX_TOTAL_SIZE) {
-              filesWithContent.push({
-                name: f.name,
-                language: f.language || 'html',
-                lines: content.split('\n').length,
-                content,
-                isActive: f.id === activeFileId,
-              });
-              totalSize += content.length;
-            } else {
-              filesWithContent.push({
-                name: f.name,
-                truncated: true,
-                isActive: f.id === activeFileId,
-              });
-            }
-          }
-
-          filesContext += `\n\nOtevřené soubory (${openFiles.length}):\n\n`;
-          filesWithContent.forEach(f => {
-            if (f.truncated) {
-              filesContext += `📄 **${f.name}**${f.isActive ? ' (aktivní)' : ''} - [obsah vynechán kvůli velikosti]\n\n`;
-            } else {
-              filesContext += `📄 **${f.name}**${f.isActive ? ' (aktivní)' : ''} (${f.lines} řádků, ${f.language}):\n\`\`\`${f.language}\n${f.content}\n\`\`\`\n\n`;
-            }
-          });
-        } else {
-          // Jen jeden soubor - základní info
-          filesContext += `\n\nOtevřené soubory:\n${openFiles.map(f => `- ${f.name}${f.id === activeFileId ? ' (aktivní)' : ''}`).join('\n')}`;
-        }
-      }
-
-      // Build chat history context (last 10 messages)
-      let historyContext = '';
-      if (this.chatHistory.length > 1) {
-        const recentHistory = this.chatHistory.slice(-10);
-        historyContext = `\n\nPředchozí konverzace:\n${recentHistory.map(msg =>
-          `${msg.role === 'user' ? 'Uživatel' : 'AI'}: ${msg.content.substring(0, 200)}${msg.content.length > 200 ? '...' : ''}`
-        ).join('\n')}`;
-      }
-
-      // Check if this is orchestrator new project (empty editor + minimal history)
-      const isNewOrchestratorProject = currentCode.trim() === '' && this.chatHistory.length <= 1;
-
-      // Build system prompt with context
-      let systemPrompt;
-
-      if (isNewOrchestratorProject) {
-        // New orchestrator project - NO old code context
-        console.log('🎯 Orchestrator režim: Generuji bez starého kontextu');
-        systemPrompt = `Jsi expert full-stack vývojář vytvářející KOMPLETNÍ FUNKČNÍ webové aplikace od nuly.
-
-🎯 TVŮJ CÍL:
-Vytvořit plně funkční, moderní webovou aplikaci podle zadání uživatele.
-
-📋 STRUKTURA VÝSTUPU:
-1. Kompletní HTML s DOCTYPE, head (meta, title), body
-2. CSS styly v <style> tagu v <head> - moderní, responzivní design
-3. JavaScript v <script> tagu před </body> - PLNÁ FUNKČNOST
-
-⚠️ KRITICKÁ PRAVIDLA:
-✅ VŽDY přidej event listenery a kompletní logiku
-✅ Každá proměnná UNIKÁTNÍ název (result1, result2, input1, input2...)
-✅ TESTUJ kód mentálně - žádné chyby, žádné duplicity
-✅ Modern JavaScript (addEventListener, querySelector, arrow functions)
-✅ Responzivní CSS (flexbox/grid, mobile-first)
-❌ NIKDY jen HTML/CSS bez JavaScriptu
-❌ NIKDY duplicitní let/const/var deklarace
-❌ NIKDY nedokončený nebo nefunkční kód
-
-📐 BEST PRACTICES:
-- Sémantický HTML5 (section, article, nav...)
-- CSS custom properties (--primary-color: #...)
-- Input validace a error handling
-- Přístupnost (labels, ARIA, keyboard navigation)
-- Clean code - komentáře u složitějších částí
-
-�️ MULTI-FILE NÁSTROJE:
-- **create_file(fileName, content, language)** - Vytvoř nový soubor (styles.css, app.js...)
-- **read_file(fileName)** - Přečti obsah souboru
-- **list_files()** - Seznam všech souborů
-- Pro komplexnější projekty VYTVOŘ VÍCE SOUBORŮ místo inline kódu!
-
-�🔄 PŘED ODESLÁNÍM:
-1. Zkontroluj duplicitní proměnné
-2. Ověř že všechny eventy jsou navázané
-3. Ujisti se že kód funguje samostatně
-
-Odpovídej česky, kód zabal do \`\`\`html...\`\`\`.`;
-      } else {
-        // Normal mode - include current code context
-        const hasCode = currentCode && currentCode.trim().length > 100;
-        const hasHistory = this.chatHistory && this.chatHistory.length > 2;
-
-        systemPrompt = `Jsi expert programátor a full-stack vývojář. Pomáháš s vývojem webových aplikací.
-
-📁 KONTEXT PROJEKTU:
-${filesContext}
-
-📄 ${activeFile ? `Aktivní soubor: ${activeFile.name}` : 'Žádný aktivní soubor'}
-💾 Aktuální kód v editoru (${currentCode ? currentCode.split('\n').length : 0} řádků):
-\`\`\`html
-${currentCode ? (() => {
-    // Detect if AI will likely use EDIT:LINES mode
-    const msg = message ? message.toLowerCase() : '';
-    const willEdit = hasCode && (
-      msg.match(/změň|change|uprav|edit|oprav|fix|přidej|add|odstraň|remove|smaž|delete/) ||
-      msg.includes('celý soubor') ||
-      msg.includes('celý kód') ||
-      msg.includes('zobraz vše')
-    );
-
-    // Detect READ-ONLY requests (description, analysis) - need full code!
-    const isReadOnly = hasCode && msg.match(/popiš|popis|vysvětli|vysvětlení|analyzuj|analýza|co je|co dělá|jak funguje|jaký je|ukáž|zobraz|přečti/);
-
-    // For EDIT mode, READ-ONLY mode, or small files, send full code with line numbers
-    if (willEdit || isReadOnly || currentCode.length < 8000) {
-      return this.addLineNumbers(currentCode);
-    }
-
-    // Otherwise truncate for context
-    const truncated = this.truncateCodeIntelligently(currentCode, 3000);
-    return this.addLineNumbers(typeof truncated === 'string' ? truncated : truncated.code, typeof truncated === 'object' ? truncated : null);
-  })() : '(prázdný editor)'}
-\`\`\`
-
-💬 ${historyContext}
-
-🎯 TVŮJ ÚKOL:
-${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
-
-📋 PRAVIDLA VÝSTUPU:
-✅ Kód MUSÍ obsahovat JavaScript pro interaktivitu
-✅ Všechny proměnné UNIKÁTNÍ názvy (no duplicates!)
-✅ Event listenery připojené správně
-✅ Moderní ES6+ syntax (const/let, arrow functions)
-✅ Validace vstupů, error handling
-✅ Responzivní design (mobile-first)
-❌ NIKDY jen HTML/CSS bez funkčnosti
-❌ NIKDY duplicitní deklarace proměnných
-❌ NIKDY neúplný nebo nefunkční kód
-
-🗂️ MULTI-FILE PROJEKTY:
-- Projekt může obsahovat VÍCE souborů (.html, .css, .js, .png...)
-- Vidíš seznam všech otevřených souborů výše v KONTEXT PROJEKTU
-- ⚠️ NEPOTŘEBUJEŠ vždy VŠECHNY soubory! Zaměř se jen na relevantní
-- 🧠 CHÁPEJ KONTEXT a NAJDI SPRÁVNÝ SOUBOR:
-  • Změna barev, fontů, layoutu → Hledej .css soubor (styles.css, style.css, main.css)
-  • Nová funkce, event handler → Hledej .js soubor (script.js, main.js, app.js)
-  • Struktura HTML, přidání elementů → Hledej .html soubor (index.html)
-  • ❌ NIKDY nepřidávej CSS do HTML pokud existuje samostatný .css soubor!
-  • ❌ NIKDY nepřidávaj JS do HTML pokud existuje samostatný .js soubor!
-- 📍 OZNAČENÍ SOUBORU: Vždy jasně řekni: "Otevři soubor **styles.css** a změň..."
-- CSS a JS soubory se AUTOMATICKY injektují do HTML preview
-- Obrázky (.png, .jpg) se stahují jako base64 a zobrazují v preview
-- Pokud příslušný soubor NEEXISTUJE, doporuč vytvořit: "Vytvoř nový soubor **styles.css** s tímto obsahem:"
-- Pro úpravy více souborů najednou uveď každý zvlášť se správným code blokem (\\\`\\\`\\\`html, \\\`\\\`\\\`css, \\\`\\\`\\\`javascript)
-- Relativní cesty v HTML fungují automaticky díky injection systému
-
-�️ K DISPOZICI NÁSTROJE PRO PRÁCI S VÍCE SOUBORY:
-- **read_file(fileName)** - Přečte obsah konkrétního souboru
-- **list_files(includeContent)** - Seznam všech otevřených souborů s metadaty
-- **edit_file(fileName, content, switchBack)** - Upraví konkrétní soubor
-- **create_file(fileName, content, language, switchTo)** - Vytvoří nový soubor
-- **switch_file(fileName)** - Přepne na jiný soubor
-- **read_all_files(maxFilesSize)** - Přečte všechny soubory najednou
-- Pokud potřebuješ obsah souboru který není v kontextu, POUŽIJ tool read_file!
-- Pro vytváření nových souborů POUŽIJ tool create_file místo žádání uživatele!
-
-�💡 ODPOVĚDI:
-- Stručně a prakticky v češtině
-- Kód zabal do \\\`\\\`\\\`html...\\\`\\\`\\\` (nebo \\\`\\\`\\\`css\\\`\\\`\\\`, \\\`\\\`\\\`javascript\\\`\\\`\\\`)
-- Pro vysvětlení použij jasný jazyk
-- Navazuj na předchozí konverzaci
-- Pokud doporučuješ více souborů, jasně to označ`;
-      }
+      // Build system prompt using PromptBuilder
+      let systemPrompt = this.promptBuilder.buildSystemPrompt(
+        message,
+        currentCode,
+        openFiles,
+        activeFileId
+      );
 
       // Get provider and model from UI
       let provider = this.modal.element.querySelector('#aiProvider')?.value;
@@ -1694,15 +1498,8 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
       }
 
       // Add to history
-      this.chatHistory.push({
-        role: 'assistant',
-        content: response
-      });
-
-      // Uložit historii do state
-      state.set('ai.chatHistory', this.chatHistory);
-
-      // Update history counter
+      this.chatService.addToHistory('assistant', response);
+      this.chatHistory = this.chatService.getHistory();
       this.chatHistoryService.updateHistoryInfo();
 
       // Odstranit loading animaci
@@ -2143,7 +1940,6 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
             const lastMsg = this.chatHistory[this.chatHistory.length - 1];
             if (lastMsg && lastMsg.role === 'assistant' && lastMsg.codeStatus) {
               delete lastMsg.codeStatus[`code-${index}`];
-              state.set('ai.chatHistory', this.chatHistory);
             }
 
             // Clear container and re-add buttons
@@ -2273,7 +2069,6 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
     if (lastMsg && lastMsg.role === 'assistant') {
       if (!lastMsg.codeStatus) lastMsg.codeStatus = {};
       lastMsg.codeStatus[`code-${codeIndex}`] = 'accepted';
-      state.set('ai.chatHistory', this.chatHistory);
     }
 
     // Remove from pending
@@ -2312,7 +2107,6 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
     if (lastMsg && lastMsg.role === 'assistant') {
       if (!lastMsg.codeStatus) lastMsg.codeStatus = {};
       lastMsg.codeStatus[`code-${codeIndex}`] = 'rejected';
-      state.set('ai.chatHistory', this.chatHistory);
     }
 
     // Remove from pending
@@ -4471,11 +4265,8 @@ ODPOVĚZ VE FORMÁTU:
         this.addChatMessage('ai', description);
 
         // Add to history (without full code)
-        this.chatHistory.push({
-          role: 'assistant',
-          content: description
-        });
-
+        this.chatService.addToHistory('assistant', description);
+        this.chatHistory = this.chatService.getHistory();
         // Insert code to editor
         this.insertCodeToEditor(code, false);
 
@@ -4490,10 +4281,8 @@ ODPOVĚZ VE FORMÁTU:
         this.addChatMessage('ai', response);
 
         // Add to history
-        this.chatHistory.push({
-          role: 'assistant',
-          content: response
-        });
+        this.chatService.addToHistory('assistant', response);
+        this.chatHistory = this.chatService.getHistory();
       }
 
       // Update history counter
@@ -5358,11 +5147,8 @@ Workflow: ${teamSuggestion.workflow}
 Začni vytvořením kompletního základního souboru.`;
 
     // Add to chat history
-    this.chatHistory.push({
-      role: 'system',
-      content: orchestratorPrompt
-    });
-
+    this.chatService.addToHistory('system', orchestratorPrompt);
+    this.chatHistory = this.chatService.getHistory();
     // Display in chat
     this.addChatMessage('system', orchestratorPrompt);
 
