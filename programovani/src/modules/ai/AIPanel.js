@@ -165,10 +165,6 @@ export class AIPanel {
           <option value="export-action">📥 Export chatu</option>
           <option value="clear-action">🗑️ Vymazat historii</option>
         </select>
-        <button class="ai-error-indicator" id="aiErrorIndicator" title="Klikněte pro odeslání chyb AI">
-          <span class="error-icon">✓</span>
-          <span class="error-count">0 chyb</span>
-        </button>
         <div class="ai-settings-header" id="aiSettingsHeader">
           <button class="ai-settings-toggle" type="button">Nastavení AI <span class="toggle-arrow">▼</span></button>
           <div class="ai-header-settings hidden">
@@ -264,6 +260,10 @@ export class AIPanel {
                 rows="3"
               ></textarea>
               <div class="ai-chat-buttons">
+                <button class="ai-error-indicator" id="aiErrorIndicator" title="Klikněte pro odeslání chyb AI">
+                  <span class="error-icon">✓</span>
+                  <span class="error-count">0 chyb</span>
+                </button>
                 <button class="ai-attach-btn" id="aiAttachBtn" title="Přidat soubor do kontextu">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
@@ -1323,16 +1323,34 @@ const y = 4;
       if (searchReplaceEdits.length > 0) {
         console.log(`🔧 Detekované ${searchReplaceEdits.length} SEARCH/REPLACE instrukcí`);
 
-        // Show preview of changes
-        const preview = searchReplaceEdits.map((e, i) =>
-          `📝 Změna ${i + 1}:\n🔍 Hledám: ${e.searchCode.substring(0, 60)}...\n✅ Nahradím: ${e.replaceCode.substring(0, 60)}...`
-        ).join('\n\n');
+        // Uložit původní kód PŘED aplikací změn
+        const originalCode = state.get('editor.code') || '';
 
-        console.log('📋 Náhled změn:\n' + preview);
+        // Aplikovat změny ROVNOU (bez confirmation dialogu - VS Code style)
+        const result = this.codeEditorService.applySearchReplaceEdits(searchReplaceEdits);
 
-        // Show confirmation dialog with preview
-        await this.showChangeConfirmation(searchReplaceEdits, response);
-        return; // Exit after handling confirmation
+        // Získat nový kód PO aplikaci
+        const newCode = state.get('editor.code') || '';
+
+        // Přidat zprávu o výsledku do chatu S action barem
+        const responseWithActionBar = response + this.createActionBarHTML(originalCode, newCode);
+        this.addChatMessage('assistant', responseWithActionBar);
+
+        if (result.success) {
+          toast.success(`✅ Aplikováno ${searchReplaceEdits.length} změn`, 3000);
+
+          // Automaticky zavřít AI panel po aplikaci změn
+          setTimeout(() => {
+            const aiPanel = document.getElementById('aiPanel');
+            if (aiPanel && aiPanel.classList.contains('active')) {
+              aiPanel.classList.remove('active');
+              console.log('[AIPanel] Panel automaticky zavřen po aplikaci změn');
+            }
+          }, 1500);
+        } else {
+          toast.error('⚠️ Některé změny selhaly - viz konzole', 5000);
+        }
+        return; // Exit after handling changes
       } else if (response.includes('SEARCH')) {
         // SEARCH bloky byly detekovány ale ignorovány kvůli prázdným blokům
 
@@ -1930,6 +1948,64 @@ const y = 4;
     const div = document.createElement('div');
     div.innerHTML = text;
     return div.textContent;
+  }
+
+  /**
+   * Create action bar HTML with undo/redo buttons
+   * @param {string} originalCode - Original code before changes
+   * @param {string} newCode - New code after changes
+   * @returns {string} - HTML string for action bar
+   */
+  createActionBarHTML(originalCode, newCode) {
+    // Escape HTML pro bezpečné vložení do data atributů
+    const originalCodeEncoded = encodeURIComponent(originalCode);
+    const newCodeEncoded = encodeURIComponent(newCode);
+
+    return `
+<div class="code-action-bar" data-original="${originalCodeEncoded}" data-new="${newCodeEncoded}">
+  <div class="action-bar-content">
+    <span class="action-bar-label">Změny aplikovány</span>
+    <div class="action-bar-buttons">
+      <button class="action-btn undo-btn" onclick="window.aiPanel.undoCodeChange(this)">
+        <span class="btn-icon">↶</span>
+        <span class="btn-text">Vrátit zpět</span>
+      </button>
+      <button class="action-btn keep-btn" onclick="window.aiPanel.keepCodeChange(this)">
+        <span class="btn-icon">✓</span>
+        <span class="btn-text">Zachovat</span>
+      </button>
+    </div>
+  </div>
+</div>`;
+  }
+
+  /**
+   * Undo code change from action bar button
+   */
+  undoCodeChange(button) {
+    const actionBar = button.closest('.code-action-bar');
+    const originalCode = decodeURIComponent(actionBar.dataset.original);
+
+    eventBus.emit('editor:setCode', { code: originalCode });
+    actionBar.innerHTML = '<div class="action-bar-result undo">↶ Změny vráceny zpět</div>';
+    toast.show('↶ Změny vráceny zpět', 'info');
+  }
+
+  /**
+   * Keep code change from action bar button
+   */
+  keepCodeChange(button) {
+    const actionBar = button.closest('.code-action-bar');
+    actionBar.innerHTML = '<div class="action-bar-result keep">✓ Změny zachovány</div>';
+    toast.show('✓ Změny zachovány', 'success');
+
+    // Zavřít AI panel po potvrzení
+    setTimeout(() => {
+      const aiPanel = document.getElementById('aiPanel');
+      if (aiPanel && aiPanel.classList.contains('active')) {
+        aiPanel.classList.remove('active');
+      }
+    }, 800);
   }
 
   /**

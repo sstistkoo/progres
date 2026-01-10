@@ -639,6 +639,67 @@
   animation: slideDown 0.3s ease;
 }
 
+/* New message-collapsible for long AI responses */
+.message-collapsible {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.message-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+  list-style: none;
+}
+
+.message-summary::-webkit-details-marker {
+  display: none;
+}
+
+.message-summary:hover {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.message-summary .summary-text {
+  flex: 1;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message-summary .toggle-icon {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  color: var(--accent);
+  transition: transform 0.2s ease;
+  font-size: 12px;
+}
+
+.message-collapsible[open] .message-summary .toggle-icon {
+  transform: rotate(180deg);
+}
+
+.message-collapsible:not([open]) .message-summary {
+  margin-bottom: 0;
+}
+
+.message-content {
+  animation: slideDown 0.3s ease;
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -647,6 +708,118 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Code Action Bar (VS Code style - Undo/Redo buttons) */
+.code-action-bar {
+  margin-bottom: 12px; /* Changed from margin-top to margin-bottom */
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  animation: slideDown 0.3s ease;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.action-bar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.action-bar-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.action-bar-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn .btn-icon {
+  font-size: 16px;
+}
+
+.action-btn:hover {
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+}
+
+.undo-btn:hover {
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.keep-btn:hover {
+  border-color: #4ade80;
+  color: #4ade80;
+}
+
+.action-bar-result {
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 4px;
+  animation: fadeIn 0.3s ease;
+}
+
+.action-bar-result.undo {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.action-bar-result.keep {
+  background: rgba(74, 222, 128, 0.1);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .action-bar-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-bar-buttons {
+    justify-content: stretch;
+  }
+
+  .action-btn {
+    flex: 1;
+    justify-content: center;
   }
 }
 
