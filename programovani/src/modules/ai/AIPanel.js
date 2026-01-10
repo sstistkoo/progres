@@ -163,13 +163,6 @@ export class AIPanel {
                 <option value="">Načítání...</option>
               </select>
             </div>
-            <div class="ai-vscode-mode">
-              <label class="checkbox-label">
-                <input type="checkbox" id="vsCodeModeToggle" />
-                <span>🛠️ VS Code Mode (Tool System)</span>
-              </label>
-              <div class="mode-info">AI může používat nástroje jako read_file, search, analyze</div>
-            </div>
           </div>
         </div>
       </div>`,
@@ -1177,34 +1170,9 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       this.updateModels(providerSelect.value);
     }
 
-    // VS Code Mode toggle
-    const vsCodeModeToggle = this.modal.element.querySelector('#vsCodeModeToggle');
-    if (vsCodeModeToggle) {
-      // Restore saved state (default to true for better UX)
-      const savedMode = state.get('ai.vsCodeMode');
-      const vsCodeMode = savedMode !== undefined ? savedMode : true;
-
-      vsCodeModeToggle.checked = vsCodeMode;
-      this.toolSystem.setEnabled(vsCodeMode);
-
-      // Save initial state if not set
-      if (savedMode === undefined) {
-        state.set('ai.vsCodeMode', vsCodeMode);
-      }
-
-      vsCodeModeToggle.addEventListener('change', (e) => {
-        const enabled = e.target.checked;
-        this.toolSystem.setEnabled(enabled);
-        state.set('ai.vsCodeMode', enabled);
-
-        toast.show(
-          enabled ? '🛠️ VS Code Mode aktivován - AI může používat nástroje' : '💬 VS Code Mode vypnut - standardní chat',
-          'info'
-        );
-
-        console.log('VS Code Mode:', enabled ? 'ON' : 'OFF');
-      });
-    }
+    // Tool System je vždy aktivní (VS Code style)
+    this.toolSystem.setEnabled(true);
+    console.log('🛠️ Tool System: Vždy aktivní (VS Code style)');
 
     // Testing tab handlers
     this.attachTestingHandlers();
@@ -1401,46 +1369,16 @@ const y = 3;
 const y = 4;
 \`\`\`
 
-═══════════════════════════════════════════════════════════
-📝 ZÁLOŽNÍ FORMÁT: EDIT:LINES (pouze pokud SEARCH/REPLACE nelze použít)
-═══════════════════════════════════════════════════════════
-
-Pokud SEARCH/REPLACE nelze použít (např. kód se opakuje mnohokrát),
-můžeš použít starší formát s čísly řádků:
-
-\`\`\`EDIT:LINES:45-47
-OLD:
-[PŘESNÝ původní kód zkopírovaný z editoru - VIDÍŠ ho výše s čísly řádků!]
-NEW:
-[nový kód]
-\`\`\`
-
-🔴 ABSOLUTNĚ ZAKÁZÁNO V OLD BLOKU:
-❌ "..." nebo "// ..." nebo "/* ... */"
-❌ "zkráceno" nebo "...zbytek kódu..."
-❌ jakékoliv zkratky nebo placeholder text
-❌ "STEJNÉ JAKO NAHOŘE" nebo reference
-
-✅ OLD BLOK MUSÍ OBSAHOVAT:
-✅ PŘESNOU KOPII kódu z daných řádků (vidíš čísla řádků!)
-✅ VŠECHNY řádky od startLine do endLine
-✅ PŘESNÉ odsazení (whitespace)
-✅ ÚPLNÝ kód bez zkratek
-
-⚠️ POKUD NEVIDÍŠ CELÝ KÓD:
-Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
-"Potřebuji vidět řádky X-Y pro editaci"
+💡 TIP: Raději použij více menších SEARCH/REPLACE bloků než jeden velký!
 
 ═══════════════════════════════════════════════════════════
 `;
 
       systemPrompt = CRITICAL_EDIT_RULES + systemPrompt;
 
-      // Přidej Tool System prompt pokud je VS Code Mode aktivní
-      if (this.toolSystem.isEnabled) {
-        systemPrompt += this.toolSystem.getToolSystemPrompt();
-        console.log('🛠️ VS Code Mode: Tool System aktivní');
-      }
+      // Přidej Tool System prompt (vždy aktivní - VS Code style)
+      systemPrompt += this.toolSystem.getToolSystemPrompt();
+      console.log('🛠️ Tool System aktivní (VS Code style)');
 
       let response = await window.AI.ask(message, {
         provider: provider,
@@ -1451,15 +1389,14 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
         history: this.chatHistory.slice(-10) // Send last 10 messages as context
       });
 
-      // Zpracuj tool calls pokud VS Code Mode je aktivní
-      if (this.toolSystem.isEnabled) {
-        let toolCallIteration = 0;
-        const maxIterations = 5;
+      // Zpracuj tool calls (Tool System je vždy aktivní)
+      let toolCallIteration = 0;
+      const maxIterations = 5;
 
-        while (toolCallIteration < maxIterations) {
-          const toolProcessing = await this.toolSystem.processResponse(response);
+      while (toolCallIteration < maxIterations) {
+        const toolProcessing = await this.toolSystem.processResponse(response);
 
-          if (!toolProcessing.hasToolCalls) {
+        if (!toolProcessing.hasToolCalls) {
             // Žádné tool calls - pokračuj normálně
             response = toolProcessing.cleanedContent;
             break;
@@ -1495,7 +1432,6 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
         if (toolCallIteration >= maxIterations) {
           response += '\n\n⚠️ Maximum tool iterations reached';
         }
-      }
 
       // Add to history
       this.chatService.addToHistory('assistant', response);
@@ -1506,11 +1442,11 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
       const loadingElement = document.getElementById(loadingId);
       if (loadingElement) loadingElement.remove();
 
-      // Try SEARCH/REPLACE first (VS Code style - more reliable)
+      // Try SEARCH/REPLACE (VS Code style - preferred and only supported format)
       const searchReplaceEdits = this.parseSearchReplaceInstructions(response);
 
       if (searchReplaceEdits.length > 0) {
-        console.log(`🔧 Detekováno ${searchReplaceEdits.length} SEARCH/REPLACE instrukcí (VS Code style)`);
+        console.log(`🔧 Detekované ${searchReplaceEdits.length} SEARCH/REPLACE instrukcí`);
 
         // Show preview of changes
         const preview = searchReplaceEdits.map((e, i) =>
@@ -1522,41 +1458,24 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
         // Show confirmation dialog with preview
         await this.showChangeConfirmation(searchReplaceEdits, response);
         return; // Exit after handling confirmation
-      }
-
-      // Fallback to EDIT:LINES (legacy format, less reliable)
-      const editInstructions = this.parseEditInstructions(response);
-
-      if (editInstructions.length > 0) {
-        console.log(`🔧 Detekováno ${editInstructions.length} EDIT:LINES instrukcí (legacy format)`);
-
-        // Show preview of changes
-        const preview = editInstructions.map(e =>
-          `📝 Řádky ${e.startLine}-${e.endLine}:\n❌ Původní: ${e.oldCode.substring(0, 60)}...\n✅ Nový: ${e.newCode.substring(0, 60)}...`
-        ).join('\n\n');
-
-        console.log('📋 Náhled změn:\n' + preview);
-
-        // Show confirmation dialog with preview
-        await this.showChangeConfirmation(editInstructions, response);
-        return; // Exit after handling confirmation
-      } else if (response.includes('EDIT:LINES') || response.includes('SEARCH')) {
-        // EDIT:LINES/SEARCH bloky byly detekovány ale ignorovány kvůli prázdným blokům
+      } else if (response.includes('SEARCH')) {
+        // SEARCH bloky byly detekovány ale ignorovány kvůli prázdným blokům
 
         // Zobraz AI response v chatu, aby uživatel viděl co AI poslala
         this.addChatMessage('assistant', response);
 
         // Zobraz error toast
         toast.error(
-          `❌ AI použila ZAKÁZANÉ zkratky v OLD blocích!\n\n` +
-          `🚨 OLD blok MUSÍ obsahovat PŘESNÝ kód z editoru!\n` +
+          `❌ AI použila ZAKÁZANÉ zkratky v SEARCH blocích!\n\n` +
+          `🚨 SEARCH blok MUSÍ obsahovat PŘESNÝ kód z editoru!\n` +
           `❌ ZAKÁZÁNO: "...", "// ...", "/* ... */", "zkráceno"\n\n` +
           `💡 Zkus požádat AI znovu - například:\n` +
-          `"Změň řádek 45 - použij PŘESNÝ kód z OLD bloku"`,
+          `"Změň tento kód - použij PŘESNÝ kód v SEARCH bloku"`,
           10000
         );
-        console.error('❌ EDIT:LINES bloky ignorovány - obsahují prázdné nebo zkrácené OLD bloky');
+        console.error('❌ SEARCH bloky ignorovány - obsahují prázdné nebo zkrácené bloky');
         console.error('📄 Zobrazuji AI response v chatu pro debugging...');
+        return;
       }
 
       // Check if this is modification of existing code (has history and code)
@@ -2176,22 +2095,6 @@ Pokud je kód zkrácený ("🔽 ZKRÁCENO"), napiš:
    */
   parseSearchReplaceInstructions(response) {
     return this.codeEditorService.parseSearchReplaceInstructions(response);
-  }
-
-  /**
-   * Parse EDIT:LINES instructions from AI response (LEGACY - less reliable)
-   * Format: ```EDIT:LINES:5-10
-   *         OLD:
-   *         <old code>
-   *         NEW:
-   *         <new code>
-   *         ```
-   *
-   * @param {string} response - AI response text
-   * @returns {Array} Array of edit objects with {startLine, endLine, oldCode, newCode}
-   */
-  parseEditInstructions(response) {
-    return this.codeEditorService.parseEditInstructions(response);
   }
 
   /**

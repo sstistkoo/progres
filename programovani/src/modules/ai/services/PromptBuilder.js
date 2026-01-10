@@ -13,21 +13,20 @@ import { CodeEditorService } from './CodeEditorService.js';
 export class PromptBuilder {
   constructor(aiPanel) {
     this.aiPanel = aiPanel;
-    this.codeEditorService = aiPanel.codeEditorService;
   }
 
   /**
    * Zkrátí kód inteligentně pro kontext - deleguje na CodeEditorService
    */
   truncateCodeIntelligently(code, maxChars = 3000) {
-    return this.codeEditorService.truncateCodeIntelligently(code, maxChars);
+    return this.aiPanel.codeEditorService.truncateCodeIntelligently(code, maxChars);
   }
 
   /**
    * Přidá čísla řádků k kódu - deleguje na CodeEditorService
    */
   addLineNumbers(code, metadata = null) {
-    return this.codeEditorService.addLineNumbers(code, metadata);
+    return this.aiPanel.codeEditorService.addLineNumbers(code, metadata);
   }
 
   /**
