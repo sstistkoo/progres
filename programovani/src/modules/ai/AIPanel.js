@@ -1,11 +1,11 @@
-﻿/**
+/**
  * AI Panel Module
  * Provides AI assistant interface with chat, templates, and quick actions
  */
 
 import { eventBus } from '../../core/events.js';
 import { state } from '../../core/state.js';
-import { SafeOps } from '../../core/safeOps.js';
+// SafeOps is used indirectly by services
 import { Modal } from '../../ui/components/Modal.js';
 import { toast } from '../../ui/components/Toast.js';
 import { AITester } from './AITester.js';
@@ -19,12 +19,17 @@ import { AgentsService } from './services/AgentsService.js';
 import { ChatHistoryService } from './services/ChatHistoryService.js';
 import { ChatService } from './services/ChatService.js';
 import { PromptBuilder } from './services/PromptBuilder.js';
-import { MESSAGES, ICONS } from './constants/Messages.js';
+import { MESSAGES } from './constants/Messages.js';
 import { UIRenderingService } from './services/UIRenderingService.js';
 import { ActionsService } from './services/ActionsService.js';
 import { TestingService } from './services/TestingService.js';
 import { PokecChatService } from './services/PokecChatService.js';
 import { ChangedFilesService } from './services/ChangedFilesService.js';
+// NEW: Refactored services for modular architecture
+import { ProviderService } from './services/ProviderService.js';
+import { ErrorHandlingService } from './services/ErrorHandlingService.js';
+import { ModalBuilderService } from './services/ModalBuilderService.js';
+import { MessageProcessingService } from './services/MessageProcessingService.js';
 
 export class AIPanel {
   constructor() {
@@ -51,6 +56,12 @@ export class AIPanel {
     this.pokecChatService = new PokecChatService(this); // Pokec chat service
     this.changedFilesService = new ChangedFilesService(this); // Changed files tracking
     this.lastTokenUsage = null; // Store last request token usage
+
+    // NEW: Initialize refactored services
+    this.providerService = new ProviderService(this);
+    this.errorHandlingService = new ErrorHandlingService(this);
+    this.modalBuilderService = new ModalBuilderService(this);
+    this.messageProcessingService = new MessageProcessingService(this);
 
     // Režim práce (continue = pokračovat, new-project = nový projekt)
     this.workMode = 'continue';
@@ -306,28 +317,31 @@ export class AIPanel {
               <div class="ai-chat-buttons">
                 <button class="ai-error-indicator compact" id="aiErrorIndicator" title="Počet chyb v kódu">
                   <span class="error-count">0</span>
+                  <span class="error-label">chyb</span>
                 </button>
                 <button class="ai-attach-btn compact" id="aiAttachBtn" title="Přidat soubor">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
                   </svg>
                 </button>
-                <button class="ai-send-btn compact" id="aiSendBtn" title="Odeslat zprávu">
+                <button class="ai-send-btn" id="aiSendBtn" title="Odeslat zprávu">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                   </svg>
+                  <span>Odeslat</span>
                 </button>
                 <button class="ai-cancel-btn-original compact" style="display: none;" title="Zrušit">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 6L6 18M6 6l12 12"/>
                   </svg>
                 </button>
-                <button class="ai-orchestrator-btn compact" id="aiOrchestratorBtn" title="Orchestrator">
+                <button class="ai-orchestrator-btn" id="aiOrchestratorBtn" title="Orchestrator">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                     <path d="M2 17l10 5 10-5"/>
                     <path d="M2 12l10 5 10-5"/>
                   </svg>
+                  <span>Tým</span>
                 </button>
               </div>
             </div>
@@ -564,356 +578,34 @@ export class AIPanel {
   }
 
   setupErrorIndicator() {
-    const errorBtn = this.modal?.element?.querySelector('#aiErrorIndicator');
-    if (errorBtn) {
-      errorBtn.addEventListener('click', () => {
-        // Pokud je 0 chyb (zelené), otevři DevTools
-        if (errorBtn.classList.contains('success')) {
-          if (typeof eruda !== 'undefined') {
-            eruda.init();
-            eruda.show();
-          } else {
-            eventBus.emit('toast:show', {
-              message: '🔧 DevTools nejsou k dispozici',
-              type: 'warning',
-              duration: 2000
-            });
-          }
-        } else {
-          // Jinak pošli chyby AI
-          this.sendAllErrorsToAI();
-        }
-      });
-    }
-    // Initialize with current error count
-    this.updateErrorIndicator(0);
+    // Delegováno na ErrorHandlingService
+    this.errorHandlingService.setupErrorIndicator();
   }
 
   updateErrorIndicator(errorCount) {
-    const errorBtn = this.modal?.element?.querySelector('#aiErrorIndicator');
-    if (!errorBtn) return;
-
-    const countText = errorBtn.querySelector('.error-count');
-
-    if (errorCount === 0) {
-      errorBtn.className = 'ai-error-indicator compact success';
-      countText.textContent = '0';
-      errorBtn.title = 'Žádné chyby v konzoli';
-    } else {
-      errorBtn.className = 'ai-error-indicator compact error';
-      countText.textContent = `${errorCount}`;
-      errorBtn.title = `Klikněte pro odeslání ${errorCount} chyb AI k opravě`;
-    }
+    // Delegováno na ErrorHandlingService
+    this.errorHandlingService.updateErrorIndicator(errorCount);
   }
 
   sendAllErrorsToAI() {
-    // Get all errors from console
-    const consoleContent = document.getElementById('consoleContent');
-    if (!consoleContent) return;
-
-    const errorMessages = [];
-    const errorElements = consoleContent.querySelectorAll('.console-error .console-text');
-    errorElements.forEach(el => {
-      const errorText = el.textContent;
-      // Check if error is ignored
-      if (!this.isErrorIgnored(errorText)) {
-        errorMessages.push(errorText);
-      }
-    });
-
-    if (errorMessages.length === 0) {
-      eventBus.emit('toast:show', {
-        message: '✅ Žádné chyby k odeslání',
-        type: 'info',
-        duration: 2000
-      });
-      return;
-    }
-
-    // Show error selection modal
-    this.showErrorSelectionModal(errorMessages);
+    // Delegováno na ErrorHandlingService
+    this.errorHandlingService.sendAllErrorsToAI();
   }
 
   isErrorIgnored(errorText) {
-    const ignoredErrors = JSON.parse(localStorage.getItem('ignoredErrors') || '[]');
-    return ignoredErrors.some(ignored => errorText.includes(ignored));
+    return this.errorHandlingService.isErrorIgnored(errorText);
   }
 
   ignoreErrors(errors) {
-    const ignoredErrors = JSON.parse(localStorage.getItem('ignoredErrors') || '[]');
-    errors.forEach(error => {
-      if (!ignoredErrors.includes(error)) {
-        ignoredErrors.push(error);
-      }
-    });
-    localStorage.setItem('ignoredErrors', JSON.stringify(ignoredErrors));
-
-    eventBus.emit('toast:show', {
-      message: `🔕 ${errors.length} chyb ignorováno`,
-      type: 'info',
-      duration: 2000
-    });
-
-    // Update error count
-    const consoleContent = document.getElementById('consoleContent');
-    if (consoleContent) {
-      const visibleErrorCount = Array.from(consoleContent.querySelectorAll('.console-error .console-text'))
-        .filter(el => !this.isErrorIgnored(el.textContent)).length;
-      this.updateErrorIndicator(visibleErrorCount);
-    }
+    this.errorHandlingService.ignoreErrors(errors);
   }
 
   showErrorSelectionModal(errorMessages) {
-    // Create modal
-    const modal = document.createElement('div');
-    modal.className = 'modal-backdrop error-selection-modal-backdrop';
-    modal.innerHTML = `
-      <div class="modal-content error-selection-modal">
-        <div class="modal-header">
-          <h3>🐛 Výběr chyb k odeslání AI</h3>
-          <button class="modal-close" id="errorModalClose">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body error-selection-body">
-          <p class="error-selection-description">
-            Vyberte chyby, které chcete odeslat AI k opravě, nebo je ignorujte.
-          </p>
-          <div class="error-selection-controls">
-            <button class="select-all-btn" id="selectAllErrors">✓ Vybrat vše</button>
-            <button class="deselect-all-btn" id="deselectAllErrors">✗ Zrušit výběr</button>
-            <button class="manage-ignored-btn" id="manageIgnoredBtn">🔕 Spravovat ignorované</button>
-          </div>
-          <div class="error-list" id="errorList">
-            ${errorMessages.map((error, index) => `
-              <div class="error-item" data-index="${index}">
-                <input type="checkbox" id="error-${index}" checked>
-                <label for="error-${index}" class="error-text">${this.escapeHTML(error)}</label>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-        <div class="modal-footer error-selection-footer">
-          <button class="btn-secondary" id="ignoreSelectedBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-              <path d="M1 1l22 22M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-            </svg>
-            Ignorovat vybrané
-          </button>
-          <button class="btn-primary" id="sendSelectedBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-            </svg>
-            Odeslat vybrané do AI
-          </button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Close handlers
-    const closeModal = () => modal.remove();
-    modal.querySelector('#errorModalClose').addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
-
-    // Select/Deselect all
-    modal.querySelector('#selectAllErrors').addEventListener('click', () => {
-      modal.querySelectorAll('.error-item input[type="checkbox"]').forEach(cb => cb.checked = true);
-    });
-
-    modal.querySelector('#deselectAllErrors').addEventListener('click', () => {
-      modal.querySelectorAll('.error-item input[type="checkbox"]').forEach(cb => cb.checked = false);
-    });
-
-    // Manage ignored errors
-    modal.querySelector('#manageIgnoredBtn').addEventListener('click', () => {
-      this.showIgnoredErrorsModal();
-    });
-
-    // Ignore selected errors
-    modal.querySelector('#ignoreSelectedBtn').addEventListener('click', () => {
-      const selectedErrors = [];
-      modal.querySelectorAll('.error-item input[type="checkbox"]:checked').forEach(cb => {
-        const index = parseInt(cb.closest('.error-item').dataset.index);
-        selectedErrors.push(errorMessages[index]);
-      });
-
-      if (selectedErrors.length === 0) {
-        eventBus.emit('toast:show', {
-          message: '⚠️ Nevybrali jste žádné chyby',
-          type: 'warning',
-          duration: 2000
-        });
-        return;
-      }
-
-      this.ignoreErrors(selectedErrors);
-      closeModal();
-    });
-
-    // Send selected errors
-    modal.querySelector('#sendSelectedBtn').addEventListener('click', () => {
-      const selectedErrors = [];
-      modal.querySelectorAll('.error-item input[type="checkbox"]:checked').forEach(cb => {
-        const index = parseInt(cb.closest('.error-item').dataset.index);
-        selectedErrors.push(errorMessages[index]);
-      });
-
-      if (selectedErrors.length === 0) {
-        eventBus.emit('toast:show', {
-          message: '⚠️ Nevybrali jste žádné chyby k odeslání',
-          type: 'warning',
-          duration: 2000
-        });
-        return;
-      }
-
-      // Get current code
-      const code = state.get('editor.code') || '';
-      const activeFile = state.get('files.active') || 'untitled.html';
-
-      // Construct prompt
-      const prompt = `Prosím, oprav následující chyby v mém kódu:
-
-**Nalezené chyby (${selectedErrors.length}):**
-${selectedErrors.map((err, i) => `${i + 1}. ${err}`).join('\n')}
-
-**Soubor:** ${activeFile}
-
-**Aktuální kód:**
-\`\`\`html
-${code}
-\`\`\`
-
-Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
-
-      // Send message to chat
-      this.sendMessage(prompt);
-
-      eventBus.emit('toast:show', {
-        message: `✅ ${selectedErrors.length} chyb odesláno AI k opravě`,
-        type: 'success',
-        duration: 2000
-      });
-
-      closeModal();
-    });
+    this.errorHandlingService.showErrorSelectionModal(errorMessages);
   }
 
   showIgnoredErrorsModal() {
-    const ignoredErrors = JSON.parse(localStorage.getItem('ignoredErrors') || '[]');
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-backdrop error-selection-modal-backdrop';
-    modal.innerHTML = `
-      <div class="modal-content error-selection-modal">
-        <div class="modal-header">
-          <h3>🔕 Ignorované chyby</h3>
-          <button class="modal-close" id="ignoredModalClose">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body error-selection-body">
-          ${ignoredErrors.length === 0 ? `
-            <p class="error-selection-description">
-              Žádné ignorované chyby. Chyby můžete ignorovat při výběru chyb k odeslání AI.
-            </p>
-          ` : `
-            <p class="error-selection-description">
-              Seznam ignorovaných chyb. Klikněte na tlačítko pro odebrání z ignorovaných.
-            </p>
-            <div class="error-list" id="ignoredErrorList">
-              ${ignoredErrors.map((error, index) => `
-                <div class="error-item" data-index="${index}">
-                  <span class="error-text">${this.escapeHTML(error)}</span>
-                  <button class="remove-ignored-btn" data-error="${this.escapeHTML(error)}" title="Přestat ignorovat">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                      <path d="M18 6L6 18M6 6l12 12"/>
-                    </svg>
-                  </button>
-                </div>
-              `).join('')}
-            </div>
-          `}
-        </div>
-        <div class="modal-footer error-selection-footer">
-          ${ignoredErrors.length > 0 ? `
-            <button class="btn-secondary" id="clearAllIgnoredBtn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-              </svg>
-              Vymazat vše
-            </button>
-          ` : ''}
-          <button class="btn-primary" id="closeIgnoredBtn">Zavřít</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Close handlers
-    const closeModal = () => {
-      modal.remove();
-      // Refresh error count after managing ignored errors
-      const consoleContent = document.getElementById('consoleContent');
-      if (consoleContent) {
-        const visibleErrorCount = Array.from(consoleContent.querySelectorAll('.console-error .console-text'))
-          .filter(el => !this.isErrorIgnored(el.textContent)).length;
-        this.updateErrorIndicator(visibleErrorCount);
-      }
-    };
-
-    modal.querySelector('#ignoredModalClose').addEventListener('click', closeModal);
-    modal.querySelector('#closeIgnoredBtn').addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
-
-    // Remove individual ignored error
-    modal.querySelectorAll('.remove-ignored-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const errorToRemove = btn.dataset.error;
-        const ignoredErrors = JSON.parse(localStorage.getItem('ignoredErrors') || '[]');
-        const updatedErrors = ignoredErrors.filter(err => err !== errorToRemove);
-        localStorage.setItem('ignoredErrors', JSON.stringify(updatedErrors));
-
-        eventBus.emit('toast:show', {
-          message: '✅ Chyba již nebude ignorována',
-          type: 'success',
-          duration: 2000
-        });
-
-        // Refresh modal
-        modal.remove();
-        this.showIgnoredErrorsModal();
-      });
-    });
-
-    // Clear all ignored errors
-    const clearAllBtn = modal.querySelector('#clearAllIgnoredBtn');
-    if (clearAllBtn) {
-      clearAllBtn.addEventListener('click', () => {
-        if (confirm('Opravdu chcete vymazat všechny ignorované chyby?')) {
-          localStorage.setItem('ignoredErrors', JSON.stringify([]));
-
-          eventBus.emit('toast:show', {
-            message: '🗑️ Všechny ignorované chyby vymazány',
-            type: 'success',
-            duration: 2000
-          });
-
-          closeModal();
-        }
-      });
-    }
+    this.errorHandlingService.showIgnoredErrorsModal();
   }
 
   escapeHTML(text) {
@@ -1457,26 +1149,37 @@ const y = 4;
       } else if (isNewProjectMode) {
         // 🆕 PRO NOVÝ PROJEKT - jasné instrukce na vytvoření kompletního kódu
         const NEW_PROJECT_HEADER = `
-🚨🚨🚨 REŽIM: NOVÝ PROJEKT 🚨🚨🚨
-═══════════════════════════════════════════════════════════
+╔═══════════════════════════════════════════════════════════╗
+║  🚨🚨🚨 KRITICKÝ REŽIM: NOVÝ PROJEKT 🚨🚨🚨              ║
+╚═══════════════════════════════════════════════════════════╝
 
-IGNORUJ jakýkoliv existující kód v editoru!
-VYTVOŘ ZCELA NOVÝ, KOMPLETNÍ kód podle požadavku uživatele!
+⚠️⚠️⚠️ ABSOLUTNĚ ZAKÁZÁNO POUŽÍVAT SEARCH/REPLACE! ⚠️⚠️⚠️
 
-✅ CO MUSÍŠ UDĚLAT:
-1. OKAMŽITĚ vytvoř kompletní HTML soubor
-2. Začni od <!DOCTYPE html> a skonči </html>
-3. Vlož vše do JEDNOHO \`\`\`html bloku
-4. Kód MUSÍ být kompletní a funkční
+Editor je PRÁZDNÝ. Neexistuje žádný kód k úpravě.
+SEARCH/REPLACE NEBUDE FUNGOVAT - editor je prázdný!
 
-❌ CO NESMÍŠ DĚLAT:
-- NEŽÁDEJ o zobrazení kódu
-- NEPTEJ SE na další detaily
-- NEPOUŽÍVEJ SEARCH/REPLACE
-- NEODKAZUJ na existující kód
+✅ MUSÍŠ UDĚLAT PŘESNĚ TOTO:
+1. Okamžitě vytvoř KOMPLETNÍ HTML soubor
+2. Začni: <!DOCTYPE html>
+3. Skonči: </html>
+4. Vše v JEDNOM \`\`\`html bloku
+5. Kód MUSÍ být 100% funkční a kompletní
 
-PROSTĚ VYTVOŘ NOVÝ KÓD HNED TEĎ!
+❌ ZAKÁZANÉ FORMÁTY (NEBUDOU FUNGOVAT!):
+- \`\`\`SEARCH ... \`\`\`REPLACE - ZAKÁZÁNO!
+- Jakékoliv diff/patch formáty - ZAKÁZÁNO!
+- Částečný kód - ZAKÁZÁNO!
 
+📝 SPRÁVNÝ FORMÁT ODPOVĚDI:
+\`\`\`html
+<!DOCTYPE html>
+<html lang="cs">
+<head>...</head>
+<body>...</body>
+</html>
+\`\`\`
+
+VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
 ═══════════════════════════════════════════════════════════
 `;
         systemPrompt = NEW_PROJECT_HEADER + systemPrompt;
@@ -1550,9 +1253,37 @@ PROSTĚ VYTVOŘ NOVÝ KÓD HNED TEĎ!
       if (loadingElement) loadingElement.remove();
 
       // Try SEARCH/REPLACE (VS Code style - preferred and only supported format)
+      // 🆕 ALE POUZE pokud NEJSME v režimu nového projektu!
       const searchReplaceEdits = this.parseSearchReplaceInstructions(response);
 
-      if (searchReplaceEdits.length > 0) {
+      // V režimu nového projektu ignorujeme SEARCH/REPLACE a extrahujeme kompletní kód
+      if (isNewProjectMode && searchReplaceEdits.length > 0) {
+        console.log('[AIPanel] 🆕 Režim nový projekt - ignoruji SEARCH/REPLACE, hledám kompletní kód');
+        // Zkusíme extrahovat kompletní HTML kód z odpovědi
+        const htmlMatch = response.match(/```html\n([\s\S]*?)```/);
+        if (htmlMatch && htmlMatch[1]) {
+          const completeCode = htmlMatch[1].trim();
+          console.log('[AIPanel] ✅ Nalezen kompletní HTML kód v odpovědi');
+          this.addChatMessage('assistant', response);
+          this.insertCodeToEditor(completeCode, false);
+          toast.success('✅ Nový projekt vytvořen!', 3000);
+          return;
+        }
+        // Pokud není ```html blok, zkusíme najít jakýkoliv kód
+        const anyCodeMatch = response.match(/```(?:html|javascript|js)?\n([\s\S]*?)```/);
+        if (anyCodeMatch && anyCodeMatch[1] && anyCodeMatch[1].includes('<!DOCTYPE')) {
+          const completeCode = anyCodeMatch[1].trim();
+          console.log('[AIPanel] ✅ Nalezen kompletní kód (alternativní match)');
+          this.addChatMessage('assistant', response);
+          this.insertCodeToEditor(completeCode, false);
+          toast.success('✅ Nový projekt vytvořen!', 3000);
+          return;
+        }
+        console.warn('[AIPanel] ⚠️ AI vrátila SEARCH/REPLACE v režimu nového projektu, ale nenalezen kompletní kód');
+        // Pokračuj normálně - zobraz odpověď
+      }
+
+      if (searchReplaceEdits.length > 0 && !isNewProjectMode) {
         console.log(`🔧 Detekované ${searchReplaceEdits.length} SEARCH/REPLACE instrukcí`);
 
         // Uložit původní kód PŘED aplikací změn
@@ -2108,78 +1839,11 @@ PROSTĚ VYTVOŘ NOVÝ KÓD HNED TEĎ!
   }
 
   handleNewProjectStart() {
-    const tabs = state.get('files.tabs') || [];
-
-    if (tabs.length === 0) {
-      // No project to save, just reset
-      this.resetToNewProject();
-      return;
-    }
-
-    // Confirm if user wants to save current project
-    const confirmSave = confirm('Chcete uložit a stáhnout aktuální projekt před začátkem nového?');
-
-    if (confirmSave) {
-      // Download all files as ZIP would be ideal, but for now download active file
-      const activeFileId = state.get('files.active');
-      const activeFile = tabs.find(f => f.id === activeFileId);
-
-      if (activeFile) {
-        // Download the active file
-        const blob = new Blob([activeFile.content], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = activeFile.name;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-
-      // If multiple files, notify user
-      if (tabs.length > 1) {
-        alert(`Uložen hlavní soubor. Máte ${tabs.length} otevřených souborů. Pro kompletní zálohu použijte GitHub nebo manuální export.`);
-      }
-    }
-
-    // Reset to new project
-    this.resetToNewProject();
+    return this.messageProcessingService.handleNewProjectStart();
   }
 
   resetToNewProject() {
-    // Clear all files
-    state.set('files.tabs', []);
-    state.set('files.active', null);
-    state.set('files.nextId', 1);
-
-    // Clear editor
-    const defaultCode = `<!DOCTYPE html>
-<html lang="cs">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nový projekt</title>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      padding: 2rem;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-  </style>
-</head>
-<body>
-  <h1>Nový projekt</h1>
-  <p>Začněte psát svůj kód zde...</p>
-</body>
-</html>`;
-
-    state.set('editor.code', defaultCode);
-    eventBus.emit('editor:setCode', { code: defaultCode });
-
-    // Clear chat history
-    this.chatHistoryService.clearChatHistory();
-
-    toast.show('✨ Nový projekt vytvořen!', 'success');
+    return this.messageProcessingService.resetToNewProject();
   }
 
   removeChatMessage(messageId) {
@@ -2303,119 +1967,26 @@ PROSTĚ VYTVOŘ NOVÝ KÓD HNED TEĎ!
   }
 
   generateProviderOptions() {
-    // Načti providery z AI modulu
-    if (typeof window.AI === 'undefined' || !window.AI.getAllProvidersWithModels) {
-      return `
-        <option value="groq">Groq</option>
-        <option value="gemini">Google Gemini</option>
-        <option value="openrouter">OpenRouter</option>
-        <option value="mistral">Mistral</option>
-        <option value="cohere">Cohere</option>
-        <option value="huggingface">HuggingFace</option>
-      `;
-    }
-
-    const allProviders = window.AI.getAllProvidersWithModels();
-    return Object.entries(allProviders)
-      .map(([key, data]) => `<option value="${key}">${data.name}</option>`)
-      .join('');
+    // Delegováno na ProviderService
+    return this.providerService.generateProviderOptions();
   }
 
   updateModels(provider) {
-    const modelSelect = this.modal.element.querySelector('#aiModel');
-    if (!modelSelect) return;
-
-    // Načti modely z AI modulu
-    if (typeof window.AI === 'undefined' || !window.AI.getAllProvidersWithModels) {
-      console.warn('AI module not loaded, using fallback models');
-      modelSelect.innerHTML = '<option value="">AI modul není načten</option>';
-      return;
-    }
-
-    const allProviders = window.AI.getAllProvidersWithModels();
-    const providerData = allProviders[provider];
-    const favoriteModels = JSON.parse(localStorage.getItem('favoriteModels') || '[]');
-
-    if (providerData && Array.isArray(providerData.models)) {
-      modelSelect.innerHTML = providerData.models
-        .map(m => {
-          const isFavorite = favoriteModels.includes(`${provider}:${m.value}`);
-          const star = isFavorite ? '⭐ ' : '';
-          const freeLabel = m.free ? '🟢 FREE' : '💰 Paid';
-          const rpmLabel = `${m.rpm} RPM`;
-          const contextLabel = m.context || '';
-          const info = `${freeLabel} | ${rpmLabel} | ${contextLabel}`;
-          return `<option value="${m.value}" title="${m.description || ''}" data-favorite="${isFavorite}" data-provider="${provider}">${star}${m.label} (${info})</option>`;
-        })
-        .join('');
-
-      // Add double-click handler for favoriting
-      modelSelect.addEventListener('dblclick', () => {
-        const selectedOption = modelSelect.options[modelSelect.selectedIndex];
-        if (selectedOption) {
-          this.toggleModelFavorite(provider, selectedOption.value);
-        }
-      });
-    } else {
-      modelSelect.innerHTML = '<option value="">Žádné modely</option>';
-    }
+    // Delegováno na ProviderService
+    this.providerService.updateModels(provider);
   }
 
   toggleModelFavorite(provider, modelValue) {
-    const favoriteModels = JSON.parse(localStorage.getItem('favoriteModels') || '[]');
-    const modelKey = `${provider}:${modelValue}`;
-
-    const index = favoriteModels.indexOf(modelKey);
-    if (index > -1) {
-      favoriteModels.splice(index, 1);
-      toast.success('Model odebrán z oblíbených', 1500);
-    } else {
-      favoriteModels.push(modelKey);
-      toast.success('⭐ Model přidán do oblíbených', 1500);
-    }
-
-    localStorage.setItem('favoriteModels', JSON.stringify(favoriteModels));
-
-    // Refresh model list
-    const providerSelect = this.modal.element.querySelector('#aiProvider');
-    if (providerSelect) {
-      this.updateModels(providerSelect.value);
-    }
+    // Delegováno na ProviderService
+    this.providerService.toggleModelFavorite(provider, modelValue);
   }
 
   /**
    * Update Auto AI state - enable/disable provider and model selects
    */
   updateAutoAIState() {
-    const autoAICheckbox = this.modal.element.querySelector('#autoAI');
-    const providerSelect = this.modal.element.querySelector('#aiProvider');
-    const modelSelect = this.modal.element.querySelector('#aiModel');
-
-    if (!autoAICheckbox) return;
-
-    const isAutoMode = autoAICheckbox.checked;
-
-    // Disable provider/model selects when Auto AI is enabled
-    if (providerSelect) {
-      providerSelect.disabled = isAutoMode;
-      providerSelect.style.opacity = isAutoMode ? '0.6' : '1';
-      providerSelect.style.cursor = isAutoMode ? 'not-allowed' : 'pointer';
-    }
-
-    if (modelSelect) {
-      modelSelect.disabled = isAutoMode;
-      modelSelect.style.opacity = isAutoMode ? '0.6' : '1';
-      modelSelect.style.cursor = isAutoMode ? 'not-allowed' : 'pointer';
-    }
-
-    // Update visual feedback
-    if (isAutoMode) {
-      providerSelect?.setAttribute('title', '🤖 Auto AI aktivní - provider se vybírá automaticky');
-      modelSelect?.setAttribute('title', '🤖 Auto AI aktivní - model se vybírá automaticky podle kvality pro kódování');
-    } else {
-      providerSelect?.setAttribute('title', 'Vyberte AI providera');
-      modelSelect?.setAttribute('title', 'Vyberte AI model');
-    }
+    // Delegováno na ProviderService
+    this.providerService.updateAutoAIState();
   }
 
   // Template generators
@@ -2486,647 +2057,17 @@ PROSTĚ VYTVOŘ NOVÝ KÓD HNED TEĎ!
   }
 
   showRepoFileSelector(fullName, branch, files, repoName) {
-    // This method is not yet migrated to GitHubService
-    // Keep original implementation for now
-    const modal = document.createElement('div');
-    modal.className = 'modal-backdrop';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-    modal.innerHTML = `
-      <div class="modal-content" style="max-width: 850px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
-        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">🔍 Hledat na GitHub</h3>
-          <button class="modal-close" id="githubSearchClose" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body" style="padding: 0; overflow-y: auto;">
-
-          <!-- Rozbalovací formulář -->
-          <div id="searchFormSection" style="border-bottom: 1px solid #333;">
-            <button id="toggleSearchForm" style="width: 100%; padding: 15px 25px; background: transparent; border: none; color: #ffffff; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; transition: background 0.2s;">
-              <span>⚙️ Nastavení vyhledávání</span>
-              <span id="toggleIcon" style="font-size: 18px; transition: transform 0.3s;">▼</span>
-            </button>
-
-            <div id="searchFormContent" style="padding: 0 25px 25px 25px;">
-              <div style="margin-bottom: 12px;">
-                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cccccc;">GitHub Token (volitelné pro více výsledků)</label>
-                <input type="password" id="githubToken" placeholder="ghp_..." value="${localStorage.getItem('github_token') || ''}" style="width: 100%; padding: 10px; border: 1px solid #333; border-radius: 6px; font-size: 13px; background: #0d0d0d; color: #ffffff;">
-                <p style="font-size: 11px; color: #888888; margin-top: 4px;">
-                  Token se uloží do prohlížeče. <a href="https://github.com/settings/tokens" target="_blank" style="color: #0066cc;">Vytvořit token</a>
-                </p>
-              </div>
-              <div style="margin-bottom: 16px;">
-                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cccccc;">Co hledáte?</label>
-                <input type="text" id="githubSearchQuery" placeholder="Např. landing page, portfolio, navbar..." style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; font-size: 14px; background: #0d0d0d; color: #ffffff;">
-              </div>
-              <div style="margin-bottom: 16px;">
-                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cccccc;">Jazyk (volitelné)</label>
-                <select id="githubLanguage" style="width: 100%; padding: 10px; border: 1px solid #333; border-radius: 6px; font-size: 13px; background: #0d0d0d; color: #ffffff;">
-                  <option value="">Všechny jazyky</option>
-                  <option value="html">HTML</option>
-                  <option value="css">CSS</option>
-                  <option value="javascript">JavaScript</option>
-                  <option value="typescript">TypeScript</option>
-                  <option value="python">Python</option>
-                  <option value="java">Java</option>
-                  <option value="php">PHP</option>
-                  <option value="ruby">Ruby</option>
-                </select>
-              </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <button id="searchRepos" style="padding: 14px; background: #0066cc; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;">
-                  📦 Hledat repozitáře
-                </button>
-                <button id="searchCode" style="padding: 14px; background: #333; color: #ffffff; border: 1px solid #555; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;">
-                  📄 Hledat kód
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Výsledky a loading -->
-          <div style="padding: 25px;">
-            <div id="githubSearchResults" style="display: none;">
-              <div id="githubResultsHeader" style="margin-bottom: 12px;"></div>
-              <div id="githubResultsList" style="display: grid; gap: 10px; max-height: 450px; overflow-y: auto;"></div>
-              <div id="githubPagination" style="margin-top: 16px;"></div>
-            </div>
-            <div id="githubSearchLoading" style="display: none; text-align: center; padding: 40px;">
-              <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #333; border-top-color: #0066cc; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-              <p style="margin-top: 15px; color: #888888;">Hledání na GitHub...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    let currentPage = 1;
-    let totalCount = 0;
-    let formCollapsed = false;
-
-    const closeModal = () => modal.remove();
-    modal.querySelector('#githubSearchClose').addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
-
-    // Toggle formuláře
-    const toggleBtn = modal.querySelector('#toggleSearchForm');
-    const toggleIcon = modal.querySelector('#toggleIcon');
-    const formContent = modal.querySelector('#searchFormContent');
-
-    toggleBtn.addEventListener('click', () => {
-      formCollapsed = !formCollapsed;
-      if (formCollapsed) {
-        formContent.style.display = 'none';
-        toggleIcon.textContent = '▶';
-        toggleIcon.style.transform = 'rotate(0deg)';
-      } else {
-        formContent.style.display = 'block';
-        toggleIcon.textContent = '▼';
-        toggleIcon.style.transform = 'rotate(0deg)';
-      }
-    });
-
-    let lastSearchType = 'repositories'; // Výchozí hledání repozitářů
-
-    const performSearch = async (searchType, page = 1) => {
-      currentPage = page;
-      const query = modal.querySelector('#githubSearchQuery').value.trim();
-      const language = modal.querySelector('#githubLanguage').value;
-      const token = modal.querySelector('#githubToken').value.trim();
-
-      lastSearchType = searchType; // Ulož pro použití ve výsledcích
-
-      if (!query) {
-        eventBus.emit('toast:show', {
-          message: 'Zadejte hledaný výraz',
-          type: 'warning'
-        });
-        return;
-      }
-
-      // Po zahájení hledání sbal formulář
-      if (!formCollapsed && page === 1) {
-        formCollapsed = true;
-        formContent.style.display = 'none';
-        toggleIcon.textContent = '▶';
-      }
-
-      // Ulož token
-      if (token) {
-        localStorage.setItem('github_token', token);
-      }
-
-      const loadingDiv = modal.querySelector('#githubSearchLoading');
-      const resultsDiv = modal.querySelector('#githubSearchResults');
-      const resultsList = modal.querySelector('#githubResultsList');
-      const resultsHeader = modal.querySelector('#githubResultsHeader');
-      const paginationDiv = modal.querySelector('#githubPagination');
-
-      loadingDiv.style.display = 'block';
-      resultsDiv.style.display = 'none';
-      resultsList.innerHTML = '';
-      resultsHeader.innerHTML = '';
-      paginationDiv.innerHTML = '';
-
-      try {
-        let results;
-        const searchQuery = language ? `${query}+language:${language}` : query;
-
-        if (searchType === 'repositories') {
-          results = await this.searchGitHubRepos(query, language, page, token);
-        } else {
-          results = await this.searchGitHubCode(query, language, page, token);
-        }
-
-        loadingDiv.style.display = 'none';
-        resultsDiv.style.display = 'block';
-
-        if (results.items.length === 0) {
-          resultsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenalezeny žádné výsledky</p>';
-          return;
-        }
-
-        totalCount = results.total_count;
-
-        // Header s počtem výsledků
-        const githubSearchUrl = `https://github.com/search?q=${encodeURIComponent(query)}${language ? `+language:${language}` : ''}&type=${searchType === 'repositories' ? 'repositories' : 'code'}`;
-        resultsHeader.innerHTML = `
-          <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px; text-align: center;">
-            <div style="font-weight: 600; margin-bottom: 6px; color: var(--accent);">
-              📊 Nalezeno ${totalCount.toLocaleString('cs-CZ')} výsledků | Stránka ${page}
-            </div>
-            <a href="${githubSearchUrl}" target="_blank" style="color: var(--accent); text-decoration: none; font-size: 13px;">
-              🔗 Otevřít na GitHubu
-            </a>
-          </div>
-        `;
-
-        results.items.forEach(result => {
-          const resultCard = document.createElement('div');
-          resultCard.style.cssText = 'padding: 15px; background: #242424; border: 1px solid #333; border-radius: 8px; transition: all 0.2s;';
-
-          if (lastSearchType === 'repositories') {
-            resultCard.innerHTML = `
-              <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
-                <div style="flex: 1;">
-                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-                    <h5 style="margin: 0; color: #0066cc; font-size: 14px;">${result.name}</h5>
-                    <a href="${result.html_url}" target="_blank" style="color: #888888; text-decoration: none; font-size: 11px;">🔗</a>
-                  </div>
-                  <p style="margin: 0 0 8px 0; font-size: 12px; color: #cccccc;">${result.description || 'Bez popisu'}</p>
-                  <div style="display: flex; gap: 15px; font-size: 11px; color: #888888;">
-                    <span>⭐ ${result.stargazers_count}</span>
-                    <span>🍴 ${result.forks_count}</span>
-                  </div>
-                </div>
-                <button class="load-github-repo" data-fullname="${result.full_name}" data-name="${result.name}" style="padding: 8px 16px; background: #0066cc; color: #ffffff; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
-                  📥 Načíst
-                </button>
-              </div>
-            `;
-          } else {
-            resultCard.innerHTML = `
-              <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
-                <div style="flex: 1;">
-                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-                    <h5 style="margin: 0; color: #0066cc; font-size: 14px;">${result.name}</h5>
-                    <a href="${result.html_url}" target="_blank" style="color: #888888; text-decoration: none; font-size: 11px;">🔗</a>
-                  </div>
-                  <p style="margin: 0 0 6px 0; font-size: 11px; color: #cccccc;">📦 ${result.repository.full_name}</p>
-                  <p style="margin: 0; font-size: 11px; color: #888888;">📄 ${result.path}</p>
-                </div>
-                <button class="load-github-file" data-url="${result.html_url}" data-name="${result.name}" style="padding: 8px 16px; background: #0066cc; color: #ffffff; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
-                  📥 Načíst
-                </button>
-              </div>
-            `;
-          }
-
-          // Event listeners pro načtení
-          const loadBtn = resultCard.querySelector('.load-github-repo, .load-github-file');
-          loadBtn?.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const btn = e.currentTarget;
-            btn.disabled = true;
-            btn.textContent = '⏳ Načítání...';
-
-            try {
-              closeModal();
-              this.showLoadingOverlay('📥 Načítám z GitHub...');
-
-              if (lastSearchType === 'repositories') {
-                const fullName = btn.dataset.fullname;
-                await this.loadGitHubRepo(fullName, btn.dataset.name);
-              } else {
-                await this.loadGitHubCode(result.html_url, result.name, true);
-              }
-
-              this.hideLoadingOverlay();
-              eventBus.emit('toast:show', {
-                message: '✅ Kód načten z GitHub',
-                type: 'success'
-              });
-            } catch (error) {
-              this.hideLoadingOverlay();
-              eventBus.emit('toast:show', {
-                message: '❌ ' + error.message,
-                type: 'error'
-              });
-              btn.disabled = false;
-              btn.textContent = '📥 Načíst';
-            }
-          });
-
-          resultsList.appendChild(resultCard);
-        });
-
-        // Pagination
-        const maxPages = Math.min(Math.ceil(totalCount / 10), 100);
-        if (maxPages > 1) {
-          const paginationHTML = this.createPaginationHTML(page, maxPages);
-          paginationDiv.innerHTML = paginationHTML;
-
-          // Bind pagination clicks
-          paginationDiv.querySelectorAll('[data-page]').forEach(btn => {
-            btn.addEventListener('click', () => {
-              const newPage = parseInt(btn.dataset.page);
-              performSearch(lastSearchType, newPage);
-            });
-          });
-        }
-
-      } catch (error) {
-        loadingDiv.style.display = 'none';
-        resultsDiv.style.display = 'block';
-        resultsList.innerHTML = `<p style="text-align: center; color: #ff6b6b; padding: 20px;">❌ ${error.message}</p>`;
-      }
-    };
-
-    // Tlačítko pro hledání repozitářů
-    modal.querySelector('#searchRepos').addEventListener('click', () => performSearch('repositories', 1));
-
-    // Tlačítko pro hledání kódu
-    modal.querySelector('#searchCode').addEventListener('click', () => performSearch('code', 1));
-
-    // Enter pro hledání repozitářů (výchozí)
-    modal.querySelector('#githubSearchQuery').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') performSearch('repositories', 1);
-    });
-  }
-
-  async loadGitHubRepo(fullName, repoName) {
-    try {
-      this.showLoadingOverlay('📥 Načítám repozitář...');
-
-      // Nejdřív zkus získat strukturu repozitáře
-      const token = localStorage.getItem('github_token');
-      const headers = { 'Accept': 'application/vnd.github+json' };
-
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        headers['X-GitHub-Api-Version'] = '2022-11-28';
-      }
-
-      // Získej obsah root složky
-      let branch = 'main';
-      let response = await fetch(`https://api.github.com/repos/${fullName}/contents?ref=main`, { headers });
-
-      if (!response.ok) {
-        // Zkus master větev
-        branch = 'master';
-        response = await fetch(`https://api.github.com/repos/${fullName}/contents?ref=master`, { headers });
-      }
-
-      if (!response.ok) {
-        this.hideLoadingOverlay();
-        throw new Error('Nepodařilo se načíst obsah repozitáře');
-      }
-
-      const rootFiles = await response.json();
-
-      // Načti obsah všech souborů z root složky
-      const allFiles = [];
-
-      for (const file of rootFiles) {
-        if (file.type === 'file' && !file.name.startsWith('.')) {
-          // Načti pouze textové soubory
-          if (this.isTextFile(file.name)) {
-            try {
-              const contentResponse = await fetch(file.download_url);
-              if (contentResponse.ok) {
-                const content = await contentResponse.text();
-                allFiles.push({
-                  name: file.name,
-                  content: content,
-                  path: file.path
-                });
-              }
-            } catch (err) {
-              console.warn(`⚠️ Nepodařilo se načíst soubor ${file.name}:`, err);
-            }
-          }
-        }
-      }
-
-      this.hideLoadingOverlay();
-
-      if (allFiles.length === 0) {
-        throw new Error('V repozitáři nejsou žádné načitatelné soubory');
-      }
-
-      console.log(`📦 Načteno ${allFiles.length} souborů z ${repoName}`);
-
-      // Zkontroluj jestli už jsou nějaké otevřené soubory
-      const existingTabs = state.get('files.tabs') || [];
-      const hasExistingFiles = existingTabs.length > 0;
-
-      if (hasExistingFiles) {
-        // Zobraz dialog s volbami
-        this.showRepoLoadOptions(repoName, allFiles);
-      } else {
-        // Prázdný projekt - načti rovnou
-        eventBus.emit('github:project:loaded', {
-          name: repoName,
-          files: allFiles
-        });
-
-        eventBus.emit('toast:show', {
-          message: `✅ Načten repozitář ${repoName} (${allFiles.length} souborů)`,
-          type: 'success',
-          duration: 3000
-        });
-      }
-
-    } catch (error) {
-      this.hideLoadingOverlay();
-      throw new Error('Nepodařilo se načíst repozitář: ' + error.message);
-    }
-  }
-
-  showRepoLoadOptions(repoName, allFiles) {
-    const modal = document.createElement('div');
-    modal.className = 'modal-backdrop';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-    modal.innerHTML = `
-      <div class="modal-content" style="max-width: 500px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; overflow: hidden;">
-        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333;">
-          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">📥 Načíst repozitář ${repoName}</h3>
-        </div>
-        <div class="modal-body" style="padding: 25px;">
-          <p style="margin-bottom: 20px; color: #cccccc; line-height: 1.6;">
-            Načteno <strong>${allFiles.length} souborů</strong>. Už máte otevřené soubory. Co chcete udělat?
-          </p>
-          <div style="display: grid; gap: 12px;">
-            <button id="replaceAllFiles" style="padding: 14px; background: #0066cc; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-              🔄 Nahradit všechny soubory
-            </button>
-            <button id="addToExisting" style="padding: 14px; background: #242424; color: #ffffff; border: 2px solid #333; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-              ➕ Přidat k existujícím
-            </button>
-            <button id="cancelRepoLoad" style="padding: 14px; background: transparent; color: #888888; border: 1px solid #333; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-              ❌ Zrušit
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    const closeModal = () => {
-      modal.remove();
-    };
-
-    modal.querySelector('#replaceAllFiles').addEventListener('click', async () => {
-      // Nahraď všechny soubory pomocí safe batch update
-      const success = await SafeOps.safeBatch(async () => {
-        eventBus.emit('github:project:loaded', {
-          name: repoName,
-          files: allFiles
-        });
-      }, 'Replace all GitHub files');
-
-      if (success) {
-        eventBus.emit('toast:show', {
-          message: `✅ Nahrazeno ${allFiles.length} souborů z ${repoName}`,
-          type: 'success',
-          duration: 3000
-        });
-      } else {
-        eventBus.emit('toast:show', {
-          message: `❌ Chyba při nahrávání souborů`,
-          type: 'error',
-          duration: 3000
-        });
-      }
-      closeModal();
-    });
-
-    modal.querySelector('#addToExisting').addEventListener('click', async () => {
-      // Přidej k existujícím souborům pomocí safe transaction
-      const success = await SafeOps.safeTransaction(async () => {
-        const existingTabs = state.get('files.tabs') || [];
-        let nextId = state.get('files.nextId') || 1;
-
-        const newTabs = [];
-        allFiles.forEach(file => {
-          newTabs.push({
-            id: nextId++,
-            name: file.name,
-            content: file.content,
-            modified: false,
-            type: this.getFileType(file.name),
-            path: file.path
-          });
-        });
-
-        // Slouč existující a nové taby
-        const allTabs = [...existingTabs, ...newTabs];
-        state.set('files.tabs', allTabs);
-        state.set('files.nextId', nextId);
-
-        // Nastav první nový soubor jako aktivní
-        if (newTabs.length > 0) {
-          state.set('files.active', newTabs[0].id);
-          // Použij event místo přímého volání
-          eventBus.emit('editor:setCode', {
-            code: newTabs[0].content,
-            skipStateUpdate: false,
-            force: true
-          });
-        }
-      }, 'Add GitHub files to existing');
-
-      if (success) {
-        eventBus.emit('sidebar:show');
-        eventBus.emit('files:changed');
-
-        eventBus.emit('toast:show', {
-          message: `✅ Přidáno ${allFiles.length} souborů z ${repoName}`,
-          type: 'success',
-          duration: 3000
-        });
-      } else {
-        eventBus.emit('toast:show', {
-          message: `❌ Chyba při přidávání souborů`,
-          type: 'error',
-          duration: 3000
-        });
-      }
-      closeModal();
-    });
-
-    modal.querySelector('#cancelRepoLoad').addEventListener('click', closeModal);
-
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
-  }
-
-  getFileType(fileName) {
-    const ext = fileName.split('.').pop().toLowerCase();
-    const types = {
-      html: 'html', htm: 'html',
-      css: 'css',
-      js: 'javascript', jsx: 'javascript',
-      ts: 'typescript', tsx: 'typescript',
-      json: 'json',
-      md: 'markdown',
-      py: 'python',
-      java: 'java',
-      php: 'php',
-      rb: 'ruby',
-      go: 'go',
-      rs: 'rust',
-      c: 'c', cpp: 'cpp', h: 'c'
-    };
-    return types[ext] || 'text';
-  }
-
-  isTextFile(fileName) {
-    const textExtensions = [
-      '.html', '.htm', '.css', '.js', '.json', '.txt', '.md',
-      '.xml', '.svg', '.py', '.java', '.c', '.cpp', '.h',
-      '.php', '.rb', '.go', '.rs', '.ts', '.jsx', '.tsx',
-      '.vue', '.yml', '.yaml', '.toml', '.ini', '.cfg'
-    ];
-    return textExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
-  }
-
-  showRepoFileSelector(fullName, branch, files, repoName) {
-    const modal = document.createElement('div');
-    modal.className = 'modal-backdrop';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-    modal.innerHTML = `
-      <div class="modal-content" style="max-width: 600px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
-        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">📦 Vyberte soubor z ${repoName}</h3>
-          <button id="closeFileSelector" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body" style="padding: 20px; overflow-y: auto;">
-          <p style="margin-bottom: 15px; color: #cccccc;">Nebyl nalezen automaticky detekovatelný hlavní soubor. Vyberte soubor, který chcete načíst:</p>
-          <div id="fileList" style="display: grid; gap: 8px;"></div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    const fileList = modal.querySelector('#fileList');
-    const codeFiles = files.filter(f =>
-      f.type === 'file' &&
-      !f.name.startsWith('.') &&
-      (f.name.endsWith('.html') || f.name.endsWith('.htm') ||
-       f.name.endsWith('.js') || f.name.endsWith('.py') ||
-       f.name.endsWith('.css') || f.name.endsWith('.json') ||
-       f.name.endsWith('.md') || f.name.endsWith('.txt'))
-    );
-
-    if (codeFiles.length === 0) {
-      fileList.innerHTML = '<p style="color: #888888; text-align: center; padding: 20px;">Žádné načitatelné soubory nenalezeny</p>';
-    } else {
-      codeFiles.forEach(file => {
-        const btn = document.createElement('button');
-        btn.style.cssText = 'padding: 12px; background: #242424; color: #ffffff; border: 1px solid #333; border-radius: 6px; cursor: pointer; text-align: left; transition: all 0.2s; display: flex; align-items: center; gap: 10px;';
-
-        const icon = this.getFileIcon(file.name);
-        btn.innerHTML = `
-          <span style="font-size: 20px;">${icon}</span>
-          <span style="flex: 1;">${file.name}</span>
-          <span style="font-size: 11px; color: #888888;">${this.formatBytes(file.size)}</span>
-        `;
-
-        btn.addEventListener('mouseenter', () => {
-          btn.style.background = '#333';
-          btn.style.borderColor = '#0066cc';
-        });
-
-        btn.addEventListener('mouseleave', () => {
-          btn.style.background = '#242424';
-          btn.style.borderColor = '#333';
-        });
-
-        btn.addEventListener('click', async () => {
-          modal.remove();
-          this.showLoadingOverlay('📥 Načítám soubor...');
-
-          try {
-            const response = await fetch(file.download_url);
-            if (!response.ok) throw new Error('Nepodařilo se načíst soubor');
-
-            const code = await response.text();
-            this.hideLoadingOverlay();
-            await this.handleGitHubCodeLoad(code, file.name);
-          } catch (error) {
-            this.hideLoadingOverlay();
-            eventBus.emit('toast:show', {
-              message: '❌ ' + error.message,
-              type: 'error'
-            });
-          }
-        });
-
-        fileList.appendChild(btn);
-      });
-    }
-
-    modal.querySelector('#closeFileSelector').addEventListener('click', () => modal.remove());
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.remove();
-    });
+    return this.githubService.showRepoFileSelector(fullName, branch, files, repoName);
   }
 
   getFileIcon(fileName) {
-    const ext = fileName.split('.').pop().toLowerCase();
-    const icons = {
-      'html': ICONS.PAGE,
-      'htm': ICONS.PAGE,
-      'css': '🎨',
-      'js': ICONS.MEMO,
-      'json': ICONS.MEMO,
-      'py': '🐍',
-      'md': ICONS.MEMO,
-      'txt': ICONS.MEMO
-    };
-    return icons[ext] || ICONS.PAGE;
+    return this.githubService.getFileIcon(fileName);
   }
 
   formatBytes(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return this.githubService.formatBytes(bytes);
   }
+
 
   async loadGitHubCode(url, name, isSingleFile) {
     return this.githubService.loadGitHubCode(url, name, isSingleFile);
@@ -3169,630 +2110,87 @@ PROSTĚ VYTVOŘ NOVÝ KÓD HNED TEĎ!
     return this.githubService.showRepoManager();
   }
 
-  // Keep repository manager methods as they're complex and will be refactored later
-
-  // Keep repository manager methods as they're complex and will be refactored later
+  // Repository manager methods - Delegated to GitHubService
   createRepoManagerContent() {
-    const undoHistory = this.getUndoHistory();
-    const redoHistory = this.getRedoHistory();
-
-    return `
-      <div class="repo-manager">
-        <div class="repo-toolbar">
-          <button class="repo-btn" id="createRepoBtn">
-            <span class="icon">➕</span>
-            <span>Vytvořit repozitář</span>
-          </button>
-          <button class="repo-btn" id="refreshReposBtn">
-            <span class="icon">🔄</span>
-            <span>Obnovit</span>
-          </button>
-          <div class="repo-history-btns">
-            <button class="repo-btn" id="undoRepoActionBtn" ${undoHistory.length === 0 ? 'disabled' : ''}>
-              <span class="icon">↩️</span>
-              <span>Zpět (${undoHistory.length}/5)</span>
-            </button>
-            <button class="repo-btn" id="redoRepoActionBtn" ${redoHistory.length === 0 ? 'disabled' : ''}>
-              <span class="icon">↪️</span>
-              <span>Vpřed (${redoHistory.length})</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="repo-search">
-          <input
-            type="text"
-            id="repoSearchInput"
-            placeholder="🔍 Hledat repozitář..."
-            class="repo-search-input"
-          />
-        </div>
-
-        <div class="repo-list" id="repoList">
-          <div class="repo-loading">Načítám repozitáře...</div>
-        </div>
-      </div>
-    `;
+    return this.githubService.createRepoManagerContent();
   }
 
   attachRepoManagerHandlers(repoModal) {
-    const createBtn = repoModal.element.querySelector('#createRepoBtn');
-    const refreshBtn = repoModal.element.querySelector('#refreshReposBtn');
-    const undoBtn = repoModal.element.querySelector('#undoRepoActionBtn');
-    const redoBtn = repoModal.element.querySelector('#redoRepoActionBtn');
-    const searchInput = repoModal.element.querySelector('#repoSearchInput');
-
-    if (createBtn) {
-      createBtn.addEventListener('click', () => this.createRepository(repoModal));
-    }
-
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', () => this.loadRepositories(repoModal));
-    }
-
-    if (undoBtn) {
-      undoBtn.addEventListener('click', () => this.undoLastRepoAction(repoModal));
-    }
-
-    if (redoBtn) {
-      redoBtn.addEventListener('click', () => this.redoRepoAction(repoModal));
-    }
-
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => this.filterRepositories(e.target.value, repoModal));
-    }
+    return this.githubService.attachRepoManagerHandlers(repoModal);
   }
 
   async loadRepositories(repoModal) {
-    const repoList = repoModal.element.querySelector('#repoList');
-    if (!repoList) return;
-
-    repoList.innerHTML = '<div class="repo-loading">Načítám repozitáře...</div>';
-
-    try {
-      // Get username from localStorage or token
-      const username = localStorage.getItem('github_username') || 'user';
-
-      // Simulate API call (in production, call GitHub API)
-      const repos = this.getMockRepositories(username);
-
-      if (repos.length === 0) {
-        repoList.innerHTML = '<div class="repo-empty">Žádné repozitáře</div>';
-        return;
-      }
-
-      repoList.innerHTML = repos.map(repo => this.createRepoItem(repo)).join('');
-
-      // Attach delete handlers
-      const deleteButtons = repoList.querySelectorAll('.repo-delete-btn');
-      deleteButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const repoName = btn.dataset.repo;
-          this.deleteRepository(repoName, repoModal);
-        });
-      });
-
-      // Attach repo click handlers
-      const repoItems = repoList.querySelectorAll('.repo-item');
-      repoItems.forEach(item => {
-        item.addEventListener('click', () => {
-          const repoName = item.dataset.repo;
-          this.openRepository(repoName);
-        });
-      });
-
-    } catch (error) {
-      repoList.innerHTML = '<div class="repo-error">Chyba při načítání repozitářů</div>';
-      console.error(error);
-    }
+    return this.githubService.loadRepositories(repoModal);
   }
 
   getMockRepositories(_username) {
-    // Load from localStorage or return mock data
-    const stored = localStorage.getItem('github_repos');
-    if (stored) {
-      return JSON.parse(stored);
-    }
-
-    const mockRepos = [
-      { name: 'my-website', description: 'Personal portfolio', stars: 5, private: false },
-      { name: 'html-editor', description: 'Web-based HTML editor', stars: 12, private: false },
-      { name: 'secret-project', description: 'Private repository', stars: 0, private: true }
-    ];
-
-    localStorage.setItem('github_repos', JSON.stringify(mockRepos));
-    return mockRepos;
+    return this.githubService.getMockRepositories(_username);
   }
 
   createRepoItem(repo) {
-    const privateLabel = repo.private ? '<span class="repo-badge private">🔒 Private</span>' : '';
-    return `
-      <div class="repo-item" data-repo="${repo.name}">
-        <div class="repo-icon">📁</div>
-        <div class="repo-info">
-          <div class="repo-name">${repo.name}</div>
-          <div class="repo-description">${repo.description || 'Bez popisu'}</div>
-          <div class="repo-meta">
-            ${privateLabel}
-            <span class="repo-stars">⭐ ${repo.stars}</span>
-          </div>
-        </div>
-        <button class="repo-delete-btn" data-repo="${repo.name}">
-          🗑️
-        </button>
-      </div>
-    `;
+    return this.githubService.createRepoItem(repo);
   }
 
   async createRepository(repoModal) {
-    const name = prompt('Název repozitáře:');
-    if (!name) return;
-
-    const description = prompt('Popis (volitelné):') || '';
-    const isPrivate = confirm('Vytvořit jako privátní repozitář?');
-
-    // Add to mock data
-    const repos = this.getMockRepositories();
-    repos.unshift({
-      name,
-      description,
-      stars: 0,
-      private: isPrivate
-    });
-
-    localStorage.setItem('github_repos', JSON.stringify(repos));
-
-    // Store for undo
-    this.storeUndoAction('create', { name, description, private: isPrivate });
-
-    eventBus.emit('toast:show', {
-      message: `Repozitář "${name}" byl vytvořen`,
-      type: 'success'
-    });
-
-    // Reload list
-    await this.loadRepositories(repoModal);
-    this.updateHistoryButtons(repoModal);
+    return this.githubService.createRepository(repoModal);
   }
 
   async deleteRepository(repoName, repoModal) {
-    // Security: require last 2 characters
-    const lastTwo = repoName.slice(-2);
-    const prefilled = repoName.slice(0, -2);
-
-    const confirmation = prompt(
-      `⚠️ REPOZITÁŘ: ${repoName}\n\n` +
-      `Pro potvrzení smazání doplňte poslední 2 znaky názvu repozitáře:\n\n` +
-      `${prefilled}____`
-    );
-
-    if (!confirmation) return;
-
-    if (confirmation !== lastTwo) {
-      eventBus.emit('toast:show', {
-        message: 'Špatné potvrzení. Repozitář nebyl smazán.',
-        type: 'error'
-      });
-      return;
-    }
-
-    // Find and remove repo
-    const repos = this.getMockRepositories();
-    const repoIndex = repos.findIndex(r => r.name === repoName);
-
-    if (repoIndex === -1) return;
-
-    const deletedRepo = repos[repoIndex];
-    repos.splice(repoIndex, 1);
-    localStorage.setItem('github_repos', JSON.stringify(repos));
-
-    // Store for undo
-    this.storeUndoAction('delete', deletedRepo);
-
-    eventBus.emit('toast:show', {
-      message: `Repozitář "${repoName}" byl smazán`,
-      type: 'success'
-    });
-
-    // Reload list
-    await this.loadRepositories(repoModal);
-    this.updateHistoryButtons(repoModal);
+    return this.githubService.deleteRepository(repoName, repoModal);
   }
 
-  // Undo/Redo History Management (max 5 steps)
+  // Undo/Redo History Management - Delegated to GitHubService
   getUndoHistory() {
-    const history = localStorage.getItem('github_undo_history');
-    return history ? JSON.parse(history) : [];
+    return this.githubService.getUndoHistory();
   }
 
   getRedoHistory() {
-    const history = localStorage.getItem('github_redo_history');
-    return history ? JSON.parse(history) : [];
+    return this.githubService.getRedoHistory();
   }
 
   storeUndoAction(action, data) {
-    const history = this.getUndoHistory();
-
-    // Add new action to history
-    history.push({
-      action,
-      data,
-      timestamp: Date.now()
-    });
-
-    // Keep only last 5 actions
-    if (history.length > 5) {
-      history.shift();
-    }
-
-    localStorage.setItem('github_undo_history', JSON.stringify(history));
-
-    // Clear redo history when new action is performed
-    localStorage.removeItem('github_redo_history');
+    return this.githubService.storeUndoAction(action, data);
   }
 
   async undoLastRepoAction(repoModal) {
-    const undoHistory = this.getUndoHistory();
-    if (undoHistory.length === 0) return;
-
-    // Get last action
-    const lastAction = undoHistory.pop();
-    const { action, data } = lastAction;
-    const repos = this.getMockRepositories();
-
-    // Store to redo history
-    const redoHistory = this.getRedoHistory();
-    redoHistory.push(lastAction);
-    localStorage.setItem('github_redo_history', JSON.stringify(redoHistory));
-
-    // Perform undo
-    if (action === 'create') {
-      // Remove created repo
-      const index = repos.findIndex(r => r.name === data.name);
-      if (index !== -1) {
-        repos.splice(index, 1);
-      }
-    } else if (action === 'delete') {
-      // Restore deleted repo
-      repos.unshift(data);
-    }
-
-    localStorage.setItem('github_repos', JSON.stringify(repos));
-    localStorage.setItem('github_undo_history', JSON.stringify(undoHistory));
-
-    eventBus.emit('toast:show', {
-      message: `Akce vrácena zpět (${undoHistory.length} zbývá)`,
-      type: 'success'
-    });
-
-    // Reload list and update buttons
-    await this.loadRepositories(repoModal);
-    this.updateHistoryButtons(repoModal);
+    return this.githubService.undoLastRepoAction(repoModal);
   }
 
   async redoRepoAction(repoModal) {
-    const redoHistory = this.getRedoHistory();
-    if (redoHistory.length === 0) return;
-
-    // Get last redo action
-    const lastAction = redoHistory.pop();
-    const { action, data } = lastAction;
-    const repos = this.getMockRepositories();
-
-    // Store back to undo history
-    const undoHistory = this.getUndoHistory();
-    undoHistory.push(lastAction);
-    localStorage.setItem('github_undo_history', JSON.stringify(undoHistory));
-
-    // Perform redo (reverse of undo)
-    if (action === 'create') {
-      // Re-add created repo
-      repos.unshift(data);
-    } else if (action === 'delete') {
-      // Re-remove deleted repo
-      const index = repos.findIndex(r => r.name === data.name);
-      if (index !== -1) {
-        repos.splice(index, 1);
-      }
-    }
-
-    localStorage.setItem('github_repos', JSON.stringify(repos));
-    localStorage.setItem('github_redo_history', JSON.stringify(redoHistory));
-
-    eventBus.emit('toast:show', {
-      message: `Akce obnovena (${redoHistory.length} zbývá vpřed)`,
-      type: 'success'
-    });
-
-    // Reload list and update buttons
-    await this.loadRepositories(repoModal);
-    this.updateHistoryButtons(repoModal);
+    return this.githubService.redoRepoAction(repoModal);
   }
 
   updateHistoryButtons(repoModal) {
-    const undoHistory = this.getUndoHistory();
-    const redoHistory = this.getRedoHistory();
-
-    const undoBtn = repoModal.element.querySelector('#undoRepoActionBtn');
-    const redoBtn = repoModal.element.querySelector('#redoRepoActionBtn');
-
-    if (undoBtn) {
-      undoBtn.disabled = undoHistory.length === 0;
-      undoBtn.querySelector('span:last-child').textContent = `Zpět (${undoHistory.length}/5)`;
-    }
-
-    if (redoBtn) {
-      redoBtn.disabled = redoHistory.length === 0;
-      redoBtn.querySelector('span:last-child').textContent = `Vpřed (${redoHistory.length})`;
-    }
+    return this.githubService.updateHistoryButtons(repoModal);
   }
 
   filterRepositories(query, repoModal) {
-    const repoItems = repoModal.element.querySelectorAll('.repo-item');
-    const lowerQuery = query.toLowerCase();
-
-    repoItems.forEach(item => {
-      const repoName = item.dataset.repo.toLowerCase();
-      const description = item.querySelector('.repo-description')?.textContent.toLowerCase() || '';
-
-      if (repoName.includes(lowerQuery) || description.includes(lowerQuery)) {
-        item.style.display = 'flex';
-      } else {
-        item.style.display = 'none';
-      }
-    });
+    return this.githubService.filterRepositories(query, repoModal);
   }
 
   openRepository(repoName) {
-    eventBus.emit('toast:show', {
-      message: `Otevírám repozitář ${repoName}...`,
-      type: 'info'
-    });
-    // In production, this would open repo details or clone it
+    return this.githubService.openRepository(repoName);
   }
 
+  // Agent methods - Delegated to AgentsService
   async loadCrewAIAgents(agentsGrid) {
-    if (!window.CrewAI || !window.CrewAI.isAvailable) {
-      agentsGrid.innerHTML = `
-        <div class="crewai-warning">
-          <h4>🤖 CrewAI Python agenti</h4>
-          <p style="margin: 10px 0;">Server není spuštěný, ale můžeš ho snadno spustit:</p>
-
-          <div style="background: #2a2a2a; padding: 15px; border-radius: 8px; margin: 15px 0;">
-            <p style="margin: 5px 0; font-weight: bold; color: #4EC9B0;">📦 Nejjednodušší způsob:</p>
-            <p style="margin: 5px 0;">Dvojklik na soubor:</p>
-            <code style="display: block; background: #1e1e1e; padding: 8px; border-radius: 4px; margin: 5px 0;">start-crewai.bat</code>
-          </div>
-
-          <details style="margin: 15px 0; cursor: pointer;">
-            <summary style="font-weight: bold; color: #4EC9B0; padding: 5px 0;">🔧 Další možnosti spuštění</summary>
-            <div style="padding: 10px 0;">
-              <p><strong>NPM příkaz:</strong></p>
-              <code style="display: block; background: #1e1e1e; padding: 8px; border-radius: 4px; margin: 5px 0;">npm run crewai:start</code>
-
-              <p style="margin-top: 10px;"><strong>Nebo ručně:</strong></p>
-              <code style="display: block; background: #1e1e1e; padding: 8px; border-radius: 4px; margin: 5px 0;">python python/crewai_api.py</code>
-            </div>
-          </details>
-
-          <button class="btn btn-primary" id="retryCrewAIConnection" style="width: 100%; margin-top: 10px;">
-            🔄 Zkontrolovat připojení
-          </button>
-
-          <p style="margin-top: 15px; font-size: 0.9em; color: #999;">
-            💡 Po spuštění serveru klikni na "Zkontrolovat připojení"
-          </p>
-        </div>
-      `;
-
-      // Přidej handler pro retry button
-      const retryBtn = agentsGrid.querySelector('#retryCrewAIConnection');
-      if (retryBtn) {
-        retryBtn.addEventListener('click', async () => {
-          retryBtn.disabled = true;
-          retryBtn.textContent = '⏳ Kontroluji...';
-
-          await window.CrewAI.checkConnection();
-
-          if (window.CrewAI.isAvailable) {
-            toast.show('✅ CrewAI server připojen!', 'success');
-            this.loadCrewAIAgents(agentsGrid);
-          } else {
-            toast.show('⚠️ Server stále není dostupný', 'warning');
-            retryBtn.disabled = false;
-            retryBtn.textContent = '🔄 Zkontrolovat připojení';
-          }
-        });
-      }
-
-      return;
-    }
-
-    try {
-      const agents = await window.CrewAI.getAgents();
-
-      agentsGrid.innerHTML = agents.map(agent => `
-        <div class="agent-card crewai-agent" data-agent-id="${agent.id}">
-          <div class="agent-icon">🐍</div>
-          <div class="agent-info">
-            <h4 class="agent-name">${agent.name}</h4>
-            <p class="agent-role">${agent.role}</p>
-            <div class="agent-goal">${agent.goal}</div>
-          </div>
-          <div class="agent-actions">
-            <button class="btn-agent-use" data-agent-id="${agent.id}">
-              🚀 Použít
-            </button>
-          </div>
-        </div>
-      `).join('');
-
-      // Attach handlers for CrewAI agents
-      const useBtns = agentsGrid.querySelectorAll('.btn-agent-use');
-      useBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const agentId = btn.dataset.agentId;
-          this.useCrewAIAgent(agentId);
-        });
-      });
-
-    } catch (error) {
-      agentsGrid.innerHTML = `
-        <div class="crewai-error">
-          <h4>❌ Chyba při načítání CrewAI agentů</h4>
-          <p>${error.message}</p>
-        </div>
-      `;
-    }
+    return this.agentsService.loadCrewAIAgents(agentsGrid);
   }
 
   async useCrewAIAgent(agentId) {
-    const task = prompt('Zadej úkol pro CrewAI agenta:');
-    if (!task) return;
-
-    const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
-    const chatSection = this.modal.element.querySelector('#agentChatSection');
-    const agentName = this.modal.element.querySelector('#currentAgentName');
-
-    if (chatSection) {
-      chatSection.style.display = 'block';
-    }
-
-    if (agentName) {
-      agentName.textContent = `CrewAI - ${agentId}`;
-    }
-
-    let loadingMsg = null;
-
-    if (messagesContainer) {
-      // Add user message
-      const userMsg = document.createElement('div');
-      userMsg.className = 'agent-message user';
-      userMsg.innerHTML = '<strong>Ty:</strong><p>' + this.escapeHtml(task) + '</p>';
-      messagesContainer.appendChild(userMsg);
-
-      // Add loading message
-      loadingMsg = document.createElement('div');
-      loadingMsg.className = 'agent-message assistant loading';
-      loadingMsg.innerHTML = '<strong>CrewAI:</strong><p>Zpracovávám úkol...</p>';
-      messagesContainer.appendChild(loadingMsg);
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-
-    try {
-      const result = await window.CrewAI.runSingleAgent(agentId, task);
-
-      if (messagesContainer && loadingMsg) {
-        loadingMsg.remove();
-
-        const responseMsg = document.createElement('div');
-        responseMsg.className = 'agent-message assistant';
-        responseMsg.innerHTML = '<strong>CrewAI:</strong><p>' + this.escapeHtml(result.result) + '</p>';
-        messagesContainer.appendChild(responseMsg);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-      }
-
-      toast.success('CrewAI úkol dokončen', 3000);
-
-    } catch (error) {
-      if (messagesContainer && loadingMsg) {
-        loadingMsg.remove();
-
-        const errorMsg = document.createElement('div');
-        errorMsg.className = 'agent-message error';
-        errorMsg.innerHTML = `<strong>Chyba:</strong><p>${error.message}</p>`;
-        messagesContainer.appendChild(errorMsg);
-      }
-
-      toast.error('Chyba při spouštění CrewAI', 3000);
-    }
+    return this.agentsService.useCrewAIAgent(agentId);
   }
 
   toggleAgent(agentId) {
-    const agent = window.AIAgents.getAgent(agentId);
-    if (!agent) {
-      toast.error('Agent nenalezen', 2000);
-      return;
-    }
-
-    // Use the toggleAgent method from AIAgentsSystem
-    const success = window.AIAgents.toggleAgent(agentId);
-
-    if (!success) {
-      toast.error(`Chyba při přepínání agenta ${agent.name}`, 2000);
-      return;
-    }
-
-    // Reload grid to update UI
-    this.loadAgentsGrid();
-    this.updateActiveAgentsList();
-
-    // Get updated agent state
-    const updatedAgent = window.AIAgents.getAgent(agentId);
-    toast.success(
-      updatedAgent.active ? `✅ Agent ${agent.name} aktivován` : `🔴 Agent ${agent.name} deaktivován`,
-      2000
-    );
+    return this.agentsService.toggleAgent(agentId);
   }
 
   updateActiveAgentsList() {
-    const activeAgents = window.AIAgents.getActiveAgents();
-    const section = this.modal.element.querySelector('#activeAgentsSection');
-    const list = this.modal.element.querySelector('#activeAgentsList');
-
-    if (!section || !list) return;
-
-    if (activeAgents.length === 0) {
-      section.style.display = 'none';
-      return;
-    }
-
-    section.style.display = 'block';
-    list.innerHTML = activeAgents.map(agent => `
-      <div class="active-agent-badge">
-        <span class="agent-icon">${agent.icon}</span>
-        <span class="agent-name">${agent.name}</span>
-        <button class="btn-remove-agent" data-agent-id="${agent.id}">×</button>
-      </div>
-    `).join('');
-
-    // Attach remove handlers
-    const removeBtns = list.querySelectorAll('.btn-remove-agent');
-    removeBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const agentId = btn.dataset.agentId;
-        this.toggleAgent(agentId);
-      });
-    });
+    return this.agentsService.updateActiveAgentsList();
   }
 
   openAgentChat(agentId) {
-    const agent = window.AIAgents.getAgent(agentId);
-    if (!agent) return;
-
-    this.currentAgent = agentId;
-    const chatSection = this.modal.element.querySelector('#agentChatSection');
-    const agentName = this.modal.element.querySelector('#currentAgentName');
-    const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
-
-    if (!chatSection || !agentName || !messagesContainer) return;
-
-    chatSection.style.display = 'block';
-    agentName.textContent = agent.name;
-
-    // Load conversation history
-    messagesContainer.innerHTML = agent.conversationHistory.length === 0
-      ? '<div class="agent-message system">Ahoj! Jsem ' + agent.name + '. ' + agent.role + '</div>'
-      : agent.conversationHistory.map(msg => `
-          <div class="agent-message ${msg.role}">
-            <strong>${msg.role === 'user' ? 'Ty' : agent.name}:</strong>
-            <p>${msg.content}</p>
-          </div>
-        `).join('');
-
-    // Scroll to bottom
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    return this.agentsService.openAgentChat(agentId);
   }
 
   async sendToOrchestrator(message) {
@@ -3804,8 +2202,13 @@ PROSTĚ VYTVOŘ NOVÝ KÓD HNED TEĎ!
     this.addChatMessage('ai', '🎭 Orchestrator připravuje úkoly pro agenty...', thinkingId);
 
     try {
-      // Get current code for context
-      const currentCode = state.get('editor.code') || '';
+      // Get current code for context (limit to 15000 chars to avoid context overflow)
+      let currentCode = state.get('editor.code') || '';
+      const maxCodeLength = 15000;
+      if (currentCode.length > maxCodeLength) {
+        console.log(`[AIPanel] Kód je příliš dlouhý (${currentCode.length}), ořezávám na ${maxCodeLength} znaků`);
+        currentCode = currentCode.substring(0, maxCodeLength) + '\n... (kód zkrácen) ...';
+      }
 
       // Build orchestrator prompt
       const orchestratorPrompt = `Jsi Orchestrator - řídící AI agent, který analyzuje požadavky uživatele a vytváří detailní task list pro ostatní specializované agenty.
@@ -3825,16 +2228,22 @@ ANALYZUJ požadavek a rozděl ho na konkrétní úkoly pro tyto agenty:
 ${currentCode ? `
 **PROJEKT UŽ EXISTUJE! NEPOUŽÍVEJ komplettní kód - použij SEARCH/REPLACE!**
 
+📄 **AKTUÁLNÍ KÓD V EDITORU (musíš použít PŘESNĚ tento kód v SEARCH blocích):**
+\`\`\`html
+${currentCode}
+\`\`\`
+
 Použij tento formát pro úpravu existujícího kódu:
 
 \`\`\`SEARCH
-[přesný kód který chceš najít a nahradit]
+[PŘESNĚ zkopíruj část kódu z výše uvedeného - VČETNĚ MEZER A ODSAZENÍ]
 \`\`\`
 \`\`\`REPLACE
-[nový kód]
+[nový kód který nahradí SEARCH blok]
 \`\`\`
 
 Můžeš použít více SEARCH/REPLACE bloků najednou.
+**KRITICKÉ: SEARCH blok MUSÍ být PŘESNÁ kopie z aktuálního kódu výše! Včetně všech mezer!**
 **NIKDY nepoužívej komplettní kód - jen SEARCH/REPLACE bloky!**
 ` : `
 **NOVÝ PROJEKT - použij komplettní kód:**
@@ -3903,6 +2312,23 @@ ODPOVĚZ VE FORMÁTU:
       const codeMatch = response.match(/```(?:html)?\n([\s\S]*?)```/);
       if (codeMatch && codeMatch[1]) {
         const code = codeMatch[1].trim();
+
+        // Kontrola, že kód je dostatečně dlouhý a vypadá jako HTML
+        const isValidHtml = code.length > 50 && (
+          code.includes('<!DOCTYPE') ||
+          code.includes('<html') ||
+          code.includes('<body') ||
+          code.includes('<div') ||
+          code.includes('<head')
+        );
+
+        if (!isValidHtml) {
+          console.warn('[AIPanel] Orchestrator vrátil příliš krátký nebo nevalidní kód, zobrazuji odpověď');
+          this.addChatMessage('ai', response);
+          this.chatService.addToHistory('assistant', response);
+          this.chatHistory = this.chatService.getHistory();
+          return;
+        }
 
         // Extract only the description/plan part (before the code)
         const descriptionMatch = response.match(/([\s\S]*?)```/);
@@ -4189,741 +2615,43 @@ ODPOVĚZ VE FORMÁTU:
   }
 
   clearAgentsHistory() {
-    if (confirm('Opravdu chceš vymazat historii všech agentů?')) {
-      window.AIAgents.clearAllHistory();
-      toast.success('Historie agentů vymazána', 2000);
-
-      // Clear chat display
-      const messagesContainer = this.modal.element.querySelector('#agentChatMessages');
-      if (messagesContainer) {
-        messagesContainer.innerHTML = '';
-      }
-    }
+    return this.agentsService.clearAgentsHistory();
   }
 
   prefillPromptForAgent(agentId) {
-    // Get agent details
-    const agent = window.AIAgents?.getAgent(agentId);
-    if (!agent) return;
-
-    // Switch to chat tab
-    const chatTab = this.modal.element.querySelector('[data-tab="chat"]');
-    if (chatTab) {
-      chatTab.click();
-    }
-
-    // Build prompt based on agent
-    let prompt = '';
-    switch (agentId) {
-      case 'code-generator':
-        prompt = `Jako Code Generator, potřebuji vytvořit ${agent.capabilities.includes('HTML') ? 'HTML' : agent.capabilities.includes('JavaScript') ? 'JavaScript' : 'CSS'} kód pro: `;
-        break;
-      case 'code-reviewer':
-        prompt = `Zkontroluj prosím můj kód a navrhni vylepšení z hlediska: ${agent.capabilities.join(', ')}`;
-        break;
-      case 'debugger':
-        prompt = `Pomoz mi najít a opravit chyby v kódu. Zaměř se na: `;
-        break;
-      case 'optimizer':
-        prompt = `Optimalizuj tento kód z hlediska: ${agent.capabilities.join(', ')}. `;
-        break;
-      case 'documenter':
-        prompt = `Vytvoř dokumentaci pro tento kód. Zahrň: ${agent.capabilities.join(', ')}`;
-        break;
-      case 'tester':
-        prompt = `Navrhni testovací případy pro tento kód. Zaměř se na: ${agent.capabilities.join(', ')}`;
-        break;
-      case 'refactorer':
-        prompt = `Refaktoruj tento kód podle principů: ${agent.capabilities.join(', ')}`;
-        break;
-      case 'security':
-        prompt = `Zkontroluj bezpečnost kódu. Zaměř se na: ${agent.capabilities.join(', ')}`;
-        break;
-      case 'accessibility':
-        prompt = `Zkontroluj přístupnost (a11y) a navrhni vylepšení podle: ${agent.capabilities.join(', ')}`;
-        break;
-      default:
-        prompt = `Jako ${agent.name}, pomoz mi s: `;
-    }
-
-    // Fill the chat input
-    const chatInput = this.modal.element.querySelector('#aiChatInput');
-    if (chatInput) {
-      chatInput.value = prompt;
-      chatInput.focus();
-
-      // Move cursor to end
-      chatInput.setSelectionRange(prompt.length, prompt.length);
-
-      // Show notification
-      toast.show(`✨ Prompt předvyplněn pro ${agent.name}`, 'info');
-    }
+    return this.agentsService.prefillPromptForAgent(agentId);
   }
 
+  // ========================================
+  // ORCHESTRATOR METHODS - Delegated to AgentsService
+  // ========================================
+
   openOrchestratorPromptBuilder() {
-    // Log available agents for debugging
-    if (window.AIAgents) {
-      const allAgents = window.AIAgents.getAgents();
-      console.log('📋 Dostupné agenti pro orchestrátor:', allAgents.map(a => `${a.id} (${a.name})`).join(', '));
-    }
-
-    // Create orchestrator prompt builder modal
-    const orchestratorModal = new Modal({
-      title: '🎯 Orchestrator - Sestavení týmu agentů',
-      content: this.createOrchestratorBuilderContent(),
-      size: 'large'
-    });
-
-    orchestratorModal.open();
-    this.currentOrchestratorModal = orchestratorModal;
-    this.orchestratorChatHistory = [];
-
-    // Attach event handlers
-    setTimeout(() => {
-      this.attachOrchestratorBuilderHandlers(orchestratorModal);
-    }, 100);
+    return this.agentsService.openOrchestratorPromptBuilder();
   }
 
   createOrchestratorBuilderContent() {
-    return `
-      <div class="orchestrator-builder">
-        <div class="orchestrator-prompt-section">
-          <h3>📝 Zadání projektu</h3>
-
-          <div class="complexity-selector">
-            <label>Složitost projektu:</label>
-            <div class="complexity-buttons">
-              <button class="complexity-btn active" data-complexity="1" title="Jedna HTML stránka">
-                <span class="complexity-icon">1️⃣</span>
-                <span class="complexity-label">Základ</span>
-                <span class="complexity-desc">Jedna HTML stránka</span>
-              </button>
-              <button class="complexity-btn" data-complexity="2" title="HTML + CSS + JS v samostatných souborech">
-                <span class="complexity-icon">2️⃣</span>
-                <span class="complexity-label">Menší projekt</span>
-                <span class="complexity-desc">HTML, CSS, JS soubory</span>
-              </button>
-              <button class="complexity-btn" data-complexity="3" title="Rozsáhlejší projekt s více soubory">
-                <span class="complexity-icon">3️⃣</span>
-                <span class="complexity-label">Rozsáhlý projekt</span>
-                <span class="complexity-desc">Více souborů a struktura</span>
-              </button>
-            </div>
-          </div>
-
-          <textarea
-            id="orchestratorPromptInput"
-            class="orchestrator-prompt-textarea"
-            placeholder="Popište co chcete vytvořit... Například: 'Vytvoř responzivní landing page s kontaktním formulářem'"
-            rows="4"
-          ></textarea>
-
-          <div class="orchestrator-ai-help">
-            <h4>💬 AI Asistent pro upřesnění zadání</h4>
-            <div class="orchestrator-chat-messages" id="orchestratorChatMessages">
-              <div class="orchestrator-message system">
-                👋 Jsem AI asistent. Pomohu ti upřesnit zadání a navrhnout optimální tým agentů. Zeptej se mě na cokoliv!
-              </div>
-            </div>
-            <div class="orchestrator-chat-input">
-              <textarea
-                id="orchestratorChatInput"
-                placeholder="Zeptej se AI na upřesnění..."
-                rows="2"
-              ></textarea>
-              <button class="btn-orchestrator-send" id="orchestratorSendBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="orchestrator-team-preview">
-          <h3>👥 Navržený tým (bude vytvořen po aktivaci)</h3>
-          <div id="orchestratorTeamPreview" class="team-preview-list">
-            <div class="team-preview-placeholder">
-              Zadejte projekt a AI navrhne optimální tým agentů...
-            </div>
-          </div>
-        </div>
-
-        <div class="orchestrator-actions">
-          <button class="btn-orchestrator-analyze" id="orchestratorAnalyzeBtn">
-            🔍 Analyzovat a navrhnout tým
-          </button>
-          <button class="btn-orchestrator-activate" id="orchestratorActivateBtn" disabled>
-            ✨ Vytvořit projekt s týmem (0 agentů)
-          </button>
-        </div>
-      </div>
-    `;
+    return this.agentsService.createOrchestratorBuilderContent();
   }
 
   attachOrchestratorBuilderHandlers(modal) {
-    const promptInput = modal.element.querySelector('#orchestratorPromptInput');
-    const chatInput = modal.element.querySelector('#orchestratorChatInput');
-    const sendBtn = modal.element.querySelector('#orchestratorSendBtn');
-    const analyzeBtn = modal.element.querySelector('#orchestratorAnalyzeBtn');
-    const activateBtn = modal.element.querySelector('#orchestratorActivateBtn');
-    const complexityBtns = modal.element.querySelectorAll('.complexity-btn');
-
-    // Store selected complexity
-    this.selectedComplexity = 1;
-
-    // Complexity selector
-    complexityBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        complexityBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.selectedComplexity = parseInt(btn.dataset.complexity);
-
-        // Update placeholder based on complexity
-        const placeholders = {
-          1: 'Například: Vytvoř jednoduchou vizitku s kontaktem',
-          2: 'Například: Vytvoř landing page s formulářem a stylovaným designem',
-          3: 'Například: Vytvoř kompletní webovou aplikaci s menu, více stránkami a interaktivními prvky'
-        };
-        promptInput.placeholder = placeholders[this.selectedComplexity];
-      });
-    });
-
-    // Chat with AI
-    const sendMessage = async () => {
-      const message = chatInput.value.trim();
-      if (!message) return;
-
-      this.addOrchestratorMessage('user', message);
-      chatInput.value = '';
-
-      try {
-        const context = promptInput.value.trim();
-        const systemPrompt = `Jsi expert project manager a solution architect pomáhající s definicí webového projektu.
-
-📋 AKTUÁLNÍ ZADÁNÍ:
-"${context || '🔴 Zatím nespecifikováno - pomoz uživateli definovat projekt'}"
-
-🎯 TVOJE ROLE:
-1. **Upřesnit požadavky** - co přesně projekt má dělat?
-2. **Identifikovat technologie** - HTML/CSS/JS, framework, knihovny?
-3. **Navrhnout strukturu** - komponenty, stránky, funkce
-4. **Určit komplexitu** - simple/medium/complex
-5. **Doporučit typy agentů** - frontend, backend, fullstack?
-
-💡 KLÍČOVÉ OTÁZKY K POLOŽENÍ:
-- Jaký je účel aplikace? (e-shop, portfólio, tool...)
-- Kdo jsou uživatelé? (obecná veřejnost, admin...)
-- Potřebuješ backend? (databáze, API, auth...)
-- Jaké hlavní funkce? (formuláře, kalkulace, CRUD...)
-- Máš designové požadavky? (barvy, layout...)
-
-✅ BEST PRACTICES:
-- Ptej se na 1-2 věci najednou (ne všechno naráz)
-- Navrhuj konkrétní řešení s příklady
-- Zmiň možná úskalí a jak je řešit
-- Doporuč vhodný tým agentů pro daný typ projektu
-
-📝 STYL ODPOVĚDI:
-- Krátké odstavce, emoji pro přehlednost
-- Konkrétní a akční rady
-- V češtině, přátelsky ale profesionálně`;
-
-        const response = await window.AI.ask(message, {
-          provider: 'groq',
-          system: systemPrompt,
-          temperature: 0.7
-        });
-
-        this.addOrchestratorMessage('assistant', response);
-
-        // Update main prompt if AI suggests improvements
-        if (response.toLowerCase().includes('navrhuji') || response.toLowerCase().includes('mělo by')) {
-          analyzeBtn.style.animation = 'pulse 1s ease-in-out 2';
-        }
-
-      } catch (error) {
-        this.addOrchestratorMessage('system', '❌ Chyba: ' + error.message);
-      }
-    };
-
-    if (sendBtn) {
-      sendBtn.addEventListener('click', sendMessage);
-    }
-
-    if (chatInput) {
-      chatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          sendMessage();
-        }
-      });
-    }
-
-    // Analyze and suggest team
-    if (analyzeBtn) {
-      analyzeBtn.addEventListener('click', async () => {
-        const projectDescription = promptInput.value.trim();
-        if (!projectDescription) {
-          toast.show('❌ Zadejte popis projektu', 'error');
-          return;
-        }
-
-        analyzeBtn.disabled = true;
-        analyzeBtn.textContent = '🔄 Analyzuji...';
-
-        try {
-          const teamSuggestion = await this.analyzeProjectAndSuggestTeam(projectDescription);
-          this.displayTeamPreview(teamSuggestion);
-
-          activateBtn.disabled = false;
-          activateBtn.textContent = `✨ Aktivovat tým (${teamSuggestion.agents.length} agentů)`;
-
-          // Store suggestion for activation
-          this.currentTeamSuggestion = teamSuggestion;
-
-        } catch (error) {
-          toast.show('❌ Chyba při analýze: ' + error.message, 'error');
-        } finally {
-          analyzeBtn.disabled = false;
-          analyzeBtn.textContent = '🔍 Analyzovat a navrhnout tým';
-        }
-      });
-    }
-
-    // Activate team
-    if (activateBtn) {
-      activateBtn.addEventListener('click', async () => {
-        if (this.currentTeamSuggestion) {
-          activateBtn.disabled = true;
-          activateBtn.textContent = '🔄 Spouštím agenty...';
-
-          // Close modal immediately to show animation in chat
-          modal.close();
-
-          // Show AI panel with chat tab
-          eventBus.emit('panel:show', { name: 'ai' });
-
-          try {
-            await this.activateOrchestratedTeam(this.currentTeamSuggestion, promptInput.value.trim(), true);
-          } catch (error) {
-            toast.show('❌ Chyba při vytváření projektu: ' + error.message, 'error');
-            console.error('Orchestration error:', error);
-          }
-        }
-      });
-    }
+    return this.agentsService.attachOrchestratorBuilderHandlers(modal);
   }
 
   addOrchestratorMessage(role, content) {
-    const messagesContainer = this.currentOrchestratorModal?.element?.querySelector('#orchestratorChatMessages');
-    if (!messagesContainer) return;
-
-    const messageEl = document.createElement('div');
-    messageEl.className = `orchestrator-message ${role}`;
-    messageEl.innerHTML = `<p>${this.escapeHtml(content)}</p>`;
-
-    messagesContainer.appendChild(messageEl);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-    this.orchestratorChatHistory.push({ role, content });
+    return this.agentsService.addOrchestratorMessage?.(role, content);
   }
 
   async analyzeProjectAndSuggestTeam(projectDescription) {
-    const systemPrompt = `Jsi expert AI team architect. Analyzuj projekt a navrhni optimální tým AI agentů.
-
-🤖 DOSTUPNÍ AGENTI (POUŽIJ POUZE TATO ID!):
-
-1. **orchestrator** - Hlavní koordinátor (automaticky aktivní)
-   • Řídí komunikaci mezi agenty
-   • Deleguje úkoly
-   • Monitoruje progress
-
-2. **architect** - Solution architect
-   • Návrh struktury aplikace
-   • Volba technologií
-   • Definice komponent
-
-3. **frontend** - Frontend developer
-   • HTML, CSS, vanilla JS
-   • React/Vue komponenty
-   • Responzivní UI
-
-4. **backend** - Backend developer
-   • API endpoints
-   • Databázové schéma
-   • Server logika (Node.js/Python)
-
-5. **fullstack** - Full-stack developer
-   • End-to-end features
-   • Frontend + Backend integrace
-   • Komplexní funkcionalita
-
-6. **debugger** - Bug hunter
-   • Hledání chyb
-   • Fix console errors
-   • Performance issues
-
-7. **reviewer** - Code reviewer
-   • Quality assurance
-   • Best practices check
-   • Security audit
-
-8. **documentation** - Tech writer
-   • README, komentáře
-   • API docs
-   • User guides
-
-9. **tester** - QA engineer
-   • Unit testy
-   • Integration testy
-   • Manual testing
-
-📋 VÝSTUP - POUZE VALIDNÍ JSON:
-{
-  "projectType": "web-app|landing-page|dashboard|e-shop|portfolio|tool",
-  "complexity": "simple|medium|complex",
-  "estimatedTime": "5 min|30 min|2 hours",
-  "agents": [
-    {
-      "id": "frontend",
-      "task": "Konkrétní, akční úkol (ne obecný)",
-      "priority": 1
-    },
-    {
-      "id": "debugger",
-      "task": "Testovat funkčnost a opravit bugy",
-      "priority": 3
-    }
-  ],
-  "workflow": "1. Architect navrhne → 2. Frontend/Backend implementuje → 3. Debugger testuje"
-}
-
-⚠️ PRAVIDLA:
-- Simple projekt: 2-3 agenti (frontend + debugger)
-- Medium projekt: 3-5 agentů (architect + frontend/fullstack + reviewer)
-- Complex projekt: 5+ agentů (celý tým)
-- Priority: 1=ASAP, 2=high, 3=medium, 4=low, 5=nice-to-have
-- Task MUSÍ být konkrétní akce, ne role popis`;
-
-    const response = await window.AI.ask(`Projekt: ${projectDescription}`, {
-      provider: 'groq',
-      system: systemPrompt,
-      temperature: 0.3
-    });
-
-    // Parse JSON from response
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('AI nevrátila validní JSON odpověď');
-    }
-
-    return JSON.parse(jsonMatch[0]);
+    return this.agentsService.analyzeProjectAndSuggestTeam(projectDescription, this.selectedComplexity || 1);
   }
 
   displayTeamPreview(teamSuggestion) {
-    const previewContainer = this.currentOrchestratorModal?.element?.querySelector('#orchestratorTeamPreview');
-    if (!previewContainer) return;
-
-    // Get agent info from actual registered agents
-    const getAgentInfo = (agentId) => {
-      const agent = window.AIAgents?.getAgent(agentId);
-      if (agent) {
-        return { icon: agent.icon, name: agent.name };
-      }
-      // Fallback for unknown agents
-      return { icon: '❓', name: agentId };
-    };
-
-    previewContainer.innerHTML = `
-      <div class="team-preview-header">
-        <div class="team-info">
-          <span class="team-type">📊 Typ: ${teamSuggestion.projectType}</span>
-          <span class="team-complexity">🎯 Složitost: ${teamSuggestion.complexity}</span>
-        </div>
-        <div class="team-workflow">
-          <strong>Workflow:</strong> ${teamSuggestion.workflow}
-        </div>
-      </div>
-      ${teamSuggestion.agents.sort((a, b) => a.priority - b.priority).map((agent, index) => {
-        const agentInfo = getAgentInfo(agent.id);
-        return `
-          <div class="team-agent-preview" data-priority="${agent.priority}">
-            <div class="team-agent-number">#${index + 1}</div>
-            <div class="team-agent-icon">${agentInfo.icon}</div>
-            <div class="team-agent-info">
-              <div class="team-agent-name">${agentInfo.name}</div>
-              <div class="team-agent-task">${agent.task}</div>
-            </div>
-            <div class="team-agent-priority priority-${agent.priority}">
-              Priorita: ${agent.priority}
-            </div>
-          </div>
-        `;
-      }).join('')}
-    `;
+    return this.agentsService.displayTeamPreview(teamSuggestion);
   }
 
   async activateOrchestratedTeam(teamSuggestion, projectDescription, forceNew = false) {
-    if (!window.AIAgents) {
-      toast.error('❌ AI Agents System není k dispozici', 3000);
-      return;
-    }
-
-    // Store tasks for agents
-    if (!this.agentTasks) {
-      this.agentTasks = new Map();
-    }
-
-    // Prepare agent activation data - filter out non-existent agents
-    const agentIds = [];
-    const notFoundAgents = [];
-
-    teamSuggestion.agents.forEach(agentConfig => {
-      const agent = window.AIAgents.getAgent(agentConfig.id);
-      if (agent) {
-        agentIds.push(agentConfig.id);
-        this.agentTasks.set(agentConfig.id, agentConfig.task);
-      } else {
-        notFoundAgents.push(agentConfig.id);
-        console.warn(`⚠️ Agent ${agentConfig.id} nenalezen`);
-      }
-    });
-
-    if (notFoundAgents.length > 0) {
-      console.warn(`⚠️ Nenalezení agenti: ${notFoundAgents.join(', ')}`);
-    }
-
-    if (agentIds.length === 0) {
-      toast.error('❌ Žádný validní agent k aktivaci', 3000);
-      return;
-    }
-
-    // Activate all agents at once
-    const results = window.AIAgents.activateAgents(agentIds);
-    const successCount = results.filter(r => r.success).length;
-
-    if (successCount === 0) {
-      toast.error('❌ Nepodařilo se aktivovat žádného agenta', 3000);
-      return;
-    }
-
-    console.log(`✅ Aktivováno ${successCount}/${agentIds.length} agentů`);
-
-    if (successCount < agentIds.length) {
-      const failed = results.filter(r => !r.success).map(r => r.name).join(', ');
-      toast.warning(`⚠️ Někteří agenti nebyli aktivováni: ${failed}`, 4000);
-    } else {
-      toast.success(`✅ Aktivováno ${successCount} agentů`, 2000);
-    }
-
-    // Update UI
-    this.loadAgentsGrid();
-    this.updateActiveAgentsList();
-
-    // Check if editor already has content from previous orchestration
-    const currentCode = state.get('editor.code') || '';
-    const hasExistingProject = currentCode.trim().length > 100; // More than just basic HTML
-
-    // Only skip orchestration if NOT forced and has existing project
-    if (hasExistingProject && !forceNew) {
-      // User is refining existing project via normal chat - keep the code and context
-      console.log('🔄 Editor obsahuje existující projekt - zachovávám kontext pro úpravy (pokud chceš začít znovu, klikni na orchestrační tlačítka)');
-
-      // Add system message that agents will improve existing code
-      this.addChatMessage('system', '💡 Editor již obsahuje projekt. Pokud chceš začít úplně od začátku, klikni na orchestrační tlačítka v levém panelu.');
-
-      // Keep originalCode for comparison
-      this.originalCode = currentCode;
-
-      // Don't clear chat history - agents need context of what was done before
-      return; // Exit without starting orchestration
-    }
-
-    // Clear editor AND chat history for new project (either empty or forceNew)
-    console.log('🗑️ Mazání editoru a historie pro nový projekt...');
-    this.originalCode = '';
-    state.set('editor.code', '');
-    eventBus.emit('editor:setCode', { code: '' });
-
-    // DŮLEŽITÉ: Vymazat chat historii aby AI neviděla starý kód
-    this.chatHistory = [];
-    this.chatHistoryService.updateHistoryInfo();
-
-    // Visual feedback for user
-    toast.info('🗑️ Editor a historie vymazány - začínáme nový projekt', 2000);
-
-    // Switch to chat tab
-    const chatTab = this.modal.element.querySelector('[data-tab="chat"]');
-    if (chatTab) {
-      chatTab.click();
-    }
-
-    // Generate project with AI
-    const complexity = this.selectedComplexity || 1;
-    const complexityDescriptions = {
-      1: 'jednoduchý projekt v jednom HTML souboru',
-      2: 'menší projekt s oddělenými HTML, CSS a JS soubory',
-      3: 'rozsáhlý projekt s více soubory a strukturou'
-    };
-
-    const orchestratorPrompt = `🎯 ORCHESTRATOR AKTIVOVÁN - NOVÝ PROJEKT
-
-⚠️ KRITICKÁ INSTRUKCE: Předchozí kontext je SMAZÁN. Editor je prázdný. Začínáš od nuly.
-
-Projekt: ${projectDescription}
-Složitost: ${complexityDescriptions[complexity]}
-
-Aktivovaný tým agentů (${teamSuggestion.agents.length}):
-${teamSuggestion.agents.map((a, i) => `${i + 1}. ${a.id} - ${a.task}`).join('\n')}
-
-Workflow: ${teamSuggestion.workflow}
-
-🚨 KRITICKÁ PRAVIDLA (NESELHEJ!):
-1. Vytvoř KOMPLETNĚ NOVÝ projekt (ignoruj vše předchozí)
-2. ${complexity === 1 ? 'Celý projekt v JEDNOM HTML souboru včetně <style> a <script>.' : complexity === 2 ? 'Rozděl do HTML, CSS a JS souborů.' : 'Kompletní struktura s více soubory.'}
-3. Začni kompletním základním souborem (<!DOCTYPE html>...</html>)
-4. 🔥 KAŽDÁ PROMĚNNÁ MUSÍ MÍT UNIKÁTNÍ NÁZEV! 🔥
-   - NIKDY nedeklaruj stejnou proměnnou 2x (např. let x; ... let x; ❌)
-   - Použij různé názvy: cislo1, cislo2, hodnota1, hodnota2
-   - Kontroluj kód PŘED odesláním!
-5. Kód FUNKČNÍ na první spuštění (bez chyb!)
-
-⚠️ POZOR: Kód bude validován! Duplicitní proměnné = SELHÁNÍ!
-
-Začni vytvořením kompletního základního souboru.`;
-
-    // Add to chat history
-    this.chatService.addToHistory('system', orchestratorPrompt);
-    this.chatHistory = this.chatService.getHistory();
-    // Display in chat
-    this.addChatMessage('system', orchestratorPrompt);
-
-    // Use real orchestrated session with agent collaboration
-    try {
-      console.log(`🎯 Spouštím orchestrovanou session s ${teamSuggestion.agents.length} agenty...`);
-
-      // Show animated loading message
-      const loadingMsgId = `loading-${Date.now()}`;
-      const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
-      const loadingEl = document.createElement('div');
-      loadingEl.className = 'ai-message system';
-      loadingEl.id = loadingMsgId;
-      loadingEl.innerHTML = `
-        <div class="orchestrator-loading">
-          <div class="loading-spinner"></div>
-          <div class="loading-text">
-            <strong>🤖 Agenti spolupracují na projektu...</strong>
-            <div class="agent-status" id="agent-status-${loadingMsgId}"></div>
-          </div>
-        </div>
-      `;
-      messagesContainer.appendChild(loadingEl);
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-      // Call orchestrated session from AIAgents
-      const agentIds = teamSuggestion.agents.map(a => a.id);
-      const taskDescription = `Vytvoř ${complexityDescriptions[complexity]}: ${projectDescription}
-
-Úkoly pro jednotlivé agenty:
-${teamSuggestion.agents.map(a => `- ${a.id}: ${a.task}`).join('\n')}
-
-Každý agent pracuje na své části, výsledky se kombinují do finálního projektu.`;
-
-      const orchestrationResult = await window.AIAgents.orchestratedSession(taskDescription, {
-        complexity: complexity,
-        projectType: teamSuggestion.projectType,
-        onProgress: (status) => {
-          // Update loading status
-          const statusEl = document.getElementById(`agent-status-${loadingMsgId}`);
-          if (statusEl) {
-            statusEl.textContent = status;
-          }
-        }
-      });
-
-      // Remove loading message
-      loadingEl.remove();
-
-      // Process and display results with detailed logging
-      console.log('✅ Orchestrace dokončena, zpracovávám výsledky...');
-      console.log('Struktura výsledků:', JSON.stringify(orchestrationResult, null, 2));
-
-      let finalCode = '';
-      let hasCode = false;
-
-      // Extract code from results
-      for (const phaseResult of orchestrationResult) {
-        console.log(`Zpracovávám fázi: ${phaseResult.phase}`);
-
-        if (phaseResult.phase === 'synthesis' && phaseResult.response) {
-          const synthesisText = phaseResult.response.response || phaseResult.response;
-          console.log('Synthesis odpověď:', synthesisText.substring(0, 200));
-
-          // Try to extract code block
-          const codeMatch = synthesisText.match(/```(?:html|javascript|js)?\s*\n?([\s\S]*?)```/);
-          if (codeMatch) {
-            finalCode = codeMatch[1].trim();
-            hasCode = true;
-            console.log('✅ Nalezen kód v code blocku');
-          } else if (synthesisText.includes('<!DOCTYPE') || synthesisText.includes('<html')) {
-            finalCode = synthesisText;
-            hasCode = true;
-            console.log('✅ Nalezen přímý HTML kód');
-          } else {
-            console.log('⚠️ Synthesis neobsahuje kód, jen text');
-          }
-
-          // Display message
-          this.addChatMessage('assistant', `✅ **Orchestrator:** ${hasCode ? 'Projekt vytvořen' : 'Analýza dokončena'}`);
-
-          if (hasCode) {
-            // Validate
-            const duplicates = this.detectDuplicateVariables(finalCode);
-            if (duplicates.length > 0) {
-              this.addChatMessage('system', `⚠️ Varování: ${duplicates.join(', ')}`);
-            }
-
-            // Display with accept/reject
-            this.addChatMessageWithCode('assistant', `\`\`\`html\n${finalCode}\n\`\`\``, taskDescription);
-          } else {
-            // Show text response
-            this.addChatMessage('assistant', synthesisText);
-          }
-        }
-
-        // Also try execution phase if no code yet
-        if (!hasCode && phaseResult.phase === 'execution' && phaseResult.responses) {
-          console.log('Hledám kód v execution responses...');
-          for (const resp of phaseResult.responses) {
-            const text = resp.response || '';
-            const match = text.match(/```(?:html)?\s*\n?([\s\S]*?)```/);
-            if (match) {
-              finalCode = match[1].trim();
-              hasCode = true;
-              console.log(`✅ Kód nalezen od ${resp.agent}`);
-              this.addChatMessageWithCode('assistant', `\`\`\`html\n${finalCode}\n\`\`\``, taskDescription);
-              break;
-            }
-          }
-        }
-      }
-
-      if (!hasCode) {
-        console.error('❌ Žádný kód nebyl nalezen v odpovědích');
-        this.addChatMessage('system', '⚠️ Agenti nedokončili kód. Zkus to znovu nebo zjednoduš zadání.');
-      }
-
-      toast.show(`✨ Orchestrace dokončena! ${teamSuggestion.agents.length} agentů spolupracovalo`, 'success');
-    } catch (error) {
-      console.error('Error in orchestrated session:', error);
-
-      // Remove loading if exists
-      const loadingEl = this.modal.element.querySelector('[id^="loading-"]');
-      if (loadingEl) loadingEl.remove();
-
-      await this.sendMessage('Vytvoř KOMPLETNĚ NOVÝ projekt podle výše uvedených specifikací. Začni od začátku s prázdným editorem. Vygeneruj celý kód v jednom bloku.');
-    }
+    return this.agentsService.activateOrchestratedTeam(teamSuggestion, projectDescription, forceNew);
   }
 
   /**

@@ -441,27 +441,42 @@
 }
 
 .ai-error-indicator {
-  padding: 8px;
+  padding: 6px 10px;
   border-radius: 8px;
   border: 2px solid;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
+  gap: 2px;
   transition: all 0.2s ease;
   white-space: nowrap;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
+  min-width: 48px;
+  height: 48px;
+}
+
+/* Error indicator - stacked layout with count on top, label below */
+.ai-error-indicator .error-count {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ai-error-indicator .error-label {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Error indicator in chat buttons area - compact */
 .ai-chat-buttons .ai-error-indicator {
-  padding: 8px;
+  padding: 6px 10px;
 }
 
 /* Compact button styles for all chat buttons */
@@ -479,15 +494,24 @@
   height: 20px;
 }
 
-.ai-chat-buttons .compact span:not(.error-count) {
+.ai-chat-buttons .compact span:not(.error-count):not(.error-label) {
   display: none;
 }
 
-/* Error count vždy viditelný */
+/* Error indicator styles override */
 .ai-chat-buttons .ai-error-indicator .error-count {
   display: block;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ai-chat-buttons .ai-error-indicator .error-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  opacity: 0.8;
+  text-transform: uppercase;
 }
 
 .ai-error-indicator.success {
@@ -521,10 +545,6 @@
 .ai-error-indicator .error-icon {
   font-size: 16px;
   font-weight: bold;
-}
-
-.ai-error-indicator .error-count {
-  font-size: 12px;
 }
 
 @keyframes pulse-error {

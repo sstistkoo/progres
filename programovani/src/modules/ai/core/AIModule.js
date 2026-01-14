@@ -1699,7 +1699,7 @@ const AI = {
 
                 // Najdi jiného providera
                 const alternativeProviders = Object.keys(allProviders)
-                    .filter(p => p !== currentProvider && this.getApiKey(p));
+                    .filter(p => p !== currentProvider && this.getKey(p));
 
                 if (alternativeProviders.length > 0) {
                     const fallbackProvider = alternativeProviders[0];

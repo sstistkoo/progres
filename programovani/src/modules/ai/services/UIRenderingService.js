@@ -353,7 +353,16 @@ export class UIRenderingService {
       const isNewProjectMode = this.aiPanel.workMode === 'new-project';
       const isHtmlCode = block.language === 'html' || block.code.includes('<!DOCTYPE') || block.code.includes('<html');
 
-      if (isNewProjectMode && isHtmlCode && index === 0) {
+      // Validace - kód musí být dostatečně dlouhý a vypadat jako validní HTML
+      const isValidCode = block.code.length > 50 && (
+        block.code.includes('<!DOCTYPE') ||
+        block.code.includes('<html') ||
+        block.code.includes('<body') ||
+        block.code.includes('<div') ||
+        block.code.includes('<head')
+      );
+
+      if (isNewProjectMode && isHtmlCode && isValidCode && index === 0) {
         console.log('[UIRenderingService] 🆕 Nový projekt - automaticky vkládám kód do editoru');
         this.aiPanel.codeEditorService.insertCodeToEditor(block.code);
         insertBtn.textContent = `${ICONS.SPARKLES} Vloženo!`;
@@ -368,6 +377,8 @@ export class UIRenderingService {
             Kód automaticky vložen do editoru
           </span>
         `;
+      } else if (isNewProjectMode && isHtmlCode && !isValidCode && index === 0) {
+        console.warn('[UIRenderingService] ⚠️ Kód je příliš krátký nebo nevalidní, nevkládám automaticky');
       }
     });
 
