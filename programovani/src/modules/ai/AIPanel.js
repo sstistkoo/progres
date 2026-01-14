@@ -689,7 +689,7 @@ export class AIPanel {
 
       // Handle menu item clicks
       menuDropdown.querySelectorAll('.ai-menu-item').forEach(item => {
-        item.addEventListener('click', (e) => {
+        item.addEventListener('click', () => {
           const tabName = item.dataset.tab;
           const action = item.dataset.action;
           menuDropdown.classList.add('hidden');
@@ -752,10 +752,6 @@ export class AIPanel {
     const chatInput = this.modal.element.querySelector('#aiChatInput');
     const sendBtn = this.modal.element.querySelector('#aiSendBtn');
     const attachBtn = this.modal.element.querySelector('#aiAttachBtn');
-
-    // Pokec Input & Send
-    const pokecInput = this.modal.element.querySelector('#aiPokecInput');
-    const pokecSendBtn = this.modal.element.querySelector('#aiPokecSendBtn');
 
     // File attachment button
     if (attachBtn) {
@@ -1340,10 +1336,10 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
 
         // Zobraz error toast s konkrétním důvodem
         toast.error(
-          `❌ SEARCH/REPLACE bloky se nepodařilo zpracovat\n\n` +
-          `${errorDetail}\n\n` +
-          `💡 Tip: Požádej AI znovu s upřesněním:\n` +
-          `"Uprav kód pomocí SEARCH/REPLACE - použij PŘESNÝ kód"`,
+          '❌ SEARCH/REPLACE bloky se nepodařilo zpracovat\n\n' +
+          errorDetail + '\n\n' +
+          '💡 Tip: Požádej AI znovu s upřesněním:\n' +
+          'Uprav kód pomocí SEARCH/REPLACE - použij PŘESNÝ kód',
           8000
         );
         console.error('❌ SEARCH bloky ignorovány - viz konzole pro detaily');
@@ -1496,7 +1492,7 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
     return this.uiRenderingService.addChatMessageWithCode(role, content, originalMessage, isModification, codeStatus);
   }
 
-  acceptChange(changeId, actionsContainer, _isAuto = false, isModification = false) {
+  acceptChange(changeId, actionsContainer) {
     const change = this.pendingChanges.get(changeId);
     if (!change) return;
 
@@ -1646,7 +1642,7 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
   /**
    * Show confirmation dialog for code changes
    */
-  async showChangeConfirmation(editInstructions, fullResponse) {
+  async showChangeConfirmation(editInstructions) {
     console.log(`💬 Zobrazuji confirmation dialog pro ${editInstructions.length} změn`);
 
     const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
@@ -1664,7 +1660,6 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
       <div style="margin-top: 10px; max-height: 400px; overflow-y: auto;">
         ${editInstructions.map((e, i) => {
           if (e.type === 'search-replace') {
-            // SEARCH/REPLACE format
             return `
               <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
                 <div style="font-weight: bold; margin-bottom: 5px;">
@@ -1680,24 +1675,22 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
                 </div>
               </div>
             `;
-          } else {
-            // EDIT:LINES format (legacy)
-            return `
-              <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
-                <div style="font-weight: bold; margin-bottom: 5px;">
-                  ${i + 1}. Řádky ${e.startLine}-${e.endLine}
-                </div>
-                <div style="margin: 5px 0; color: #ef4444;">
-                  <strong>❌ Původní:</strong>
-                  <pre style="background: rgba(239,68,68,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.oldCode.substring(0, 200))}${e.oldCode.length > 200 ? '...' : ''}</pre>
-                </div>
-                <div style="margin: 5px 0; color: #10b981;">
-                  <strong>✅ Nový:</strong>
-                  <pre style="background: rgba(16,185,129,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.newCode.substring(0, 200))}${e.newCode.length > 200 ? '...' : ''}</pre>
-                </div>
-              </div>
-            `;
           }
+          return `
+            <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+              <div style="font-weight: bold; margin-bottom: 5px;">
+                ${i + 1}. Řádky ${e.startLine}-${e.endLine}
+              </div>
+              <div style="margin: 5px 0; color: #ef4444;">
+                <strong>❌ Původní:</strong>
+                <pre style="background: rgba(239,68,68,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.oldCode.substring(0, 200))}${e.oldCode.length > 200 ? '...' : ''}</pre>
+              </div>
+              <div style="margin: 5px 0; color: #10b981;">
+                <strong>✅ Nový:</strong>
+                <pre style="background: rgba(16,185,129,0.1); padding: 8px; border-radius: 4px; margin: 5px 0; overflow-x: auto; font-size: 0.85em;">${this.escapeHtml(e.newCode.substring(0, 200))}${e.newCode.length > 200 ? '...' : ''}</pre>
+              </div>
+            </div>
+          `;
         }).join('')}
       </div>
       <div style="margin-top: 15px; display: flex; gap: 10px;">
@@ -2245,12 +2238,21 @@ Použij tento formát pro úpravu existujícího kódu:
 Můžeš použít více SEARCH/REPLACE bloků najednou.
 **KRITICKÉ: SEARCH blok MUSÍ být PŘESNÁ kopie z aktuálního kódu výše! Včetně všech mezer!**
 **NIKDY nepoužívej komplettní kód - jen SEARCH/REPLACE bloky!**
+
+ODPOVĚZ VE FORMÁTU:
+📋 **Analýza požadavku:**
+[Krátká analýza co uživatel chce]
+
+🎯 **Plán úkolů:**
+[Seznam konkrétních změn pro jednotlivé části kódu]
+
+**Změny:**
+[Použij SEARCH/REPLACE bloky pro každou změnu]
 ` : `
 **NOVÝ PROJEKT - použij komplettní kód:**
 \`\`\`html
 [zde vlož KOMPLETNÍ fungující kód s UNIKÁTNÍMI názvy proměnných]
 \`\`\`
-`}
 
 ODPOVĚZ VE FORMÁTU:
 📋 **Analýza požadavku:**
@@ -2275,7 +2277,8 @@ ODPOVĚZ VE FORMÁTU:
 [zde vlož KOMPLETNÍ fungující kód s UNIKÁTNÍMI názvy proměnných]
 \`\`\`
 
-⚠️ KRITICKÉ PRAVIDLO: KAŽDÁ PROMĚNNÁ MUSÍ MÍT UNIKÁTNÍ NÁZEV!`;
+⚠️ KRITICKÉ PRAVIDLO: KAŽDÁ PROMĚNNÁ MUSÍ MÍT UNIKÁTNÍ NÁZEV!
+`}`;
 
       // Call AI with orchestrator prompt
       const bestModel = window.AI.selectBestModel();
