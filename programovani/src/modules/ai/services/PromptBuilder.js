@@ -349,8 +349,17 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
 - **create_file(fileName, content, language, switchTo)** - Vytvoří nový soubor
 - **switch_file(fileName)** - Přepne na jiný soubor
 - **read_all_files(maxFilesSize)** - Přečte všechny soubory najednou
-- Pokud potřebuješ obsah souboru který není v kontextu, POUŽIJ tool read_file!
-- Pro vytváření nových souborů POUŽIJ tool create_file místo žádání uživatele!
+
+🔧 POKROČILÉ NÁSTROJE:
+- **run_code(code)** - Spustí JavaScript a vrátí výsledek (pro debugging/testování)
+- **screenshot()** - Pořídí screenshot náhledu (nebo vrátí DOM strukturu)
+- **fetch_url(url)** - Stáhne obsah z URL (API, příklady)
+- **insert_at_line(lineNumber, code)** - Vloží kód na konkrétní řádek
+- **replace_lines(startLine, endLine, newCode)** - Nahradí rozsah řádků
+- **get_preview_html(selector)** - Získá renderované HTML z náhledu
+- **minify_code(code, language)** - Minifikuje CSS/JS
+- **format_code(code, language)** - Zformátuje kód
+- **check_accessibility()** - Zkontroluje přístupnost (a11y)
 
 💡 ODPOVĚDI:
 - Stručně a prakticky v češtině

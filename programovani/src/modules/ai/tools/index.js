@@ -8,6 +8,7 @@ import { searchTools } from './SearchTools.js';
 import { codeTools } from './CodeTools.js';
 import { projectSourceTools } from './ProjectSourceTools.js';
 import { multiFileTools } from './MultiFileTools.js';
+import { advancedTools } from './AdvancedTools.js';
 
 /**
  * Inicializuje všechny tools
@@ -35,6 +36,11 @@ export function initializeTools() {
 
   // Multi-File Tools (práce s více soubory)
   for (const [name, tool] of Object.entries(multiFileTools)) {
+    toolSystem.registerTool(name, tool.schema, tool.handler);
+  }
+
+  // Advanced Tools (run_code, screenshot, fetch_url, etc.)
+  for (const [name, tool] of Object.entries(advancedTools)) {
     toolSystem.registerTool(name, tool.schema, tool.handler);
   }
 

@@ -81,7 +81,7 @@ export class FileAttachmentService {
       width: '600px',
       buttons: [
         {
-          text: '✅ Přidat vybrané',
+          text: '✅ OK - Přidat vybrané',
           variant: 'primary',
           onClick: () => {
             this.attachSelectedFiles();
@@ -89,7 +89,7 @@ export class FileAttachmentService {
           }
         },
         {
-          text: '❌ Zrušit',
+          text: 'Zrušit',
           variant: 'secondary',
           onClick: () => modal.close()
         }
@@ -412,7 +412,7 @@ export class FileAttachmentService {
   }
 
   /**
-   * Update attached files display
+   * Update attached files display - VS Code style chips
    */
   updateAttachedFilesDisplay() {
     const container = this.aiPanel.modal?.element?.querySelector('#aiAttachedFiles');
@@ -424,21 +424,43 @@ export class FileAttachmentService {
       return;
     }
 
-    container.style.display = 'flex';
-    container.style.flexWrap = 'wrap';
-    container.style.gap = '8px';
+    container.style.display = 'block';
+    container.style.marginBottom = '10px';
+    container.style.padding = '8px';
+    container.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1))';
+    container.style.border = '1px solid rgba(139, 92, 246, 0.3)';
+    container.style.borderRadius = '8px';
 
-    container.innerHTML = this.attachedFiles.map((file, index) => `
-      <div class="attached-file-chip" data-file-index="${index}">
-        <span class="file-chip-icon">📄</span>
-        <span class="file-chip-name">${this.escapeHtml(file.name)}</span>
-        <button class="file-chip-remove" onclick="window.aiPanel.fileAttachmentService.removeAttachedFile(${index})" title="Odebrat">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
+    const totalSize = this.attachedFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+
+    container.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">
+          📎 Připojené soubory (${this.attachedFiles.length}) - ${this.formatFileSize(totalSize)}
+        </span>
+        <button onclick="window.aiPanel.fileAttachmentService.clearAttachedFiles()"
+                style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 4px; padding: 2px 8px; font-size: 11px; color: #ef4444; cursor: pointer;"
+                title="Odebrat všechny">
+          Vymazat vše
         </button>
       </div>
-    `).join('');
+      <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+        ${this.attachedFiles.map((file, index) => `
+          <div class="attached-file-chip" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; font-size: 12px;">
+            <span style="color: #8b5cf6;">📄</span>
+            <span style="color: var(--text-primary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${this.escapeHtml(file.name)}">${this.escapeHtml(file.name)}</span>
+            <span style="color: var(--text-secondary); font-size: 10px;">${this.formatFileSize(file.size || 0)}</span>
+            <button onclick="window.aiPanel.fileAttachmentService.removeAttachedFile(${index})"
+                    style="background: none; border: none; cursor: pointer; padding: 0; display: flex; color: var(--text-secondary);"
+                    title="Odebrat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        `).join('')}
+      </div>
+    `;
   }
 
   /**
