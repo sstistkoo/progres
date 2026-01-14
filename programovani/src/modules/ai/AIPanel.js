@@ -566,7 +566,24 @@ export class AIPanel {
   setupErrorIndicator() {
     const errorBtn = this.modal?.element?.querySelector('#aiErrorIndicator');
     if (errorBtn) {
-      errorBtn.addEventListener('click', () => this.sendAllErrorsToAI());
+      errorBtn.addEventListener('click', () => {
+        // Pokud je 0 chyb (zelené), otevři DevTools
+        if (errorBtn.classList.contains('success')) {
+          if (typeof eruda !== 'undefined') {
+            eruda.init();
+            eruda.show();
+          } else {
+            eventBus.emit('toast:show', {
+              message: '🔧 DevTools nejsou k dispozici',
+              type: 'warning',
+              duration: 2000
+            });
+          }
+        } else {
+          // Jinak pošli chyby AI
+          this.sendAllErrorsToAI();
+        }
+      });
     }
     // Initialize with current error count
     this.updateErrorIndicator(0);
