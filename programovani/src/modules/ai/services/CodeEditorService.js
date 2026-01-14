@@ -408,6 +408,28 @@ export class CodeEditorService {
       console.log(`[CodeEditor] Applied edit at ${line}:${column} (${matchType})`);
     }
 
+    // ===== PHASE 4: VALIDATE RESULT =====
+    const syntaxError = this.validateCodeSyntax(code);
+    if (syntaxError) {
+      console.error('[CodeEditor] ❌ Výsledný kód má syntaktickou chybu:', syntaxError);
+      console.error('[CodeEditor] Změny NEBUDOU aplikovány - kód by byl nefunkční');
+
+      // Show error to user
+      if (window.toast) {
+        window.toast.error(
+          '❌ AI vygenerovala nevalidní kód\\n\\n' +
+          'Syntaktická chyba: ' + syntaxError + '\\n\\n' +
+          '💡 Změny nebyly aplikovány. Zkuste požadavek přeformulovat.',
+          8000
+        );
+      }
+
+      return {
+        success: false,
+        message: `❌ Změny by vytvořily nevalidní kód: ${syntaxError}`
+      };
+    }
+
     // Update editor
     eventBus.emit('editor:setCode', { code });
 
@@ -1157,5 +1179,87 @@ export class CodeEditorService {
     });
   }
 
+  /**
+   * Validate JavaScript syntax in HTML code
+   * Returns error message if invalid, null if valid
+   */
+  validateCodeSyntax(code) {
+    // Extract all script content from HTML
+    const scriptMatches = code.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
+    const scripts = [...scriptMatches].map(m => m[1]);
+
+    // If no scripts found, just do basic bracket matching
+    if (scripts.length === 0) {
+      return this.validateBrackets(code);
+    }
+
+    // Validate each script block
+    for (let i = 0; i < scripts.length; i++) {
+      const script = scripts[i].trim();
+      if (!script) continue;
+
+      // Skip module scripts (they import from external files)
+      if (script.includes('import ') && script.includes(' from ')) {
+        continue;
+      }
+
+      // Try to parse JavaScript
+      try {
+        // Use Function constructor to check syntax (doesn't execute)
+        new Function(script);
+      } catch (e) {
+        // Extract line number from error if available
+        const lineMatch = e.message.match(/line (\d+)/i);
+        const line = lineMatch ? ` (řádek ${lineMatch[1]})` : '';
+        return `Script #${i + 1}${line}: ${e.message}`;
+      }
+    }
+
+    // Also check bracket balance
+    const bracketError = this.validateBrackets(code);
+    if (bracketError) {
+      return bracketError;
+    }
+
+    return null; // Valid
+  }
+
+  /**
+   * Validate that brackets are balanced
+   */
+  validateBrackets(code) {
+    const stack = [];
+    const pairs = { '{': '}', '[': ']', '(': ')' };
+    const opening = new Set(['{', '[', '(']);
+    const closing = new Set(['}', ']', ')']);
+
+    // Remove strings and comments to avoid false positives
+    const cleaned = code
+      .replace(/\/\/.*$/gm, '')           // Single-line comments
+      .replace(/\/\*[\s\S]*?\*\//g, '')   // Multi-line comments
+      .replace(/'(?:[^'\\]|\\.)*'/g, '')  // Single-quoted strings
+      .replace(/"(?:[^"\\]|\\.)*"/g, '')  // Double-quoted strings
+      .replace(/`(?:[^`\\]|\\.)*`/g, ''); // Template literals
+
+    for (let i = 0; i < cleaned.length; i++) {
+      const char = cleaned[i];
+
+      if (opening.has(char)) {
+        stack.push(char);
+      } else if (closing.has(char)) {
+        const last = stack.pop();
+        if (!last || pairs[last] !== char) {
+          return `Neuzavřená závorka '${char}' na pozici ${i}`;
+        }
+      }
+    }
+
+    if (stack.length > 0) {
+      const unclosed = stack.map(c => `'${c}'`).join(', ');
+      return `Neuzavřené závorky: ${unclosed}`;
+    }
+
+    return null; // Valid
+  }
 
 }
