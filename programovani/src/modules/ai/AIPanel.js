@@ -2187,12 +2187,53 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
   }
 
   async sendToOrchestrator(message) {
-    // Add user message to chat
-    this.addChatMessage('user', message);
+    // Race condition protection (same as sendMessage)
+    if (this.isProcessing) {
+      toast.warning('⏳ Čekám na dokončení předchozího požadavku...', 2000);
+      return;
+    }
 
-    // Show thinking message
-    const thinkingId = 'orchestrator-thinking-' + Date.now();
-    this.addChatMessage('ai', '🎭 Orchestrator připravuje úkoly pro agenty...', thinkingId);
+    this.isProcessing = true;
+
+    // Add user message to chat
+    this.addChatMessage('user', `🎭 [Tým] ${message}`);
+
+    // Add to history
+    this.chatService.addToHistory('user', message);
+    this.chatHistory = this.chatService.getHistory();
+
+    // Show loading animation (same style as sendMessage)
+    const loadingId = 'orchestrator-loading-' + Date.now();
+    const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'ai-message assistant loading';
+    loadingMsg.id = loadingId;
+    loadingMsg.innerHTML = `
+      <div class="ai-thinking" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="thinking-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <p style="margin: 0;">🎭 Orchestrator koordinuje agenty...</p>
+        </div>
+        <button class="ai-cancel-btn" style="padding: 8px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+          <span>Zrušit</span>
+        </button>
+      </div>
+    `;
+    messagesContainer.appendChild(loadingMsg);
+
+    // Add cancel handler
+    const loadingCancelBtn = loadingMsg.querySelector('.ai-cancel-btn');
+    if (loadingCancelBtn) {
+      loadingCancelBtn.onclick = () => {
+        this.cancelRequest();
+      };
+    }
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
     try {
       // Get current code for context (limit to 15000 chars to avoid context overflow)
@@ -2288,9 +2329,9 @@ ODPOVĚZ VE FORMÁTU:
         temperature: 0.7
       });
 
-      // Remove thinking message
-      const thinkingEl = this.modal.element.querySelector(`[data-message-id="${thinkingId}"]`);
-      if (thinkingEl) thinkingEl.remove();
+      // Remove loading message
+      const loadingEl = document.getElementById(loadingId);
+      if (loadingEl) loadingEl.remove();
 
       // Check for SEARCH/REPLACE format (for existing projects)
       const searchReplaceEdits = this.parseSearchReplaceInstructions(response);
@@ -2305,9 +2346,15 @@ ODPOVĚZ VE FORMÁTU:
         // Add description to chat
         this.addChatMessage('ai', description);
 
+        // Add to history
+        this.chatService.addToHistory('assistant', description);
+        this.chatHistory = this.chatService.getHistory();
+        this.chatHistoryService.updateHistoryInfo();
+
         // Show confirmation for changes
         await this.showChangeConfirmation(searchReplaceEdits);
 
+        this.isProcessing = false;
         return;
       }
 
@@ -2330,6 +2377,8 @@ ODPOVĚZ VE FORMÁTU:
           this.addChatMessage('ai', response);
           this.chatService.addToHistory('assistant', response);
           this.chatHistory = this.chatService.getHistory();
+          this.chatHistoryService.updateHistoryInfo();
+          this.isProcessing = false;
           return;
         }
 
@@ -2367,11 +2416,14 @@ ODPOVĚZ VE FORMÁTU:
     } catch (error) {
       console.error('Orchestrator error:', error);
 
-      // Remove thinking message
-      const thinkingEl = this.modal.element.querySelector(`[data-message-id="${thinkingId}"]`);
-      if (thinkingEl) thinkingEl.remove();
+      // Remove loading message on error
+      const loadingEl = document.getElementById(loadingId);
+      if (loadingEl) loadingEl.remove();
 
       this.addChatMessage('ai', `❌ Chyba Orchestratora: ${error.message}`);
+    } finally {
+      // Always reset processing state
+      this.isProcessing = false;
     }
   }
 
