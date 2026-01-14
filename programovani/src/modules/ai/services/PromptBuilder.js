@@ -233,13 +233,21 @@ OKAMŽITĚ vytvoř KOMPLETNÍ fungující kód podle požadavku!
 - ROVNOU vytvoř celý HTML soubor od <!DOCTYPE> do </html>
 - Kód MUSÍ být kompletní a funkční
 - Na konci rovnou \`\`\`html blok s celým kódem!
+- IGNORUJ jakýkoliv existující kód - vytváříš NOVÝ projekt!
 
 `
         : '';
 
+      // V režimu "Nový projekt" NEPOSÍLÁME existující kód, aby AI nebyla zmatená
+      const codeSection = workMode === 'new-project'
+        ? '📝 **Editor je připraven pro nový projekt** - vytvoř kompletní kód!'
+        : `📝 **Aktuální kód:**\n\`\`\`html\n${formattedCode}\n\`\`\``;
+
       systemPrompt = `🎯 Jsi AI vývojář. Vytvoř KOMPLETNÍ fungující webovou aplikaci.
 
 ${newProjectNote}
+🎯 PRAVIDLO #1: Dělej PŘESNĚ to co uživatel napsal. Použij PŘESNĚ názvy které zadal. NIKDY neměň "matematická" na "finanční" apod. NIKDY nepřidávej funkce které nežádal.
+
 📋 PRAVIDLA:
 ✅ Každá proměnná UNIKÁTNÍ název (result1, result2, input1, input2...)
 ✅ TESTUJ kód mentálně - žádné chyby, žádné duplicity
@@ -269,10 +277,7 @@ ${newProjectNote}
 
 ${filesContext}
 
-📝 **Aktuální kód:**
-\`\`\`html
-${formattedCode}
-\`\`\`
+${codeSection}
 
 💬 ${historyContext}
 
@@ -306,6 +311,8 @@ ${codeForDescription}
       } else {
         // Standardní prompt pro úpravy kódu
         systemPrompt = `🎯 Jsi AI vývojář specializovaný na úpravy kódu.
+
+🎯 PRAVIDLO #1: Dělej PŘESNĚ to co uživatel napsal. NIKDY neměň názvy ani nepřidávej věci které nežádal.
 
 ${filesContext}
 
@@ -350,13 +357,29 @@ ${this.selectPromptByContext(message, hasCode, hasHistory, currentCode)}
 - Kód zabal do \\\`\\\`\\\`html...\\\`\\\`\\\` (nebo \\\`\\\`\\\`css\\\`\\\`\\\`, \\\`\\\`\\\`javascript\\\`\\\`\\\`)
 - Pro vysvětlení použij jasný jazyk
 - Navazuj na předchozí konverzaci
-- Pokud doporučuješ více souborů, jasně to označ`;
+- Pokud doporučuješ více souborů, jasně to označ
+
+🧠 THINKING (pro složitější úkoly):
+Před odpovědí můžeš ukázat svůj myšlenkový proces v <thinking> bloku:
+<thinking>
+1. Analyzuji požadavek...
+2. Hledám v kódu...
+3. Navrhuji řešení...
+</thinking>
+Potom následuje tvoje odpověď.
+Používej pro: analýzu problémů, hledání chyb, plánování úprav.
+NEPOUŽÍVEJ pro: jednoduché otázky, přímé úpravy.`;
       }
     }
 
     // Add search/replace instructions if editing (ale ne pro popis!)
     if (hasCode && currentCode.trim().length > 100 && !isDescriptionRequest) {
       systemPrompt += `
+
+🔴🔴🔴 KRITICKÁ INSTRUKCE 🔴🔴🔴
+KÓD VÝŠE JE KOMPLETNÍ! NEŽÁDEJ O ZOBRAZENÍ KÓDU!
+Máš k dispozici CELÝ kód souboru. ZAČNI EDITOVAT IHNED!
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
 
 ═══════════════════════════════════════════════════════════
 ✅ PREFEROVANÝ FORMÁT: SEARCH/REPLACE (použij VŽDY když je to možné!)
@@ -408,7 +431,7 @@ Do SEARCH bloku zkopíruj BEZ čísel řádků, ale VČETNĚ mezer před prvním
 - ✅ Zkopíruj PŘESNĚ kód ze zdrojového souboru (včetně všech řádků!)
 - ✅ Zachovej PŘESNÉ odsazení (mezery nebo tabulátory - jak je v originále!)
 - ✅ Zachovaj PŘESNÉ konce řádků (CRLF nebo LF - jak je v originále!)
-- ✅ Pokud kód obsahuje "🔽 ZKRÁCENO", NEJPRVE napiš: "Potřebuji vidět celý kód v této sekci"
+- ✅ Kód, který vidíš výše, je KOMPLETNÍ - začni editovat IHNED!
 
 ⚠️ WHITESPACE JE DŮLEŽITÝ!
 - Kód v editoru může používat MEZERY nebo TABULÁTORY pro odsazení
@@ -437,10 +460,10 @@ Do SEARCH bloku zkopíruj BEZ čísel řádků, ale VČETNĚ mezer před prvním
 <!-- Smajlíky odstraněny -->
 \`\`\`
 
-⚠️ POKUD VIDÍŠ ZKRÁCENÝ KÓD (např. "🔽 ZKRÁCENO 336 ŘÁDKŮ"):
-1. NEPOKOUŠEJ SE editovat zkrácenou část!
-2. Místo toho napiš: "Potřebuji zobrazit celý kód. Požádej uživatele: 'zobraz celý kód' nebo 'zobraz řádky X-Y'"
-3. POČKEJ na celý kód před editací
+✅ KÓD VÝŠE JE KOMPLETNÍ!
+- NEŽÁDEJ o zobrazení kódu - máš ho celý!
+- IHNED začni s úpravami pomocí SEARCH/REPLACE
+- Pokud nevidíš určitou část, použij tool read_file nebo list_files
 
 📝 PŘÍKLAD - SPRÁVNĚ:
 
@@ -458,11 +481,13 @@ console.log(x + y);
 ❌ PŘÍKLAD - ŠPATNĚ (nikdy nedělej!):
 
 \`\`\`SEARCH
-🔽 ZKRÁCENO 336 ŘÁDKŮ (42-377) 🔽
+// nějaký kód...
 \`\`\`
 \`\`\`REPLACE
-ZKRÁCENO 336 ŘÁDKŮ (42-377)
+// změněný kód
 \`\`\`
+
+❌ NIKDY nepoužívej "..." nebo zkratky - vždy kopíruj CELÝ text!
 
 ═══════════════════════════════════════════════════════════
 📝 ZÁLOŽNÍ FORMÁT: EDIT:LINES (pouze pokud SEARCH/REPLACE nelze použít)

@@ -3,13 +3,126 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: none;
-  overflow-y: auto;
   width: 100%;
   max-width: 100%;
   padding: 12px;
   box-sizing: border-box;
   flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden; /* Panel sám nescrolluje */
+}
+
+/* AI Chat Footer - vždy viditelná spodní část */
+.ai-chat-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+/* Changed Files Panel - VS Code style */
+.ai-changed-files {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.changed-files-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.changed-files-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.changed-files-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.keep-changes-btn,
+.revert-changes-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid;
+}
+
+.keep-changes-btn {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.keep-changes-btn:hover {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+.revert-changes-btn {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.revert-changes-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.changed-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.changed-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.changed-file-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+}
+
+.changed-file-icon {
+  font-size: 12px;
+}
+
+.changed-file-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+}
+
+.stat-added {
+  color: #22c55e;
+}
+
+.stat-removed {
+  color: #ef4444;
 }
 
 /* Tab Select Dropdown */
@@ -104,12 +217,14 @@
 .ai-tab-content {
   display: none;
   flex: 1;
-  overflow-y: auto;
+  min-height: 0; /* Důležité pro flex overflow */
+  overflow: hidden; /* Scroll bude jen v messages */
 }
 
 .ai-tab-content.active {
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
 .ai-header {
@@ -356,8 +471,9 @@
   width: 100%;
   max-width: 100%;
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 0; /* Důležité pro flex overflow */
+  height: 100%;
+  overflow: hidden; /* Scroll bude jen v messages */
 }
 
 .ai-chat-header {
@@ -510,12 +626,14 @@
   background: var(--bg-secondary);
   border-radius: 8px;
   flex: 1;
+  min-height: 0; /* Důležité pro flex overflow */
   overflow-y: auto !important;
   overflow-x: hidden;
-  min-height: 200px;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  /* Scroll od spodu nahoru jako VS Code */
+  flex-direction: column;
 }
 
 .ai-message {
@@ -933,6 +1051,7 @@ body.dark-theme .ai-message.assistant a:hover {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .ai-chat-input textarea {
@@ -952,12 +1071,29 @@ body.dark-theme .ai-message.assistant a:hover {
 .ai-chat-buttons {
   display: flex;
   gap: 8px;
-  align-items: stretch;
+  align-items: center;
+  justify-content: center;
   width: 100%;
 }
 
+/* Compact button styles */
+.ai-chat-buttons button.compact {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-chat-buttons button.compact svg {
+  width: 20px;
+  height: 20px;
+}
+
 .ai-orchestrator-btn {
-  flex: 1;
   padding: 10px 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
@@ -973,6 +1109,10 @@ body.dark-theme .ai-message.assistant a:hover {
   transition: all 0.3s ease;
 }
 
+.ai-orchestrator-btn.compact {
+  flex: 0 0 auto;
+}
+
 .ai-orchestrator-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
@@ -985,7 +1125,6 @@ body.dark-theme .ai-message.assistant a:hover {
 }
 
 .ai-send-btn {
-  flex: 1;
   padding: 10px 16px;
   background: var(--accent);
   border: none;
@@ -1001,10 +1140,14 @@ body.dark-theme .ai-message.assistant a:hover {
   transition: all 0.2s ease;
 }
 
+.ai-send-btn.compact {
+  flex: 1;
+  max-width: 120px;
+}
+
 .ai-send-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-  /* Zachovat původní barvu pozadí - neměnit na bílou */
 }
 
 .ai-send-btn svg {
@@ -1014,9 +1157,10 @@ body.dark-theme .ai-message.assistant a:hover {
 }
 
 /* Cancel button */
-.ai-cancel-btn {
+.ai-cancel-btn,
+.ai-cancel-btn-original {
   display: none;
-  padding: 10px 16px;
+  padding: 10px;
   background: #ef4444;
   border: none;
   border-radius: 8px;
@@ -1026,17 +1170,24 @@ body.dark-theme .ai-message.assistant a:hover {
   font-size: 14px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0;
   transition: all 0.2s ease;
 }
 
-.ai-cancel-btn:hover {
+.ai-cancel-btn.compact,
+.ai-cancel-btn-original.compact {
+  flex: 0 0 auto;
+}
+
+.ai-cancel-btn:hover,
+.ai-cancel-btn-original:hover {
   background: #dc2626;
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
-.ai-cancel-btn svg {
+.ai-cancel-btn svg,
+.ai-cancel-btn-original svg {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
@@ -1045,7 +1196,7 @@ body.dark-theme .ai-message.assistant a:hover {
 
 /* Attach button */
 .ai-attach-btn {
-  padding: 10px 16px;
+  padding: 10px;
   background: #8b5cf6;
   border: none;
   border-radius: 8px;
@@ -1056,8 +1207,12 @@ body.dark-theme .ai-message.assistant a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0;
   transition: all 0.2s ease;
+}
+
+.ai-attach-btn.compact {
+  flex: 0 0 auto;
 }
 
 .ai-attach-btn:hover {

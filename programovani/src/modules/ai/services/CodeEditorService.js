@@ -380,6 +380,22 @@ export class CodeEditorService {
     // Update editor
     eventBus.emit('editor:setCode', { code });
 
+    // Track changed files (VS Code style)
+    const activeFile = state.get('files.tabs')?.find(t => t.id === state.get('files.active'));
+    const fileName = activeFile?.name || 'index.html';
+
+    // Count added/removed lines from validated edits
+    let totalAdded = 0;
+    let totalRemoved = 0;
+    validatedEdits.forEach(edit => {
+      totalAdded += (edit.replaceCode?.split('\n').length || 0);
+      totalRemoved += (edit.searchCode?.split('\n').length || 0);
+    });
+
+    if (this.panel.changedFilesService) {
+      this.panel.changedFilesService.recordChange(fileName, totalAdded, totalRemoved, originalCode);
+    }
+
     // Generate success message
     let message = `✅ Aplikováno ${appliedEdits.length}/${edits.length} změn:\n\n`;
 

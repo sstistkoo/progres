@@ -19,7 +19,8 @@
   justify-content: flex-end;
 }
 
-.modal-overlay.ai-modal .modal-container {
+.modal-overlay.ai-modal .modal-container,
+.modal-overlay.ai-modal .modal {
   width: 33.333%;
   height: 100%;
   max-width: none;
@@ -27,6 +28,29 @@
   margin: 0;
   border-radius: 0;
   animation: slideInFromRight 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Přepíše default overflow-y: auto */
+  padding: 0; /* Header bude mít vlastní padding */
+}
+
+/* AI Modal header - vlastní padding */
+.modal-overlay.ai-modal .modal-header {
+  padding: 16px 20px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  margin: 0;
+}
+
+/* AI Modal - content area must flex and fill space */
+.modal-overlay.ai-modal .modal-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  padding: 0; /* Odstraní default padding */
+  margin: 0;
 }
 
 @keyframes slideInFromRight {
@@ -329,6 +353,79 @@
   position: relative;
 }
 
+/* Menu Button */
+.ai-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.1));
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-menu-btn:hover {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(59, 130, 246, 0.2));
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+}
+
+.ai-menu-btn svg {
+  flex-shrink: 0;
+}
+
+/* Menu Dropdown */
+.ai-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 12px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.1);
+  z-index: 99999;
+  min-width: 200px;
+}
+
+.ai-menu-dropdown.hidden {
+  display: none;
+}
+
+.ai-menu-item {
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.ai-menu-item:hover {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.ai-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+}
+
 .ai-tab-select-header {
   flex: 0 0 auto;
   min-width: 150px;
@@ -344,24 +441,46 @@
 }
 
 .ai-error-indicator {
-  padding: 8px 14px;
+  padding: 8px;
   border-radius: 8px;
   border: 2px solid;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 0;
   transition: all 0.2s ease;
   white-space: nowrap;
   flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
 }
 
-/* Error indicator in chat buttons area - smaller padding */
+/* Error indicator in chat buttons area - compact */
 .ai-chat-buttons .ai-error-indicator {
-  padding: 10px 16px;
-  font-size: 14px;
+  padding: 8px;
+}
+
+/* Compact button styles for all chat buttons */
+.ai-chat-buttons .compact {
+  padding: 10px;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  gap: 0;
+  justify-content: center;
+}
+
+.ai-chat-buttons .compact svg {
+  width: 20px;
+  height: 20px;
+}
+
+.ai-chat-buttons .compact span {
+  display: none;
 }
 
 .ai-error-indicator.success {

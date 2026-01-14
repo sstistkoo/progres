@@ -24,6 +24,7 @@ import { UIRenderingService } from './services/UIRenderingService.js';
 import { ActionsService } from './services/ActionsService.js';
 import { TestingService } from './services/TestingService.js';
 import { PokecChatService } from './services/PokecChatService.js';
+import { ChangedFilesService } from './services/ChangedFilesService.js';
 
 export class AIPanel {
   constructor() {
@@ -48,6 +49,7 @@ export class AIPanel {
     this.actionsService = new ActionsService(this); // Quick actions service
     this.testingService = new TestingService(this); // Testing service
     this.pokecChatService = new PokecChatService(this); // Pokec chat service
+    this.changedFilesService = new ChangedFilesService(this); // Changed files tracking
     this.lastTokenUsage = null; // Store last request token usage
 
     // Režim práce (continue = pokračovat, new-project = nový projekt)
@@ -158,21 +160,27 @@ export class AIPanel {
 
     this.modal = new Modal({
       title: `<div class="modal-title-wrapper">
-        <select class="ai-tab-select-header" id="aiTabSelectHeader">
-          <option value="chat" selected>� Kód</option>
-          <option value="pokec">💬 Pokeč</option>
-          <option value="agents">🤖 Agenti</option>
-          <option value="editor">📝 Editor</option>
-          <option value="actions">⚡ Akce</option>
-          <option value="prompts">📝 Prompty</option>
-          <option value="testing">🧪 Testing</option>
-          <option value="github">🔗 GitHub</option>
-          <option value="export" disabled>──────────</option>
-          <option value="export-action">📥 Export chatu</option>
-          <option value="clear-action">🗑️ Vymazat historii</option>
-        </select>
+        <button class="ai-menu-btn" id="aiMenuBtn" title="Hlavní menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+            <path d="M3 12h18M3 6h18M3 18h18"/>
+          </svg>
+          <span>Menu</span>
+        </button>
+        <div class="ai-menu-dropdown hidden" id="aiMenuDropdown">
+          <button class="ai-menu-item" data-tab="chat">◆ Kód</button>
+          <button class="ai-menu-item" data-tab="pokec">💬 Pokeč</button>
+          <button class="ai-menu-item" data-tab="agents">🤖 Agenti</button>
+          <button class="ai-menu-item" data-tab="editor">📝 Editor</button>
+          <button class="ai-menu-item" data-tab="actions">⚡ Akce</button>
+          <button class="ai-menu-item" data-tab="prompts">📝 Prompty</button>
+          <button class="ai-menu-item" data-tab="testing">🧪 Testing</button>
+          <button class="ai-menu-item" data-tab="github">🔗 GitHub</button>
+          <div class="ai-menu-divider"></div>
+          <button class="ai-menu-item" data-action="export">📥 Export chatu</button>
+          <button class="ai-menu-item" data-action="clear">🗑️ Vymazat historii</button>
+        </div>
         <div class="ai-settings-header" id="aiSettingsHeader">
-          <button class="ai-settings-toggle" type="button">Nastavení AI <span class="toggle-arrow">▼</span></button>
+          <button class="ai-settings-toggle" type="button">AI <span class="toggle-arrow">▼</span></button>
           <div class="ai-header-settings hidden">
             <div class="auto-ai-container">
               <label class="auto-ai-label">
@@ -271,7 +279,21 @@ export class AIPanel {
                 <p>Ahoj! Jsem tvůj AI asistent. Můžu ti pomoct s kódem, vysvětlit koncepty, nebo vytvořit šablony. Co potřebuješ?</p>
               </div>
             </div>
-            <div class="ai-chat-input">
+            <!-- Fixní spodní část - vždy viditelná -->
+            <div class="ai-chat-footer">
+              <!-- Panel změněných souborů (VS Code style) -->
+              <div class="ai-changed-files" id="aiChangedFiles" style="display: none;">
+                <div class="changed-files-header">
+                  <span class="changed-files-count">0 souborů změněno</span>
+                  <div class="changed-files-actions">
+                    <button class="keep-changes-btn" title="Nechat všechny změny">Nechat</button>
+                    <button class="revert-changes-btn" title="Vrátit všechny změny zpět">Vrátit zpět</button>
+                  </div>
+                </div>
+                <div class="changed-files-list" id="changedFilesList"></div>
+              </div>
+              <!-- Input oblast -->
+              <div class="ai-chat-input">
               <div class="token-counter" id="tokenCounter">
                 <span class="token-count">0</span> tokenů zpráva / <span class="total-token-count">~0</span> celkem (se systémem)
               </div>
@@ -282,38 +304,34 @@ export class AIPanel {
                 rows="3"
               ></textarea>
               <div class="ai-chat-buttons">
-                <button class="ai-error-indicator" id="aiErrorIndicator" title="Klikněte pro odeslání chyb AI">
-                  <span class="error-icon">✓</span>
-                  <span class="error-count">0 chyb</span>
+                <button class="ai-error-indicator compact" id="aiErrorIndicator" title="Počet chyb v kódu">
+                  <span class="error-count">0</span>
                 </button>
-                <button class="ai-attach-btn" id="aiAttachBtn" title="Přidat soubor do kontextu">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                <button class="ai-attach-btn compact" id="aiAttachBtn" title="Přidat soubor">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
                   </svg>
-                  <span>Přidat soubor</span>
                 </button>
-                <button class="ai-send-btn" id="aiSendBtn">
+                <button class="ai-send-btn compact" id="aiSendBtn" title="Odeslat zprávu">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                   </svg>
-                  <span>Odeslat</span>
                 </button>
-                <button class="ai-cancel-btn-original" style="display: none; padding: 10px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; gap: 8px; transition: all 0.2s;">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                <button class="ai-cancel-btn-original compact" style="display: none;" title="Zrušit">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 6L6 18M6 6l12 12"/>
                   </svg>
-                  <span>Zrušit</span>
                 </button>
-                <button class="ai-orchestrator-btn" id="aiOrchestratorBtn" title="Orchestrator zpracuje zadání a rozdělí úkoly mezi agenty">
+                <button class="ai-orchestrator-btn compact" id="aiOrchestratorBtn" title="Orchestrator">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                     <path d="M2 17l10 5 10-5"/>
                     <path d="M2 12l10 5 10-5"/>
                   </svg>
-                  <span>Orchestrator</span>
                 </button>
               </div>
             </div>
+            </div> <!-- /ai-chat-footer -->
           </div>
         </div>
 
@@ -558,18 +576,15 @@ export class AIPanel {
     const errorBtn = this.modal?.element?.querySelector('#aiErrorIndicator');
     if (!errorBtn) return;
 
-    const icon = errorBtn.querySelector('.error-icon');
     const countText = errorBtn.querySelector('.error-count');
 
     if (errorCount === 0) {
-      errorBtn.className = 'ai-error-indicator success';
-      icon.textContent = ICONS.SPARKLES;
-      countText.textContent = '0 chyb';
+      errorBtn.className = 'ai-error-indicator compact success';
+      countText.textContent = '0';
       errorBtn.title = 'Žádné chyby v konzoli';
     } else {
-      errorBtn.className = 'ai-error-indicator error';
-      icon.textContent = ICONS.WARNING;
-      countText.textContent = `${errorCount} ${errorCount === 1 ? 'chyba' : errorCount < 5 ? 'chyby' : 'chyb'}`;
+      errorBtn.className = 'ai-error-indicator compact error';
+      countText.textContent = `${errorCount}`;
       errorBtn.title = `Klikněte pro odeslání ${errorCount} chyb AI k opravě`;
     }
   }
@@ -944,83 +959,83 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
   }
 
   attachEventHandlers() {
-    // Tab Select Dropdown in Header
-    const tabSelect = this.modal.element.querySelector('#aiTabSelectHeader');
+    // Menu Button and Dropdown
+    const menuBtn = this.modal.element.querySelector('#aiMenuBtn');
+    const menuDropdown = this.modal.element.querySelector('#aiMenuDropdown');
     const tabContents = this.modal.element.querySelectorAll('.ai-tab-content');
 
-    if (tabSelect) {
-      tabSelect.addEventListener('change', (e) => {
-        const tabName = e.target.value;
+    if (menuBtn && menuDropdown) {
+      // Toggle dropdown on click
+      menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown.classList.toggle('hidden');
+      });
 
-        // Handle conversation mode switch
-        if (tabName === 'chat') {
-          this.conversationMode = 'code';
-          toast.show('💻 Režim: Práce s kódem', 'info');
-          // Show chat tab
-          tabContents.forEach(c => c.classList.remove('active'));
-          const chatContent = this.modal.element.querySelector('[data-content="chat"]');
-          if (chatContent) chatContent.classList.add('active');
-          return;
+      // Close dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!menuBtn.contains(e.target) && !menuDropdown.contains(e.target)) {
+          menuDropdown.classList.add('hidden');
         }
-        if (tabName === 'pokec') {
-          this.conversationMode = 'chat';
-          toast.show('💬 Režim: Obecná konverzace', 'info');
-          // Show pokec tab
-          tabContents.forEach(c => c.classList.remove('active'));
-          const pokecContent = this.modal.element.querySelector('[data-content="pokec"]');
-          if (pokecContent) pokecContent.classList.add('active');
-          // Focus pokec input
-          const pokecInput = this.modal.element.querySelector('#aiPokecInput');
-          if (pokecInput) {
-            setTimeout(() => pokecInput.focus(), 100);
+      });
+
+      // Handle menu item clicks
+      menuDropdown.querySelectorAll('.ai-menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          const tabName = item.dataset.tab;
+          const action = item.dataset.action;
+          menuDropdown.classList.add('hidden');
+
+          if (action === 'export') {
+            this.showExportDialog();
+            return;
           }
-          return;
-        }
-
-        // Handle export/clear actions from dropdown
-        if (tabName === 'export-action') {
-          this.showExportDialog();
-          tabSelect.value = 'chat'; // Reset to chat
-          return;
-        }
-        if (tabName === 'clear-action') {
-          // Clear history based on current conversation mode
-          if (this.conversationMode === 'chat') {
-            // Clear pokec history
-            if (confirm('Opravdu chceš vymazat historii pokec chatu?')) {
-              this.pokecChatService.clearHistory();
-              toast.show('🗑️ Historie pokec chatu vymazána', 'success');
+          if (action === 'clear') {
+            if (this.conversationMode === 'chat') {
+              if (confirm('Opravdu chceš vymazat historii pokec chatu?')) {
+                this.pokecChatService.clearHistory();
+                toast.show('🗑️ Historie pokec chatu vymazána', 'success');
+              }
+            } else {
+              this.chatHistoryService.clearChatHistory();
             }
-          } else {
-            // Clear code chat history
-            this.chatHistoryService.clearChatHistory();
+            return;
           }
-          tabSelect.value = this.conversationMode === 'chat' ? 'pokec' : 'chat'; // Reset to current tab
-          return;
-        }
 
-        // Special handling for editor tab - close modal and focus editor
-        if (tabName === 'editor') {
-          this.modal.close();
-          // Focus editor
-          const editorTextarea = document.querySelector('#editor');
-          if (editorTextarea) {
-            editorTextarea.focus();
+          // Handle conversation mode switch
+          if (tabName === 'chat') {
+            this.conversationMode = 'code';
+            toast.show('💻 Režim: Práce s kódem', 'info');
+            tabContents.forEach(c => c.classList.remove('active'));
+            const chatContent = this.modal.element.querySelector('[data-content="chat"]');
+            if (chatContent) chatContent.classList.add('active');
+            return;
           }
-          toast.show('📝 Přepnuto na editor', 'info');
-          // Reset select to chat
-          tabSelect.value = 'chat';
-          return;
-        }
+          if (tabName === 'pokec') {
+            this.conversationMode = 'chat';
+            toast.show('💬 Režim: Obecná konverzace', 'info');
+            tabContents.forEach(c => c.classList.remove('active'));
+            const pokecContent = this.modal.element.querySelector('[data-content="pokec"]');
+            if (pokecContent) pokecContent.classList.add('active');
+            const pokecInput = this.modal.element.querySelector('#aiPokecInput');
+            if (pokecInput) setTimeout(() => pokecInput.focus(), 100);
+            return;
+          }
 
-        // Remove active class from all contents
-        tabContents.forEach(c => c.classList.remove('active'));
+          // Special handling for editor tab
+          if (tabName === 'editor') {
+            this.modal.close();
+            const editorTextarea = document.querySelector('#editor');
+            if (editorTextarea) editorTextarea.focus();
+            toast.show('📝 Přepnuto na editor', 'info');
+            return;
+          }
 
-        // Add active class to corresponding content
-        const content = this.modal.element.querySelector(`[data-content="${tabName}"]`);
-        if (content) {
-          content.classList.add('active');
-        }
+          // Remove active class from all contents
+          tabContents.forEach(c => c.classList.remove('active'));
+          // Add active class to corresponding content
+          const content = this.modal.element.querySelector(`[data-content="${tabName}"]`);
+          if (content) content.classList.add('active');
+        });
       });
     }
 
@@ -1356,8 +1371,12 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
         }
       }
 
-      // 🚨 PŘIDEJ KRITICKÁ PRAVIDLA NA ZAČÁTEK SYSTEM PROMPTU
-      const CRITICAL_EDIT_RULES = `
+      // 🚨 PŘIDEJ KRITICKÁ PRAVIDLA - ALE JEN PRO REŽIM POKRAČOVÁNÍ (ne pro nový projekt!)
+      // V režimu "Nový projekt" nechceme SEARCH/REPLACE, ale kompletní nový kód
+      const isNewProjectMode = this.workMode === 'new-project';
+
+      if (!isNewProjectMode && currentCode && currentCode.trim().length > 100) {
+        const CRITICAL_EDIT_RULES = `
 
 ═══════════════════════════════════════════════════════════
 🚨🚨🚨 PREFEROVANÝ FORMÁT: SEARCH/REPLACE (VS Code style) 🚨🚨🚨
@@ -1417,8 +1436,35 @@ const y = 4;
 
 ═══════════════════════════════════════════════════════════
 `;
+        systemPrompt = CRITICAL_EDIT_RULES + systemPrompt;
+      } else if (isNewProjectMode) {
+        // 🆕 PRO NOVÝ PROJEKT - jasné instrukce na vytvoření kompletního kódu
+        const NEW_PROJECT_HEADER = `
+🚨🚨🚨 REŽIM: NOVÝ PROJEKT 🚨🚨🚨
+═══════════════════════════════════════════════════════════
 
-      systemPrompt = CRITICAL_EDIT_RULES + systemPrompt;
+IGNORUJ jakýkoliv existující kód v editoru!
+VYTVOŘ ZCELA NOVÝ, KOMPLETNÍ kód podle požadavku uživatele!
+
+✅ CO MUSÍŠ UDĚLAT:
+1. OKAMŽITĚ vytvoř kompletní HTML soubor
+2. Začni od <!DOCTYPE html> a skonči </html>
+3. Vlož vše do JEDNOHO \`\`\`html bloku
+4. Kód MUSÍ být kompletní a funkční
+
+❌ CO NESMÍŠ DĚLAT:
+- NEŽÁDEJ o zobrazení kódu
+- NEPTEJ SE na další detaily
+- NEPOUŽÍVEJ SEARCH/REPLACE
+- NEODKAZUJ na existující kód
+
+PROSTĚ VYTVOŘ NOVÝ KÓD HNED TEĎ!
+
+═══════════════════════════════════════════════════════════
+`;
+        systemPrompt = NEW_PROJECT_HEADER + systemPrompt;
+        console.log('[AIPanel] 🆕 Režim NOVÝ PROJEKT - přidána hlavička');
+      }
 
       // Přidej Tool System prompt (vždy aktivní - VS Code style)
       systemPrompt += this.toolSystem.getToolSystemPrompt();
@@ -1501,21 +1547,23 @@ const y = 4;
         // Získat nový kód PO aplikaci
         const newCode = state.get('editor.code') || '';
 
-        // Přidat zprávu o výsledku do chatu S action barem
-        const responseWithActionBar = response + this.createActionBarHTML(originalCode, newCode);
-        this.addChatMessage('assistant', responseWithActionBar);
+        // 🎨 Copilot-style: Zobrazit vizuální diff místo prostého textu
+        this.addChatMessage('assistant', response);
+
+        // Přidat Copilot-style diff zprávu s undo možností
+        this.uiRenderingService.addDiffMessage(
+          originalCode,
+          newCode,
+          searchReplaceEdits,
+          (codeToRestore) => {
+            // Undo callback - vrátit původní kód
+            eventBus.emit('editor:setCode', { code: codeToRestore });
+            toast.success('↩️ Změny vráceny', 2000);
+          }
+        );
 
         if (result.success) {
           toast.success(`✅ Aplikováno ${searchReplaceEdits.length} změn`, 3000);
-
-          // Automaticky zavřít AI panel po aplikaci změn
-          setTimeout(() => {
-            const aiPanel = document.getElementById('aiPanel');
-            if (aiPanel && aiPanel.classList.contains('active')) {
-              aiPanel.classList.remove('active');
-              console.log('[AIPanel] Panel automaticky zavřen po aplikaci změn');
-            }
-          }, 1500);
         } else {
           toast.error('⚠️ Některé změny selhaly - viz konzole', 5000);
         }
