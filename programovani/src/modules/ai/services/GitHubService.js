@@ -1370,4 +1370,313 @@ export class GitHubService {
     ];
     return textExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
   }
+
+  // ============= Repository Manager Methods =============
+
+  /**
+   * Create repository manager content HTML
+   */
+  createRepoManagerContent() {
+    const undoHistory = this.getUndoHistory();
+    const redoHistory = this.getRedoHistory();
+
+    return `
+      <div class="repo-manager">
+        <div class="repo-toolbar">
+          <button class="repo-btn" id="createRepoBtn">
+            <span class="icon">➕</span>
+            <span>Vytvořit repozitář</span>
+          </button>
+          <button class="repo-btn" id="refreshReposBtn">
+            <span class="icon">🔄</span>
+            <span>Obnovit</span>
+          </button>
+          <div class="repo-history-btns">
+            <button class="repo-btn" id="undoRepoActionBtn" ${undoHistory.length === 0 ? 'disabled' : ''}>
+              <span class="icon">↩️</span>
+              <span>Zpět (${undoHistory.length}/5)</span>
+            </button>
+            <button class="repo-btn" id="redoRepoActionBtn" ${redoHistory.length === 0 ? 'disabled' : ''}>
+              <span class="icon">↪️</span>
+              <span>Vpřed (${redoHistory.length})</span>
+            </button>
+          </div>
+        </div>
+        <div class="repo-search">
+          <input type="text" id="repoSearchInput" placeholder="🔍 Hledat repozitář..." class="repo-search-input" />
+        </div>
+        <div class="repo-list" id="repoList">
+          <div class="repo-loading">Načítám repozitáře...</div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Attach repository manager event handlers
+   */
+  attachRepoManagerHandlers(repoModal) {
+    const createBtn = repoModal.element.querySelector('#createRepoBtn');
+    const refreshBtn = repoModal.element.querySelector('#refreshReposBtn');
+    const undoBtn = repoModal.element.querySelector('#undoRepoActionBtn');
+    const redoBtn = repoModal.element.querySelector('#redoRepoActionBtn');
+    const searchInput = repoModal.element.querySelector('#repoSearchInput');
+
+    if (createBtn) createBtn.addEventListener('click', () => this.createRepository(repoModal));
+    if (refreshBtn) refreshBtn.addEventListener('click', () => this.loadRepositories(repoModal));
+    if (undoBtn) undoBtn.addEventListener('click', () => this.undoLastRepoAction(repoModal));
+    if (redoBtn) redoBtn.addEventListener('click', () => this.redoRepoAction(repoModal));
+    if (searchInput) searchInput.addEventListener('input', (e) => this.filterRepositories(e.target.value, repoModal));
+  }
+
+  /**
+   * Load repositories list
+   */
+  async loadRepositories(repoModal) {
+    const repoList = repoModal.element.querySelector('#repoList');
+    if (!repoList) return;
+
+    repoList.innerHTML = '<div class="repo-loading">Načítám repozitáře...</div>';
+
+    try {
+      const username = localStorage.getItem('github_username') || 'user';
+      const repos = this.getMockRepositories(username);
+
+      if (repos.length === 0) {
+        repoList.innerHTML = '<div class="repo-empty">Žádné repozitáře</div>';
+        return;
+      }
+
+      repoList.innerHTML = repos.map(repo => this.createRepoItem(repo)).join('');
+
+      // Attach delete handlers
+      repoList.querySelectorAll('.repo-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.deleteRepository(btn.dataset.repo, repoModal);
+        });
+      });
+
+      // Attach repo click handlers
+      repoList.querySelectorAll('.repo-item').forEach(item => {
+        item.addEventListener('click', () => this.openRepository(item.dataset.repo));
+      });
+    } catch (error) {
+      repoList.innerHTML = '<div class="repo-error">Chyba při načítání repozitářů</div>';
+      console.error(error);
+    }
+  }
+
+  /**
+   * Get mock repositories (or from localStorage)
+   */
+  getMockRepositories(_username) {
+    const stored = localStorage.getItem('github_repos');
+    if (stored) return JSON.parse(stored);
+
+    const mockRepos = [
+      { name: 'my-website', description: 'Personal portfolio', stars: 5, private: false },
+      { name: 'html-editor', description: 'Web-based HTML editor', stars: 12, private: false },
+      { name: 'secret-project', description: 'Private repository', stars: 0, private: true }
+    ];
+    localStorage.setItem('github_repos', JSON.stringify(mockRepos));
+    return mockRepos;
+  }
+
+  /**
+   * Create repository item HTML
+   */
+  createRepoItem(repo) {
+    const privateLabel = repo.private ? '<span class="repo-badge private">🔒 Private</span>' : '';
+    return `
+      <div class="repo-item" data-repo="${repo.name}">
+        <div class="repo-icon">📁</div>
+        <div class="repo-info">
+          <div class="repo-name">${repo.name}</div>
+          <div class="repo-description">${repo.description || 'Bez popisu'}</div>
+          <div class="repo-meta">${privateLabel}<span class="repo-stars">⭐ ${repo.stars}</span></div>
+        </div>
+        <button class="repo-delete-btn" data-repo="${repo.name}">🗑️</button>
+      </div>
+    `;
+  }
+
+  /**
+   * Create a new repository
+   */
+  async createRepository(repoModal) {
+    const name = prompt('Název repozitáře:');
+    if (!name) return;
+
+    const description = prompt('Popis (volitelné):') || '';
+    const isPrivate = confirm('Vytvořit jako privátní repozitář?');
+
+    const repos = this.getMockRepositories();
+    const newRepo = { name, description, stars: 0, private: isPrivate };
+
+    this.storeUndoAction('create', newRepo);
+    repos.unshift(newRepo);
+    localStorage.setItem('github_repos', JSON.stringify(repos));
+
+    eventBus.emit('toast:show', { message: `Repozitář "${name}" vytvořen`, type: 'success' });
+    await this.loadRepositories(repoModal);
+    this.updateHistoryButtons(repoModal);
+  }
+
+  /**
+   * Delete a repository
+   */
+  async deleteRepository(repoName, repoModal) {
+    const repos = this.getMockRepositories();
+    const repoIndex = repos.findIndex(r => r.name === repoName);
+    if (repoIndex === -1) return;
+
+    const lastChars = repoName.slice(-2);
+    const confirmation = prompt(
+      `Pro potvrzení smazání doplňte poslední 2 znaky názvu repozitáře:\n\n` +
+      `Repozitář: ${repoName}\nZadejte: **`
+    );
+
+    if (confirmation !== lastChars) {
+      eventBus.emit('toast:show', { message: 'Smazání zrušeno - špatné potvrzení', type: 'warning' });
+      return;
+    }
+
+    const deletedRepo = repos[repoIndex];
+    this.storeUndoAction('delete', deletedRepo);
+    repos.splice(repoIndex, 1);
+    localStorage.setItem('github_repos', JSON.stringify(repos));
+
+    eventBus.emit('toast:show', { message: `Repozitář "${repoName}" byl smazán`, type: 'success' });
+    await this.loadRepositories(repoModal);
+    this.updateHistoryButtons(repoModal);
+  }
+
+  /**
+   * Get undo history
+   */
+  getUndoHistory() {
+    const history = localStorage.getItem('github_undo_history');
+    return history ? JSON.parse(history) : [];
+  }
+
+  /**
+   * Get redo history
+   */
+  getRedoHistory() {
+    const history = localStorage.getItem('github_redo_history');
+    return history ? JSON.parse(history) : [];
+  }
+
+  /**
+   * Store undo action
+   */
+  storeUndoAction(action, data) {
+    const history = this.getUndoHistory();
+    history.push({ action, data, timestamp: Date.now() });
+    if (history.length > 5) history.shift();
+    localStorage.setItem('github_undo_history', JSON.stringify(history));
+    localStorage.removeItem('github_redo_history');
+  }
+
+  /**
+   * Undo last repository action
+   */
+  async undoLastRepoAction(repoModal) {
+    const undoHistory = this.getUndoHistory();
+    if (undoHistory.length === 0) return;
+
+    const lastAction = undoHistory.pop();
+    const { action, data } = lastAction;
+    const repos = this.getMockRepositories();
+
+    const redoHistory = this.getRedoHistory();
+    redoHistory.push(lastAction);
+    localStorage.setItem('github_redo_history', JSON.stringify(redoHistory));
+
+    if (action === 'create') {
+      const index = repos.findIndex(r => r.name === data.name);
+      if (index !== -1) repos.splice(index, 1);
+    } else if (action === 'delete') {
+      repos.unshift(data);
+    }
+
+    localStorage.setItem('github_repos', JSON.stringify(repos));
+    localStorage.setItem('github_undo_history', JSON.stringify(undoHistory));
+
+    eventBus.emit('toast:show', { message: `Akce vrácena zpět (${undoHistory.length} zbývá)`, type: 'success' });
+    await this.loadRepositories(repoModal);
+    this.updateHistoryButtons(repoModal);
+  }
+
+  /**
+   * Redo repository action
+   */
+  async redoRepoAction(repoModal) {
+    const redoHistory = this.getRedoHistory();
+    if (redoHistory.length === 0) return;
+
+    const lastAction = redoHistory.pop();
+    const { action, data } = lastAction;
+    const repos = this.getMockRepositories();
+
+    const undoHistory = this.getUndoHistory();
+    undoHistory.push(lastAction);
+    localStorage.setItem('github_undo_history', JSON.stringify(undoHistory));
+
+    if (action === 'create') {
+      repos.unshift(data);
+    } else if (action === 'delete') {
+      const index = repos.findIndex(r => r.name === data.name);
+      if (index !== -1) repos.splice(index, 1);
+    }
+
+    localStorage.setItem('github_repos', JSON.stringify(repos));
+    localStorage.setItem('github_redo_history', JSON.stringify(redoHistory));
+
+    eventBus.emit('toast:show', { message: `Akce obnovena (${redoHistory.length} zbývá vpřed)`, type: 'success' });
+    await this.loadRepositories(repoModal);
+    this.updateHistoryButtons(repoModal);
+  }
+
+  /**
+   * Update history buttons state
+   */
+  updateHistoryButtons(repoModal) {
+    const undoHistory = this.getUndoHistory();
+    const redoHistory = this.getRedoHistory();
+
+    const undoBtn = repoModal.element.querySelector('#undoRepoActionBtn');
+    const redoBtn = repoModal.element.querySelector('#redoRepoActionBtn');
+
+    if (undoBtn) {
+      undoBtn.disabled = undoHistory.length === 0;
+      undoBtn.querySelector('span:last-child').textContent = `Zpět (${undoHistory.length}/5)`;
+    }
+    if (redoBtn) {
+      redoBtn.disabled = redoHistory.length === 0;
+      redoBtn.querySelector('span:last-child').textContent = `Vpřed (${redoHistory.length})`;
+    }
+  }
+
+  /**
+   * Filter repositories by search query
+   */
+  filterRepositories(query, repoModal) {
+    const repoItems = repoModal.element.querySelectorAll('.repo-item');
+    const lowerQuery = query.toLowerCase();
+
+    repoItems.forEach(item => {
+      const repoName = item.dataset.repo.toLowerCase();
+      const description = item.querySelector('.repo-description')?.textContent.toLowerCase() || '';
+      item.style.display = (repoName.includes(lowerQuery) || description.includes(lowerQuery)) ? 'flex' : 'none';
+    });
+  }
+
+  /**
+   * Open repository
+   */
+  openRepository(repoName) {
+    eventBus.emit('toast:show', { message: `Otevírám repozitář ${repoName}...`, type: 'info' });
+  }
 }

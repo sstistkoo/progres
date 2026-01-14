@@ -751,6 +751,12 @@ export class CodeEditorService {
   async insertCodeToEditor(code, fullResponse) {
     console.log('[CodeEditor] Inserting code to editor...');
 
+    // 🛡️ VALIDACE - kontrola že kód není příliš krátký nebo podezřelý
+    if (!code || code.trim().length < 20) {
+      console.warn('[CodeEditor] ⚠️ Kód je příliš krátký, nevkládám:', code?.length, 'znaků');
+      return 'Kód je příliš krátký pro vložení.';
+    }
+
     // Get current editor content (PŘED změnami - pro možnost vrácení zpět)
     const originalCode = SafeOps.safe(
       () => state.get('editor.code') || '',

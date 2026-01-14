@@ -18,17 +18,22 @@ export class ProviderService {
    * Generate HTML options for provider select
    */
   generateProviderOptions() {
-    const providers = [
-      { value: 'gemini', label: '🔷 Google Gemini', free: true },
-      { value: 'groq', label: '⚡ Groq', free: true },
-      { value: 'openrouter', label: '🌐 OpenRouter', free: false },
-      { value: 'mistral', label: '🔮 Mistral AI', free: false },
-      { value: 'huggingface', label: '🤗 HuggingFace', free: true }
-    ];
+    // Načti providery z AI modulu
+    if (typeof window.AI === 'undefined' || !window.AI.getAllProvidersWithModels) {
+      return `
+        <option value="groq">Groq</option>
+        <option value="gemini">Google Gemini</option>
+        <option value="openrouter">OpenRouter</option>
+        <option value="mistral">Mistral</option>
+        <option value="cohere">Cohere</option>
+        <option value="huggingface">HuggingFace</option>
+      `;
+    }
 
-    return providers.map(p =>
-      `<option value="${p.value}">${p.label}${p.free ? ' (Free)' : ''}</option>`
-    ).join('');
+    const allProviders = window.AI.getAllProvidersWithModels();
+    return Object.entries(allProviders)
+      .map(([key, data]) => `<option value="${key}">${data.name}</option>`)
+      .join('');
   }
 
   /**
@@ -38,36 +43,41 @@ export class ProviderService {
     const modelSelect = this.panel.modal?.element?.querySelector('#aiModel');
     if (!modelSelect) return;
 
-    modelSelect.innerHTML = '<option value="">Načítání...</option>';
-    modelSelect.disabled = true;
+    // Načti modely z AI modulu
+    if (typeof window.AI === 'undefined' || !window.AI.getAllProvidersWithModels) {
+      console.warn('AI module not loaded, using fallback models');
+      modelSelect.innerHTML = '<option value="">AI modul není načten</option>';
+      return;
+    }
 
-    try {
-      const models = await this.getModelsForProvider(provider);
+    const allProviders = window.AI.getAllProvidersWithModels();
+    const providerData = allProviders[provider];
+    const favoriteModels = JSON.parse(localStorage.getItem('favoriteModels') || '[]');
 
-      if (models.length === 0) {
-        modelSelect.innerHTML = '<option value="">Žádné modely</option>';
-        return;
-      }
+    if (providerData && Array.isArray(providerData.models)) {
+      modelSelect.innerHTML = providerData.models
+        .map(m => {
+          const isFavorite = favoriteModels.includes(`${provider}:${m.value}`);
+          const star = isFavorite ? '⭐ ' : '';
+          const freeLabel = m.free ? '🟢 FREE' : '💰 Paid';
+          const rpmLabel = `${m.rpm} RPM`;
+          const contextLabel = m.context || '';
+          const info = `${freeLabel} | ${rpmLabel} | ${contextLabel}`;
+          return `<option value="${m.value}" title="${m.description || ''}" data-favorite="${isFavorite}" data-provider="${provider}">${star}${m.label} (${info})</option>`;
+        })
+        .join('');
 
-      // Sort: favorites first, then by name
-      const favorites = this.favoriteModels[provider] || [];
-      const sortedModels = [...models].sort((a, b) => {
-        const aFav = favorites.includes(a.value);
-        const bFav = favorites.includes(b.value);
-        if (aFav && !bFav) return -1;
-        if (!aFav && bFav) return 1;
-        return a.label.localeCompare(b.label);
+      // Add double-click handler for favoriting
+      modelSelect.addEventListener('dblclick', () => {
+        const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+        if (selectedOption) {
+          this.toggleModelFavorite(provider, selectedOption.value);
+        }
       });
 
-      modelSelect.innerHTML = sortedModels.map(m => {
-        const isFav = favorites.includes(m.value);
-        return `<option value="${m.value}" ${isFav ? 'data-favorite="true"' : ''}>${isFav ? '⭐ ' : ''}${m.label}</option>`;
-      }).join('');
-
       modelSelect.disabled = false;
-    } catch (error) {
-      console.error('[ProviderService] Error loading models:', error);
-      modelSelect.innerHTML = '<option value="">Chyba načítání</option>';
+    } else {
+      modelSelect.innerHTML = '<option value="">Žádné modely</option>';
     }
   }
 
@@ -114,23 +124,25 @@ export class ProviderService {
    * Toggle model as favorite
    */
   toggleModelFavorite(provider, modelValue) {
-    if (!this.favoriteModels[provider]) {
-      this.favoriteModels[provider] = [];
-    }
+    const favoriteModels = JSON.parse(localStorage.getItem('favoriteModels') || '[]');
+    const modelKey = `${provider}:${modelValue}`;
 
-    const index = this.favoriteModels[provider].indexOf(modelValue);
-    if (index === -1) {
-      this.favoriteModels[provider].push(modelValue);
-      toast.success('⭐ Model přidán do oblíbených', 2000);
+    const index = favoriteModels.indexOf(modelKey);
+    if (index > -1) {
+      favoriteModels.splice(index, 1);
+      toast.success('Model odebrán z oblíbených', 1500);
     } else {
-      this.favoriteModels[provider].splice(index, 1);
-      toast.info('Model odebrán z oblíbených', 2000);
+      favoriteModels.push(modelKey);
+      toast.success('⭐ Model přidán do oblíbených', 1500);
     }
 
-    localStorage.setItem('ai_favorite_models', JSON.stringify(this.favoriteModels));
+    localStorage.setItem('favoriteModels', JSON.stringify(favoriteModels));
 
     // Refresh model list
-    this.updateModels(provider);
+    const providerSelect = this.panel.modal?.element?.querySelector('#aiProvider');
+    if (providerSelect) {
+      this.updateModels(providerSelect.value);
+    }
   }
 
   /**
@@ -143,22 +155,30 @@ export class ProviderService {
 
     if (!autoAICheckbox) return;
 
-    const isAutoAI = autoAICheckbox.checked;
-    localStorage.setItem('ai_autoAI', isAutoAI);
+    const isAutoMode = autoAICheckbox.checked;
+    localStorage.setItem('ai_autoAI', isAutoMode);
 
-    // Disable/enable manual selection
-    if (providerSelect) providerSelect.disabled = isAutoAI;
-    if (modelSelect) modelSelect.disabled = isAutoAI;
-
-    // Update visual state
-    const container = autoAICheckbox.closest('.auto-ai-container');
-    if (container) {
-      container.classList.toggle('active', isAutoAI);
+    // Disable provider/model selects when Auto AI is enabled
+    if (providerSelect) {
+      providerSelect.disabled = isAutoMode;
+      providerSelect.style.opacity = isAutoMode ? '0.6' : '1';
+      providerSelect.style.cursor = isAutoMode ? 'not-allowed' : 'pointer';
     }
 
-    if (isAutoAI) {
+    if (modelSelect) {
+      modelSelect.disabled = isAutoMode;
+      modelSelect.style.opacity = isAutoMode ? '0.6' : '1';
+      modelSelect.style.cursor = isAutoMode ? 'not-allowed' : 'pointer';
+    }
+
+    // Update visual feedback
+    if (isAutoMode) {
+      providerSelect?.setAttribute('title', '🤖 Auto AI aktivní - provider se vybírá automaticky');
+      modelSelect?.setAttribute('title', '🤖 Auto AI aktivní - model se vybírá automaticky');
       console.log('[ProviderService] Auto AI enabled - model will be selected automatically');
     } else {
+      providerSelect?.setAttribute('title', 'Vyberte AI providera');
+      modelSelect?.setAttribute('title', 'Vyberte AI model');
       console.log('[ProviderService] Auto AI disabled - manual model selection');
     }
   }
