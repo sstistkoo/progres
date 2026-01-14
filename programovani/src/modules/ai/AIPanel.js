@@ -168,7 +168,7 @@ export class AIPanel {
         </button>
         <div class="ai-menu-dropdown hidden" id="aiMenuDropdown">
           <button class="ai-menu-item" data-tab="chat">◆ Kód</button>
-          <button class="ai-menu-item" data-tab="pokec">💬 Pokeč</button>
+          <button class="ai-menu-item" data-tab="pokec">💬 Pokec</button>
           <button class="ai-menu-item" data-tab="agents">🤖 Agenti</button>
           <button class="ai-menu-item" data-tab="editor">📝 Editor</button>
           <button class="ai-menu-item" data-tab="actions">⚡ Akce</button>
@@ -339,7 +339,7 @@ export class AIPanel {
         <div class="ai-tab-content" data-content="pokec">
           <div class="ai-chat-container">
             <div class="ai-chat-header">
-              <h3>💬 Pokeč s AI</h3>
+              <h3>💬 Pokec s AI</h3>
               <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0 0;">Obecná konverzace - diskutuj o čemkoliv!</p>
             </div>
             <div class="ai-chat-messages" id="aiPokecMessages">
@@ -1585,22 +1585,37 @@ PROSTĚ VYTVOŘ NOVÝ KÓD HNED TEĎ!
           toast.error('⚠️ Některé změny selhaly - viz konzole', 5000);
         }
         return; // Exit after handling changes
-      } else if (response.includes('SEARCH')) {
-        // SEARCH bloky byly detekovány ale ignorovány kvůli prázdným blokům
+      } else if (response.includes('SEARCH') || response.includes('```search')) {
+        // SEARCH bloky byly detekovány ale neparsovány správně
 
         // Zobraz AI response v chatu, aby uživatel viděl co AI poslala
         this.addChatMessage('assistant', response);
 
-        // Zobraz error toast
+        // Zkus zjistit důvod - debug info
+        const hasSearchBlock = /```\s*SEARCH/i.test(response);
+        const hasReplaceBlock = /```\s*REPLACE/i.test(response);
+
+        let errorDetail = '';
+        if (!hasSearchBlock) {
+          errorDetail = '❓ Nenalezen ```SEARCH blok';
+        } else if (!hasReplaceBlock) {
+          errorDetail = '❓ Nenalezen ```REPLACE blok';
+        } else {
+          errorDetail = '⚠️ Bloky nalezeny, ale obsahují neplatný obsah (zkratky, placeholdery)';
+        }
+
+        console.error('❌ SEARCH/REPLACE parsing failed:', errorDetail);
+        console.error('Response preview:', response.substring(0, 500));
+
+        // Zobraz error toast s konkrétním důvodem
         toast.error(
-          `❌ AI použila ZAKÁZANÉ zkratky v SEARCH blocích!\n\n` +
-          `🚨 SEARCH blok MUSÍ obsahovat PŘESNÝ kód z editoru!\n` +
-          `❌ ZAKÁZÁNO: "...", "// ...", "/* ... */", "zkráceno"\n\n` +
-          `💡 Zkus požádat AI znovu - například:\n` +
-          `"Změň tento kód - použij PŘESNÝ kód v SEARCH bloku"`,
-          10000
+          `❌ SEARCH/REPLACE bloky se nepodařilo zpracovat\n\n` +
+          `${errorDetail}\n\n` +
+          `💡 Tip: Požádej AI znovu s upřesněním:\n` +
+          `"Uprav kód pomocí SEARCH/REPLACE - použij PŘESNÝ kód"`,
+          8000
         );
-        console.error('❌ SEARCH bloky ignorovány - obsahují prázdné nebo zkrácené bloky');
+        console.error('❌ SEARCH bloky ignorovány - viz konzole pro detaily');
         console.error('📄 Zobrazuji AI response v chatu pro debugging...');
         return;
       }

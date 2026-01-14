@@ -15,63 +15,94 @@ export class CodeEditorService {
 
   /**
    * Parse VS Code style SEARCH/REPLACE blocks
+   * Podporuje více formátů:
+   * - ```SEARCH ... ``` ```REPLACE ... ```
+   * - ```search ... ``` ```replace ... ```
+   * - <<<<<<< SEARCH ... ======= ... >>>>>>> REPLACE
    */
   parseSearchReplaceInstructions(response) {
     const instructions = [];
 
-    // Pattern: ```SEARCH ... ``` ```REPLACE ... ```
-    const pattern = /```\s*SEARCH\s*\n([\s\S]*?)\n```\s*```\s*REPLACE\s*\n([\s\S]*?)\n```/gi;
-    let match;
+    // Debug: log raw response structure
+    console.log('[CodeEditor] Parsing response for SEARCH/REPLACE blocks...');
+    console.log('[CodeEditor] Response contains "SEARCH":', response.includes('SEARCH'));
+    console.log('[CodeEditor] Response contains "```SEARCH":', response.includes('```SEARCH'));
+    console.log('[CodeEditor] Response contains "``` SEARCH":', response.includes('``` SEARCH'));
 
-    while ((match = pattern.exec(response)) !== null) {
-      const searchCode = match[1].trim();
-      const replaceCode = match[2].trim();
+    // Multiple patterns for flexibility
+    const patterns = [
+      // Pattern 1: Standard - ```SEARCH ... ``` ```REPLACE ... ``` (hned za sebou)
+      /```\s*SEARCH\s*\n([\s\S]*?)\n```\s*```\s*REPLACE\s*\n([\s\S]*?)\n```/gi,
 
-      // Validate search code - skip placeholders and truncated code warnings
-      const invalidPatterns = [
-        '...existing code...',
-        '...rest of code...',
-        '...zbytek kódu...',
-        'ZKRÁCENO',
-        'ZKRACENO',
-        'NEJSOU VIDITELNÉ',
-        'NEJSOU VIDITELNE',
-        'PRO EDITACI TĚCHTO ŘÁDKŮ',
-        'PRO EDITACI TECHTO RADKU',
-        '🔽 ZKRÁCENO',
-        '⚠️ ŘÁDKY',
-        '<!-- smajlík odstraněn -->' // Avoid placeholder comments
-      ];
+      // Pattern 2: S mezerou nebo textem mezi bloky
+      /```\s*SEARCH\s*\n([\s\S]*?)\n```[\s\S]{0,50}?```\s*REPLACE\s*\n([\s\S]*?)\n```/gi,
 
-      // Check for suspicious patterns that indicate placeholders
-      const hasPlaceholder = invalidPatterns.some(pattern =>
-        searchCode.includes(pattern) || replaceCode.includes(pattern)
-      );
+      // Pattern 3: Markdown conflict style (<<<<<<< SEARCH)
+      /<<<<<<+\s*SEARCH\s*\n([\s\S]*?)\n=======+\s*\n([\s\S]*?)\n>>>>>>>+\s*REPLACE/gi,
 
-      // Check if search code is too short or looks like a placeholder
-      const isTooShort = searchCode.length < 5;
-      const looksLikeComment = /^\/\/\s*\.\.\.|^\/\*\s*\.\.\.|^<!--\s*\.\.\./.test(searchCode.trim());
+      // Pattern 4: Case insensitive
+      /```\s*search\s*\n([\s\S]*?)\n```\s*```\s*replace\s*\n([\s\S]*?)\n```/gi,
 
-      if (!searchCode || hasPlaceholder || isTooShort || looksLikeComment) {
-        console.warn('[CodeEditor] Skipping invalid SEARCH/REPLACE block (placeholder detected)');
-        console.warn('  Search:', searchCode.substring(0, 80).replace(/\n/g, '↵'));
-        console.warn('  Replace:', replaceCode.substring(0, 80).replace(/\n/g, '↵'));
-        continue;
+      // Pattern 5: Bez nového řádku na konci
+      /```\s*SEARCH\s*\n([\s\S]*?)```\s*```\s*REPLACE\s*\n([\s\S]*?)```/gi
+    ];
+
+    // Try each pattern
+    for (const pattern of patterns) {
+      let match;
+      // Reset lastIndex for global regex
+      pattern.lastIndex = 0;
+
+      while ((match = pattern.exec(response)) !== null) {
+        const searchCode = match[1].trim();
+        const replaceCode = match[2].trim();
+
+        console.log('[CodeEditor] Found SEARCH/REPLACE candidate:');
+        console.log('  SEARCH (first 100 chars):', searchCode.substring(0, 100).replace(/\n/g, '↵'));
+        console.log('  REPLACE (first 100 chars):', replaceCode.substring(0, 100).replace(/\n/g, '↵'));
+
+        // Validate - kontrola na placeholdery
+        const invalidPatterns = [
+          '...existing code...',
+          '...rest of code...',
+          '...zbytek kódu...',
+          'ZKRÁCENO',
+          'ZKRACENO',
+          '// ...',
+          '/* ... */',
+          '<!-- ... -->',
+          'Lines omitted',
+          'řádky vynechány'
+        ];
+
+        const hasPlaceholder = invalidPatterns.some(p =>
+          searchCode.toLowerCase().includes(p.toLowerCase())
+        );
+
+        const isTooShort = searchCode.length < 5;
+
+        if (!searchCode || hasPlaceholder || isTooShort) {
+          console.warn('[CodeEditor] ⚠️ Skipping invalid block (placeholder/too short)');
+          continue;
+        }
+
+        // Zkontroluj jestli už nemáme stejný search blok
+        const alreadyExists = instructions.some(i => i.searchCode === searchCode);
+        if (alreadyExists) {
+          console.log('[CodeEditor] Skipping duplicate SEARCH block');
+          continue;
+        }
+
+        console.log('[CodeEditor] ✓ Valid SEARCH/REPLACE block accepted');
+        instructions.push({
+          searchCode,
+          replaceCode,
+          type: 'search-replace'
+        });
       }
-
-      console.log('[CodeEditor] ✓ Valid SEARCH/REPLACE block accepted:',
-        searchCode.substring(0, 50).replace(/\n/g, '↵') + '...');
-
-      instructions.push({
-        searchCode,
-        replaceCode,
-        type: 'search-replace'
-      });
     }
 
     console.log(`[CodeEditor] Parsed ${instructions.length} valid SEARCH/REPLACE instructions`);
-    return instructions;
-
     return instructions;
   }
 
