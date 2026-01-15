@@ -262,6 +262,14 @@ export class AIPanel {
         settingsContent.classList.toggle('hidden');
         const isOpen = !settingsContent.classList.contains('hidden');
         console.log('After toggle - is open:', isOpen);
+
+        // Dynamicky napozicovat dropdown pod tlačítko
+        if (isOpen) {
+          const rect = settingsToggle.getBoundingClientRect();
+          settingsContent.style.top = `${rect.bottom + 8}px`;
+          settingsContent.style.right = `${window.innerWidth - rect.right}px`;
+        }
+
         if (toggleArrow) {
           toggleArrow.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
         }
@@ -957,7 +965,7 @@ export class AIPanel {
     }
   }
 
-  async sendMessage(message) {
+  async sendMessage(message, isAutoRetry = false) {
     // Race condition protection
     if (this.isProcessing) {
       toast.warning('⏳ Čekám na dokončení předchozího požadavku...', 2000);
@@ -965,6 +973,11 @@ export class AIPanel {
     }
 
     this.isProcessing = true;
+
+    // Reset retry flag only for user-initiated messages (not auto-retry)
+    if (!isAutoRetry) {
+      this._retryAttempted = false;
+    }
 
     // Show cancel button
     const cancelBtn = this.modal.element.querySelector('.ai-cancel-btn');
@@ -1294,20 +1307,24 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
         // 🎨 Copilot-style: Zobrazit vizuální diff místo prostého textu
         this.addChatMessage('assistant', response);
 
-        // Přidat Copilot-style diff zprávu s undo možností
-        this.uiRenderingService.addDiffMessage(
-          originalCode,
-          newCode,
-          searchReplaceEdits,
-          (codeToRestore) => {
-            // Undo callback - vrátit původní kód
-            eventBus.emit('editor:setCode', { code: codeToRestore });
-            toast.success('↩️ Změny vráceny', 2000);
-          }
-        );
-
         if (result.success) {
+          // Přidat Copilot-style diff zprávu s undo možností
+          this.uiRenderingService.addDiffMessage(
+            originalCode,
+            newCode,
+            searchReplaceEdits,
+            (codeToRestore) => {
+              // Undo callback - vrátit původní kód
+              eventBus.emit('editor:setCode', { code: codeToRestore });
+              toast.success('↩️ Změny vráceny', 2000);
+            }
+          );
           toast.success(`✅ Aplikováno ${searchReplaceEdits.length} změn`, 3000);
+        } else if (result.syntaxError) {
+          // Syntax error - změny nebyly aplikovány
+          // Error message už byla přidána v CodeEditorService
+          // Přidej tlačítko pro retry s jiným přístupem
+          this.addRetryButton(message, 'syntax_error');
         } else {
           toast.error('⚠️ Některé změny selhaly - viz konzole', 5000);
         }
@@ -1322,28 +1339,93 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
         const hasSearchBlock = /```\s*SEARCH/i.test(response);
         const hasReplaceBlock = /```\s*REPLACE/i.test(response);
 
+        // Detailnější diagnostika
+        const searchBlocks = (response.match(/```\s*SEARCH/gi) || []).length;
+        const replaceBlocks = (response.match(/```\s*REPLACE/gi) || []).length;
+        const closingBackticks = (response.match(/```/g) || []).length;
+
         let errorDetail = '';
+        let errorType = 'unknown';
+
         if (!hasSearchBlock) {
           errorDetail = '❓ Nenalezen ```SEARCH blok';
+          errorType = 'no_search';
         } else if (!hasReplaceBlock) {
           errorDetail = '❓ Nenalezen ```REPLACE blok';
+          errorType = 'no_replace';
+        } else if (closingBackticks % 2 !== 0) {
+          errorDetail = '⚠️ AI odpověď je NEÚPLNÁ (chybí uzavírající ```)';
+          errorType = 'incomplete';
+        } else if (searchBlocks !== replaceBlocks) {
+          errorDetail = `⚠️ Nesouhlasí počet bloků: ${searchBlocks} SEARCH vs ${replaceBlocks} REPLACE`;
+          errorType = 'mismatched';
+        } else if (searchReplaceEdits.parseError) {
+          errorDetail = `⚠️ ${searchReplaceEdits.parseErrorDetail || 'Neplatný formát'}`;
+          errorType = searchReplaceEdits.parseError;
         } else {
           errorDetail = '⚠️ Bloky nalezeny, ale obsahují neplatný obsah (zkratky, placeholdery)';
+          errorType = 'invalid_content';
         }
 
         console.error('❌ SEARCH/REPLACE parsing failed:', errorDetail);
         console.error('Response preview:', response.substring(0, 500));
 
+        // Konkrétní tipy podle typu chyby
+        let tip = '';
+        if (errorType === 'incomplete') {
+          tip = '💡 AI odpověď byla přerušena. Zkus:\n"Pokračuj v úpravě a dokonči SEARCH/REPLACE blok"';
+        } else if (errorType === 'mismatched') {
+          tip = '💡 AI vrátila neúplné bloky. Zkus znovu s jasným požadavkem.';
+        } else {
+          tip = '💡 Tip: Požádej AI znovu:\n"Oprav kód pomocí SEARCH/REPLACE - použij PŘESNÝ kód z editoru"';
+        }
+
         // Zobraz error toast s konkrétním důvodem
         toast.error(
           '❌ SEARCH/REPLACE bloky se nepodařilo zpracovat\n\n' +
-          errorDetail + '\n\n' +
-          '💡 Tip: Požádej AI znovu s upřesněním:\n' +
-          'Uprav kód pomocí SEARCH/REPLACE - použij PŘESNÝ kód',
+          errorDetail + '\n\n' + tip,
           8000
         );
         console.error('❌ SEARCH bloky ignorovány - viz konzole pro detaily');
         console.error('📄 Zobrazuji AI response v chatu pro debugging...');
+
+        // Zobraz token usage i při chybě parsování
+        if (this.lastTokenUsage) {
+          const { tokensIn, tokensOut, duration, provider, model } = this.lastTokenUsage;
+          const total = tokensIn + tokensOut;
+          this.addChatMessage('system',
+            `📊 Použito ${total.toLocaleString()} tokenů (${tokensIn.toLocaleString()}→${tokensOut.toLocaleString()}) • ${duration}ms • ${provider}/${model}`
+          );
+          this.lastTokenUsage = null;
+        }
+
+        // Auto-retry s jiným modelem (max 1x)
+        if (!this._retryAttempted && errorType === 'incomplete') {
+          this._retryAttempted = true;
+          this.addChatMessage('system', '🔄 Automaticky zkouším s jiným modelem...');
+
+          // Mark current model as temporarily unavailable
+          const currentProvider = this.providerService?.currentProvider || 'gemini';
+          const currentModel = (this.providerService?.currentModel || 'gemini-2.5-flash').split('/').pop();
+
+          if (window.AI && window.AI._modelSelector) {
+            window.AI._modelSelector.recordLimitHit(currentProvider, currentModel, 'incomplete', 'Auto-retry');
+          }
+
+          // Retry with next best model
+          setTimeout(() => {
+            const retryMessage = 'Dokonči předchozí odpověď. Vrať kompletní SEARCH/REPLACE blok s uzavírajícími ```.';
+            this.sendMessage(retryMessage, true); // isAutoRetry = true
+          }, 500);
+          return;
+        }
+
+        // Reset retry flag
+        this._retryAttempted = false;
+
+        // Přidej tlačítko "Zkusit znovu" do chatu
+        this.addRetryButton(message, errorType);
+
         return;
       }
 
@@ -1479,6 +1561,98 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
 
   addChatMessage(role, content, messageId = null) {
     return this.uiRenderingService.addChatMessage(role, content, messageId);
+  }
+
+  /**
+   * Add retry button to chat after failed SEARCH/REPLACE parsing
+   */
+  addRetryButton(originalMessage, errorType) {
+    const retryContainer = document.createElement('div');
+    retryContainer.className = 'chat-retry-container';
+    retryContainer.style.cssText = 'display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap;';
+
+    // Retry with same model
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'btn-retry';
+    retryBtn.style.cssText = 'padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;';
+    retryBtn.innerHTML = '🔄 Zkusit znovu';
+    retryBtn.onclick = () => {
+      retryContainer.remove();
+      // Different message based on error type
+      let retryMessage;
+      if (errorType === 'incomplete') {
+        retryMessage = 'Dokonči předchozí odpověď. Vrať kompletní SEARCH/REPLACE blok s uzavírajícími ```.';
+      } else if (errorType === 'syntax_error') {
+        retryMessage = 'Předchozí oprava vytvořila syntaktickou chybu. Zkus to jinak - oprav POUZE problematický řádek, nic víc.';
+      } else {
+        retryMessage = `${originalMessage}\n\n⚠️ DŮLEŽITÉ: Použij PŘESNÝ kód z editoru, žádné zkratky!`;
+      }
+      this.sendMessage(retryMessage);
+    };
+
+    // Retry with different model - use ModelSelector to find next best
+    const retryOtherBtn = document.createElement('button');
+    retryOtherBtn.className = 'btn-retry-other';
+    retryOtherBtn.style.cssText = 'padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;';
+    retryOtherBtn.innerHTML = '🔀 Zkusit jiný model';
+    retryOtherBtn.onclick = async () => {
+      retryContainer.remove();
+
+      // Get current model to skip it
+      const currentModel = this.providerService?.currentModel || '';
+      const currentProvider = this.providerService?.currentProvider || '';
+
+      // Find next best model using ModelSelector
+      let nextModel = null;
+      if (window.AI && window.AI._modelSelector) {
+        const selector = window.AI._modelSelector;
+        // Mark current model as temporarily unavailable
+        if (currentProvider && currentModel) {
+          selector.recordLimitHit(currentProvider, currentModel.split('/').pop(), 'retry', 'User requested different model');
+        }
+        // Get next best
+        nextModel = selector.selectBestCodingModel();
+      }
+
+      if (nextModel) {
+        // Temporarily force the new model
+        const originalAutoAI = this.autoAIEnabled;
+        this.autoAIEnabled = false;
+        const originalModel = this.providerService?.currentModel;
+        const originalProvider = this.providerService?.currentProvider;
+
+        if (this.providerService) {
+          this.providerService.currentModel = `${nextModel.provider}/${nextModel.model}`;
+          this.providerService.currentProvider = nextModel.provider;
+        }
+
+        toast.info(`🔀 Zkouším s ${nextModel.provider}/${nextModel.model}`, 2000);
+
+        try {
+          const retryMessage = `${originalMessage}\n\n⚠️ DŮLEŽITÉ: Použij PŘESNÝ kód z editoru včetně odsazení!`;
+          await this.sendMessage(retryMessage);
+        } finally {
+          // Restore original settings
+          this.autoAIEnabled = originalAutoAI;
+          if (this.providerService) {
+            if (originalModel) this.providerService.currentModel = originalModel;
+            if (originalProvider) this.providerService.currentProvider = originalProvider;
+          }
+        }
+      } else {
+        toast.error('❌ Žádný jiný model není dostupný', 3000);
+      }
+    };
+
+    retryContainer.appendChild(retryBtn);
+    retryContainer.appendChild(retryOtherBtn);
+
+    // Add to chat
+    const chatBody = this.modal?.element?.querySelector('.ai-chat-body');
+    if (chatBody) {
+      chatBody.appendChild(retryContainer);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
   }
 
   /**

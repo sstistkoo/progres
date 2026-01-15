@@ -258,7 +258,6 @@ class App {
   setupConsoleListener() {
     // Listen for console messages from preview
     eventBus.on('console:message', ({ level, message, timestamp }) => {
-      console.log('[App] console:message event received:', level, message);
       this.addConsoleMessage(level, message, timestamp);
     });
 
@@ -266,7 +265,6 @@ class App {
     window.addEventListener('message', e => {
       if (e.data && e.data.type === 'console') {
         const { level, message, timestamp } = e.data;
-        console.log('[App] postMessage from iframe:', level, message);
         eventBus.emit('console:message', { level, message, timestamp });
 
         // Log to dev console too
@@ -278,8 +276,6 @@ class App {
   addConsoleMessage(level, message, timestamp) {
     const consoleContent = document.getElementById('consoleContent');
     if (!consoleContent) return;
-
-    console.log('[App] addConsoleMessage:', level, message);
 
     const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
     const messageDiv = document.createElement('div');
@@ -306,7 +302,6 @@ class App {
 
     // Update error count for AI indicator - for all errors and warnings
     if (level === 'error' || level === 'warn') {
-      console.log('[App] Updating error count after', level);
       this.updateErrorCount();
     }
   }
@@ -1238,7 +1233,6 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
       return !ignoredErrors.some(ignored => errorText.includes(ignored));
     }).length;
 
-    console.log('[App] updateErrorCount - emitting console:errorCountChanged with count:', visibleErrorCount);
     eventBus.emit('console:errorCountChanged', { count: visibleErrorCount });
   }
 

@@ -67,6 +67,11 @@ export class MessageProcessingService {
         if (applyResult.success) {
           toast.success(`✅ Aplikováno ${searchReplaceEdits.length} změn`, 3000);
           result.changesApplied = true;
+        } else if (applyResult.syntaxError) {
+          // Syntax error - změny nebyly aplikovány
+          // Error message už byla zobrazena v CodeEditorService
+          this.panel.addRetryButton(null, 'syntax_error');
+          result.syntaxError = applyResult.syntaxError;
         } else {
           toast.error('⚠️ Některé změny selhaly - viz konzole', 5000);
         }

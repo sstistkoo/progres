@@ -103,6 +103,36 @@ export class CodeEditorService {
     }
 
     console.log(`[CodeEditor] Parsed ${instructions.length} valid SEARCH/REPLACE instructions`);
+
+    // Diagnostika: detekuj neúplné bloky
+    if (instructions.length === 0 && (response.includes('```SEARCH') || response.includes('```search'))) {
+      // Spočítej počet SEARCH a REPLACE bloků
+      const searchBlocks = (response.match(/```\s*SEARCH/gi) || []).length;
+      const replaceBlocks = (response.match(/```\s*REPLACE/gi) || []).length;
+      const closingBackticks = (response.match(/```/g) || []).length;
+
+      console.warn('[CodeEditor] 🔍 Diagnostika neúspěšného parsování:');
+      console.warn(`  - SEARCH bloků: ${searchBlocks}`);
+      console.warn(`  - REPLACE bloků: ${replaceBlocks}`);
+      console.warn(`  - Uzavírajících \`\`\`: ${closingBackticks}`);
+
+      // Detekuj neuzavřený blok
+      if (closingBackticks % 2 !== 0) {
+        console.error('[CodeEditor] ❌ AI vrátila NEÚPLNOU odpověď - chybí uzavírající ```');
+        instructions.parseError = 'incomplete_response';
+        instructions.parseErrorDetail = 'AI odpověď je neúplná (chybí uzavírající ```)';
+      } else if (searchBlocks !== replaceBlocks) {
+        console.error(`[CodeEditor] ❌ Nesouhlasí počet bloků: ${searchBlocks} SEARCH vs ${replaceBlocks} REPLACE`);
+        instructions.parseError = 'mismatched_blocks';
+        instructions.parseErrorDetail = `Nesouhlasí počet bloků: ${searchBlocks} SEARCH vs ${replaceBlocks} REPLACE`;
+      } else {
+        // Bloky jsou, ale regex je nechytil - pravděpodobně špatný formát
+        console.error('[CodeEditor] ❌ Bloky existují ale mají neplatný formát');
+        instructions.parseError = 'invalid_format';
+        instructions.parseErrorDetail = 'SEARCH/REPLACE bloky mají neplatný formát (zkontroluj strukturu)';
+      }
+    }
+
     return instructions;
   }
 
@@ -327,6 +357,7 @@ export class CodeEditorService {
           searchCode,
           replaceCode,
           index: semiStrictResult.index,
+          matchedLength: semiStrictResult.matchedLength, // Use actual matched length!
           exact: 'semi'
         });
         console.log(`[CodeEditor] Edit #${i + 1}: ✅ Found via SEMI-STRICT search at index ${semiStrictResult.index}`);
@@ -344,6 +375,7 @@ export class CodeEditorService {
           searchCode,
           replaceCode,
           index: fuzzyResult.index,
+          matchedLength: fuzzyResult.matchedLength, // Use actual matched length!
           exact: false
         });
         console.warn(`[CodeEditor] Edit #${i + 1}: ⚠️ Found via FUZZY search at index ${fuzzyResult.index} - may be wrong location!`);
@@ -390,8 +422,11 @@ export class CodeEditorService {
     const appliedEdits = [];
 
     for (const edit of validatedEdits) {
+      // Use matchedLength for semi-strict/fuzzy, or searchCode.length for exact match
+      const lengthToReplace = edit.matchedLength || edit.searchCode.length;
+
       const before = code.substring(0, edit.index);
-      const after = code.substring(edit.index + edit.searchCode.length);
+      const after = code.substring(edit.index + lengthToReplace);
       code = before + edit.replaceCode + after;
 
       // Calculate line:column for logging
@@ -405,7 +440,7 @@ export class CodeEditorService {
       });
 
       const matchType = edit.exact === true ? 'exact' : edit.exact === 'semi' ? 'semi-strict' : 'fuzzy';
-      console.log(`[CodeEditor] Applied edit at ${line}:${column} (${matchType})`);
+      console.log(`[CodeEditor] Applied edit at ${line}:${column} (${matchType}, replaced ${lengthToReplace} chars)`);
     }
 
     // ===== PHASE 4: VALIDATE RESULT =====
@@ -414,19 +449,29 @@ export class CodeEditorService {
       console.error('[CodeEditor] ❌ Výsledný kód má syntaktickou chybu:', syntaxError);
       console.error('[CodeEditor] Změny NEBUDOU aplikovány - kód by byl nefunkční');
 
-      // Show error to user
+      // Show error to user via chat message (more visible than toast)
+      if (this.panel && this.panel.addChatMessage) {
+        this.panel.addChatMessage('system',
+          `❌ **AI oprava by vytvořila nevalidní kód!**\n\n` +
+          `🔴 Chyba: \`${syntaxError}\`\n\n` +
+          `Změny nebyly aplikovány. Zkus:\n` +
+          `- "Oprav chybu jinak - bez mazání kódu"\n` +
+          `- "Ukaž mi problematický řádek a navrhni opravu"`
+        );
+      }
+
+      // Also show toast
       if (window.toast) {
         window.toast.error(
-          '❌ AI vygenerovala nevalidní kód\\n\\n' +
-          'Syntaktická chyba: ' + syntaxError + '\\n\\n' +
-          '💡 Změny nebyly aplikovány. Zkuste požadavek přeformulovat.',
-          8000
+          `❌ AI oprava by rozbila kód\n\nChyba: ${syntaxError}\n\n💡 Změny nebyly aplikovány`,
+          6000
         );
       }
 
       return {
         success: false,
-        message: `❌ Změny by vytvořily nevalidní kód: ${syntaxError}`
+        message: `❌ Změny by vytvořily nevalidní kód: ${syntaxError}`,
+        syntaxError: syntaxError
       };
     }
 
@@ -508,16 +553,16 @@ export class CodeEditorService {
       const patternLines = searchLines.map(line => {
         const trimmed = line.trimStart();
         if (trimmed.length === 0) {
-          // Empty or whitespace-only line
-          return '';
+          // Empty or whitespace-only line - match any whitespace
+          return '[ \\t]*';
         }
         // Match any amount of leading whitespace, then the exact content
         const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return '\\s*' + escaped;
+        return '[ \\t]*' + escaped;
       });
 
       // Join with exact newline (not flexible whitespace around it)
-      const pattern = patternLines.join('\n');
+      const pattern = patternLines.join('\\r?\\n');
       const regex = new RegExp(pattern);
 
       console.log('[CodeEditor] Semi-strict search:', {
@@ -526,11 +571,12 @@ export class CodeEditorService {
         searchPreview: normalizedSearch.substring(0, 100).replace(/\n/g, '↵')
       });
 
-      const match = regex.exec(normalizedCode);
+      const match = regex.exec(code); // Use original code, not normalized!
 
       if (match) {
-        console.log('[CodeEditor] ✅ Semi-strict match found at index:', match.index);
-        return { found: true, index: match.index };
+        console.log('[CodeEditor] ✅ Semi-strict match found at index:', match.index, 'length:', match[0].length);
+        // Return the actual matched length from the original code!
+        return { found: true, index: match.index, matchedLength: match[0].length, matchedText: match[0] };
       }
 
       console.log('[CodeEditor] ❌ Semi-strict: No match found');
@@ -563,18 +609,40 @@ export class CodeEditorService {
       const match = regex.exec(codeNormalized);
 
       if (match) {
-        // Find original position by counting characters up to match
-        let originalIndex = 0;
+        // Find original start position by counting non-whitespace characters
+        let originalStartIndex = 0;
         let normalizedIndex = 0;
 
-        while (normalizedIndex < match.index && originalIndex < code.length) {
-          if (!/\s/.test(code[originalIndex])) {
+        while (normalizedIndex < match.index && originalStartIndex < code.length) {
+          if (!/\s/.test(code[originalStartIndex]) || (normalizedIndex > 0 && code[originalStartIndex] === ' ')) {
             normalizedIndex++;
           }
-          originalIndex++;
+          originalStartIndex++;
         }
 
-        return { found: true, index: originalIndex };
+        // Find original end position
+        let originalEndIndex = originalStartIndex;
+        let matchedNonWhitespace = 0;
+        const searchNonWhitespaceLength = searchNormalized.replace(/\s/g, '').length;
+
+        while (matchedNonWhitespace < searchNonWhitespaceLength && originalEndIndex < code.length) {
+          if (!/\s/.test(code[originalEndIndex])) {
+            matchedNonWhitespace++;
+          }
+          originalEndIndex++;
+        }
+
+        const matchedLength = originalEndIndex - originalStartIndex;
+        const matchedText = code.substring(originalStartIndex, originalEndIndex);
+
+        console.log('[CodeEditor] Fuzzy match:', {
+          startIndex: originalStartIndex,
+          endIndex: originalEndIndex,
+          matchedLength,
+          matchedPreview: matchedText.substring(0, 50).replace(/\n/g, '↵')
+        });
+
+        return { found: true, index: originalStartIndex, matchedLength, matchedText };
       }
 
       return { found: false, index: -1 };

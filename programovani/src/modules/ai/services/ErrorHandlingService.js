@@ -12,7 +12,6 @@ export class ErrorHandlingService {
   constructor(panel) {
     this.panel = panel;
     this.ignoredErrors = new Set(JSON.parse(localStorage.getItem('ai_ignored_errors') || '[]'));
-    console.log('[ErrorHandlingService] Initialized');
   }
 
   /**
@@ -22,14 +21,9 @@ export class ErrorHandlingService {
     const errorBtn = this.panel.modal?.element?.querySelector('#aiErrorIndicator');
     if (!errorBtn) return;
 
-    console.log('[ErrorHandlingService] Setting up error indicator button');
-
     errorBtn.addEventListener('click', () => {
-      console.log('[ErrorHandlingService] Error button clicked, has success class:', errorBtn.classList.contains('success'));
-
       // If 0 errors (green), open DevTools
       if (errorBtn.classList.contains('success')) {
-        console.log('[ErrorHandlingService] Opening DevTools');
         if (typeof eruda !== 'undefined') {
           eruda.init();
           eruda.show();
@@ -40,7 +34,6 @@ export class ErrorHandlingService {
       }
 
       // Otherwise show error modal
-      console.log('[ErrorHandlingService] Opening error modal');
       this.sendAllErrorsToAI();
     });
 
@@ -53,22 +46,18 @@ export class ErrorHandlingService {
    */
   initializeErrorCount() {
     const consoleElement = document.getElementById('consoleContent');
-    console.log('[ErrorHandlingService] initializeErrorCount, consoleElement found:', !!consoleElement);
-
     if (!consoleElement) return;
 
     const ignoredErrors = JSON.parse(localStorage.getItem('ignoredErrors') || '[]');
 
     // Count only non-ignored errors
     const allErrors = Array.from(consoleElement.querySelectorAll('.console-message.console-error .console-text'));
-    console.log('[ErrorHandlingService] Found error elements:', allErrors.length);
 
     const visibleErrorCount = allErrors.filter(el => {
       const errorText = el.textContent;
       return !ignoredErrors.some(ignored => errorText.includes(ignored));
     }).length;
 
-    console.log('[ErrorHandlingService] Visible error count:', visibleErrorCount);
     this.updateErrorIndicator(visibleErrorCount);
   }
 
@@ -77,12 +66,7 @@ export class ErrorHandlingService {
    */
   updateErrorIndicator(errorCount) {
     const errorBtn = this.panel.modal?.element?.querySelector('#aiErrorIndicator');
-    if (!errorBtn) {
-      console.log('[ErrorHandlingService] Error button not found');
-      return;
-    }
-
-    console.log('[ErrorHandlingService] Updating error indicator, count:', errorCount);
+    if (!errorBtn) return;
 
     const countSpan = errorBtn.querySelector('.error-count');
     const iconSpan = errorBtn.querySelector('.error-icon');
@@ -111,37 +95,28 @@ export class ErrorHandlingService {
         }
       }
     }
-
-    console.log('[ErrorHandlingService] Updated - classes:', errorBtn.className, 'text:', countSpan?.textContent);
   }
 
   /**
    * Send all errors to AI for fixing
    */
   sendAllErrorsToAI() {
-    console.log('[ErrorHandlingService] sendAllErrorsToAI called');
-
     const consoleElement = document.getElementById('consoleContent');
     if (!consoleElement) {
-      console.log('[ErrorHandlingService] Console element not found');
       toast.error('Konzole není dostupná', 2000);
       return;
     }
 
     const errorMessages = [];
     const errorElements = consoleElement.querySelectorAll('.console-message.console-error');
-    console.log('[ErrorHandlingService] Found error elements:', errorElements.length);
 
     errorElements.forEach(el => {
       const textEl = el.querySelector('.console-text') || el;
       const text = textEl.textContent.trim();
-      console.log('[ErrorHandlingService] Error text:', text);
       if (text && !this.isErrorIgnored(text)) {
         errorMessages.push(text);
       }
     });
-
-    console.log('[ErrorHandlingService] Error messages to show:', errorMessages.length);
 
     if (errorMessages.length === 0) {
       toast.info('✅ Žádné chyby k opravě', 2000);
@@ -172,8 +147,6 @@ export class ErrorHandlingService {
    * Show modal for selecting which errors to fix
    */
   showErrorSelectionModal(errorMessages) {
-    console.log('[ErrorHandlingService] showErrorSelectionModal called with', errorMessages.length, 'errors');
-
     const modal = document.createElement('div');
     modal.className = 'modal-overlay error-selection-modal open';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: transparent; display: flex; align-items: center; justify-content: center; z-index: 10000; pointer-events: none;';
@@ -237,9 +210,30 @@ export class ErrorHandlingService {
         return;
       }
 
-      // Send to AI
+      // Send to AI with clear instructions
       const errorList = selected.map((e, i) => `${i + 1}. ${e}`).join('\n');
-      const message = `🔧 Oprav tyto chyby v kódu:\n\n${errorList}\n\nPoužij SEARCH/REPLACE formát pro opravu.`;
+      const message = `🔧 OPRAV CHYBY V KÓDU
+
+CHYBY K OPRAVĚ:
+${errorList}
+
+📋 INSTRUKCE:
+1. Najdi v kódu PŘESNÉ místo kde chyba vzniká
+2. Zkopíruj CELÝ problematický blok (5-10 řádků kontextu)
+3. Vrať opravu ve formátu:
+
+\`\`\`SEARCH
+[PŘESNÝ kód z editoru - včetně odsazení!]
+\`\`\`
+\`\`\`REPLACE
+[opravený kód]
+\`\`\`
+
+⚠️ KRITICKÉ:
+- SEARCH blok MUSÍ obsahovat PŘESNOU kopii kódu z editoru
+- Zachovej všechny mezery a odsazení!
+- DOKONČI oba bloky - nesmí chybět uzavírající \`\`\`
+- Žádné zkratky ani "..." - celý kód!`;
 
       this.panel.sendMessage(message);
       modal.remove();
