@@ -263,11 +263,21 @@ export class AIPanel {
         const isOpen = !settingsContent.classList.contains('hidden');
         console.log('After toggle - is open:', isOpen);
 
-        // Dynamicky napozicovat dropdown pod tlačítko
+        // Dynamicky napozicovat dropdown - vycentrovat v AI panelu
         if (isOpen) {
           const rect = settingsToggle.getBoundingClientRect();
-          settingsContent.style.top = `${rect.bottom + 8}px`;
-          settingsContent.style.right = `${window.innerWidth - rect.right}px`;
+          const modalEl = this.modal?.element;
+          if (modalEl) {
+            const modalRect = modalEl.getBoundingClientRect();
+            const dropdownWidth = 320; // Odhadovaná šířka dropdownu
+            const centerX = modalRect.left + (modalRect.width / 2) - (dropdownWidth / 2);
+            settingsContent.style.top = `${rect.bottom + 8}px`;
+            settingsContent.style.left = `${Math.max(16, centerX)}px`;
+            settingsContent.style.right = 'auto';
+          } else {
+            settingsContent.style.top = `${rect.bottom + 8}px`;
+            settingsContent.style.right = `${window.innerWidth - rect.right}px`;
+          }
         }
 
         if (toggleArrow) {
@@ -2418,19 +2428,50 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
         currentCode = currentCode.substring(0, maxCodeLength) + '\n... (kód zkrácen) ...';
       }
 
+      // Check if user wants NEW project (ignore existing code)
+      const isNewProjectMode = this.workMode === 'new-project';
+
+      // Auto-detect new project from message patterns
+      const newProjectPatterns = [
+        /vytvoř\s+(nový|novou|nové|mi)/i,
+        /create\s+(new|a)/i,
+        /nový\s+projekt/i,
+        /new\s+project/i,
+        /od\s+začátku/i,
+        /from\s+scratch/i,
+        /udělej\s+mi/i,
+        /make\s+me/i,
+        /build\s+me/i,
+        /nakóduj/i,
+        /naprogramuj/i
+      ];
+      const messageRequestsNewProject = newProjectPatterns.some(p => p.test(message));
+      const shouldTreatAsNewProject = isNewProjectMode || messageRequestsNewProject;
+
+      console.log(`[AIPanel] Orchestrator - workMode: ${this.workMode}, messageRequestsNewProject: ${messageRequestsNewProject}, shouldTreatAsNewProject: ${shouldTreatAsNewProject}`);
+
+      // In new-project mode, treat as empty project
+      if (shouldTreatAsNewProject) {
+        console.log('[AIPanel] Nový projekt režim - ignoruji existující kód');
+        currentCode = '';
+      }
+
       // Build orchestrator prompt
-      const orchestratorPrompt = `Jsi Orchestrator - řídící AI agent, který analyzuje požadavky uživatele a vytváří detailní task list pro ostatní specializované agenty.
+      const orchestratorPrompt = shouldTreatAsNewProject
+        ? `Jsi EXPERT full-stack webový vývojář. Vytvoř KOMPLETNÍ, PROFESIONÁLNÍ webovou aplikaci.
+
+🎯 **UŽIVATEL CHCE:** "${message}"
+
+${currentCode ? '' : '📝 Toto je NOVÝ PROJEKT - vytvoř vše od začátku.'}
+
+⚠️ KRITICKÉ PRAVIDLO PRO NOVÝ PROJEKT:`
+        : `Jsi Orchestrator - řídící AI agent pro úpravu existujícího kódu.
 
 TVŮJ ÚKOL:
 Uživatelský požadavek: "${message}"
 
 Aktuální stav projektu:
-${currentCode ? `Projekt existuje (${currentCode.length} znaků)` : 'Prázdný editor - nový projekt'}
-
-ANALYZUJ požadavek a rozděl ho na konkrétní úkoly pro tyto agenty:
-1. HTML Agent - struktura, značky, sémantika
-2. CSS Agent - design, layout, responsivita
-3. JavaScript Agent - interaktivita, logika, funkce
+${currentCode ? `Projekt existuje (${currentCode.length} znaků)` : 'Prázdný editor'}
 
 ⚠️ KRITICKÉ PRAVIDLO PRO ÚPRAVY EXISTUJÍCÍCH PROJEKTŮ:
 ${currentCode ? `
@@ -2464,42 +2505,85 @@ ODPOVĚZ VE FORMÁTU:
 **Změny:**
 [Použij SEARCH/REPLACE bloky pro každou změnu]
 ` : `
-**NOVÝ PROJEKT - použij komplettní kód:**
+**🆕 NOVÝ PROJEKT - VYTVOŘ KOMPLETNÍ, PROFESIONÁLNÍ KÓD!**
+
+Jsi zkušený full-stack vývojář. Vytvoř KOMPLETNÍ, PLNĚ FUNKČNÍ projekt.
+
+📋 **POŽADAVKY NA KVALITU:**
+1. **HTML**: Sémantické značky, přístupnost (aria-labels), SEO meta tagy
+2. **CSS**: Moderní design, CSS Grid/Flexbox, responzivní (mobile-first), animace, přechody
+3. **JavaScript**: Čistý kód, event listeners, validace vstupů, error handling
+
+🎨 **DESIGN GUIDELINES:**
+- Použij moderní barevné schéma (gradients, shadows)
+- Zaoblené rohy (border-radius)
+- Hover efekty na tlačítkách
+- Responzivní layout (funguje na mobilu i desktopu)
+- Příjemná typografie (font-size, line-height, font-family)
+
+⚠️ **KRITICKÉ:**
+- Kód MUSÍ být KOMPLETNÍ a FUNKČNÍ - ne jen základní struktura!
+- Všechny funkce musí být implementované
+- Design musí vypadat profesionálně
+- Žádné placeholder texty - vše reálné
+
+ODPOVĚZ POUZE TAKTO (nic jiného!):
+
 \`\`\`html
-[zde vlož KOMPLETNÍ fungující kód s UNIKÁTNÍMI názvy proměnných]
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>[Název projektu]</title>
+  <style>
+    /* KOMPLETNÍ CSS styly zde */
+  </style>
+</head>
+<body>
+  <!-- KOMPLETNÍ HTML struktura zde -->
+  <script>
+    // KOMPLETNÍ JavaScript zde
+  </script>
+</body>
+</html>
 \`\`\`
 
-ODPOVĚZ VE FORMÁTU:
-📋 **Analýza požadavku:**
-[Krátká analýza co uživatel chce]
-
-🎯 **Plán úkolů:**
-
-**HTML Agent:**
-- [konkrétní úkol 1]
-- [konkrétní úkol 2]
-
-**CSS Agent:**
-- [konkrétní úkol 1]
-- [konkrétní úkol 2]
-
-**JavaScript Agent:**
-- [konkrétní úkol 1]
-- [konkrétní úkol 2]
-
-**Výsledek:**
-\`\`\`html
-[zde vlož KOMPLETNÍ fungující kód s UNIKÁTNÍMI názvy proměnných]
-\`\`\`
-
-⚠️ KRITICKÉ PRAVIDLO: KAŽDÁ PROMĚNNÁ MUSÍ MÍT UNIKÁTNÍ NÁZEV!
+NEVYPISUJ žádnou analýzu ani plán - POUZE kompletní kód!
 `}`;
 
       // Call AI with orchestrator prompt
-      const bestModel = window.AI.selectBestModel();
+      // Get provider and model from UI (same as sendMessage)
+      let provider = this.modal.element.querySelector('#aiProvider')?.value;
+      let model = this.modal.element.querySelector('#aiModel')?.value;
+      const autoAI = this.modal.element.querySelector('#autoAI')?.checked;
+
+      // If Auto AI is enabled, use intelligent model selection
+      if (autoAI) {
+        const bestModel = window.AI.selectBestCodingModel();
+        provider = bestModel.provider;
+        model = bestModel.model;
+        console.log(`🎭 [Tým] Auto AI: ${provider}/${model} (kvalita: ${bestModel.quality})`);
+      } else if (!model || model === 'null' || model === '') {
+        // Manual mode but no model selected - use best available
+        const bestModel = window.AI.selectBestModel();
+        provider = bestModel.provider;
+        model = bestModel.model;
+        console.log(`🎭 [Tým] Auto-vybrán model: ${provider}/${model}`);
+      } else {
+        // Manual mode with specific model selected
+        const modelSelect = this.modal.element.querySelector('#aiModel');
+        const selectedOption = modelSelect?.options[modelSelect.selectedIndex];
+        const modelProvider = selectedOption?.dataset?.provider;
+        if (modelProvider) {
+          provider = modelProvider;
+        }
+        console.log(`🎭 [Tým] Manuálně vybraný model: ${provider}/${model}`);
+      }
+
       const response = await window.AI.ask(orchestratorPrompt, {
-        provider: bestModel.provider,
-        model: bestModel.model,
+        provider: provider,
+        model: model,
         temperature: 0.7
       });
 

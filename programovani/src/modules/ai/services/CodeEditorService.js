@@ -478,6 +478,11 @@ export class CodeEditorService {
     // Update editor
     eventBus.emit('editor:setCode', { code });
 
+    // Trigger re-validation to update error indicator
+    setTimeout(() => {
+      eventBus.emit('action:validate');
+    }, 100);
+
     // Track changed files (VS Code style)
     const activeFile = state.get('files.tabs')?.find(t => t.id === state.get('files.active'));
     const fileName = activeFile?.name || 'index.html';

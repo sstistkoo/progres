@@ -42,6 +42,9 @@ export class MenuPanel {
       this.createMenu();
     }
 
+    // Zavřít AI panel při otevření menu
+    eventBus.emit('ai:hide');
+
     this.updateOpenFilesList();
     this.menuElement.classList.add('active');
     this.isOpen = true;
