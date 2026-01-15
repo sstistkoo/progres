@@ -315,9 +315,9 @@ export class AIPanel {
                 rows="3"
               ></textarea>
               <div class="ai-chat-buttons">
-                <button class="ai-error-indicator compact" id="aiErrorIndicator" title="Počet chyb v kódu">
-                  <span class="error-count">0</span>
-                  <span class="error-label">chyb</span>
+                <button class="ai-error-indicator success" id="aiErrorIndicator" title="Žádné chyby - klikni pro DevTools">
+                  <span class="error-icon">✓</span>
+                  <span class="error-count">0 chyb</span>
                 </button>
                 <button class="ai-attach-btn compact" id="aiAttachBtn" title="Přidat soubor">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

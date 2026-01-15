@@ -157,13 +157,9 @@ export class ModalBuilderService {
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
         </svg>
       </button>
-      <button class="ai-btn-action compact" id="aiErrorIndicator" title="Chyby v konzoli">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
-          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-          <line x1="12" y1="9" x2="12" y2="13"/>
-          <line x1="12" y1="17" x2="12.01" y2="17"/>
-        </svg>
-        <span class="error-count">0</span>
+      <button class="ai-btn-action ai-error-indicator success" id="aiErrorIndicator" title="Žádné chyby - klikni pro DevTools">
+        <span class="error-icon">✓</span>
+        <span class="error-count">0 chyb</span>
       </button>
       <button class="ai-btn-action compact" id="aiHistoryBtn" title="Historie změn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
