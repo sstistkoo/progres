@@ -6,57 +6,57 @@
 export const MENU_SECTIONS = [
   {
     id: 'settings',
-    title: 'âš™ï¸ NastavenÃ­',
+    title: '⚙️ Nastavení',
     items: [
-      { icon: 'ðŸ¤–', label: 'NastavenÃ­ AI', action: 'aiSettings' },
-      { icon: 'ðŸŽ¨', label: 'PÅ™epnout tÃ©ma', action: 'theme' }
+      { icon: '🤖', label: 'Nastavení AI', action: 'aiSettings' },
+      { icon: '🎨', label: 'Přepnout téma', action: 'theme' }
     ]
   },
   {
     id: 'tools',
-    title: 'ðŸ› ï¸ PokroÄilÃ© nÃ¡stroje',
+    title: '🛠️ Pokročilé nástroje',
     items: [
-      { icon: 'ðŸ“', label: 'CSS Grid/Flex editor', action: 'gridEditor' },
-      { icon: 'ðŸŒ', label: 'Å½ivÃ½ server', action: 'liveServer' },
-      { icon: 'ðŸ“', label: 'VytvoÅ™it .gitignore', action: 'gitignore' },
-      { icon: 'ðŸ”„', label: 'Nahradit v kÃ³du', action: 'replace', shortcut: 'Ctrl+H' }
+      { icon: '📐', label: 'CSS Grid/Flex editor', action: 'gridEditor' },
+      { icon: '🌐', label: 'Živý server', action: 'liveServer' },
+      { icon: '📄', label: 'Vytvořit .gitignore', action: 'gitignore' },
+      { icon: '🔄', label: 'Nahradit v kódu', action: 'replace', shortcut: 'Ctrl+H' }
     ]
   },
   {
     id: 'content',
-    title: 'ðŸ“‹ Obsah',
+    title: '📋 Obsah',
     items: [
-      { icon: 'ðŸ¤–', label: 'AI GenerÃ¡tor komponent', action: 'ai-component' },
-      { icon: 'ðŸ§©', label: 'Komponenty', action: 'components' },
-      { icon: 'ðŸ“‹', label: 'Å ablony', action: 'templates' },
-      { icon: 'ðŸ–¼ï¸', label: 'ObrÃ¡zky', action: 'images' }
+      { icon: '🤖', label: 'AI Generátor komponent', action: 'ai-component' },
+      { icon: '🧩', label: 'Komponenty', action: 'components' },
+      { icon: '📋', label: 'Šablony', action: 'templates' },
+      { icon: '🖼️', label: 'Obrázky', action: 'images' }
     ]
   },
   {
     id: 'sharing',
-    title: 'ðŸ”— SdÃ­lenÃ­',
+    title: '🔗 Sdílení',
     items: [
-      { icon: 'ðŸ”—', label: 'SdÃ­let odkaz', action: 'share' }
+      { icon: '🔗', label: 'Sdílet odkaz', action: 'share' }
     ]
   },
   {
     id: 'github',
-    title: 'ðŸ™ GitHub',
+    title: '🐙 GitHub',
     items: [
-      { icon: 'ðŸ”', label: 'Hledat na GitHubu', action: 'github-search' },
-      { icon: 'ðŸŒ', label: 'NaÄÃ­st z URL', action: 'load-from-url' },
-      { icon: 'ðŸš€', label: 'Deploy projekt', action: 'deploy' }
+      { icon: '🔍', label: 'Hledat na GitHubu', action: 'github-search' },
+      { icon: '🌐', label: 'Načíst z URL', action: 'load-from-url' },
+      { icon: '🚀', label: 'Deploy projekt', action: 'deploy' }
     ]
   },
   {
     id: 'devtools',
-    title: 'ðŸ”§ VÃ½vojÃ¡Å™skÃ© nÃ¡stroje',
+    title: '🔧 Vývojářské nástroje',
     items: [
-      { icon: 'ðŸ“Š', label: 'Audit projektu', action: 'audit' },
-      { icon: 'ðŸ“‹', label: 'Error Log', action: 'error-log' },
-      { icon: 'ðŸž', label: 'OtevÅ™Ã­t DevTools', action: 'devtools' }
+      { icon: '📊', label: 'Audit projektu', action: 'audit' },
+      { icon: '📋', label: 'Error Log', action: 'error-log' },
+      { icon: '🐞', label: 'Otevřít DevTools', action: 'devtools' }
     ]
   }
 ];
 
-export const MENU_FOOTER_TEXT = 'ðŸ’¡ Pro zÃ¡kladnÃ­ akce pouÅ¾ijte <strong>logo âš¡</strong> nebo <strong>Ctrl+K</strong>';
+export const MENU_FOOTER_TEXT = '💡 Pro základní akce použijte <strong>logo ⚡</strong> nebo <strong>Ctrl+K</strong>';
