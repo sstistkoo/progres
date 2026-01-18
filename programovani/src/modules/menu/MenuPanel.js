@@ -1,27 +1,33 @@
 /**
- * Menu Panel Module - REFACTORED
- * Main navigation menu - delegating to services
+ * Menu Panel Module - REFACTORED v2.0
+ * Main navigation menu with modular architecture
+ *
+ * Structure:
+ * - MenuPanel.js (this file) - Core panel logic (show/hide, create DOM)
+ * - config/MenuConfig.js - Menu structure definition
+ * - services/MenuActions.js - Action dispatching
+ * - services/MenuModals.js - Modal dialogs
  */
 
 import { eventBus } from '../../core/events.js';
-import { state } from '../../core/state.js';
-import { AITester } from '../ai/AITester.js';
-import { Modal } from '../../ui/components/Modal.js';
-
-// Import services
-import { FileOperations } from './services/FileOperations.js';
-import { TemplateManager } from './services/TemplateManager.js';
-import { GitHubService } from './services/GitHubService.js';
-import { ComponentLibrary } from './services/ComponentLibrary.js';
-import { ImageLibrary } from './services/ImageLibrary.js';
+import { MENU_SECTIONS, MENU_FOOTER_TEXT } from './config/MenuConfig.js';
+import { MenuActions } from './services/MenuActions.js';
+import { MenuModals } from './services/MenuModals.js';
 
 export class MenuPanel {
   constructor() {
     this.menuElement = null;
     this.isOpen = false;
-    this.aiTester = new AITester();
+    this.escapeHandler = null;
+
+    // Initialize services
+    this.modals = new MenuModals();
+    this.actions = new MenuActions(this);
+
     this.setupEventListeners();
   }
+
+  // ===== Event Listeners =====
 
   setupEventListeners() {
     eventBus.on('menu:toggle', () => this.toggle());
@@ -29,12 +35,10 @@ export class MenuPanel {
     eventBus.on('menu:hide', () => this.hide());
   }
 
+  // ===== Public Methods =====
+
   toggle() {
-    if (this.isOpen) {
-      this.hide();
-    } else {
-      this.show();
-    }
+    this.isOpen ? this.hide() : this.show();
   }
 
   show() {
@@ -42,26 +46,14 @@ export class MenuPanel {
       this.createMenu();
     }
 
-    // Zavřít AI panel při otevření menu
+    // Close AI panel when opening menu
     eventBus.emit('ai:hide');
 
-    this.updateOpenFilesList();
     this.menuElement.classList.add('active');
     this.isOpen = true;
 
-    // Add backdrop
-    const backdrop = document.createElement('div');
-    backdrop.className = 'menu-backdrop';
-    backdrop.addEventListener('click', () => this.hide());
-    document.body.appendChild(backdrop);
-
-    // Close on escape
-    this.escapeHandler = (e) => {
-      if (e.key === 'Escape') {
-        this.hide();
-      }
-    };
-    document.addEventListener('keydown', this.escapeHandler);
+    this.addBackdrop();
+    this.addEscapeHandler();
   }
 
   hide() {
@@ -69,34 +61,26 @@ export class MenuPanel {
       this.menuElement.classList.remove('active');
     }
 
-    const backdrop = document.querySelector('.menu-backdrop');
-    if (backdrop) {
-      backdrop.remove();
-    }
-
-    if (this.escapeHandler) {
-      document.removeEventListener('keydown', this.escapeHandler);
-    }
+    this.removeBackdrop();
+    this.removeEscapeHandler();
 
     this.isOpen = false;
   }
+
+  // ===== Private Methods - DOM Creation =====
 
   createMenu() {
     this.menuElement = document.createElement('div');
     this.menuElement.className = 'side-menu';
 
-    // Create menu content using textContent and createElement (not innerHTML!)
-    const header = this.createMenuHeader();
-    const nav = this.createMenuNav();
-
-    this.menuElement.appendChild(header);
-    this.menuElement.appendChild(nav);
+    this.menuElement.appendChild(this.createHeader());
+    this.menuElement.appendChild(this.createNav());
 
     document.body.appendChild(this.menuElement);
     this.attachEventHandlers();
   }
 
-  createMenuHeader() {
+  createHeader() {
     const header = document.createElement('div');
     header.className = 'menu-header';
 
@@ -116,63 +100,22 @@ export class MenuPanel {
     return header;
   }
 
-  createMenuNav() {
+  createNav() {
     const nav = document.createElement('nav');
     nav.className = 'menu-nav';
 
-    // Settings section
-    nav.appendChild(this.createMenuSection('⚙️ Nastavení', [
-      { icon: '🤖', label: 'Nastavení AI', action: 'aiSettings' },
-      { icon: '🎨', label: 'Přepnout téma', action: 'theme' }
-    ]));
+    // Create sections from config
+    MENU_SECTIONS.forEach(section => {
+      nav.appendChild(this.createSection(section.title, section.items));
+    });
 
-    // Advanced tools section
-    nav.appendChild(this.createMenuSection('🛠️ Pokročilé nástroje', [
-      { icon: '📐', label: 'CSS Grid/Flex editor', action: 'gridEditor' },
-      { icon: '🌐', label: 'Živý server', action: 'liveServer' },
-      { icon: '📝', label: 'Vytvořit .gitignore', action: 'gitignore' },
-      { icon: '🔄', label: 'Nahradit v kódu', action: 'replace', shortcut: 'Ctrl+H' }
-    ]));
-
-    // Content section
-    nav.appendChild(this.createMenuSection('📋 Obsah', [
-      { icon: '🤖', label: 'AI Generátor komponent', action: 'ai-component' },
-      { icon: '🧩', label: 'Komponenty', action: 'components' },
-      { icon: '📋', label: 'Šablony', action: 'templates' },
-      { icon: '🖼️', label: 'Obrázky', action: 'images' }
-    ]));
-
-    // Sharing section
-    nav.appendChild(this.createMenuSection('🔗 Sdílení', [
-      { icon: '🔗', label: 'Sdílet odkaz', action: 'share' }
-    ]));
-
-    // GitHub section
-    nav.appendChild(this.createMenuSection('🐙 GitHub', [
-      { icon: '🔍', label: 'Hledat na GitHubu', action: 'github-search' },
-      { icon: '🌐', label: 'Načíst z URL', action: 'load-from-url' },
-      { icon: '🚀', label: 'Deploy projekt', action: 'deploy' }
-    ]));
-
-    // Dev tools section
-    nav.appendChild(this.createMenuSection('🔧 Vývojářské nástroje', [
-      { icon: '📊', label: 'Audit projektu', action: 'audit' },
-      { icon: '📋', label: 'Error Log', action: 'error-log' },
-      { icon: '🐞', label: 'Otevřít DevTools', action: 'devtools' }
-    ]));
-
-    // Footer
-    const footer = document.createElement('div');
-    footer.className = 'menu-footer';
-    const footerText = document.createElement('small');
-    footerText.innerHTML = '💡 Pro základní akce použijte <strong>logo ⚡</strong> nebo <strong>Ctrl+K</strong>';
-    footer.appendChild(footerText);
-    nav.appendChild(footer);
+    // Add footer
+    nav.appendChild(this.createFooter());
 
     return nav;
   }
 
-  createMenuSection(title, items) {
+  createSection(title, items) {
     const section = document.createElement('div');
     section.className = 'menu-section';
 
@@ -181,32 +124,49 @@ export class MenuPanel {
     section.appendChild(heading);
 
     items.forEach(item => {
-      const btn = document.createElement('button');
-      btn.className = 'menu-item';
-      btn.dataset.action = item.action;
-
-      const icon = document.createElement('span');
-      icon.className = 'menu-icon';
-      icon.textContent = item.icon;
-
-      const label = document.createElement('span');
-      label.textContent = item.label;
-
-      btn.appendChild(icon);
-      btn.appendChild(label);
-
-      if (item.shortcut) {
-        const shortcut = document.createElement('span');
-        shortcut.className = 'menu-shortcut';
-        shortcut.textContent = item.shortcut;
-        btn.appendChild(shortcut);
-      }
-
-      section.appendChild(btn);
+      section.appendChild(this.createMenuItem(item));
     });
 
     return section;
   }
+
+  createMenuItem(item) {
+    const btn = document.createElement('button');
+    btn.className = 'menu-item';
+    btn.dataset.action = item.action;
+
+    const icon = document.createElement('span');
+    icon.className = 'menu-icon';
+    icon.textContent = item.icon;
+
+    const label = document.createElement('span');
+    label.textContent = item.label;
+
+    btn.appendChild(icon);
+    btn.appendChild(label);
+
+    if (item.shortcut) {
+      const shortcut = document.createElement('span');
+      shortcut.className = 'menu-shortcut';
+      shortcut.textContent = item.shortcut;
+      btn.appendChild(shortcut);
+    }
+
+    return btn;
+  }
+
+  createFooter() {
+    const footer = document.createElement('div');
+    footer.className = 'menu-footer';
+
+    const footerText = document.createElement('small');
+    footerText.innerHTML = MENU_FOOTER_TEXT;
+    footer.appendChild(footerText);
+
+    return footer;
+  }
+
+  // ===== Private Methods - Event Handling =====
 
   attachEventHandlers() {
     // Close button
@@ -215,912 +175,44 @@ export class MenuPanel {
       closeBtn.addEventListener('click', () => this.hide());
     }
 
-    // Menu item buttons
+    // Menu item buttons - delegate to MenuActions
     const menuItems = this.menuElement.querySelectorAll('[data-action]');
     menuItems.forEach(button => {
       button.addEventListener('click', () => {
         const action = button.dataset.action;
-        this.executeAction(action);
+        this.actions.execute(action);
         this.hide();
       });
     });
   }
 
-  executeAction(action) {
-    console.log('Menu action:', action);
+  addBackdrop() {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'menu-backdrop';
+    backdrop.addEventListener('click', () => this.hide());
+    document.body.appendChild(backdrop);
+  }
 
-    switch (action) {
-      // Advanced tools
-      case 'gridEditor':
-        this.showGridEditor();
-        break;
-      case 'liveServer':
-        this.showLiveServer();
-        break;
-      case 'gitignore':
-        FileOperations.createGitignore();
-        break;
-      case 'replace':
-        this.showReplaceDialog();
-        break;
+  removeBackdrop() {
+    const backdrop = document.querySelector('.menu-backdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
+  }
 
-      // Content
-      case 'ai-component':
-        this.showAIComponentGenerator();
-        break;
-      case 'components':
-        this.showComponents();
-        break;
-      case 'templates':
-        this.showTemplates();
-        break;
-      case 'images':
-        this.showImages();
-        break;
-
-      // Sharing
-      case 'share':
-        FileOperations.shareProject();
-        break;
-
-      // GitHub
-      case 'github-search':
-        // Zavolej GitHub search z AI panelu
-        eventBus.emit('ai:github-search');
+  addEscapeHandler() {
+    this.escapeHandler = (e) => {
+      if (e.key === 'Escape') {
         this.hide();
-        break;
-      case 'load-from-url':
-        this.loadFromURL();
-        break;
-      case 'deploy':
-        this.deployProject();
-        break;
-
-      // Dev tools
-      case 'devtools':
-        this.openDevTools();
-        break;
-      case 'error-log':
-        this.showErrorLog();
-        break;
-      case 'audit':
-        this.showAuditReport();
-        break;
-
-      // Settings
-      case 'aiSettings':
-        this.showAISettings();
-        break;
-      case 'theme':
-        this.toggleTheme();
-        break;
-
-      default:
-        console.warn('Unknown action:', action);
-    }
-  }
-
-  // ===== Components Modal =====
-  showComponents() {
-    const components = ComponentLibrary.getComponents();
-
-    const content = document.createElement('div');
-    content.style.padding = '20px';
-
-    const grid = document.createElement('div');
-    grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;';
-
-    Object.entries(components).forEach(([key, component]) => {
-      const card = document.createElement('div');
-      card.className = 'component-card';
-      card.dataset.componentKey = key;
-      card.style.cssText = 'border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s; background: var(--bg-secondary);';
-
-      const name = document.createElement('h4');
-      name.textContent = component.name;
-      name.style.marginBottom = '8px';
-
-      const category = document.createElement('small');
-      category.textContent = component.category;
-      category.style.color = 'var(--text-secondary)';
-
-      card.appendChild(name);
-      card.appendChild(category);
-      grid.appendChild(card);
-    });
-
-    content.appendChild(grid);
-
-    const modal = new Modal({
-      title: '🧩 Knihovna komponent',
-      content: content,
-      width: '900px'
-    });
-
-    modal.open();
-
-    // Přidej event listenery po otevření modalu
-    const modalElement = modal.element;
-    if (modalElement) {
-      modalElement.querySelectorAll('.component-card').forEach(card => {
-        const key = card.dataset.componentKey;
-        const component = components[key];
-
-        card.addEventListener('mouseenter', () => {
-          card.style.borderColor = 'var(--accent)';
-          card.style.transform = 'translateY(-2px)';
-        });
-
-        card.addEventListener('mouseleave', () => {
-          card.style.borderColor = 'var(--border)';
-          card.style.transform = 'none';
-        });
-
-        card.addEventListener('click', () => {
-          ComponentLibrary.insertComponent(component.code);
-          modal.close();
-        });
-      });
-    }
-  }
-
-  // ===== Templates Modal =====
-  showTemplates() {
-    const { builtInTemplates, customTemplates } = TemplateManager.getTemplates();
-
-    const content = document.createElement('div');
-    content.style.padding = '20px';
-
-    // Built-in templates
-    const builtInSection = document.createElement('div');
-    const builtInTitle = document.createElement('h4');
-    builtInTitle.textContent = '📋 Vestavěné šablony';
-    builtInSection.appendChild(builtInTitle);
-
-    const builtInGrid = document.createElement('div');
-    builtInGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin-bottom: 24px;';
-
-    Object.entries(builtInTemplates).forEach(([key, template]) => {
-      const card = document.createElement('div');
-      card.className = 'template-card';
-      card.dataset.templateKey = key;
-      card.dataset.templateType = 'builtin';
-      card.style.cssText = 'border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s; background: var(--bg-secondary);';
-
-      const name = document.createElement('h4');
-      name.textContent = template.name;
-      name.style.marginBottom = '8px';
-
-      const desc = document.createElement('small');
-      desc.textContent = template.description || '';
-      desc.style.color = 'var(--text-secondary)';
-
-      card.appendChild(name);
-      card.appendChild(desc);
-      builtInGrid.appendChild(card);
-    });
-
-    builtInSection.appendChild(builtInGrid);
-    content.appendChild(builtInSection);
-
-    // Custom templates
-    if (Object.keys(customTemplates).length > 0) {
-      const customSection = document.createElement('div');
-      const customTitle = document.createElement('h4');
-      customTitle.textContent = '🎨 Vlastní šablony';
-      customSection.appendChild(customTitle);
-
-      const customGrid = document.createElement('div');
-      customGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px;';
-
-      Object.entries(customTemplates).forEach(([key, template]) => {
-        const card = document.createElement('div');
-        card.className = 'template-card';
-        card.dataset.templateKey = key;
-        card.dataset.templateType = 'custom';
-        card.style.cssText = 'border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s; background: var(--bg-secondary);';
-
-        const name = document.createElement('h4');
-        name.textContent = template.name;
-        name.style.marginBottom = '8px';
-
-        const desc = document.createElement('small');
-        desc.textContent = template.description || '';
-        desc.style.color = 'var(--text-secondary)';
-
-        card.appendChild(name);
-        card.appendChild(desc);
-        customGrid.appendChild(card);
-      });
-
-      customSection.appendChild(customGrid);
-      content.appendChild(customSection);
-    }
-
-    const modal = new Modal({
-      title: '📋 Knihovna šablon',
-      content: content,
-      width: '900px'
-    });
-
-    modal.open();
-
-    // Přidej event listenery po otevření modalu
-    const modalElement = modal.element;
-    if (modalElement) {
-      modalElement.querySelectorAll('.template-card').forEach(card => {
-        const key = card.dataset.templateKey;
-        const type = card.dataset.templateType;
-        const templates = type === 'builtin' ? builtInTemplates : customTemplates;
-        const template = templates[key];
-
-        card.addEventListener('mouseenter', () => {
-          card.style.borderColor = 'var(--accent)';
-          card.style.transform = 'translateY(-2px)';
-        });
-
-        card.addEventListener('mouseleave', () => {
-          card.style.borderColor = 'var(--border)';
-          card.style.transform = 'none';
-        });
-
-        card.addEventListener('click', () => {
-          TemplateManager.applyTemplate(template.code);
-          modal.close();
-        });
-      });
-    }
-  }
-
-  createTemplateCard(template, onClick) {
-    const card = document.createElement('div');
-    card.style.cssText = 'border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s;';
-    card.onmouseover = () => card.style.borderColor = 'var(--primary-color)';
-    card.onmouseout = () => card.style.borderColor = 'var(--border-color)';
-
-    const name = document.createElement('h4');
-    name.textContent = template.name;
-    name.style.marginBottom = '8px';
-
-    const desc = document.createElement('small');
-    desc.textContent = template.description || '';
-    desc.style.color = 'var(--text-secondary)';
-
-    card.appendChild(name);
-    card.appendChild(desc);
-    card.onclick = onClick;
-
-    return card;
-  }
-
-  // ===== Images Modal =====
-  showImages() {
-    const categories = ImageLibrary.getImageCategories();
-
-    const content = document.createElement('div');
-    content.style.padding = '20px';
-
-    Object.entries(categories).forEach(([categoryKey, category]) => {
-      const section = document.createElement('div');
-      section.style.marginBottom = '24px';
-
-      const heading = document.createElement('h4');
-      heading.textContent = category.name;
-      section.appendChild(heading);
-
-      const grid = document.createElement('div');
-      grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 12px;';
-
-      category.images.forEach((image, imageIndex) => {
-        const card = document.createElement('div');
-        card.className = 'image-card';
-        card.dataset.categoryKey = categoryKey;
-        card.dataset.imageIndex = imageIndex;
-        card.style.cssText = 'border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; text-align: center; background: var(--bg-secondary); transition: all 0.2s;';
-
-        const img = document.createElement('img');
-        img.src = image.url;
-        img.alt = image.name;
-        img.style.cssText = 'width: 100%; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;';
-
-        const label = document.createElement('div');
-        label.textContent = image.name;
-        label.style.fontSize = '13px';
-
-        card.appendChild(img);
-        card.appendChild(label);
-        grid.appendChild(card);
-      });
-
-      section.appendChild(grid);
-      content.appendChild(section);
-    });
-
-    const modal = new Modal({
-      title: '🖼️ Knihovna obrázků',
-      content: content,
-      width: '900px'
-    });
-
-    modal.open();
-
-    // Přidej event listenery po otevření modalu
-    const modalElement = modal.element;
-    if (modalElement) {
-      modalElement.querySelectorAll('.image-card').forEach(card => {
-        const categoryKey = card.dataset.categoryKey;
-        const imageIndex = parseInt(card.dataset.imageIndex);
-        const image = categories[categoryKey].images[imageIndex];
-
-        card.addEventListener('mouseenter', () => {
-          card.style.borderColor = 'var(--accent)';
-          card.style.transform = 'translateY(-2px)';
-        });
-
-        card.addEventListener('mouseleave', () => {
-          card.style.borderColor = 'var(--border)';
-          card.style.transform = 'none';
-        });
-
-        card.addEventListener('click', () => {
-          ImageLibrary.insertImage(image.url, image.width, image.height, image.name);
-          modal.close();
-        });
-      });
-    }
-  }
-
-  // ===== AI Component Generator =====
-  showAIComponentGenerator() {
-    const content = `
-      <div style="padding: 20px;">
-        <p style="margin-bottom: 16px;">Popište komponentu, kterou chcete vytvořit:</p>
-        <textarea
-          id="aiComponentPrompt"
-          placeholder="Např: Vytvoř moderní kontaktní formulář s poli pro jméno, email a zprávu"
-          style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; resize: vertical;"
-        ></textarea>
-        <button
-          id="aiComponentGenerate"
-          style="width: 100%; padding: 12px; margin-top: 12px; background: var(--primary-color); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;"
-        >
-          🚀 Vygenerovat
-        </button>
-        <div id="aiComponentResult" style="display: none; margin-top: 20px;">
-          <h4>Vygenerovaný kód:</h4>
-          <pre id="aiComponentCode" style="background: var(--bg-secondary); padding: 12px; border-radius: 6px; overflow-x: auto;"></pre>
-          <button
-            id="aiComponentInsert"
-            style="width: 100%; padding: 10px; margin-top: 8px; background: var(--accent-color); color: white; border: none; border-radius: 6px; cursor: pointer;"
-          >
-            ✅ Vložit do editoru
-          </button>
-        </div>
-      </div>
-    `;
-
-    const modal = new Modal({
-      title: '🤖 AI Generátor komponent',
-      content,
-      width: '600px'
-    });
-
-    modal.open();
-
-    const promptTextarea = document.getElementById('aiComponentPrompt');
-    const generateBtn = document.getElementById('aiComponentGenerate');
-    const resultDiv = document.getElementById('aiComponentResult');
-    const codeElement = document.getElementById('aiComponentCode');
-    const insertBtn = document.getElementById('aiComponentInsert');
-    let generatedCode = '';
-
-    generateBtn?.addEventListener('click', async () => {
-      const description = promptTextarea?.value.trim();
-      if (!description) return;
-
-      generateBtn.textContent = '⏳ Generuji...';
-      generateBtn.disabled = true;
-
-      const code = await ComponentLibrary.generateAIComponent(description);
-
-      if (code) {
-        generatedCode = code;
-        codeElement.textContent = code;
-        resultDiv.style.display = 'block';
       }
-
-      generateBtn.textContent = '🚀 Vygenerovat';
-      generateBtn.disabled = false;
-    });
-
-    insertBtn?.addEventListener('click', () => {
-      if (generatedCode) {
-        eventBus.emit('editor:insert', generatedCode);
-        modal.close();
-      }
-    });
-  }
-
-  // ===== Stub methods (TODO: implement or delegate) =====
-
-  showGridEditor() {
-    eventBus.emit('toast:show', {
-      message: 'Grid Editor bude implementován',
-      type: 'info'
-    });
-  }
-
-  showLiveServer() {
-    eventBus.emit('toast:show', {
-      message: 'Live Server funkce',
-      type: 'info'
-    });
-  }
-
-  showReplaceDialog() {
-    // Otevřít Find & Replace dialog
-    eventBus.emit('findReplace:show');
-  }
-
-  async loadFromURL() {
-    const modal = new Modal({
-      title: '🌐 Načíst z URL',
-      content: `
-        <div style="padding: 20px;">
-          <p style="margin-bottom: 15px; color: #999;">
-            Načti obsah HTML, CSS, JS nebo textového souboru z URL adresy.
-          </p>
-
-          <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ddd;">
-              URL adresa:
-            </label>
-            <input
-              type="url"
-              id="urlInput"
-              placeholder="https://example.com/file.html"
-              style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 14px;"
-            />
-          </div>
-
-          <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ddd;">
-              Akce:
-            </label>
-            <select
-              id="urlAction"
-              style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 14px; cursor: pointer;"
-            >
-              <option value="replace">Nahradit celý editor</option>
-              <option value="append">Přidat na konec</option>
-              <option value="new-file">Vytvořit nový soubor</option>
-            </select>
-          </div>
-
-          <div style="padding: 12px; background: rgba(59,130,246,0.1); border-left: 3px solid #3b82f6; border-radius: 4px; margin-bottom: 15px;">
-            <strong style="color: #60a5fa;">💡 Tip:</strong>
-            <ul style="margin: 8px 0 0 20px; color: #999; font-size: 0.9em;">
-              <li>Podporované: HTML, CSS, JS, TXT, MD</li>
-              <li>Pro CORS problémy použijeme proxy</li>
-              <li>GitHub: Použij "raw" URL</li>
-            </ul>
-          </div>
-
-          <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button
-              id="loadUrlBtn"
-              style="flex: 1; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
-              onmouseover="this.style.background='#2563eb'"
-              onmouseout="this.style.background='#3b82f6'"
-            >
-              📥 Načíst
-            </button>
-            <button
-              id="cancelUrlBtn"
-              style="flex: 1; padding: 12px; background: #6b7280; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
-              onmouseover="this.style.background='#4b5563'"
-              onmouseout="this.style.background='#6b7280'"
-            >
-              ❌ Zrušit
-            </button>
-          </div>
-
-          <div id="urlStatus" style="margin-top: 15px; display: none;"></div>
-        </div>
-      `,
-      className: 'load-url-modal',
-      closeOnEscape: true,
-      closeOnOverlay: true
-    });
-
-    modal.create();
-    modal.open();
-
-    // Event listeners
-    const urlInput = modal.element.querySelector('#urlInput');
-    const urlAction = modal.element.querySelector('#urlAction');
-    const loadBtn = modal.element.querySelector('#loadUrlBtn');
-    const cancelBtn = modal.element.querySelector('#cancelUrlBtn');
-    const statusDiv = modal.element.querySelector('#urlStatus');
-
-    // Auto-focus input
-    setTimeout(() => urlInput?.focus(), 100);
-
-    // Cancel button
-    cancelBtn?.addEventListener('click', () => {
-      modal.close();
-    });
-
-    // Load button
-    loadBtn?.addEventListener('click', async () => {
-      const url = urlInput?.value?.trim();
-      const action = urlAction?.value || 'replace';
-
-      if (!url) {
-        this.showUrlStatus(statusDiv, 'error', '❌ Zadejte URL adresu');
-        return;
-      }
-
-      // Validate URL
-      try {
-        new URL(url);
-      } catch (e) {
-        this.showUrlStatus(statusDiv, 'error', '❌ Neplatná URL adresa');
-        return;
-      }
-
-      // Disable button during loading
-      loadBtn.disabled = true;
-      loadBtn.textContent = '⏳ Načítám...';
-      this.showUrlStatus(statusDiv, 'loading', '⏳ Stahuji obsah...');
-
-      try {
-        const content = await this.fetchFromURL(url);
-
-        if (!content) {
-          throw new Error('Prázdný obsah');
-        }
-
-        // Apply based on action
-        this.applyURLContent(content, action, url);
-
-        this.showUrlStatus(statusDiv, 'success', `✅ Načteno ${content.length} znaků`);
-
-        setTimeout(() => {
-          modal.close();
-          eventBus.emit('toast:show', {
-            message: '✅ Obsah úspěšně načten',
-            type: 'success',
-            duration: 3000
-          });
-        }, 1000);
-
-      } catch (error) {
-        console.error('Load from URL error:', error);
-        this.showUrlStatus(statusDiv, 'error', `❌ Chyba: ${error.message}`);
-        loadBtn.disabled = false;
-        loadBtn.textContent = '📥 Načíst';
-      }
-    });
-
-    // Enter to submit
-    urlInput?.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        loadBtn?.click();
-      }
-    });
-  }
-
-  /**
-   * Fetch content from URL with CORS proxy fallback
-   */
-  async fetchFromURL(url) {
-    // Try direct fetch first
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'text/html,text/plain,text/css,application/javascript,text/javascript'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const content = await response.text();
-      return content;
-
-    } catch (directError) {
-      console.warn('Direct fetch failed, trying CORS proxy:', directError.message);
-
-      // Try CORS proxies
-      const proxies = [
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        `https://cors-anywhere.herokuapp.com/${url}`
-      ];
-
-      for (const proxyUrl of proxies) {
-        try {
-          const response = await fetch(proxyUrl);
-
-          if (response.ok) {
-            const content = await response.text();
-            console.log('✅ Loaded via proxy:', proxyUrl);
-            return content;
-          }
-        } catch (proxyError) {
-          console.warn('Proxy failed:', proxyUrl, proxyError.message);
-          continue;
-        }
-      }
-
-      // All attempts failed
-      throw new Error('Nepodařilo se načíst obsah (CORS problém). Zkuste použít "raw" URL z GitHubu nebo jiný zdroj.');
-    }
-  }
-
-  /**
-   * Apply loaded content to editor
-   */
-  applyURLContent(content, action, url) {
-    const currentCode = state.get('editor.code') || '';
-    const filename = this.extractFilenameFromURL(url);
-
-    switch (action) {
-      case 'replace':
-        state.set('editor.code', content);
-        eventBus.emit('editor:update', content);
-        console.log('📝 Editor replaced with URL content');
-        break;
-
-      case 'append':
-        const newCode = currentCode + '\n\n<!-- Loaded from: ' + url + ' -->\n' + content;
-        state.set('editor.code', newCode);
-        eventBus.emit('editor:update', newCode);
-        console.log('📝 Content appended to editor');
-        break;
-
-      case 'new-file':
-        // Create new file in files system
-        const files = state.get('files.list') || [];
-        const newFile = {
-          name: filename,
-          content: content,
-          lastModified: new Date().toISOString()
-        };
-        files.push(newFile);
-        state.set('files.list', files);
-        state.set('files.active', filename);
-        state.set('editor.code', content);
-        eventBus.emit('editor:update', content);
-        eventBus.emit('files:update');
-        console.log('📁 New file created:', filename);
-        break;
-    }
-  }
-
-  /**
-   * Extract filename from URL
-   */
-  extractFilenameFromURL(url) {
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-      const filename = pathname.split('/').pop() || 'untitled.html';
-
-      // If no extension, add .html
-      if (!filename.includes('.')) {
-        return filename + '.html';
-      }
-
-      return filename;
-    } catch (e) {
-      return 'loaded-from-url.html';
-    }
-  }
-
-  /**
-   * Show status message in modal
-   */
-  showUrlStatus(statusDiv, type, message) {
-    if (!statusDiv) return;
-
-    const colors = {
-      loading: '#3b82f6',
-      success: '#10b981',
-      error: '#ef4444'
     };
-
-    statusDiv.style.display = 'block';
-    statusDiv.style.padding = '12px';
-    statusDiv.style.background = `${colors[type]}20`;
-    statusDiv.style.border = `1px solid ${colors[type]}`;
-    statusDiv.style.borderRadius = '6px';
-    statusDiv.style.color = colors[type];
-    statusDiv.textContent = message;
+    document.addEventListener('keydown', this.escapeHandler);
   }
 
-  deployProject() {
-    eventBus.emit('toast:show', {
-      message: 'Deploy bude implementován',
-      type: 'info'
-    });
-  }
-
-  openDevTools() {
-    // Zkontroluj jestli je Eruda načtena
-    if (typeof eruda !== 'undefined') {
-      // Inicializuj Eruda pokud ještě nebyla
-      if (!eruda._isInit) {
-        eruda.init();
-      }
-      eruda.show();
-      eventBus.emit('toast:show', {
-        message: '🔧 DevTools otevřeny',
-        type: 'success',
-        duration: 2000
-      });
-    } else if (window.eruda) {
-      if (!window.eruda._isInit) {
-        window.eruda.init();
-      }
-      window.eruda.show();
-      eventBus.emit('toast:show', {
-        message: '🔧 DevTools otevřeny',
-        type: 'success',
-        duration: 2000
-      });
-    } else {
-      eventBus.emit('toast:show', {
-        message: '❌ DevTools (Eruda) nejsou dostupné. Zkuste obnovit stránku.',
-        type: 'warning'
-      });
+  removeEscapeHandler() {
+    if (this.escapeHandler) {
+      document.removeEventListener('keydown', this.escapeHandler);
+      this.escapeHandler = null;
     }
-  }
-
-  showErrorLog() {
-    const errors = state.get('debug.errors') || [];
-
-    if (errors.length === 0) {
-      eventBus.emit('toast:show', {
-        message: '✅ Žádné chyby nezaznamenány!',
-        type: 'success',
-        duration: 2000
-      });
-      return;
-    }
-
-    // Create error log HTML
-    const errorHtml = errors.map((error, index) => {
-      const time = new Date(error.timestamp).toLocaleTimeString('cs-CZ');
-      const type = error.type === 'promise' ? '⚠️ Promise' : '❌ Error';
-
-      return `
-        <div style="margin-bottom: 15px; padding: 12px; background: ${error.type === 'promise' ? 'rgba(251,191,36,0.1)' : 'rgba(239,68,68,0.1)'}; border-left: 3px solid ${error.type === 'promise' ? '#fbbf24' : '#ef4444'}; border-radius: 4px;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-            <strong>${type} #${errors.length - index}</strong>
-            <span style="color: #999; font-size: 0.9em;">${time}</span>
-          </div>
-          <div style="font-family: monospace; font-size: 0.9em; color: #ddd; margin-bottom: 8px;">
-            ${this.escapeHtml(error.message)}
-          </div>
-          ${error.filename ? `<div style="font-size: 0.85em; color: #999;">📄 ${error.filename}:${error.lineno}:${error.colno}</div>` : ''}
-          ${error.stack ? `
-            <details style="margin-top: 8px;">
-              <summary style="cursor: pointer; color: #3b82f6; font-size: 0.9em;">🔍 Stack trace</summary>
-              <pre style="margin-top: 8px; padding: 8px; background: #1a1a1a; border-radius: 4px; overflow-x: auto; font-size: 0.8em; color: #999;">${this.escapeHtml(error.stack.substring(0, 500))}</pre>
-            </details>
-          ` : ''}
-        </div>
-      `;
-    }).reverse().join('');
-
-    const modal = new Modal({
-      title: `🐛 Error Log (${errors.length} chyb)`,
-      content: `
-        <div style="max-height: 500px; overflow-y: auto;">
-          <div style="margin-bottom: 15px; padding: 12px; background: rgba(59,130,246,0.1); border-radius: 6px;">
-            <strong>ℹ️ O Error Logu:</strong>
-            <ul style="margin: 8px 0 0 20px; color: #999;">
-              <li>Zobrazuje posledních 50 chyb</li>
-              <li>Duplicitní chyby jsou potlačeny (max 1× za 5s)</li>
-              <li>Pro detailní debugging použijte <code>?debug</code> v URL</li>
-            </ul>
-          </div>
-          ${errorHtml}
-        </div>
-        <div style="margin-top: 15px; display: flex; gap: 10px;">
-          <button onclick="navigator.clipboard.writeText(JSON.stringify(${JSON.stringify(errors)}, null, 2)); this.textContent='✓ Zkopírováno!'"
-                  style="flex: 1; padding: 10px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">
-            📋 Kopírovat log
-          </button>
-          <button onclick="localStorage.setItem('state', JSON.stringify({...JSON.parse(localStorage.getItem('state') || '{}'), debug: {errors: []}})); location.reload()"
-                  style="flex: 1; padding: 10px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">
-            🗑️ Vymazat log
-          </button>
-        </div>
-      `,
-      className: 'error-log-modal',
-      size: 'large'
-    });
-
-    modal.create();
-    modal.open();
-  }
-
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  async showAuditReport() {
-    try {
-      const response = await fetch('/docs/AUDIT_REPORT.md');
-      const markdown = await response.text();
-      const html = this.markdownToHtml(markdown);
-
-      const modal = new Modal({
-        title: '📊 Audit Report - HTML Studio v2.0',
-        content: `<div style="max-height: 70vh; overflow-y: auto; padding: 20px; line-height: 1.6;">${html}</div>`,
-        width: '90%',
-        maxWidth: '1000px'
-      });
-
-      modal.open();
-    } catch (error) {
-      console.error('Error loading audit report:', error);
-      eventBus.emit('toast:show', {
-        message: 'Chyba při načítání audit reportu',
-        type: 'error'
-      });
-    }
-  }
-
-  markdownToHtml(markdown) {
-    let html = markdown
-      .replace(/^### (.*$)/gim, '<h3 style="color: var(--primary-color); margin-top: 24px; margin-bottom: 12px;">$1</h3>')
-      .replace(/^## (.*$)/gim, '<h2 style="color: var(--primary-color); margin-top: 32px; margin-bottom: 16px; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">$1</h2>')
-      .replace(/^# (.*$)/gim, '<h1 style="color: var(--primary-color); margin-bottom: 20px;">$1</h1>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; overflow-x: auto; border: 1px solid var(--border-color);"><code>$2</code></pre>')
-      .replace(/`([^`]+)`/g, '<code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-family: monospace;">$1</code>')
-      .replace(/^\- (.*$)/gim, '<li style="margin-left: 20px;">$1</li>')
-      .replace(/^(\d+)\. (.*$)/gim, '<li style="margin-left: 20px;">$2</li>')
-      .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" style="color: var(--primary-color); text-decoration: underline;">$1</a>')
-      .replace(/^---$/gim, '<hr style="border: none; border-top: 1px solid var(--border-color); margin: 24px 0;">');
-
-    html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/gs, (match) => `<ul style="margin: 12px 0;">${match}</ul>`);
-
-    html = html.split('\n').map(line => {
-      line = line.trim();
-      if (!line) return '<br>';
-      if (line.startsWith('<')) return line;
-      return `<p style="margin-bottom: 12px;">${line}</p>`;
-    }).join('\n');
-
-    return html;
-  }
-
-  showAISettings() {
-    // Otevři AI panel a automaticky rozbal nastavení
-    eventBus.emit('aiSettings:show');
-  }
-
-  toggleTheme() {
-    document.body.classList.toggle('light-theme');
-    const isLight = document.body.classList.contains('light-theme');
-    localStorage.setItem('theme', isLight ? 'light' : 'dark');
-
-    eventBus.emit('toast:show', {
-      message: `${isLight ? '☀️' : '🌙'} Téma změněno`,
-      type: 'success'
-    });
-  }
-
-  updateOpenFilesList() {
-    // Optional: implement if needed
   }
 }
