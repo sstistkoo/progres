@@ -134,22 +134,24 @@ export class AIPanel {
     // Open AI modal and automatically expand settings
     this.show();
 
-    // Use requestAnimationFrame for better DOM ready check
-    const expandSettings = () => {
+    // Wait for modal to be fully rendered, then expand settings
+    setTimeout(() => {
       const settingsToggle = this.modal?.element?.querySelector('.ai-settings-toggle');
       const settingsContent = this.modal?.element?.querySelector('.ai-header-settings');
 
       if (settingsToggle && settingsContent) {
+        // Always expand settings when called from menu
         if (settingsContent.classList.contains('hidden')) {
-          settingsToggle.click();
+          settingsContent.classList.remove('hidden');
+          const toggleArrow = settingsToggle.querySelector('.toggle-arrow');
+          if (toggleArrow) {
+            toggleArrow.textContent = '▲';
+          }
         }
-      } else {
-        // Retry if elements not found yet
-        requestAnimationFrame(expandSettings);
+        // Scroll to settings area
+        settingsToggle.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
-    };
-
-    requestAnimationFrame(expandSettings);
+    }, 100);
   }
 
   show() {
