@@ -151,6 +151,34 @@ export class ChangedFilesService {
   }
 
   /**
+   * Zobraz panel se změnami (voláno z tlačítka historie)
+   */
+  showChangedFilesPanel() {
+    const container = document.getElementById('aiChangedFiles');
+
+    if (this.changedFiles.size === 0) {
+      // Žádné změny - zobraz info
+      if (window.toast) {
+        window.toast.info('📋 Historie změn je prázdná', 2000);
+      }
+      return;
+    }
+
+    // Zobraz panel pokud je skrytý
+    if (container) {
+      container.style.display = 'block';
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Aktualizuj UI
+    this.updateUI();
+
+    if (window.toast) {
+      window.toast.info(`📋 ${this.changedFiles.size} změněných souborů`, 2000);
+    }
+  }
+
+  /**
    * Vymaž historii změn
    */
   clear() {

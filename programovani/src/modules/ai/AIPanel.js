@@ -897,10 +897,27 @@ export class AIPanel {
     // Check token on load
     this.githubService.checkGitHubConnection(this.modal);
 
-    // New project button
-    const newProjectBtn = this.modal.element.querySelector('#aiNewProjectBtn');
-    if (newProjectBtn) {
-      newProjectBtn.addEventListener('click', () => this.startNewProject());
+    // History button - show changed files
+    const historyBtn = this.modal.element.querySelector('#aiHistoryBtn');
+    if (historyBtn) {
+      historyBtn.addEventListener('click', () => {
+        if (this.changedFilesService) {
+          this.changedFilesService.showChangedFilesPanel();
+        } else {
+          toast.info('Historie změn je prázdná', 2000);
+        }
+      });
+    }
+
+    // New chat button - clear chat and start fresh
+    const newChatBtn = this.modal.element.querySelector('#aiNewChatBtn');
+    if (newChatBtn) {
+      newChatBtn.addEventListener('click', () => {
+        if (confirm('Opravdu chceš začít nový chat? Historie bude vymazána.')) {
+          this.chatHistoryService.clearChatHistory();
+          toast.success('🗑️ Chat vymazán, můžeš začít novou konverzaci', 2000);
+        }
+      });
     }
 
     // AI Agents handlers

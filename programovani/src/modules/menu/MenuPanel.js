@@ -157,8 +157,8 @@ export class MenuPanel {
     // Dev tools section
     nav.appendChild(this.createMenuSection('🔧 Vývojářské nástroje', [
       { icon: '📊', label: 'Audit projektu', action: 'audit' },
-      { icon: '�', label: 'Error Log', action: 'error-log' },
-      { icon: '�🐞', label: 'Otevřít DevTools', action: 'devtools' }
+      { icon: '📋', label: 'Error Log', action: 'error-log' },
+      { icon: '🐞', label: 'Otevřít DevTools', action: 'devtools' }
     ]));
 
     // Footer
@@ -312,9 +312,9 @@ export class MenuPanel {
 
     Object.entries(components).forEach(([key, component]) => {
       const card = document.createElement('div');
-      card.style.cssText = 'border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s;';
-      card.onmouseover = () => card.style.borderColor = 'var(--primary-color)';
-      card.onmouseout = () => card.style.borderColor = 'var(--border-color)';
+      card.className = 'component-card';
+      card.dataset.componentKey = key;
+      card.style.cssText = 'border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s; background: var(--bg-secondary);';
 
       const name = document.createElement('h4');
       name.textContent = component.name;
@@ -326,12 +326,6 @@ export class MenuPanel {
 
       card.appendChild(name);
       card.appendChild(category);
-
-      card.onclick = () => {
-        ComponentLibrary.insertComponent(component.code);
-        modal.close();
-      };
-
       grid.appendChild(card);
     });
 
@@ -339,11 +333,35 @@ export class MenuPanel {
 
     const modal = new Modal({
       title: '🧩 Knihovna komponent',
-      content: content.outerHTML,
+      content: content,
       width: '900px'
     });
 
     modal.open();
+
+    // Přidej event listenery po otevření modalu
+    const modalElement = modal.element;
+    if (modalElement) {
+      modalElement.querySelectorAll('.component-card').forEach(card => {
+        const key = card.dataset.componentKey;
+        const component = components[key];
+
+        card.addEventListener('mouseenter', () => {
+          card.style.borderColor = 'var(--accent)';
+          card.style.transform = 'translateY(-2px)';
+        });
+
+        card.addEventListener('mouseleave', () => {
+          card.style.borderColor = 'var(--border)';
+          card.style.transform = 'none';
+        });
+
+        card.addEventListener('click', () => {
+          ComponentLibrary.insertComponent(component.code);
+          modal.close();
+        });
+      });
+    }
   }
 
   // ===== Templates Modal =====
@@ -355,16 +373,30 @@ export class MenuPanel {
 
     // Built-in templates
     const builtInSection = document.createElement('div');
-    builtInSection.innerHTML = '<h4>📋 Vestavěné šablony</h4>';
+    const builtInTitle = document.createElement('h4');
+    builtInTitle.textContent = '📋 Vestavěné šablony';
+    builtInSection.appendChild(builtInTitle);
 
     const builtInGrid = document.createElement('div');
     builtInGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin-bottom: 24px;';
 
     Object.entries(builtInTemplates).forEach(([key, template]) => {
-      const card = this.createTemplateCard(template, () => {
-        TemplateManager.applyTemplate(template.code);
-        modal.close();
-      });
+      const card = document.createElement('div');
+      card.className = 'template-card';
+      card.dataset.templateKey = key;
+      card.dataset.templateType = 'builtin';
+      card.style.cssText = 'border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s; background: var(--bg-secondary);';
+
+      const name = document.createElement('h4');
+      name.textContent = template.name;
+      name.style.marginBottom = '8px';
+
+      const desc = document.createElement('small');
+      desc.textContent = template.description || '';
+      desc.style.color = 'var(--text-secondary)';
+
+      card.appendChild(name);
+      card.appendChild(desc);
       builtInGrid.appendChild(card);
     });
 
@@ -374,16 +406,30 @@ export class MenuPanel {
     // Custom templates
     if (Object.keys(customTemplates).length > 0) {
       const customSection = document.createElement('div');
-      customSection.innerHTML = '<h4>🎨 Vlastní šablony</h4>';
+      const customTitle = document.createElement('h4');
+      customTitle.textContent = '🎨 Vlastní šablony';
+      customSection.appendChild(customTitle);
 
       const customGrid = document.createElement('div');
       customGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px;';
 
       Object.entries(customTemplates).forEach(([key, template]) => {
-        const card = this.createTemplateCard(template, () => {
-          TemplateManager.applyTemplate(template.code);
-          modal.close();
-        });
+        const card = document.createElement('div');
+        card.className = 'template-card';
+        card.dataset.templateKey = key;
+        card.dataset.templateType = 'custom';
+        card.style.cssText = 'border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s; background: var(--bg-secondary);';
+
+        const name = document.createElement('h4');
+        name.textContent = template.name;
+        name.style.marginBottom = '8px';
+
+        const desc = document.createElement('small');
+        desc.textContent = template.description || '';
+        desc.style.color = 'var(--text-secondary)';
+
+        card.appendChild(name);
+        card.appendChild(desc);
         customGrid.appendChild(card);
       });
 
@@ -393,11 +439,37 @@ export class MenuPanel {
 
     const modal = new Modal({
       title: '📋 Knihovna šablon',
-      content: content.outerHTML,
+      content: content,
       width: '900px'
     });
 
     modal.open();
+
+    // Přidej event listenery po otevření modalu
+    const modalElement = modal.element;
+    if (modalElement) {
+      modalElement.querySelectorAll('.template-card').forEach(card => {
+        const key = card.dataset.templateKey;
+        const type = card.dataset.templateType;
+        const templates = type === 'builtin' ? builtInTemplates : customTemplates;
+        const template = templates[key];
+
+        card.addEventListener('mouseenter', () => {
+          card.style.borderColor = 'var(--accent)';
+          card.style.transform = 'translateY(-2px)';
+        });
+
+        card.addEventListener('mouseleave', () => {
+          card.style.borderColor = 'var(--border)';
+          card.style.transform = 'none';
+        });
+
+        card.addEventListener('click', () => {
+          TemplateManager.applyTemplate(template.code);
+          modal.close();
+        });
+      });
+    }
   }
 
   createTemplateCard(template, onClick) {
@@ -428,7 +500,7 @@ export class MenuPanel {
     const content = document.createElement('div');
     content.style.padding = '20px';
 
-    Object.entries(categories).forEach(([key, category]) => {
+    Object.entries(categories).forEach(([categoryKey, category]) => {
       const section = document.createElement('div');
       section.style.marginBottom = '24px';
 
@@ -439,9 +511,12 @@ export class MenuPanel {
       const grid = document.createElement('div');
       grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 12px;';
 
-      category.images.forEach(image => {
+      category.images.forEach((image, imageIndex) => {
         const card = document.createElement('div');
-        card.style.cssText = 'border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; text-align: center;';
+        card.className = 'image-card';
+        card.dataset.categoryKey = categoryKey;
+        card.dataset.imageIndex = imageIndex;
+        card.style.cssText = 'border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; text-align: center; background: var(--bg-secondary); transition: all 0.2s;';
 
         const img = document.createElement('img');
         img.src = image.url;
@@ -454,12 +529,6 @@ export class MenuPanel {
 
         card.appendChild(img);
         card.appendChild(label);
-
-        card.onclick = () => {
-          ImageLibrary.insertImage(image.url, image.width, image.height, image.name);
-          modal.close();
-        };
-
         grid.appendChild(card);
       });
 
@@ -469,11 +538,36 @@ export class MenuPanel {
 
     const modal = new Modal({
       title: '🖼️ Knihovna obrázků',
-      content: content.outerHTML,
+      content: content,
       width: '900px'
     });
 
     modal.open();
+
+    // Přidej event listenery po otevření modalu
+    const modalElement = modal.element;
+    if (modalElement) {
+      modalElement.querySelectorAll('.image-card').forEach(card => {
+        const categoryKey = card.dataset.categoryKey;
+        const imageIndex = parseInt(card.dataset.imageIndex);
+        const image = categories[categoryKey].images[imageIndex];
+
+        card.addEventListener('mouseenter', () => {
+          card.style.borderColor = 'var(--accent)';
+          card.style.transform = 'translateY(-2px)';
+        });
+
+        card.addEventListener('mouseleave', () => {
+          card.style.borderColor = 'var(--border)';
+          card.style.transform = 'none';
+        });
+
+        card.addEventListener('click', () => {
+          ImageLibrary.insertImage(image.url, image.width, image.height, image.name);
+          modal.close();
+        });
+      });
+    }
   }
 
   // ===== AI Component Generator =====
@@ -564,10 +658,8 @@ export class MenuPanel {
   }
 
   showReplaceDialog() {
-    eventBus.emit('toast:show', {
-      message: 'Find & Replace - použijte Ctrl+H',
-      type: 'info'
-    });
+    // Otevřít Find & Replace dialog
+    eventBus.emit('findReplace:show');
   }
 
   async loadFromURL() {
@@ -858,11 +950,31 @@ export class MenuPanel {
   }
 
   openDevTools() {
-    if (window.eruda) {
+    // Zkontroluj jestli je Eruda načtena
+    if (typeof eruda !== 'undefined') {
+      // Inicializuj Eruda pokud ještě nebyla
+      if (!eruda._isInit) {
+        eruda.init();
+      }
+      eruda.show();
+      eventBus.emit('toast:show', {
+        message: '🔧 DevTools otevřeny',
+        type: 'success',
+        duration: 2000
+      });
+    } else if (window.eruda) {
+      if (!window.eruda._isInit) {
+        window.eruda.init();
+      }
       window.eruda.show();
+      eventBus.emit('toast:show', {
+        message: '🔧 DevTools otevřeny',
+        type: 'success',
+        duration: 2000
+      });
     } else {
       eventBus.emit('toast:show', {
-        message: 'DevTools nejsou dostupné',
+        message: '❌ DevTools (Eruda) nejsou dostupné. Zkuste obnovit stránku.',
         type: 'warning'
       });
     }
@@ -993,10 +1105,8 @@ export class MenuPanel {
   }
 
   showAISettings() {
-    eventBus.emit('toast:show', {
-      message: 'Nastavení AI - otevřete AI panel',
-      type: 'info'
-    });
+    // Otevři AI panel a automaticky rozbal nastavení
+    eventBus.emit('aiSettings:show');
   }
 
   toggleTheme() {
