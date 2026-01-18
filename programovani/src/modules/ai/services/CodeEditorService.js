@@ -927,7 +927,34 @@ export class CodeEditorService {
       : '✅ Kód byl vložen do editoru';
 
     console.log('[CodeEditor] Code inserted successfully');
+
+    // 🆕 Po aplikaci kódu schovat AI panel a přepnout na náhled
+    this.hideAndShowPreview();
+
     return message;
+  }
+
+  /**
+   * Hide AI panel and switch to preview view
+   */
+  hideAndShowPreview() {
+    // Zpoždění pro uživatelský feedback
+    setTimeout(() => {
+      // Schovat AI panel
+      eventBus.emit('ai:hide');
+
+      // Přepnout na náhled stránky
+      eventBus.emit('view:change', { view: 'preview' });
+
+      // Zobrazit toast s informací
+      eventBus.emit('toast:show', {
+        message: '✅ Kód aplikován - zobrazuji náhled',
+        type: 'success',
+        duration: 2000
+      });
+
+      console.log('[CodeEditor] AI panel hidden, switched to preview');
+    }, 500);
   }
 
   /**
