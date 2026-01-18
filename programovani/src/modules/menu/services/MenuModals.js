@@ -38,7 +38,7 @@ export class MenuModals {
     content.appendChild(grid);
 
     const modal = new Modal({
-      title: '🧩 Knihovna komponent',
+      title: 'ðŸ§© Knihovna komponent',
       content: content,
       width: '900px'
     });
@@ -59,7 +59,7 @@ export class MenuModals {
 
     // Built-in templates section
     content.appendChild(this.createTemplateSection(
-      '📋 Vestavěné šablony',
+      'ðŸ“‹ VestavÄ›nÃ© Å¡ablony',
       builtInTemplates,
       'builtin'
     ));
@@ -67,14 +67,14 @@ export class MenuModals {
     // Custom templates section
     if (Object.keys(customTemplates).length > 0) {
       content.appendChild(this.createTemplateSection(
-        '🎨 Vlastní šablony',
+        'ðŸŽ¨ VlastnÃ­ Å¡ablony',
         customTemplates,
         'custom'
       ));
     }
 
     const modal = new Modal({
-      title: '📋 Knihovna šablon',
+      title: 'ðŸ“‹ Knihovna Å¡ablon',
       content: content,
       width: '900px'
     });
@@ -162,7 +162,7 @@ export class MenuModals {
     });
 
     const modal = new Modal({
-      title: '🖼️ Knihovna obrázků',
+      title: 'ðŸ–¼ï¸ Knihovna obrÃ¡zkÅ¯',
       content: content,
       width: '900px'
     });
@@ -191,33 +191,33 @@ export class MenuModals {
   showAIComponentGenerator() {
     const content = `
       <div style="padding: 20px;">
-        <p style="margin-bottom: 16px;">Popište komponentu, kterou chcete vytvořit:</p>
+        <p style="margin-bottom: 16px;">PopiÅ¡te komponentu, kterou chcete vytvoÅ™it:</p>
         <textarea
           id="aiComponentPrompt"
-          placeholder="Např: Vytvoř moderní kontaktní formulář s poli pro jméno, email a zprávu"
+          placeholder="NapÅ™: VytvoÅ™it modernÃ­ kontaktnÃ­ formulÃ¡Å™ s poli pro jmÃ©no, email a zprÃ¡vu"
           style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; resize: vertical; background: var(--bg-secondary); color: var(--text-primary);"
         ></textarea>
         <button
           id="aiComponentGenerate"
           style="width: 100%; padding: 12px; margin-top: 12px; background: var(--accent); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;"
         >
-          🚀 Vygenerovat
+          ðŸš€ Vygenerovat
         </button>
         <div id="aiComponentResult" style="display: none; margin-top: 20px;">
-          <h4>Vygenerovaný kód:</h4>
+          <h4>VygenerovanÃ½ kÃ³d:</h4>
           <pre id="aiComponentCode" style="background: var(--bg-secondary); padding: 12px; border-radius: 6px; overflow-x: auto; max-height: 300px;"></pre>
           <button
             id="aiComponentInsert"
             style="width: 100%; padding: 10px; margin-top: 8px; background: #22c55e; color: white; border: none; border-radius: 6px; cursor: pointer;"
           >
-            ✅ Vložit do editoru
+            âœ… VloÅ¾it do editoru
           </button>
         </div>
       </div>
     `;
 
     const modal = new Modal({
-      title: '🤖 AI Generátor komponent',
+      title: 'ðŸ¤– AI GenerÃ¡tor komponent',
       content,
       width: '600px'
     });
@@ -235,18 +235,26 @@ export class MenuModals {
       const description = promptTextarea?.value.trim();
       if (!description) return;
 
-      generateBtn.textContent = '⏳ Generuji...';
+      generateBtn.textContent = 'â³ Generuji...';
       generateBtn.disabled = true;
 
-      const code = await ComponentLibrary.generateAIComponent(description);
+      try {
+        const code = await ComponentLibrary.generateAIComponent(description);
 
-      if (code) {
-        generatedCode = code;
-        codeElement.textContent = code;
-        resultDiv.style.display = 'block';
+        if (code) {
+          generatedCode = code;
+          codeElement.textContent = code;
+          resultDiv.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('AI generation error:', error);
+        eventBus.emit('toast:show', {
+          message: 'âŒ Chyba pÅ™i generovÃ¡nÃ­',
+          type: 'error'
+        });
       }
 
-      generateBtn.textContent = '🚀 Vygenerovat';
+      generateBtn.textContent = 'ðŸš€ Vygenerovat';
       generateBtn.disabled = false;
     });
 
@@ -261,7 +269,7 @@ export class MenuModals {
   // ===== Load from URL Modal =====
   showLoadFromURL() {
     const modal = new Modal({
-      title: '🌐 Načíst z URL',
+      title: 'ðŸŒ NaÄÃ­st z URL',
       content: this.getLoadFromURLContent(),
       className: 'load-url-modal',
       closeOnEscape: true,
@@ -278,7 +286,7 @@ export class MenuModals {
     return `
       <div style="padding: 20px;">
         <p style="margin-bottom: 15px; color: var(--text-secondary);">
-          Načti obsah HTML, CSS, JS nebo textového souboru z URL adresy.
+          NaÄti obsah HTML, CSS, JS nebo textovÃ©ho souboru z URL adresy.
         </p>
 
         <div style="margin-bottom: 15px;">
@@ -297,27 +305,27 @@ export class MenuModals {
             id="urlAction"
             style="width: 100%; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 14px; cursor: pointer;"
           >
-            <option value="replace">Nahradit celý editor</option>
-            <option value="append">Přidat na konec</option>
-            <option value="new-file">Vytvořit nový soubor</option>
+            <option value="replace">Nahradit celÃ½ editor</option>
+            <option value="append">PÅ™idat na konec</option>
+            <option value="new-file">VytvoÅ™it novÃ½ soubor</option>
           </select>
         </div>
 
         <div style="padding: 12px; background: rgba(59,130,246,0.1); border-left: 3px solid #3b82f6; border-radius: 4px; margin-bottom: 15px;">
-          <strong style="color: #60a5fa;">💡 Tip:</strong>
+          <strong style="color: #60a5fa;">ðŸ’¡ Tip:</strong>
           <ul style="margin: 8px 0 0 20px; color: var(--text-secondary); font-size: 0.9em;">
-            <li>Podporované: HTML, CSS, JS, TXT, MD</li>
-            <li>Pro CORS problémy použijeme proxy</li>
-            <li>GitHub: Použij "raw" URL</li>
+            <li>PodporovanÃ©: HTML, CSS, JS, TXT, MD</li>
+            <li>Pro CORS problÃ©my pouÅ¾ijeme proxy</li>
+            <li>GitHub: PouÅ¾ij "raw" URL</li>
           </ul>
         </div>
 
         <div style="display: flex; gap: 10px;">
           <button id="loadUrlBtn" style="flex: 1; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-            📥 Načíst
+            ðŸ“¥ NaÄÃ­st
           </button>
           <button id="cancelUrlBtn" style="flex: 1; padding: 12px; background: #6b7280; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-            ❌ Zrušit
+            âŒ ZruÅ¡it
           </button>
         </div>
 
@@ -342,35 +350,35 @@ export class MenuModals {
       const action = urlAction?.value || 'replace';
 
       if (!url) {
-        this.showUrlStatus(statusDiv, 'error', '❌ Zadejte URL adresu');
+        this.showUrlStatus(statusDiv, 'error', 'âŒ Zadejte URL adresu');
         return;
       }
 
       try {
         new URL(url);
       } catch (e) {
-        this.showUrlStatus(statusDiv, 'error', '❌ Neplatná URL adresa');
+        this.showUrlStatus(statusDiv, 'error', 'âŒ NeplatnÃ¡ URL adresa');
         return;
       }
 
       loadBtn.disabled = true;
-      loadBtn.textContent = '⏳ Načítám...';
-      this.showUrlStatus(statusDiv, 'loading', '⏳ Stahuji obsah...');
+      loadBtn.textContent = 'â³ NaÄÃ­tÃ¡m...';
+      this.showUrlStatus(statusDiv, 'loading', 'â³ Stahuji obsah...');
 
       try {
         const content = await this.fetchFromURL(url);
 
         if (!content) {
-          throw new Error('Prázdný obsah');
+          throw new Error('PrÃ¡zdnÃ½ obsah');
         }
 
         this.applyURLContent(content, action, url);
-        this.showUrlStatus(statusDiv, 'success', `✅ Načteno ${content.length} znaků`);
+        this.showUrlStatus(statusDiv, 'success', `âœ… NaÄteno ${content.length} znakÅ¯`);
 
         setTimeout(() => {
           modal.close();
           eventBus.emit('toast:show', {
-            message: '✅ Obsah úspěšně načten',
+            message: 'âœ… Obsah ÃºspÄ›Å¡nÄ› naÄten',
             type: 'success',
             duration: 3000
           });
@@ -378,9 +386,9 @@ export class MenuModals {
 
       } catch (error) {
         console.error('Load from URL error:', error);
-        this.showUrlStatus(statusDiv, 'error', `❌ Chyba: ${error.message}`);
+        this.showUrlStatus(statusDiv, 'error', `âŒ Chyba: ${error.message}`);
         loadBtn.disabled = false;
-        loadBtn.textContent = '📥 Načíst';
+        loadBtn.textContent = 'ðŸ“¥ NaÄÃ­st';
       }
     });
 
@@ -415,7 +423,7 @@ export class MenuModals {
         try {
           const response = await fetch(proxyUrl);
           if (response.ok) {
-            console.log('✅ Loaded via proxy:', proxyUrl);
+            console.log('âœ… Loaded via proxy:', proxyUrl);
             return await response.text();
           }
         } catch (proxyError) {
@@ -424,7 +432,7 @@ export class MenuModals {
         }
       }
 
-      throw new Error('Nepodařilo se načíst obsah (CORS problém).');
+      throw new Error('NepodaÅ™ilo se naÄÃ­st obsah (CORS problÃ©m).');
     }
   }
 
@@ -433,30 +441,32 @@ export class MenuModals {
     const filename = this.extractFilenameFromURL(url);
 
     switch (action) {
-      case 'replace':
-        state.set('editor.code', content);
-        eventBus.emit('editor:update', content);
-        break;
+    case 'replace':
+      state.set('editor.code', content);
+      eventBus.emit('editor:update', content);
+      break;
 
-      case 'append':
-        const newCode = currentCode + '\n\n<!-- Loaded from: ' + url + ' -->\n' + content;
-        state.set('editor.code', newCode);
-        eventBus.emit('editor:update', newCode);
-        break;
+    case 'append': {
+      const newCode = currentCode + '\n\n<!-- Loaded from: ' + url + ' -->\n' + content;
+      state.set('editor.code', newCode);
+      eventBus.emit('editor:update', newCode);
+      break;
+    }
 
-      case 'new-file':
-        const files = state.get('files.list') || [];
-        files.push({
-          name: filename,
-          content: content,
-          lastModified: new Date().toISOString()
-        });
-        state.set('files.list', files);
-        state.set('files.active', filename);
-        state.set('editor.code', content);
-        eventBus.emit('editor:update', content);
-        eventBus.emit('files:update');
-        break;
+    case 'new-file': {
+      const files = state.get('files.list') || [];
+      files.push({
+        name: filename,
+        content: content,
+        lastModified: new Date().toISOString()
+      });
+      state.set('files.list', files);
+      state.set('files.active', filename);
+      state.set('editor.code', content);
+      eventBus.emit('editor:update', content);
+      eventBus.emit('files:update');
+      break;
+    }
     }
   }
 
@@ -490,7 +500,7 @@ export class MenuModals {
 
     if (errors.length === 0) {
       eventBus.emit('toast:show', {
-        message: '✅ Žádné chyby nezaznamenány!',
+        message: 'âœ… Å½Ã¡dnÃ© chyby nezaznamenÃ¡ny!',
         type: 'success',
         duration: 2000
       });
@@ -499,7 +509,7 @@ export class MenuModals {
 
     const errorHtml = errors.map((error, index) => {
       const time = new Date(error.timestamp).toLocaleTimeString('cs-CZ');
-      const type = error.type === 'promise' ? '⚠️ Promise' : '❌ Error';
+      const type = error.type === 'promise' ? 'âš ï¸ Promise' : 'âŒ Error';
 
       return `
         <div style="margin-bottom: 15px; padding: 12px; background: ${error.type === 'promise' ? 'rgba(251,191,36,0.1)' : 'rgba(239,68,68,0.1)'}; border-left: 3px solid ${error.type === 'promise' ? '#fbbf24' : '#ef4444'}; border-radius: 4px;">
@@ -510,10 +520,10 @@ export class MenuModals {
           <div style="font-family: monospace; font-size: 0.9em; color: var(--text-primary); margin-bottom: 8px;">
             ${this.escapeHtml(error.message)}
           </div>
-          ${error.filename ? `<div style="font-size: 0.85em; color: var(--text-secondary);">📄 ${error.filename}:${error.lineno}:${error.colno}</div>` : ''}
+          ${error.filename ? `<div style="font-size: 0.85em; color: var(--text-secondary);">ðŸ“„ ${error.filename}:${error.lineno}:${error.colno}</div>` : ''}
           ${error.stack ? `
             <details style="margin-top: 8px;">
-              <summary style="cursor: pointer; color: #3b82f6; font-size: 0.9em;">🔍 Stack trace</summary>
+              <summary style="cursor: pointer; color: #3b82f6; font-size: 0.9em;">ðŸ” Stack trace</summary>
               <pre style="margin-top: 8px; padding: 8px; background: var(--bg-primary); border-radius: 4px; overflow-x: auto; font-size: 0.8em; color: var(--text-secondary);">${this.escapeHtml(error.stack.substring(0, 500))}</pre>
             </details>
           ` : ''}
@@ -522,25 +532,25 @@ export class MenuModals {
     }).reverse().join('');
 
     const modal = new Modal({
-      title: `🐛 Error Log (${errors.length} chyb)`,
+      title: `ðŸ› Error Log (${errors.length} chyb)`,
       content: `
         <div style="max-height: 500px; overflow-y: auto;">
           <div style="margin-bottom: 15px; padding: 12px; background: rgba(59,130,246,0.1); border-radius: 6px;">
-            <strong>ℹ️ O Error Logu:</strong>
+            <strong>â„¹ï¸ O Error Logu:</strong>
             <ul style="margin: 8px 0 0 20px; color: var(--text-secondary);">
-              <li>Zobrazuje posledních 50 chyb</li>
-              <li>Duplicitní chyby jsou potlačeny (max 1× za 5s)</li>
-              <li>Pro detailní debugging použijte <code>?debug</code> v URL</li>
+              <li>Zobrazuje poslednÃ­ch 50 chyb</li>
+              <li>DuplicitnÃ­ chyby jsou potlaÄeny (max 1Ã— za 5s)</li>
+              <li>Pro detailnÃ­ debugging pouÅ¾ijte <code>?debug</code> v URL</li>
             </ul>
           </div>
           ${errorHtml}
         </div>
         <div style="margin-top: 15px; display: flex; gap: 10px;">
           <button id="copyErrorLogBtn" style="flex: 1; padding: 10px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">
-            📋 Kopírovat log
+            ðŸ“‹ KopÃ­rovat log
           </button>
           <button id="clearErrorLogBtn" style="flex: 1; padding: 10px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">
-            🗑️ Vymazat log
+            ðŸ—‘ï¸ Vymazat log
           </button>
         </div>
       `,
@@ -557,15 +567,15 @@ export class MenuModals {
 
     copyBtn?.addEventListener('click', () => {
       navigator.clipboard.writeText(JSON.stringify(errors, null, 2));
-      copyBtn.textContent = '✓ Zkopírováno!';
-      setTimeout(() => { copyBtn.textContent = '📋 Kopírovat log'; }, 2000);
+      copyBtn.textContent = 'âœ“ ZkopÃ­rovÃ¡no!';
+      setTimeout(() => { copyBtn.textContent = 'ðŸ“‹ KopÃ­rovat log'; }, 2000);
     });
 
     clearBtn?.addEventListener('click', () => {
       state.set('debug.errors', []);
       modal.close();
       eventBus.emit('toast:show', {
-        message: '🗑️ Error log vymazán',
+        message: 'ðŸ—‘ï¸ Error log vymazÃ¡n',
         type: 'success'
       });
     });
@@ -579,7 +589,7 @@ export class MenuModals {
       const html = this.markdownToHtml(markdown);
 
       const modal = new Modal({
-        title: '📊 Audit Report - HTML Studio v2.0',
+        title: 'ðŸ“Š Audit Report - HTML Studio v2.0',
         content: `<div style="max-height: 70vh; overflow-y: auto; padding: 20px; line-height: 1.6;">${html}</div>`,
         width: '90%',
         maxWidth: '1000px'
@@ -589,7 +599,7 @@ export class MenuModals {
     } catch (error) {
       console.error('Error loading audit report:', error);
       eventBus.emit('toast:show', {
-        message: 'Chyba při načítání audit reportu',
+        message: 'âŒ Chyba pÅ™i naÄÃ­tÃ¡nÃ­ audit reportu',
         type: 'error'
       });
     }
@@ -656,9 +666,9 @@ export class MenuModals {
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; overflow-x: auto; border: 1px solid var(--border);"><code>$2</code></pre>')
       .replace(/`([^`]+)`/g, '<code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-family: monospace;">$1</code>')
-      .replace(/^\- (.*$)/gim, '<li style="margin-left: 20px;">$1</li>')
+      .replace(/^- (.*$)/gim, '<li style="margin-left: 20px;">$1</li>')
       .replace(/^(\d+)\. (.*$)/gim, '<li style="margin-left: 20px;">$2</li>')
-      .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" style="color: var(--accent); text-decoration: underline;">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: var(--accent); text-decoration: underline;">$1</a>')
       .replace(/^---$/gim, '<hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">');
 
     html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/gs, (match) => `<ul style="margin: 12px 0;">${match}</ul>`);
