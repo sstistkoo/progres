@@ -72,7 +72,7 @@ export class MenuActions {
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
 
     eventBus.emit('toast:show', {
-      message: `${isLight ? '☀️' : '🌙'} Téma změněno`,
+      message: `${isLight ? 'â˜€ï¸' : 'ðŸŒ™'} TÃ©ma zmÄ›nÄ›no`,
       type: 'success'
     });
   }
@@ -81,14 +81,14 @@ export class MenuActions {
 
   showGridEditor() {
     eventBus.emit('toast:show', {
-      message: 'Grid Editor bude implementován',
+      message: 'ðŸ“ Grid Editor bude implementovÃ¡n',
       type: 'info'
     });
   }
 
   showLiveServer() {
     eventBus.emit('toast:show', {
-      message: 'Live Server funkce',
+      message: 'ðŸŒ Live Server funkce',
       type: 'info'
     });
   }
@@ -101,7 +101,7 @@ export class MenuActions {
 
   deployProject() {
     eventBus.emit('toast:show', {
-      message: 'Deploy bude implementován',
+      message: 'ðŸš€ Deploy bude implementovÃ¡n',
       type: 'info'
     });
   }
@@ -110,29 +110,19 @@ export class MenuActions {
 
   openDevTools() {
     // Check if Eruda is loaded
-    if (typeof eruda !== 'undefined') {
-      if (!eruda._isInit) {
-        eruda.init();
-      }
-      eruda.show();
-      eventBus.emit('toast:show', {
-        message: '🔧 DevTools otevřeny',
-        type: 'success',
-        duration: 2000
-      });
-    } else if (window.eruda) {
+    if (typeof window.eruda !== 'undefined') {
       if (!window.eruda._isInit) {
         window.eruda.init();
       }
       window.eruda.show();
       eventBus.emit('toast:show', {
-        message: '🔧 DevTools otevřeny',
+        message: 'ðŸž DevTools otevÅ™eny',
         type: 'success',
         duration: 2000
       });
     } else {
       eventBus.emit('toast:show', {
-        message: '❌ DevTools (Eruda) nejsou dostupné. Zkuste obnovit stránku.',
+        message: 'âš ï¸ DevTools (Eruda) nejsou dostupnÃ©. Zkuste obnovit strÃ¡nku.',
         type: 'warning'
       });
     }

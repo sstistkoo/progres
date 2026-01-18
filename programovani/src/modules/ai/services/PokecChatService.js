@@ -8,12 +8,74 @@ import { toast } from '../../../ui/components/Toast.js';
  * - Bez tools a code editing funkcí
  * - Vlastní historie zpráv
  * - Formátování markdown odpovědí
+ * - Ukládání historie do localStorage
  */
 export class PokecChatService {
   constructor(aiPanel) {
     this.aiPanel = aiPanel;
     this.pokecHistory = []; // Separate history for pokec chat
     this.isProcessing = false;
+    this.storageKey = 'htmlStudio_pokecHistory';
+    this.lastTokenInfo = null; // Store last token usage for display
+  }
+
+  /**
+   * Initialize - load history from localStorage
+   */
+  init() {
+    this.loadHistory();
+  }
+
+  /**
+   * Load history from localStorage
+   */
+  loadHistory() {
+    try {
+      const saved = localStorage.getItem(this.storageKey);
+      if (saved) {
+        const data = JSON.parse(saved);
+        this.pokecHistory = data.history || [];
+
+        // Restore messages to UI
+        if (this.pokecHistory.length > 0) {
+          const messagesContainer = this.aiPanel.modal?.element?.querySelector('#aiPokecMessages');
+          if (messagesContainer) {
+            // Clear default welcome message
+            messagesContainer.innerHTML = '';
+
+            // Add system welcome first
+            const welcomeEl = document.createElement('div');
+            welcomeEl.className = 'ai-message system';
+            welcomeEl.innerHTML = '<p>👋 Historie obnovena! Pokračuj v konverzaci... 😊</p>';
+            messagesContainer.appendChild(welcomeEl);
+
+            // Restore last 20 messages to UI (not all to keep it clean)
+            const recentMessages = this.pokecHistory.slice(-20);
+            recentMessages.forEach(msg => {
+              this.addMessage(msg.role, msg.content, false); // false = don't save again
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load pokec history:', error);
+    }
+  }
+
+  /**
+   * Save history to localStorage
+   */
+  saveHistory() {
+    try {
+      // Keep last 50 messages in storage
+      const historyToSave = this.pokecHistory.slice(-50);
+      localStorage.setItem(this.storageKey, JSON.stringify({
+        history: historyToSave,
+        savedAt: Date.now()
+      }));
+    } catch (error) {
+      console.warn('Failed to save pokec history:', error);
+    }
   }
 
   /**
@@ -31,8 +93,9 @@ export class PokecChatService {
     // Add user message to pokec chat
     this.addMessage('user', message);
 
-    // Add to history
+    // Add to history and save
     this.pokecHistory.push({ role: 'user', content: message });
+    this.saveHistory();
 
     try {
       // Build simple system prompt for chat mode
@@ -93,16 +156,14 @@ export class PokecChatService {
       // Add AI response to pokec chat
       this.addMessage('assistant', response);
 
-      // Add to history
+      // Add to history and save
       this.pokecHistory.push({ role: 'assistant', content: response });
+      this.saveHistory();
 
-      // Show token usage if available
+      // Update token info panel (not as chat message)
       if (window.AI.lastTokenUsage) {
         const { tokensIn, tokensOut } = window.AI.lastTokenUsage;
-        const total = tokensIn + tokensOut;
-        this.addMessage('system',
-          `📊 ${total.toLocaleString()} tokenů (${tokensIn.toLocaleString()}→${tokensOut.toLocaleString()}) • ${duration}ms • ${provider}/${model}`
-        );
+        this.updateTokenInfoPanel(tokensIn, tokensOut, duration, provider, model);
       }
 
     } catch (error) {
@@ -114,10 +175,33 @@ export class PokecChatService {
   }
 
   /**
-   * Add message to Pokec chat
+   * Update token info panel at bottom
    */
-  addMessage(role, content) {
-    const messagesContainer = this.aiPanel.modal.element.querySelector('#aiPokecMessages');
+  updateTokenInfoPanel(tokensIn, tokensOut, duration, provider, model) {
+    const panel = this.aiPanel.modal?.element?.querySelector('#pokecTokenInfo');
+    if (!panel) return;
+
+    const total = tokensIn + tokensOut;
+    panel.innerHTML = `
+      <span class="token-stat">📊 <strong>${total.toLocaleString()}</strong> tokenů</span>
+      <span class="token-detail">(${tokensIn.toLocaleString()}→${tokensOut.toLocaleString()})</span>
+      <span class="token-stat">⏱️ ${duration}ms</span>
+      <span class="token-stat">🤖 ${model}</span>
+    `;
+    panel.style.display = 'flex';
+
+    // Store for reference
+    this.lastTokenInfo = { tokensIn, tokensOut, duration, provider, model };
+  }
+
+  /**
+   * Add message to Pokec chat
+   * @param {string} role - user, assistant, or system
+   * @param {string} content - message content
+   * @param {boolean} saveToStorage - whether to save to localStorage (default true)
+   */
+  addMessage(role, content, saveToStorage = true) {
+    const messagesContainer = this.aiPanel.modal?.element?.querySelector('#aiPokecMessages');
     if (!messagesContainer) return;
 
     const messageEl = document.createElement('div');
@@ -144,63 +228,74 @@ export class PokecChatService {
       return '';
     }
 
-    // Escape HTML
+    // Escape HTML helper
     const escapeHtml = (text) => {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     };
 
-    // Store code blocks temporarily to prevent escaping
-    const codeBlocks = [];
-    content = content.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-      const language = lang || 'code';
-      const placeholder = `___CODE_BLOCK_${codeBlocks.length}___`;
-      codeBlocks.push(`<pre class="code-block"><code class="language-${language}">${escapeHtml(code.trim())}</code></pre>`);
-      return placeholder;
-    });
+    // Process code blocks first (they should not have inner formatting)
+    const parts = [];
+    let lastIndex = 0;
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    let match;
 
-    // Store inline code temporarily
-    const inlineCodes = [];
-    content = content.replace(/`([^`]+)`/g, (match, code) => {
-      const placeholder = `___INLINE_CODE_${inlineCodes.length}___`;
-      inlineCodes.push(`<code>${escapeHtml(code)}</code>`);
-      return placeholder;
-    });
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+      // Add text before code block
+      if (match.index > lastIndex) {
+        parts.push({ type: 'text', content: content.slice(lastIndex, match.index) });
+      }
+      // Add code block
+      const language = match[1] || 'code';
+      parts.push({ type: 'codeblock', content: match[2].trim(), language });
+      lastIndex = match.index + match[0].length;
+    }
+    // Add remaining text
+    if (lastIndex < content.length) {
+      parts.push({ type: 'text', content: content.slice(lastIndex) });
+    }
 
-    // Store links temporarily
-    const links = [];
-    content = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
-      const placeholder = `___LINK_${links.length}___`;
-      links.push(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`);
-      return placeholder;
-    });
+    // Process each part
+    return parts.map(part => {
+      if (part.type === 'codeblock') {
+        return `<pre class="code-block"><code class="language-${part.language}">${escapeHtml(part.content)}</code></pre>`;
+      }
 
-    // Replace bold **text**
-    content = content.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      // Process text part with markdown
+      let text = part.content;
 
-    // Escape remaining HTML
-    content = escapeHtml(content);
+      // Process inline code
+      text = text.replace(/`([^`]+)`/g, (m, code) => `<code>${escapeHtml(code)}</code>`);
 
-    // Restore links
-    links.forEach((link, i) => {
-      content = content.replace(`___LINK_${i}___`, link);
-    });
+      // Process links
+      text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, linkText, url) =>
+        `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(linkText)}</a>`
+      );
 
-    // Restore inline codes
-    inlineCodes.forEach((code, i) => {
-      content = content.replace(`___INLINE_CODE_${i}___`, code);
-    });
+      // Process bold (must be before italic)
+      text = text.replace(/\*\*(.+?)\*\*/g, (m, boldText) => `<strong>${boldText}</strong>`);
 
-    // Restore code blocks
-    codeBlocks.forEach((block, i) => {
-      content = content.replace(`___CODE_BLOCK_${i}___`, block);
-    });
+      // Process italic (not preceded or followed by *)
+      text = text.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, (m, italicText) => `<em>${italicText}</em>`);
 
-    // Replace line breaks
-    content = content.replace(/\n/g, '<br>');
+      // Escape remaining special HTML chars in plain text segments
+      // Split by tags, escape only non-tag parts
+      text = text.replace(/([^<>]+)(?=<|$)/g, (segment) => {
+        // Don't escape if it's already processed (contains our tags)
+        if (/<(strong|em|code|a |pre|br)/.test(segment)) {
+          return segment;
+        }
+        return escapeHtml(segment);
+      });
 
-    return content;
+      // Replace line breaks
+      text = text.replace(/\n/g, '<br>');
+
+      return text;
+    }).join('');
   }
 
   /**
@@ -208,14 +303,29 @@ export class PokecChatService {
    */
   clearHistory() {
     this.pokecHistory = [];
-    const messagesContainer = this.aiPanel.modal.element.querySelector('#aiPokecMessages');
+
+    // Clear from localStorage
+    try {
+      localStorage.removeItem(this.storageKey);
+    } catch (error) {
+      console.warn('Failed to clear pokec history from localStorage:', error);
+    }
+
+    const messagesContainer = this.aiPanel.modal?.element?.querySelector('#aiPokecMessages');
     if (messagesContainer) {
       messagesContainer.innerHTML = `
         <div class="ai-message system">
-          <p>👋 Ahoj! Jsem v režimu volné konverzace. Můžeme si pokecát o programování, technologiích, algoritmech, nebo čemkoliv jiném. Ptej se na co chceš!</p>
+          <p>👋 Ahoj! Jsem Pokec AI a můžeme si povídat o čemkoliv - zábava, věda, cestování, filmy, životní rady, nebo prostě jen pokecáme! 😊 Co tě zajímá?</p>
         </div>
       `;
     }
+
+    // Hide token info panel
+    const tokenInfo = this.aiPanel.modal?.element?.querySelector('#pokecTokenInfo');
+    if (tokenInfo) {
+      tokenInfo.style.display = 'none';
+    }
+
     toast.show('🗑️ Historie pokec chatu vymazána', 'info');
   }
 
@@ -225,6 +335,7 @@ export class PokecChatService {
   attachHandlers() {
     const pokecInput = this.aiPanel.modal.element.querySelector('#aiPokecInput');
     const pokecSendBtn = this.aiPanel.modal.element.querySelector('#aiPokecSendBtn');
+    const pokecClearBtn = this.aiPanel.modal.element.querySelector('#aiPokecClearBtn');
 
     if (pokecInput && pokecSendBtn) {
       const sendMessage = () => {
@@ -252,11 +363,23 @@ export class PokecChatService {
       });
     }
 
+    // Clear button handler
+    if (pokecClearBtn) {
+      pokecClearBtn.addEventListener('click', () => {
+        if (confirm('Opravdu chceš vymazat celou historii chatu?')) {
+          this.clearHistory();
+        }
+      });
+    }
+
     // Setup token counter for pokec chat
     this.setupTokenCounter();
 
     // Setup prompt dropdown
     this.setupPromptDropdown();
+
+    // Load saved history
+    this.init();
   }
 
   /**
@@ -345,40 +468,28 @@ export class PokecChatService {
     let promptText = '';
 
     switch (promptType) {
-      case 'search-code':
-        promptText = `🔍 **Najdi dostupná řešení z těchto zdrojů:**
-
-Prohledej tyto weby a najdi vhodná řešení:
-• [CodePen.io](https://codepen.io/search/pens) - interaktivní příklady
-• [CodeSandbox.io](https://codesandbox.io/search) - webové aplikace
-• [GitHub.com](https://github.com/search?type=repositories) - open source projekty
-• [JSFiddle.net](https://jsfiddle.net/) - rychlé testy
-• [StackBlitz.com](https://stackblitz.com/) - online IDE
-• [MDN Web Docs](https://developer.mozilla.org/en-US/search) - dokumentace
-• [W3Schools.com](https://www.w3schools.com/howto/) - tutoriály
-
-**INSTRUKCE:** Podle mého požadavku níže prosím:
-1. Vyhledej dostupná řešení na těchto webech
-2. Vypiš **seznam nalezených projektů** ve formátu:
-   - **Název projektu** - stručný popis co dělá
-   - Zdroj: [název webu](přímý odkaz)
-   - Klíčové vlastnosti/technologie
-3. Minimálně 3-5 různých řešení z různých zdrojů
-4. Nepiš celý kód, jen přehled co je dostupné
-
-**Co hledám:** `;
+      case 'fun-fact':
+        promptText = '🌟 Řekni mi nějakou zajímavou věc nebo fakt, o kterém většina lidí neví!';
         break;
 
-      case 'explain-concept':
-        promptText = 'Vysvětli mi tento koncept: ';
+      case 'joke':
+        promptText = '😄 Řekni mi dobrý vtip nebo něco vtipného!';
         break;
 
-      case 'best-practices':
-        promptText = 'Jaké jsou best practices pro: ';
+      case 'advice':
+        promptText = '💡 Dej mi užitečnou životní radu nebo tip na: ';
         break;
 
-      case 'debug-help':
-        promptText = 'Pomoz mi debugovat tento problém: ';
+      case 'creative':
+        promptText = '✨ Pomoz mi vymyslet kreativní nápad na: ';
+        break;
+
+      case 'explain':
+        promptText = '🎓 Vysvětli mi jednoduše téma: ';
+        break;
+
+      case 'recommend':
+        promptText = '🎬 Doporuč mi nějaký dobrý film, seriál nebo knihu. Mám rád: ';
         break;
 
       default:

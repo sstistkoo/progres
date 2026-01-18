@@ -371,12 +371,12 @@ export class AIPanel {
         <div class="ai-tab-content" data-content="pokec">
           <div class="ai-chat-container">
             <div class="ai-chat-header">
-              <h3>💬 Pokec s AI</h3>
-              <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0 0;">Obecná konverzace - diskutuj o čemkoliv!</p>
+              <h3>💬 Pokec AI</h3>
+              <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0 0;">Volná konverzace - ptej se na cokoliv! 🌟</p>
             </div>
             <div class="ai-chat-messages" id="aiPokecMessages">
               <div class="ai-message system">
-                <p>👋 Ahoj! Jsem v režimu volné konverzace. Můžeme si pokecát o programování, technologiích, algoritmech, nebo čemkoliv jiném. Ptej se na co chceš!</p>
+                <p>👋 Ahoj! Jsem Pokec AI a můžeme si povídat o čemkoliv - zábava, věda, cestování, filmy, životní rady, nebo prostě jen pokecáme! 😊 Co tě zajímá?</p>
               </div>
             </div>
             <div class="ai-chat-input">
@@ -400,17 +400,23 @@ export class AIPanel {
                     </svg>
                   </button>
                   <div class="pokec-prompt-menu" id="pokecPromptMenu" style="display: none;">
-                    <div class="prompt-item" data-prompt="search-code">
-                      🔍 Hledat kód
+                    <div class="prompt-item" data-prompt="fun-fact">
+                      🌟 Zajímavost dne
                     </div>
-                    <div class="prompt-item" data-prompt="explain-concept">
-                      💡 Vysvětli koncept
+                    <div class="prompt-item" data-prompt="joke">
+                      😄 Řekni vtip
                     </div>
-                    <div class="prompt-item" data-prompt="best-practices">
-                      ⭐ Best practices
+                    <div class="prompt-item" data-prompt="advice">
+                      💡 Životní rada
                     </div>
-                    <div class="prompt-item" data-prompt="debug-help">
-                      🐛 Pomoct s debuggingem
+                    <div class="prompt-item" data-prompt="creative">
+                      ✨ Kreativní nápad
+                    </div>
+                    <div class="prompt-item" data-prompt="explain">
+                      🎓 Vysvětli téma
+                    </div>
+                    <div class="prompt-item" data-prompt="recommend">
+                      🎬 Doporuč film/knihu
                     </div>
                   </div>
                 </div>
@@ -420,6 +426,14 @@ export class AIPanel {
                   </svg>
                   <span>Odeslat</span>
                 </button>
+                <button class="ai-clear-btn" id="aiPokecClearBtn" title="Vymazat historii">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                    <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="pokec-token-info" id="pokecTokenInfo" style="display: none;">
+                <!-- Token info will be displayed here after each message -->
               </div>
             </div>
           </div>
