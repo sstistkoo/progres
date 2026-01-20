@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Menu Actions Service
  * Handles all menu action dispatching
  */
@@ -109,20 +109,27 @@ export class MenuActions {
   // ===== DevTools Actions =====
 
   openDevTools() {
-    // Check if Eruda is loaded
-    if (typeof window.eruda !== 'undefined') {
+    // Use the improved initDevTools function that replays early logs
+    if (typeof window.initDevTools === 'function') {
+      window.initDevTools();
+      eventBus.emit('toast:show', {
+        message: ' DevTools otevřeny',
+        type: 'success',
+        duration: 2000
+      });
+    } else if (typeof window.eruda !== 'undefined') {
       if (!window.eruda._isInit) {
         window.eruda.init();
       }
       window.eruda.show();
       eventBus.emit('toast:show', {
-        message: 'ðŸž DevTools otevÅ™eny',
+        message: ' DevTools otevřeny',
         type: 'success',
         duration: 2000
       });
     } else {
       eventBus.emit('toast:show', {
-        message: 'âš ï¸ DevTools (Eruda) nejsou dostupnÃ©. Zkuste obnovit strÃ¡nku.',
+        message: ' DevTools (Eruda) nejsou dostupné.',
         type: 'warning'
       });
     }

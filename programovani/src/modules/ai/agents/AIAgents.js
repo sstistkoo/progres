@@ -122,11 +122,6 @@ Pro úpravy: SEARCH/REPLACE bloky
       capabilities: ['html', 'css', 'javascript', 'react', 'vue', 'responsive', 'animations']
     });
 
-📝 **VŽDY POSKYTNI KOMPLETNÍ, FUNKČNÍ KÓD!**
-Žádné komentáře typu "// zde doplň" - vše musí být implementované.`,
-      capabilities: ['html', 'css', 'javascript', 'react', 'vue', 'responsive', 'animations']
-    });
-
     this.registerAgent('backend', {
       name: 'Backend Developer',
       role: 'Server-side logika a databáze',
