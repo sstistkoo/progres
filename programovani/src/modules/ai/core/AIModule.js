@@ -93,9 +93,13 @@ const AI = {
         },
 
         defaultProvider: 'groq',  // Groq má nejlepší free limity (30 RPM)
-        timeout: 90000,
+        // Timeout - delší pro mobilní zařízení (pomalejší síť)
+        timeout: (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) ? 120000 : 90000,
         maxRetries: 3
     },
+
+    // ============== DETEKCE MOBILNÍHO ZAŘÍZENÍ ==============
+    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
 
     // ============== AKTIVNÍ POŽADAVEK (pro cancel) ==============
     _activeController: null,
