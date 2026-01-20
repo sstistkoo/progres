@@ -177,7 +177,7 @@ export class AIPanel {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
             <path d="M3 12h18M3 6h18M3 18h18"/>
           </svg>
-          <span>Menu</span>
+          <span id="aiMenuText">◆ Kód</span>
         </button>
         <div class="ai-menu-dropdown hidden" id="aiMenuDropdown">
           <button class="ai-menu-item" data-tab="chat">◆ Kód</button>
@@ -742,6 +742,22 @@ export class AIPanel {
               this.chatHistoryService.clearChatHistory();
             }
             return;
+          }
+
+          // Aktualizovat text menu tlačítka podle vybrané záložky
+          const menuText = this.modal.element.querySelector('#aiMenuText');
+          if (menuText && tabName) {
+            const tabLabels = {
+              'chat': '◆ Kód',
+              'pokec': '💬 Pokec',
+              'agents': '🤖 Agenti',
+              'editor': '📝 Editor',
+              'actions': '⚡ Akce',
+              'prompts': '📝 Prompty',
+              'testing': '🧪 Testing',
+              'github': '🔗 GitHub'
+            };
+            menuText.textContent = tabLabels[tabName] || tabName;
           }
 
           // Handle conversation mode switch
@@ -1492,11 +1508,39 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
       const loadingElement = document.getElementById(loadingId);
       if (loadingElement) loadingElement.remove();
       let errorMsg = error.message;
+      let showRetry = false;
+
+      // 📱 Lepší chybové zprávy pro mobilní zařízení
       if (error.message.includes('API key')) {
         errorMsg = 'Chybí API klíč. Nastavte klíč v ai_module.js nebo použijte demo klíče.';
+      } else if (error.message.toLowerCase().includes('overload') ||
+                 error.message.includes('503') ||
+                 error.message.includes('502')) {
+        errorMsg = '⚡ AI server je momentálně přetížen. Zkuste to prosím za chvíli nebo použijte jiný model.';
+        showRetry = true;
+      } else if (error.message.includes('timeout') ||
+                 error.message.includes('Timeout') ||
+                 error.message.includes('zrušen')) {
+        errorMsg = '⏱️ Požadavek vypršel. Zkontrolujte připojení k internetu a zkuste znovu.';
+        showRetry = true;
+      } else if (error.message.includes('network') ||
+                 error.message.includes('Network') ||
+                 error.message.includes('Failed to fetch')) {
+        errorMsg = '📡 Problém s připojením. Zkontrolujte internet a zkuste znovu.';
+        showRetry = true;
+      } else if (error.message.includes('Všechny providery vyčerpány') ||
+                 error.message.includes('Všichni poskytovatelé')) {
+        errorMsg = '😔 Všechny AI modely jsou momentálně nedostupné. Zkuste to za pár minut.';
+        showRetry = true;
       }
 
       this.addChatMessage('system', `❌ Chyba: ${errorMsg}`);
+
+      // Přidat tlačítko Zkusit znovu pro mobilní uživatele
+      if (showRetry) {
+        this.addRetryButton(message, 'server_error');
+      }
+
       console.error('AI Error:', error);
     } finally {
       this.isProcessing = false; // Always reset processing flag

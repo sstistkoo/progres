@@ -1802,6 +1802,15 @@ const AI = {
                                      errorMsg.includes('limit') ||
                                      errorMsg.includes('quota');
 
+            // 📱 NOVÉ: Detekce "model is overloaded" chyby (častější na mobilech)
+            const isOverloadedError = errorMsg.toLowerCase().includes('overload') ||
+                                      errorMsg.includes('503') ||
+                                      errorMsg.includes('502') ||
+                                      errorMsg.includes('temporarily unavailable') ||
+                                      errorMsg.includes('server error') ||
+                                      errorMsg.includes('capacity') ||
+                                      errorMsg.includes('busy');
+
             const isAPIError = errorMsg.includes('400') ||
                               errorMsg.includes('401') ||
                               errorMsg.includes('422') ||
@@ -1810,6 +1819,13 @@ const AI = {
                               errorMsg.includes('Unprocessable') ||
                               errorMsg.includes('CORS') ||
                               errorMsg.includes('ERR_FAILED');
+
+            // 📱 Speciální handling pro overloaded error - zkus automaticky jiný model
+            if (isOverloadedError && autoFallback) {
+                console.log('⚠️ Model přetížen, automaticky zkouším jiný model...');
+                this._log(`Model overloaded (${errorMsg.substring(0, 50)}) - fallback na jiný model...`);
+                return this._fallbackToNextModel(prompt, options, provider, model);
+            }
 
             if (isRateLimitError) {
                 const keysCount = this.keys.list(provider).length;
@@ -1827,7 +1843,7 @@ const AI = {
             }
 
             // API chyba nebo jiná chyba - také zkus fallback
-            if (autoFallback && !options._noMoreFallback && (isAPIError || isRateLimitError)) {
+            if (autoFallback && !options._noMoreFallback && (isAPIError || isRateLimitError || isOverloadedError)) {
                 this._log(`Chyba ${errorMsg.substring(0, 100)} - zkouším další model...`);
                 return this._fallbackToNextModel(prompt, options, provider, model);
             }
