@@ -91,7 +91,7 @@ export class AIPanel {
       { event: 'ai:sendMessage', handler: (data) => this.sendMessage(data.message) },
       { event: 'aiSettings:show', handler: () => this.showSettings() },
       { event: 'console:errorCountChanged', handler: (data) => this.updateErrorIndicator(data.count) },
-      { event: 'ai:github-search', handler: () => this.showGitHubSearchDialog() },
+      { event: 'ai:github-search', handler: () => this.githubService.showGitHubSearchDialog() },
       {
         event: 'github:showLoginModal',
         handler: async ({ callback }) => {
@@ -291,7 +291,82 @@ export class AIPanel {
     }
   }
 
+  /**
+   * Detekce mobilního zařízení
+   */
+  isMobileDevice() {
+    // Pokud je vynucený režim, použij ho
+    const forcedMode = localStorage.getItem('ai_device_mode');
+    if (forcedMode === 'mobile') return true;
+    if (forcedMode === 'desktop') return false;
+    // Jinak detekuj automaticky
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+
+  /**
+   * Získá aktuální režim zařízení (mobile/desktop/auto)
+   */
+  getDeviceMode() {
+    return localStorage.getItem('ai_device_mode') || 'auto';
+  }
+
+  /**
+   * Nastaví režim zařízení
+   */
+  setDeviceMode(mode) {
+    if (mode === 'auto') {
+      localStorage.removeItem('ai_device_mode');
+    } else {
+      localStorage.setItem('ai_device_mode', mode);
+    }
+    // Aktualizuj UI
+    this.updateDeviceModeUI();
+    toast.show(`📱 Režim: ${mode === 'mobile' ? 'Mobile-first' : mode === 'desktop' ? 'Desktop' : 'Auto'}`, 'info');
+  }
+
+  /**
+   * Aktualizuje UI podle režimu zařízení
+   */
+  updateDeviceModeUI() {
+    const btn = this.modal?.element?.querySelector('#aiDeviceModeBtn');
+    const indicator = this.modal?.element?.querySelector('.mobile-indicator');
+    const isMobile = this.isMobileDevice();
+    const mode = this.getDeviceMode();
+
+    if (btn) {
+      const icons = { mobile: '📱', desktop: '🖥️', auto: '🔄' };
+      const labels = { mobile: 'Mobile', desktop: 'Desktop', auto: 'Auto' };
+      btn.innerHTML = `${icons[mode]} ${labels[mode]}`;
+      btn.title = `Režim: ${labels[mode]} (klikni pro změnu)`;
+    }
+
+    if (indicator) {
+      if (isMobile) {
+        indicator.style.display = 'inline-flex';
+        indicator.textContent = '📱 Mobile-first režim';
+      } else {
+        indicator.style.display = 'none';
+      }
+    }
+  }
+
   createAIInterface() {
+    // Detekce mobilního zařízení pro personalizovanou uvítací zprávu
+    const isMobile = this.isMobileDevice();
+    const mode = this.getDeviceMode();
+    const modeIcons = { mobile: '📱', desktop: '🖥️', auto: '🔄' };
+    const modeLabels = { mobile: 'Mobile', desktop: 'Desktop', auto: 'Auto' };
+
+    const deviceModeBtn = `<button class="ai-device-mode-btn" id="aiDeviceModeBtn" title="Přepnout režim generování kódu (Mobile/Desktop/Auto)">${modeIcons[mode]} ${modeLabels[mode]}</button>`;
+
+    const deviceInfo = isMobile
+      ? `<span class="mobile-indicator" title="AI ví, že jsi na mobilu a generuje mobile-first kód">📱 Mobile-first režim</span>`
+      : '';
+
+    const welcomeMessage = isMobile
+      ? `Ahoj! 📱 Vidím, že jsi na <strong>mobilním zařízení</strong>. Automaticky generuji <strong>mobile-first</strong> kód optimalizovaný pro dotykové ovládání a menší obrazovky. Co potřebuješ?`
+      : `Ahoj! Jsem tvůj AI asistent. Můžu ti pomoct s kódem, vysvětlit koncepty, nebo vytvořit šablony. Co potřebuješ?`;
+
     return `
       <div class="ai-panel">
         <!-- Chat Tab -->
@@ -300,6 +375,8 @@ export class AIPanel {
           <div class="ai-chat">
             <div class="ai-chat-header">
               <span class="chat-history-info" id="chatHistoryInfo">Historie: 0 zpráv</span>
+              ${deviceModeBtn}
+              ${deviceInfo}
               <button class="ai-mode-toggle" id="aiModeToggle" title="Přepnout režim práce">
                 <span class="mode-icon">📝</span>
                 <span class="mode-text">Pokračovat</span>
@@ -307,7 +384,7 @@ export class AIPanel {
             </div>
             <div class="ai-chat-messages" id="aiChatMessages">
               <div class="ai-message system">
-                <p>Ahoj! Jsem tvůj AI asistent. Můžu ti pomoct s kódem, vysvětlit koncepty, nebo vytvořit šablony. Co potřebuješ?</p>
+                <p>${welcomeMessage}</p>
               </div>
             </div>
             <!-- Fixní spodní část - vždy viditelná -->
@@ -876,6 +953,18 @@ export class AIPanel {
       });
     }
 
+    // Device Mode Toggle Button (Mobile/Desktop/Auto)
+    const deviceModeBtn = this.modal.element.querySelector('#aiDeviceModeBtn');
+    if (deviceModeBtn) {
+      deviceModeBtn.addEventListener('click', () => {
+        const currentMode = this.getDeviceMode();
+        const modes = ['auto', 'mobile', 'desktop'];
+        const currentIndex = modes.indexOf(currentMode);
+        const nextMode = modes[(currentIndex + 1) % modes.length];
+        this.setDeviceMode(nextMode);
+      });
+    }
+
     // Update history info
     this.chatHistoryService.updateHistoryInfo();
 
@@ -1006,11 +1095,11 @@ export class AIPanel {
 
   handleTemplate(template) {
     const templates = {
-      blank: this.getBlankTemplate(),
-      landing: this.getLandingTemplate(),
-      form: this.getFormTemplate(),
-      dashboard: this.getDashboardTemplate(),
-      portfolio: this.getPortfolioTemplate()
+      blank: this.templatesService.getBlankTemplate(),
+      landing: this.templatesService.getLandingTemplate(),
+      form: this.templatesService.getFormTemplate(),
+      dashboard: this.templatesService.getDashboardTemplate(),
+      portfolio: this.templatesService.getPortfolioTemplate()
     };
 
     const templateCode = templates[template];
@@ -2025,79 +2114,11 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
     return this.codeEditorService.applySearchReplaceEdits(edits);
   }
 
-  /**
-   * Fuzzy search with whitespace normalization
-   * @param {string} code - Code to search in
-   * @param {string} search - Text to find
-   * @returns {{found: boolean, index: number}} - Result with position
-   */
-  fuzzySearchCode(code, search) {
-    return this.codeEditorService.fuzzySearchCode(code, search);
-  }
-
-  /**
-   * Find similar code using basic similarity matching
-   * @param {string} code - Code to search in
-   * @param {string} search - Text to find
-   * @returns {string|null} - Most similar code snippet or null
-   */
-  findSimilarCode(code, search) {
-    return this.codeEditorService.findSimilarCode(code, search);
-  }
-
-  /**
-   * Count occurrences of text in code
-   * @param {string} code - Code to search in
-   * @param {string} search - Text to find
-   * @returns {number} - Number of occurrences
-   */
-  countOccurrences(code, search) {
-    return this.codeEditorService.countOccurrences(code, search);
-  }
-
-  /**
-   * Detect overlapping edits (conflicts)
-   * @param {Array} edits - Validated edits with index positions
-   * @returns {Array} - Array of conflicts
-   */
-  detectEditConflicts(edits) {
-    return this.codeEditorService.detectEditConflicts(edits);
-  }
-
-  /**
-   * Show validation errors with suggestions
-   * @param {Array} errors - Validation errors
-   */
-  showValidationErrors(errors) {
-    return this.codeEditorService.showValidationErrors(errors, this.addChatMessage.bind(this));
-  }
-
-  addLineNumbers(code, metadata = null) {
-    return this.codeEditorService.addLineNumbers(code, metadata);
-  }
-
-  /**
-   * Truncate code intelligently - show beginning, end, and indicate middle is truncated
-   * Returns object with code and metadata about line numbers
-   */
-  truncateCodeIntelligently(code, maxChars = 3000) {
-    return this.codeEditorService.truncateCodeIntelligently(code, maxChars);
-  }
+  // Note: fuzzySearchCode, findSimilarCode, countOccurrences, detectEditConflicts
+  // are used internally by CodeEditorService - no need for wrappers here
 
   insertCodeToEditor(code, fullResponse = '') {
     return this.codeEditorService.insertCodeToEditor(code, fullResponse);
-  }
-
-  detectDuplicateVariables(code) {
-    return this.codeEditorService.detectDuplicateVariables(code);
-  }
-
-  handleNewProjectStart() {
-    return this.messageProcessingService.handleNewProjectStart();
-  }
-
-  resetToNewProject() {
-    return this.messageProcessingService.resetToNewProject();
   }
 
   removeChatMessage(messageId) {
@@ -2243,209 +2264,13 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
     this.providerService.updateAutoAIState();
   }
 
-  // Template generators
-  getBlankTemplate() {
-    return this.templatesService.getBlankTemplate();
-  }
-
-  getLandingTemplate() {
-    return this.templatesService.getLandingTemplate();
-  }
-
-  getFormTemplate() {
-    return this.templatesService.getFormTemplate();
-  }
-
-  getDashboardTemplate() {
-    return this.templatesService.getDashboardTemplate();
-  }
-
-  getPortfolioTemplate() {
-    return this.templatesService.getPortfolioTemplate();
-  }
-
-  // Prompt management
-  usePrompt(promptId) {
-    return this.templatesService.usePrompt(promptId);
-  }
-
-  addCustomPrompt() {
-    return this.templatesService.addCustomPrompt();
-  }
-
-  // GitHub integration - Delegated to GitHubService
-  handleGitHubAction(action) {
-    return this.githubService.handleGitHubAction(action);
-  }
-
-  showGitHubSearchDialog() {
-    return this.githubService.showGitHubSearchDialog();
-  }
-
-  createPaginationHTML(page, maxPages) {
-    return this.githubService.createPaginationHTML(page, maxPages);
-  }
-
-  async searchGitHubCode(query, language, page = 1, token = null) {
-    return this.githubService.searchGitHubCode(query, language, page, token);
-  }
-
-  async searchGitHubRepos(query, language, page = 1, token = null) {
-    return this.githubService.searchGitHubRepos(query, language, page, token);
-  }
-
-  async loadGitHubRepo(fullName, repoName) {
-    return this.githubService.loadGitHubRepo(fullName, repoName);
-  }
-
-  showRepoLoadOptions(repoName, allFiles) {
-    return this.githubService.showRepoLoadOptions(repoName, allFiles);
-  }
-
-  getFileType(fileName) {
-    return this.githubService.getFileType(fileName);
-  }
-
-  isTextFile(fileName) {
-    return this.githubService.isTextFile(fileName);
-  }
-
-  showRepoFileSelector(fullName, branch, files, repoName) {
-    return this.githubService.showRepoFileSelector(fullName, branch, files, repoName);
-  }
-
-  getFileIcon(fileName) {
-    return this.githubService.getFileIcon(fileName);
-  }
-
-  formatBytes(bytes) {
-    return this.githubService.formatBytes(bytes);
-  }
-
-
-  async loadGitHubCode(url, name, isSingleFile) {
-    return this.githubService.loadGitHubCode(url, name, isSingleFile);
-  }
-
-  async handleGitHubCodeLoad(code, fileName) {
-    return this.githubService.handleGitHubCodeLoad(code, fileName);
-  }
-
-  cloneRepo() {
-    return this.githubService.cloneRepo();
-  }
-
-  createGist() {
-    return this.githubService.createGist();
-  }
-
-  // GitHub token management - Delegated to GitHubService
-  getStoredToken() {
-    return this.githubService.getStoredToken();
-  }
-
-  saveGitHubToken() {
-    return this.githubService.saveGitHubToken(this.modal);
-  }
-
-  checkGitHubConnection() {
-    return this.githubService.checkGitHubConnection(this.modal);
-  }
-
-  async initiateGitHubOAuth() {
-    return this.githubService.initiateGitHubOAuth();
-  }
-
-  showGitHubLoginModal() {
-    return this.githubService.showGitHubLoginModal();
-  }
-
-  async showRepoManager() {
-    return this.githubService.showRepoManager();
-  }
-
-  // Repository manager methods - Delegated to GitHubService
-  createRepoManagerContent() {
-    return this.githubService.createRepoManagerContent();
-  }
-
-  attachRepoManagerHandlers(repoModal) {
-    return this.githubService.attachRepoManagerHandlers(repoModal);
-  }
-
-  async loadRepositories(repoModal) {
-    return this.githubService.loadRepositories(repoModal);
-  }
-
-  getMockRepositories(_username) {
-    return this.githubService.getMockRepositories(_username);
-  }
-
-  createRepoItem(repo) {
-    return this.githubService.createRepoItem(repo);
-  }
-
-  async createRepository(repoModal) {
-    return this.githubService.createRepository(repoModal);
-  }
-
-  async deleteRepository(repoName, repoModal) {
-    return this.githubService.deleteRepository(repoName, repoModal);
-  }
-
-  // Undo/Redo History Management - Delegated to GitHubService
-  getUndoHistory() {
-    return this.githubService.getUndoHistory();
-  }
-
-  getRedoHistory() {
-    return this.githubService.getRedoHistory();
-  }
-
-  storeUndoAction(action, data) {
-    return this.githubService.storeUndoAction(action, data);
-  }
-
-  async undoLastRepoAction(repoModal) {
-    return this.githubService.undoLastRepoAction(repoModal);
-  }
-
-  async redoRepoAction(repoModal) {
-    return this.githubService.redoRepoAction(repoModal);
-  }
-
-  updateHistoryButtons(repoModal) {
-    return this.githubService.updateHistoryButtons(repoModal);
-  }
-
-  filterRepositories(query, repoModal) {
-    return this.githubService.filterRepositories(query, repoModal);
-  }
-
-  openRepository(repoName) {
-    return this.githubService.openRepository(repoName);
-  }
-
-  // Agent methods - Delegated to AgentsService
-  async loadCrewAIAgents(agentsGrid) {
-    return this.agentsService.loadCrewAIAgents(agentsGrid);
-  }
-
-  async useCrewAIAgent(agentId) {
-    return this.agentsService.useCrewAIAgent(agentId);
-  }
-
-  toggleAgent(agentId) {
-    return this.agentsService.toggleAgent(agentId);
-  }
-
-  updateActiveAgentsList() {
-    return this.agentsService.updateActiveAgentsList();
-  }
-
-  openAgentChat(agentId) {
-    return this.agentsService.openAgentChat(agentId);
-  }
+  // ================================================================
+  // NOTE: Template and GitHub wrapper methods have been removed.
+  // Access services directly:
+  // - Templates: this.templatesService.getBlankTemplate(), etc.
+  // - GitHub: this.githubService.handleGitHubAction(), etc.
+  // - Agents: this.agentsService.toggleAgent(), etc.
+  // ================================================================
 
   async sendToOrchestrator(message) {
     // Race condition protection (same as sendMessage)

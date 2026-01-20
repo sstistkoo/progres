@@ -190,13 +190,122 @@ Odpověz přátelsky a užitečně. Pokud je to vhodné, použij emoji pro lepš
   }
 
   /**
+   * Detekce mobilního zařízení (respektuje forced mode)
+   */
+  isMobileDevice() {
+    // Pokud je vynucený režim, použij ho
+    const forcedMode = localStorage.getItem('ai_device_mode');
+    if (forcedMode === 'mobile') return true;
+    if (forcedMode === 'desktop') return false;
+    // Jinak detekuj automaticky
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+
+  /**
+   * Získá informace o zařízení pro kontext
+   */
+  getDeviceContext() {
+    const forcedMode = localStorage.getItem('ai_device_mode');
+    const isMobile = this.isMobileDevice();
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const orientation = screenWidth > screenHeight ? 'landscape' : 'portrait';
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    return {
+      isMobile,
+      forcedMode: forcedMode || 'auto',
+      screenWidth,
+      screenHeight,
+      orientation,
+      isTouch,
+      deviceType: isMobile ? (screenWidth < 600 ? 'phone' : 'tablet') : 'desktop'
+    };
+  }
+
+  /**
+   * Vytvoří mobile-specific instrukce pro AI
+   */
+  buildMobileInstructions() {
+    const device = this.getDeviceContext();
+
+    if (!device.isMobile) {
+      return ''; // Na desktopu nic nepřidávej
+    }
+
+    return `
+## 📱 MOBILNÍ PROSTŘEDÍ - DŮLEŽITÉ!
+
+**Uživatel pracuje na ${device.deviceType === 'phone' ? 'TELEFONU' : 'TABLETU'}** (${device.screenWidth}x${device.screenHeight}, ${device.orientation})
+
+### 🎯 MOBILE-FIRST PRAVIDLA:
+
+#### CSS - Vždy mobile-first:
+- Základní styly pro mobil (bez media query)
+- \`@media (min-width: 768px)\` pro tablet
+- \`@media (min-width: 1024px)\` pro desktop
+- Používej \`clamp()\` pro responzivní typography: \`font-size: clamp(1rem, 4vw, 1.5rem)\`
+- Flexbox s \`flex-wrap: wrap\` pro responzivní layouty
+- Grid s \`repeat(auto-fit, minmax(280px, 1fr))\`
+
+#### Touch-friendly elementy:
+- Minimální velikost tlačítek: **44x44px** (Apple HIG) nebo **48x48px** (Material)
+- Dostatečné mezery mezi interaktivními prvky: min **8px**
+- Větší padding pro lepší klikatelnost: \`padding: 12px 16px\`
+- Touch areas: \`-webkit-tap-highlight-color: transparent\`
+
+#### Viewport a scaling:
+\`\`\`html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+\`\`\`
+
+#### Formuláře na mobilu:
+- \`font-size: 16px\` pro input (zabrání zoom na iOS)
+- \`autocomplete\`, \`inputmode\`, \`enterkeyhint\` atributy
+- Label VŽDY nad inputem (ne vedle)
+
+#### Navigace:
+- Hamburger menu nebo bottom navigation pro mobil
+- Sticky header s menší výškou
+- Back-to-top button pro dlouhé stránky
+
+#### Výkon na mobilu:
+- \`loading="lazy"\` pro obrázky
+- Menší obrázky pro mobil (srcset)
+- Minimalizuj JavaScript animace
+- Používej \`will-change\` opatrně
+
+### 📐 Breakpointy:
+\`\`\`css
+/* Mobile first - základní styly */
+.container { padding: 16px; }
+
+/* Tablet */
+@media (min-width: 768px) {
+  .container { padding: 24px; max-width: 720px; }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+  .container { padding: 32px; max-width: 960px; }
+}
+\`\`\`
+
+`;
+  }
+
+  /**
    * Vytvoří kompletní system prompt
    */
   /**
    * VS Code Copilot-style system prompt pro HTML/CSS/JS vývoj
    */
   buildCopilotStylePrompt() {
+    // Přidej mobile instrukce pokud je uživatel na mobilu
+    const mobileInstructions = this.buildMobileInstructions();
+
     return `# 🤖 HTML Studio AI Assistant (VS Code Copilot Style)
+${mobileInstructions}
 
 Jsi expertní AI programátor specializovaný na webový vývoj. Pracuješ jako GitHub Copilot v prostředí HTML Studio.
 

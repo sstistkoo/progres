@@ -21,6 +21,19 @@
     <link rel="stylesheet" href="src/styles/main.css?v=2.4.0" />
 
     <!-- Model Selector (must be loaded before AIModule) -->
+    <script>
+      // 📱 Early console capture for Eruda
+      // Zachycuje všechny console logy před načtením Eruda
+      window.__earlyLogs = [];
+      const originalMethods = {};
+      ['log', 'warn', 'error', 'info', 'debug'].forEach(method => {
+        originalMethods[method] = console[method].bind(console);
+        console[method] = (...args) => {
+          window.__earlyLogs.push({ method, args, timestamp: Date.now() });
+          originalMethods[method](...args);
+        };
+      });
+    </script>
     <script src="src/modules/ai/core/ModelSelector.js"></script>
 
     <!-- AI Module -->
@@ -38,97 +51,41 @@
     <!-- Eruda DevTools for Mobile (loaded but not auto-initialized) -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>
-      // DevTools setup for mobile
-      console.log('📱 Eruda loaded - open via Menu > DevTools');
-
-      // Detekce mobilního zařízení
-      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      );
-
-      // Na mobilu přidej floating tlačítko pro DevTools
-      if (isMobileDevice) {
-        document.addEventListener('DOMContentLoaded', () => {
-          // Vytvoř floating button pro rychlý přístup k DevTools
-          const devBtn = document.createElement('button');
-          devBtn.id = 'mobileDevToolsBtn';
-          devBtn.innerHTML = '🐞';
-          devBtn.title = 'DevTools';
-          devBtn.style.cssText = `
-            position: fixed;
-            bottom: 80px;
-            right: 10px;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: rgba(30, 30, 30, 0.9);
-            border: 2px solid #3b82f6;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
-            z-index: 9999;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.2s, background 0.2s;
-          `;
-          devBtn.addEventListener('click', () => {
-            if (typeof eruda !== 'undefined') {
-              if (!eruda._isInit) {
-                eruda.init({
-                  tool: ['console', 'elements', 'network', 'resources', 'info'],
-                  useShadowDom: true,
-                  autoScale: true,
-                });
-                // Přidej custom plugin pro AI debug info
-                eruda.add({
-                  name: 'AI Debug',
-                  init($el) {
-                    this.$el = $el;
-                  },
-                  show() {
-                    const aiStats = window.AI ? window.AI.stats.get() : {};
-                    const rateStats = window.AI ? window.AI.getRateLimitStats() : [];
-                    this.$el.html(`
-                      <div style="padding: 10px; font-family: monospace; font-size: 12px;">
-                        <h3 style="color: #3b82f6; margin: 0 0 10px;">🤖 AI Module Status</h3>
-                        <div style="background: #1e1e1e; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
-                          <div><b>Total calls:</b> ${aiStats.totalCalls || 0}</div>
-                          <div><b>Daily calls:</b> ${aiStats.dailyCalls || 0}</div>
-                          <div><b>Tokens In:</b> ${aiStats.totalTokensIn || 0}</div>
-                          <div><b>Tokens Out:</b> ${aiStats.totalTokensOut || 0}</div>
-                        </div>
-                        <h4 style="color: #10b981; margin: 10px 0;">📊 Rate Limit Stats</h4>
-                        <div style="background: #1e1e1e; padding: 10px; border-radius: 8px; max-height: 200px; overflow: auto;">
-                          ${
-                            rateStats
-                              .map(
-                                s => `
-                            <div style="margin-bottom: 8px; padding: 5px; background: #2d2d2d; border-radius: 4px;">
-                              <div><b>${s.provider}/${s.model}</b></div>
-                              <div>Requests: ${s.requestCount} | Available: ${s.isAvailable ? '✅' : '❌'}</div>
-                              ${s.lastError ? `<div style="color: #ef4444;">Error: ${s.lastError}</div>` : ''}
-                            </div>
-                          `
-                              )
-                              .join('') || '<div>No stats yet</div>'
-                          }
-                        </div>
-                      </div>
-                    `);
-                  },
-                  hide() {},
-                  destroy() {},
-                });
-              }
-              eruda.show();
-            }
+      // DevTools setup - Eruda pro mobilní i PC debug
+      window.initDevTools = function () {
+        if (typeof eruda !== 'undefined' && !eruda._isInit) {
+          eruda.init({
+            defaults: {
+              displaySize: 50,
+              transparency: 0.9,
+              theme: 'Dark',
+            },
           });
-          document.body.appendChild(devBtn);
-          console.log('📱 Mobile DevTools button added');
-        });
-      }
+
+          // Replay early logs that were captured before Eruda loaded
+          if (window.__earlyLogs && window.__earlyLogs.length > 0) {
+            console.log('📋 Replaying', window.__earlyLogs.length, 'early logs...');
+            window.__earlyLogs.forEach(({ method, args }) => {
+              // Eruda is now listening, so just re-log
+              console[method](...args);
+            });
+          }
+
+          // Show useful debug info
+          console.log('═══════════════════════════════════════');
+          console.log('🛠️ HTML Studio DevTools');
+          console.log('═══════════════════════════════════════');
+          console.log('📱 Device:', navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop');
+          console.log('🌐 Screen:', window.innerWidth, 'x', window.innerHeight);
+          console.log('🔗 URL:', location.href);
+          console.log('💾 LocalStorage keys:', Object.keys(localStorage).length);
+          console.log('═══════════════════════════════════════');
+
+          eruda.show();
+        }
+      };
+
+      console.log('📱 DevTools ready - open via Menu > DevTools or call initDevTools()');
     </script>
 
     <!-- Fonts -->
