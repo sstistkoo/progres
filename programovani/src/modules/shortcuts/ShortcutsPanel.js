@@ -259,39 +259,11 @@ export class ShortcutsPanel {
         shortcut: 'Ctrl+Shift+T'
       },
       {
-        icon: '🚀',
-        title: 'Publikovat',
-        description: 'Publikovat na GitHub',
-        action: 'publish',
-        shortcut: 'Ctrl+Shift+P'
-      },
-      {
-        icon: '🔧',
-        title: 'SEO',
-        description: 'Nastavení SEO',
-        action: 'seo',
+        icon: '🤖',
+        title: 'AI Nastavení',
+        description: 'Nastavení AI asistenta',
+        action: 'aiSettings',
         shortcut: ''
-      },
-      {
-        icon: '📱',
-        title: 'Zařízení',
-        description: 'Testovat na zařízeních',
-        action: 'devices',
-        shortcut: ''
-      },
-      {
-        icon: '📸',
-        title: 'Screenshot',
-        description: 'Vytvořit screenshot',
-        action: 'screenshot',
-        shortcut: ''
-      },
-      {
-        icon: '⚙️',
-        title: 'Nastavení',
-        description: 'Otevřít nastavení',
-        action: 'settings',
-        shortcut: 'Ctrl+,'
       }
     ];
 
@@ -339,11 +311,13 @@ export class ShortcutsPanel {
       closeAllTabs: 'action:closeAllTabs',
       saveAllTabs: 'action:saveAllTabs',
       colorScheme: 'theme:toggle',
-      publish: 'action:publish',
-      seo: 'seo:show',
-      devices: 'devices:show',
+      aiSettings: 'aiSettings:show',
+      // Nové akce
       screenshot: 'action:screenshot',
-      settings: 'settings:show'
+      seo: 'action:seo',
+      devices: 'action:devices',
+      settings: 'settings:show',
+      publish: 'action:publish'
     };
 
     const event = actionMap[action];

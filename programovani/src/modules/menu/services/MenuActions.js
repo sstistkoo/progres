@@ -21,6 +21,7 @@ export class MenuActions {
     const actions = {
       // Settings
       'aiSettings': () => this.showAISettings(),
+      'aiSettingsAdvanced': () => this.showAISettingsAdvanced(),
       'theme': () => this.toggleTheme(),
 
       // Advanced tools
@@ -64,6 +65,10 @@ export class MenuActions {
 
   showAISettings() {
     eventBus.emit('aiSettings:show');
+  }
+
+  showAISettingsAdvanced() {
+    eventBus.emit('aiSettings:showAdvanced');
   }
 
   toggleTheme() {

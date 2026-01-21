@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Menu Modals Service
  * Handles all modal dialogs from menu
  */
@@ -583,26 +583,122 @@ export class MenuModals {
 
   // ===== Audit Report Modal =====
   async showAuditReport() {
-    try {
-      const response = await fetch('/docs/AUDIT_REPORT.md');
-      const markdown = await response.text();
-      const html = this.markdownToHtml(markdown);
+    const audit = this.generateLiveAudit();
 
-      const modal = new Modal({
-        title: 'ðŸ“Š Audit Report - HTML Studio v2.0',
-        content: `<div style="max-height: 70vh; overflow-y: auto; padding: 20px; line-height: 1.6;">${html}</div>`,
-        width: '90%',
-        maxWidth: '1000px'
-      });
+    const modal = new Modal({
+      title: ' Audit projektu - HTML Studio',
+      content: `<div style="max-height: 70vh; overflow-y: auto; padding: 20px; line-height: 1.6;">${audit}</div>`,
+      width: '90%',
+      maxWidth: '1000px'
+    });
 
-      modal.open();
-    } catch (error) {
-      console.error('Error loading audit report:', error);
-      eventBus.emit('toast:show', {
-        message: 'âŒ Chyba pÅ™i naÄÃ­tÃ¡nÃ­ audit reportu',
-        type: 'error'
-      });
-    }
+    modal.open();
+  }
+
+  generateLiveAudit() {
+    // After cleanup - only remaining issues
+    const notImplemented = [
+      { name: '✅ Validovat HTML', location: 'Rychlé akce (Ctrl+Shift+V)', status: 'todo' },
+      { name: '📦 Minifikovat', location: 'Rychlé akce (Ctrl+Shift+M)', status: 'todo' },
+      { name: '📦 Export ZIP', location: 'FileOperations', status: 'toast' }
+    ];
+
+    const working = [
+      { name: '💾 Uložit', location: 'Ctrl+S, Rychlé akce' },
+      { name: '⬇️ Stáhnout', location: 'Ctrl+D, Rychlé akce' },
+      { name: '📄 Nový soubor', location: 'Ctrl+N, Rychlé akce' },
+      { name: '🔍 Hledat', location: 'Ctrl+F, Menu' },
+      { name: '✨ Formátovat', location: 'Ctrl+Shift+F' },
+      { name: '↩️ Zpět / ↪️ Vpřed', location: 'Ctrl+Z/Y' },
+      { name: '❌ Zavřít tab', location: 'Ctrl+W' },
+      { name: '🎨 Přepnout téma', location: 'Menu > Nastavení' },
+      { name: '🤖 AI Asistent', location: 'Tlačítko AI' },
+      { name: '🤖 AI Nastavení', location: 'Menu, Rychlé akce' },
+      { name: '🔄 Nahradit v kódu', location: 'Ctrl+H, Menu' },
+      { name: '📄 Vytvořit .gitignore', location: 'Menu > Nástroje' },
+      { name: '🐙 GitHub hledání', location: 'Menu > GitHub' },
+      { name: '🌐 Načíst z URL', location: 'Menu > GitHub' },
+      { name: '🐞 DevTools', location: 'Menu > Vývojářské nástroje' },
+      { name: '📋 Error Log', location: 'Menu > Vývojářské nástroje' },
+      { name: '📊 Audit projektu', location: 'Menu > Vývojářské nástroje' },
+      { name: '🧩 Komponenty', location: 'Menu > Obsah' },
+      { name: '📋 Šablony', location: 'Menu > Obsah' },
+      { name: '🖼️ Obrázky', location: 'Menu > Obsah' },
+      { name: '🤖 AI Generátor', location: 'Menu > Obsah' }
+    ];
+
+    const removed = [
+      { name: '📐 CSS Grid/Flex editor', reason: 'Jen toast, neimplementováno' },
+      { name: '🌐 Živý server', reason: 'Jen toast, neimplementováno' },
+      { name: '🔗 Sdílet odkaz', reason: 'Jen toast, neimplementováno' },
+      { name: '🚀 Deploy projekt', reason: 'Jen toast, neimplementováno' },
+      { name: '🚀 Publikovat', reason: 'Chyběl handler' },
+      { name: '🔧 SEO', reason: 'Chyběl handler' },
+      { name: '📱 Zařízení', reason: 'Chyběl handler' },
+      { name: '📸 Screenshot', reason: 'Chyběl handler' },
+      { name: '⚙️ Nastavení', reason: 'Duplicitní (AI Nastavení funguje)' }
+    ];
+
+    return `
+      <style>
+        .audit-section { margin-bottom: 24px; }
+        .audit-title { color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .audit-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
+        .badge-error { background: #ef444433; color: #ef4444; }
+        .badge-warning { background: #f59e0b33; color: #f59e0b; }
+        .badge-success { background: #10b98133; color: #10b981; }
+        .badge-removed { background: #6b728033; color: #6b7280; }
+        .audit-table { width: 100%; border-collapse: collapse; }
+        .audit-table th, .audit-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); }
+        .audit-table th { background: var(--bg-secondary); font-weight: 600; }
+        .audit-table tr:hover { background: var(--bg-secondary); }
+        .status-tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+        .status-toast { background: #f59e0b33; color: #f59e0b; }
+        .status-todo { background: #3b82f633; color: #3b82f6; }
+      </style>
+
+      <div class="audit-section">
+        <h2 class="audit-title">✅ Funkční funkce <span class="audit-badge badge-success">${working.length}</span></h2>
+        <table class="audit-table">
+          <thead><tr><th>Funkce</th><th>Umístění</th></tr></thead>
+          <tbody>
+            ${working.map(item => '<tr><td><strong>' + item.name + '</strong></td><td>' + item.location + '</td></tr>').join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="audit-section">
+        <h2 class="audit-title">⚠️ K implementaci <span class="audit-badge badge-warning">${notImplemented.length}</span></h2>
+        <p style="color: var(--text-secondary); margin-bottom: 12px;">Tyto funkce jsou v UI, ale mají jen TODO v kódu.</p>
+        <table class="audit-table">
+          <thead><tr><th>Funkce</th><th>Umístění</th><th>Stav</th></tr></thead>
+          <tbody>
+            ${notImplemented.map(item => '<tr><td><strong>' + item.name + '</strong></td><td>' + item.location + '</td><td><span class="status-tag status-' + item.status + '">' + (item.status === 'todo' ? '📝 TODO' : '📢 Toast') + '</span></td></tr>').join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="audit-section">
+        <h2 class="audit-title">🗑️ Odstraněno <span class="audit-badge badge-removed">${removed.length}</span></h2>
+        <p style="color: var(--text-secondary); margin-bottom: 12px;">Tyto tlačítka byla odstraněna z UI.</p>
+        <table class="audit-table">
+          <thead><tr><th>Tlačítko</th><th>Důvod odstranění</th></tr></thead>
+          <tbody>
+            ${removed.map(item => '<tr><td><strong>' + item.name + '</strong></td><td>' + item.reason + '</td></tr>').join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="audit-section" style="background: var(--bg-secondary); padding: 16px; border-radius: 8px;">
+        <h3>📊 Souhrn</h3>
+        <p style="margin-top: 8px;">
+          <strong style="color: #10b981;">Funkční:</strong> ${working.length} funkcí ✅<br>
+          <strong style="color: #f59e0b;">K implementaci:</strong> ${notImplemented.length} tlačítek ⚠️<br>
+          <strong style="color: #6b7280;">Odstraněno:</strong> ${removed.length} nefunkčních tlačítek 🗑️<br>
+          <strong style="color: var(--accent);">Pokrytí:</strong> ${Math.round(working.length / (working.length + notImplemented.length) * 100)}%
+        </p>
+      </div>
+    `;
   }
 
   // ===== Helper Methods =====

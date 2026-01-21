@@ -225,7 +225,15 @@ class App {
     eventBus.on('action:redo', () => this.editor?.redo());
     eventBus.on('action:search', () => this.showSearch());
 
+    // Nové akce - Nástroje a Nastavení
+    eventBus.on('action:screenshot', () => this.takeScreenshot());
+    eventBus.on('action:seo', () => this.analyzeSEO());
+    eventBus.on('action:devices', () => this.showDevicesPanel());
+    eventBus.on('settings:show', () => this.showSettingsModal());
+    eventBus.on('action:publish', () => this.publishCode());
+
     // Nové akce pro správu tabů
+    eventBus.on('action:closeTab', () => this.closeActiveTab());
     eventBus.on('action:closeOtherTabs', () => this.closeOtherTabs());
     eventBus.on('action:closeAllTabs', () => this.closeAllTabs());
     eventBus.on('action:saveAllTabs', () => this.saveAllTabs());
@@ -595,14 +603,118 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
 
   async formatCode() {
     const code = state.get('editor.code');
+    if (!code) {
+      toast.warning('Žádný kód k formátování', 2000);
+      return;
+    }
 
     try {
-      // TODO: Integrate beautifier
-      // For now, just emit event
-      eventBus.emit('code:format', { code });
-      toast.success('Kód naformátován', 2000);
+      toast.info('Formátuji kód...', 1500);
+
+      // Simple HTML formatter
+      let formatted = code;
+      let indent = 0;
+      const tab = '  '; // 2 spaces
+
+      // Split by tags but keep content
+      const tokens = code.split(/(<[^>]+>)/g).filter(t => t.trim());
+
+      const selfClosingTags = ['br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr'];
+      const inlineTags = ['a', 'span', 'strong', 'em', 'b', 'i', 'u', 'small', 'code', 'kbd', 'sub', 'sup'];
+      const preserveWhitespace = ['pre', 'code', 'textarea', 'script', 'style'];
+
+      let inPreserve = false;
+      let preserveTag = '';
+      let result = [];
+      let currentLine = '';
+
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+
+        // Check for preserve whitespace tags
+        const preserveStart = token.match(/<(pre|code|textarea|script|style)(\s|>)/i);
+        const preserveEnd = token.match(/<\/(pre|code|textarea|script|style)>/i);
+
+        if (preserveStart) {
+          inPreserve = true;
+          preserveTag = preserveStart[1].toLowerCase();
+        }
+
+        if (inPreserve) {
+          currentLine += token;
+          if (preserveEnd && preserveEnd[1].toLowerCase() === preserveTag) {
+            inPreserve = false;
+            preserveTag = '';
+          }
+          continue;
+        }
+
+        // Is it a tag?
+        if (token.startsWith('<')) {
+          const tagMatch = token.match(/<\/?(\w+)/);
+          const tagName = tagMatch ? tagMatch[1].toLowerCase() : '';
+          const isClosing = token.startsWith('</');
+          const isSelfClosing = selfClosingTags.includes(tagName) || token.endsWith('/>');
+          const isInline = inlineTags.includes(tagName);
+
+          // Flush current line
+          if (currentLine.trim()) {
+            result.push(tab.repeat(indent) + currentLine.trim());
+            currentLine = '';
+          }
+
+          if (isClosing) {
+            indent = Math.max(0, indent - 1);
+          }
+
+          if (isInline && !isClosing) {
+            currentLine += token;
+          } else {
+            result.push(tab.repeat(indent) + token);
+          }
+
+          if (!isClosing && !isSelfClosing && !isInline) {
+            indent++;
+          }
+        } else {
+          // Text content
+          const trimmed = token.trim();
+          if (trimmed) {
+            if (currentLine) {
+              currentLine += ' ' + trimmed;
+            } else {
+              currentLine = trimmed;
+            }
+          }
+        }
+      }
+
+      // Flush remaining
+      if (currentLine.trim()) {
+        result.push(tab.repeat(indent) + currentLine.trim());
+      }
+
+      formatted = result.join('\n');
+
+      // Clean up extra blank lines
+      formatted = formatted.replace(/\n{3,}/g, '\n\n');
+
+      // Update editor
+      if (this.editor) {
+        this.editor.setCode(formatted);
+      }
+      state.set('editor.code', formatted);
+
+      // Update preview
+      if (this.preview) {
+        this.preview.update(formatted);
+      }
+
+      eventBus.emit('code:format', { code: formatted });
+      toast.success('✨ Kód naformátován', 2000);
     } catch (error) {
-      toast.error('Chyba při formátování', 3000);
+      console.error('Format error:', error);
+      toast.error('Chyba při formátování: ' + error.message, 3000);
     }
   }
 
@@ -632,13 +744,685 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
   }
 
   async validateCode() {
-    toast.info('Validace kódu...', 2000);
-    // TODO: Implement HTML validation
+    const code = state.get('editor.code');
+    if (!code) {
+      toast.warning('Žádný kód k validaci', 2000);
+      return;
+    }
+
+    toast.info('Validace kódu...', 1500);
+
+    const errors = [];
+    const warnings = [];
+
+    // Basic HTML structure validation
+    const hasDoctype = /<!DOCTYPE\s+html>/i.test(code);
+    const hasHtmlTag = /<html[^>]*>/i.test(code);
+    const hasHeadTag = /<head[^>]*>/i.test(code);
+    const hasBodyTag = /<body[^>]*>/i.test(code);
+    const hasTitleTag = /<title[^>]*>/i.test(code);
+    const hasMetaCharset = /<meta[^>]*charset[^>]*>/i.test(code);
+    const hasMetaViewport = /<meta[^>]*viewport[^>]*>/i.test(code);
+
+    if (!hasDoctype) errors.push('❌ Chybí DOCTYPE deklarace');
+    if (!hasHtmlTag) errors.push('❌ Chybí <html> tag');
+    if (!hasHeadTag) errors.push('❌ Chybí <head> tag');
+    if (!hasBodyTag) errors.push('❌ Chybí <body> tag');
+    if (!hasTitleTag) warnings.push('⚠️ Chybí <title> tag');
+    if (!hasMetaCharset) warnings.push('⚠️ Chybí meta charset');
+    if (!hasMetaViewport) warnings.push('⚠️ Chybí meta viewport');
+
+    // Check for unclosed tags
+    const selfClosingTags = ['br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr'];
+    const tagPattern = /<(\w+)[^>]*>/gi;
+    const closingTagPattern = /<\/(\w+)>/gi;
+
+    const openTags = {};
+    const closedTags = {};
+
+    let match;
+    while ((match = tagPattern.exec(code)) !== null) {
+      const tag = match[1].toLowerCase();
+      if (!selfClosingTags.includes(tag)) {
+        openTags[tag] = (openTags[tag] || 0) + 1;
+      }
+    }
+    while ((match = closingTagPattern.exec(code)) !== null) {
+      const tag = match[1].toLowerCase();
+      closedTags[tag] = (closedTags[tag] || 0) + 1;
+    }
+
+    for (const tag in openTags) {
+      const opened = openTags[tag] || 0;
+      const closed = closedTags[tag] || 0;
+      if (opened > closed) {
+        warnings.push(`⚠️ Možná neuzavřený tag <${tag}> (${opened} otevřených, ${closed} uzavřených)`);
+      }
+    }
+
+    // Check for images without alt
+    const imgWithoutAlt = /<img(?![^>]*\balt\s*=)[^>]*>/gi;
+    if (imgWithoutAlt.test(code)) {
+      warnings.push('⚠️ Některé <img> nemají atribut alt (přístupnost)');
+    }
+
+    // Check for inline styles (code quality)
+    const inlineStyles = code.match(/style\s*=\s*["'][^"']+["']/gi);
+    if (inlineStyles && inlineStyles.length > 3) {
+      warnings.push(`⚠️ Mnoho inline stylů (${inlineStyles.length}x) - zvažte použití CSS`);
+    }
+
+    // Show results
+    const totalIssues = errors.length + warnings.length;
+
+    if (totalIssues === 0) {
+      toast.success('✅ HTML je validní! Žádné problémy nenalezeny.', 3000);
+    } else {
+      const allMessages = [...errors, ...warnings];
+      const resultHtml = `
+        <div style="text-align: left; max-height: 300px; overflow-y: auto;">
+          <h3 style="margin: 0 0 12px 0;">${errors.length > 0 ? '❌' : '⚠️'} Výsledek validace</h3>
+          <p style="margin: 0 0 12px 0; opacity: 0.7;">Nalezeno ${errors.length} chyb a ${warnings.length} varování</p>
+          <div style="font-size: 14px; line-height: 1.6;">
+            ${allMessages.map(msg => `<div style="padding: 4px 0;">${msg}</div>`).join('')}
+          </div>
+        </div>
+      `;
+      this.showResultModal('Validace HTML', resultHtml);
+    }
   }
 
   async minifyCode() {
-    toast.info('Minifikace kódu...', 2000);
-    // TODO: Implement code minification
+    const code = state.get('editor.code');
+    if (!code) {
+      toast.warning('Žádný kód k minifikaci', 2000);
+      return;
+    }
+
+    toast.info('Minifikace kódu...', 1500);
+
+    try {
+      // Simple HTML minification
+      let minified = code
+        // Remove HTML comments (but not IE conditionals)
+        .replace(/<!--(?!\[)[\s\S]*?(?!])-->/g, '')
+        // Remove whitespace between tags
+        .replace(/>\s+</g, '><')
+        // Remove leading/trailing whitespace on lines
+        .replace(/^\s+|\s+$/gm, '')
+        // Collapse multiple spaces to single space
+        .replace(/\s{2,}/g, ' ')
+        // Remove newlines
+        .replace(/\n/g, '')
+        // Minify inline CSS
+        .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (match, css) => {
+          const minCss = css
+            .replace(/\/\*[\s\S]*?\*\//g, '') // Remove CSS comments
+            .replace(/\s*{\s*/g, '{')
+            .replace(/\s*}\s*/g, '}')
+            .replace(/\s*:\s*/g, ':')
+            .replace(/\s*;\s*/g, ';')
+            .replace(/;\}/g, '}')
+            .trim();
+          return `<style>${minCss}</style>`;
+        })
+        // Minify inline JavaScript
+        .replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, (match, js) => {
+          if (match.includes('src=')) return match; // Don't modify external scripts
+          const minJs = js
+            .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments
+            .replace(/\/\/[^\n]*/g, '') // Remove line comments
+            .replace(/\s*([=+\-*/%<>!&|,;{}()])\s*/g, '$1')
+            .trim();
+          return `<script>${minJs}</script>`;
+        });
+
+      const originalSize = new Blob([code]).size;
+      const minifiedSize = new Blob([minified]).size;
+      const savings = ((1 - minifiedSize / originalSize) * 100).toFixed(1);
+
+      // Update editor
+      if (this.editor) {
+        this.editor.setCode(minified);
+      }
+      state.set('editor.code', minified);
+
+      // Update preview
+      if (this.preview) {
+        this.preview.update(minified);
+      }
+
+      toast.success(`✅ Minifikováno! Ušetřeno ${savings}% (${originalSize - minifiedSize} bajtů)`, 4000);
+    } catch (error) {
+      console.error('Minification error:', error);
+      toast.error('Chyba při minifikaci: ' + error.message, 3000);
+    }
+  }
+
+  /**
+   * Zobrazí modal s výsledky
+   */
+  showResultModal(title, content) {
+    const modal = document.createElement('div');
+    modal.className = 'result-modal-overlay';
+    modal.innerHTML = `
+      <div class="result-modal">
+        <div class="result-modal-header">
+          <h2>${title}</h2>
+          <button class="result-modal-close">×</button>
+        </div>
+        <div class="result-modal-content">
+          ${content}
+        </div>
+        <div class="result-modal-footer">
+          <button class="btn-primary result-modal-ok">OK</button>
+        </div>
+      </div>
+    `;
+
+    // Styles
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6); display: flex; align-items: center;
+      justify-content: center; z-index: 10000;
+    `;
+    const modalBox = modal.querySelector('.result-modal');
+    modalBox.style.cssText = `
+      background: var(--bg-primary, #1e1e1e); border-radius: 12px;
+      padding: 20px; max-width: 500px; width: 90%; color: var(--text-primary, #fff);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    `;
+    modal.querySelector('.result-modal-header').style.cssText = `
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+    `;
+    modal.querySelector('h2').style.cssText = 'margin: 0; font-size: 18px;';
+    modal.querySelector('.result-modal-close').style.cssText = `
+      background: none; border: none; font-size: 24px; cursor: pointer; color: inherit; opacity: 0.7;
+    `;
+    modal.querySelector('.result-modal-footer').style.cssText = `
+      margin-top: 20px; text-align: right;
+    `;
+    modal.querySelector('.btn-primary').style.cssText = `
+      background: var(--accent, #007acc); color: white; border: none;
+      padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;
+    `;
+
+    // Close handlers
+    const close = () => modal.remove();
+    modal.querySelector('.result-modal-close').onclick = close;
+    modal.querySelector('.result-modal-ok').onclick = close;
+    modal.onclick = (e) => { if (e.target === modal) close(); };
+
+    document.body.appendChild(modal);
+  }
+
+  /**
+   * Pořídí screenshot náhledu
+   */
+  async takeScreenshot() {
+    toast.info('Pořizuji screenshot...', 1500);
+
+    const previewFrame = document.querySelector('#previewContainer iframe');
+    if (!previewFrame) {
+      toast.error('Náhled není k dispozici', 2000);
+      return;
+    }
+
+    // Zkontroluj, zda je contentDocument přístupný
+    let contentDoc;
+    try {
+      contentDoc = previewFrame.contentDocument || previewFrame.contentWindow?.document;
+    } catch (e) {
+      // Cross-origin restriction
+      contentDoc = null;
+    }
+
+    if (!contentDoc || !contentDoc.body) {
+      // Fallback - použij aktuální kód z editoru
+      const code = state.get('editor.code');
+      if (!code) {
+        toast.error('Žádný obsah k zachycení', 2000);
+        return;
+      }
+
+      // Vytvoř data URL a stáhni jako HTML
+      const blob = new Blob([code], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'preview.html';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('📄 HTML staženo (screenshot není dostupný)', 2000);
+      return;
+    }
+
+    try {
+      // Zkusíme použít html2canvas pokud je k dispozici
+      if (typeof html2canvas !== 'undefined') {
+        const canvas = await html2canvas(contentDoc.body, {
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff'
+        });
+
+        // Stáhnout jako obrázek
+        const link = document.createElement('a');
+        link.download = 'screenshot.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        toast.success('📸 Screenshot stažen!', 2000);
+      } else {
+        // Fallback - zkopírovat HTML do schránky
+        const html = contentDoc.documentElement.outerHTML;
+        await navigator.clipboard.writeText(html);
+        toast.info('📋 HTML zkopírováno (html2canvas není k dispozici)', 3000);
+      }
+    } catch (error) {
+      console.error('Screenshot error:', error);
+
+      // Poslední fallback - stáhni HTML z editoru
+      const code = state.get('editor.code');
+      if (code) {
+        const blob = new Blob([code], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'preview.html';
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('📄 HTML staženo jako alternativa', 2000);
+      } else {
+        toast.error('Chyba při pořizování screenshotu', 2000);
+      }
+    }
+  }
+
+  /**
+   * Analyzuje SEO stránky
+   */
+  analyzeSEO() {
+    const code = state.get('editor.code');
+    if (!code) {
+      toast.warning('Žádný kód k analýze', 2000);
+      return;
+    }
+
+    const results = [];
+    let score = 100;
+
+    // Check title
+    const titleMatch = code.match(/<title[^>]*>(.*?)<\/title>/i);
+    if (!titleMatch) {
+      results.push({ type: 'error', text: '❌ Chybí title tag' });
+      score -= 15;
+    } else if (titleMatch[1].length < 30) {
+      results.push({ type: 'warning', text: '⚠️ Title je příliš krátký (doporučeno 50-60 znaků)' });
+      score -= 5;
+    } else if (titleMatch[1].length > 60) {
+      results.push({ type: 'warning', text: '⚠️ Title je příliš dlouhý (doporučeno 50-60 znaků)' });
+      score -= 5;
+    } else {
+      results.push({ type: 'success', text: '✅ Title je v pořádku' });
+    }
+
+    // Check meta description
+    const descMatch = code.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
+    if (!descMatch) {
+      results.push({ type: 'error', text: '❌ Chybí meta description' });
+      score -= 15;
+    } else if (descMatch[1].length < 120) {
+      results.push({ type: 'warning', text: '⚠️ Meta description je krátký (doporučeno 150-160 znaků)' });
+      score -= 5;
+    } else {
+      results.push({ type: 'success', text: '✅ Meta description je v pořádku' });
+    }
+
+    // Check headings
+    const h1Count = (code.match(/<h1[^>]*>/gi) || []).length;
+    if (h1Count === 0) {
+      results.push({ type: 'error', text: '❌ Chybí H1 nadpis' });
+      score -= 10;
+    } else if (h1Count > 1) {
+      results.push({ type: 'warning', text: `⚠️ Více než jeden H1 nadpis (${h1Count}x)` });
+      score -= 5;
+    } else {
+      results.push({ type: 'success', text: '✅ Jeden H1 nadpis' });
+    }
+
+    // Check images alt
+    const images = code.match(/<img[^>]*>/gi) || [];
+    const imagesWithoutAlt = images.filter(img => !img.includes('alt=')).length;
+    if (imagesWithoutAlt > 0) {
+      results.push({ type: 'warning', text: `⚠️ ${imagesWithoutAlt} obrázků bez alt textu` });
+      score -= imagesWithoutAlt * 3;
+    } else if (images.length > 0) {
+      results.push({ type: 'success', text: '✅ Všechny obrázky mají alt text' });
+    }
+
+    // Check meta viewport
+    if (!/<meta[^>]*viewport/i.test(code)) {
+      results.push({ type: 'warning', text: '⚠️ Chybí meta viewport (mobilní optimalizace)' });
+      score -= 10;
+    } else {
+      results.push({ type: 'success', text: '✅ Meta viewport je nastaven' });
+    }
+
+    // Check canonical
+    if (!/<link[^>]*rel=["']canonical["']/i.test(code)) {
+      results.push({ type: 'info', text: 'ℹ️ Zvažte přidání canonical URL' });
+    }
+
+    // Check Open Graph
+    if (!/<meta[^>]*property=["']og:/i.test(code)) {
+      results.push({ type: 'info', text: 'ℹ️ Chybí Open Graph tagy (sdílení na sociálních sítích)' });
+    }
+
+    score = Math.max(0, score);
+    const scoreColor = score >= 80 ? '#4caf50' : score >= 50 ? '#ff9800' : '#f44336';
+
+    const content = `
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 48px; font-weight: bold; color: ${scoreColor};">${score}</div>
+        <div style="opacity: 0.7;">SEO skóre</div>
+      </div>
+      <div style="text-align: left; max-height: 300px; overflow-y: auto;">
+        ${results.map(r => `
+          <div style="padding: 8px 0; border-bottom: 1px solid var(--border, #333);">
+            ${r.text}
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    this.showResultModal('🔍 SEO Analýza', content);
+  }
+
+  /**
+   * Zobrazí panel pro výběr zařízení (responsivní náhled)
+   */
+  showDevicesPanel() {
+    const devices = [
+      { name: 'iPhone SE', width: 375, height: 667, icon: '📱' },
+      { name: 'iPhone 14', width: 390, height: 844, icon: '📱' },
+      { name: 'iPhone 14 Pro Max', width: 430, height: 932, icon: '📱' },
+      { name: 'iPad Mini', width: 768, height: 1024, icon: '📱' },
+      { name: 'iPad Pro', width: 1024, height: 1366, icon: '📱' },
+      { name: 'Android Small', width: 360, height: 640, icon: '📱' },
+      { name: 'Android Large', width: 412, height: 915, icon: '📱' },
+      { name: 'Laptop', width: 1366, height: 768, icon: '💻' },
+      { name: 'Desktop', width: 1920, height: 1080, icon: '🖥️' },
+      { name: 'Responzivní (100%)', width: 0, height: 0, icon: '🔄' }
+    ];
+
+    const content = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+        ${devices.map(d => `
+          <button class="device-btn" data-width="${d.width}" data-height="${d.height}"
+            style="padding: 16px; border: 1px solid var(--border, #333); border-radius: 8px;
+            background: var(--bg-secondary, #2d2d2d); cursor: pointer; text-align: center;
+            transition: all 0.2s; color: inherit;">
+            <div style="font-size: 24px; margin-bottom: 8px;">${d.icon}</div>
+            <div style="font-weight: 500;">${d.name}</div>
+            ${d.width ? `<div style="font-size: 12px; opacity: 0.6;">${d.width}×${d.height}</div>` : ''}
+          </button>
+        `).join('')}
+      </div>
+    `;
+
+    this.showResultModal('📱 Náhled na zařízení', content);
+
+    // Attach event listeners
+    setTimeout(() => {
+      document.querySelectorAll('.device-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const width = parseInt(btn.dataset.width);
+          const height = parseInt(btn.dataset.height);
+          this.setPreviewSize(width, height);
+          document.querySelector('.result-modal-overlay')?.remove();
+        });
+        btn.addEventListener('mouseenter', () => {
+          btn.style.background = 'var(--accent, #007acc)';
+          btn.style.borderColor = 'var(--accent, #007acc)';
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.background = 'var(--bg-secondary, #2d2d2d)';
+          btn.style.borderColor = 'var(--border, #333)';
+        });
+      });
+    }, 100);
+  }
+
+  /**
+   * Nastaví velikost náhledu
+   */
+  setPreviewSize(width, height) {
+    const preview = document.querySelector('#previewContainer');
+    const iframe = preview?.querySelector('iframe');
+
+    if (!preview || !iframe) {
+      toast.error('Náhled není k dispozici', 2000);
+      return;
+    }
+
+    if (width === 0) {
+      // Responzivní - plná šířka
+      preview.style.maxWidth = '';
+      preview.style.margin = '';
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      toast.success('🔄 Responzivní režim', 2000);
+    } else {
+      preview.style.maxWidth = width + 'px';
+      preview.style.margin = '0 auto';
+      iframe.style.width = width + 'px';
+      iframe.style.height = height + 'px';
+      toast.success(`📱 Náhled: ${width}×${height}px`, 2000);
+    }
+  }
+
+  /**
+   * Zobrazí modal s nastavením aplikace
+   */
+  showSettingsModal() {
+    const currentTheme = state.get('ui.theme') || 'dark';
+    const autoSave = localStorage.getItem('autoSave') === 'true';
+    const fontSize = localStorage.getItem('editorFontSize') || '14';
+
+    const content = `
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="setting-group">
+          <label style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border, #333);">
+            <span>🎨 Téma</span>
+            <select id="settingTheme" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-secondary); border: 1px solid var(--border); color: inherit;">
+              <option value="dark" ${currentTheme === 'dark' ? 'selected' : ''}>Tmavé</option>
+              <option value="light" ${currentTheme === 'light' ? 'selected' : ''}>Světlé</option>
+            </select>
+          </label>
+
+          <label style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border, #333);">
+            <span>💾 Automatické ukládání</span>
+            <input type="checkbox" id="settingAutoSave" ${autoSave ? 'checked' : ''}
+              style="width: 20px; height: 20px; cursor: pointer;">
+          </label>
+
+          <label style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border, #333);">
+            <span>🔤 Velikost písma editoru</span>
+            <select id="settingFontSize" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-secondary); border: 1px solid var(--border); color: inherit;">
+              <option value="12" ${fontSize === '12' ? 'selected' : ''}>12px</option>
+              <option value="14" ${fontSize === '14' ? 'selected' : ''}>14px</option>
+              <option value="16" ${fontSize === '16' ? 'selected' : ''}>16px</option>
+              <option value="18" ${fontSize === '18' ? 'selected' : ''}>18px</option>
+              <option value="20" ${fontSize === '20' ? 'selected' : ''}>20px</option>
+            </select>
+          </label>
+
+          <label style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
+            <span>🗑️ Vymazat lokální data</span>
+            <button id="settingClearData" style="padding: 8px 16px; border-radius: 6px; background: #f44336; border: none; color: white; cursor: pointer;">
+              Vymazat
+            </button>
+          </label>
+        </div>
+      </div>
+    `;
+
+    this.showResultModal('⚙️ Nastavení', content);
+
+    // Attach event listeners
+    setTimeout(() => {
+      document.getElementById('settingTheme')?.addEventListener('change', (e) => {
+        const theme = e.target.value;
+        state.set('ui.theme', theme);
+        this.applyTheme(theme);
+        toast.success(`Téma změněno na ${theme === 'dark' ? 'tmavé' : 'světlé'}`, 2000);
+      });
+
+      document.getElementById('settingAutoSave')?.addEventListener('change', (e) => {
+        localStorage.setItem('autoSave', e.target.checked);
+        toast.success(`Automatické ukládání ${e.target.checked ? 'zapnuto' : 'vypnuto'}`, 2000);
+      });
+
+      document.getElementById('settingFontSize')?.addEventListener('change', (e) => {
+        const size = e.target.value;
+        localStorage.setItem('editorFontSize', size);
+        document.documentElement.style.setProperty('--editor-font-size', size + 'px');
+        if (this.editor && this.editor.cm) {
+          // Aktualizovat CodeMirror font size
+          this.editor.cm.getWrapperElement().style.fontSize = size + 'px';
+          this.editor.cm.refresh();
+        }
+        toast.success(`Velikost písma: ${size}px`, 2000);
+      });
+
+      document.getElementById('settingClearData')?.addEventListener('click', () => {
+        if (confirm('Opravdu chcete vymazat všechna lokální data? Tato akce je nevratná!')) {
+          localStorage.clear();
+          sessionStorage.clear();
+          toast.success('Data vymazána. Stránka se obnoví...', 2000);
+          setTimeout(() => location.reload(), 2000);
+        }
+      });
+    }, 100);
+  }
+
+  /**
+   * Publikuje kód (exportuje nebo sdílí)
+   */
+  publishCode() {
+    const code = state.get('editor.code');
+    if (!code) {
+      toast.warning('Žádný kód k publikaci', 2000);
+      return;
+    }
+
+    const content = `
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <button class="publish-option" data-action="download" style="display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--border, #333); border-radius: 8px; background: var(--bg-secondary, #2d2d2d); cursor: pointer; text-align: left; color: inherit; transition: all 0.2s;">
+          <span style="font-size: 24px;">⬇️</span>
+          <div>
+            <div style="font-weight: 500;">Stáhnout HTML</div>
+            <div style="font-size: 12px; opacity: 0.6;">Uloží jako .html soubor</div>
+          </div>
+        </button>
+
+        <button class="publish-option" data-action="zip" style="display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--border, #333); border-radius: 8px; background: var(--bg-secondary, #2d2d2d); cursor: pointer; text-align: left; color: inherit; transition: all 0.2s;">
+          <span style="font-size: 24px;">📦</span>
+          <div>
+            <div style="font-weight: 500;">Stáhnout jako ZIP</div>
+            <div style="font-size: 12px; opacity: 0.6;">Všechny soubory v archivu</div>
+          </div>
+        </button>
+
+        <button class="publish-option" data-action="copy" style="display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--border, #333); border-radius: 8px; background: var(--bg-secondary, #2d2d2d); cursor: pointer; text-align: left; color: inherit; transition: all 0.2s;">
+          <span style="font-size: 24px;">📋</span>
+          <div>
+            <div style="font-weight: 500;">Kopírovat kód</div>
+            <div style="font-size: 12px; opacity: 0.6;">Zkopíruje do schránky</div>
+          </div>
+        </button>
+
+        <button class="publish-option" data-action="dataurl" style="display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--border, #333); border-radius: 8px; background: var(--bg-secondary, #2d2d2d); cursor: pointer; text-align: left; color: inherit; transition: all 0.2s;">
+          <span style="font-size: 24px;">🔗</span>
+          <div>
+            <div style="font-weight: 500;">Data URL</div>
+            <div style="font-size: 12px; opacity: 0.6;">Vytvoří sdílitelný odkaz</div>
+          </div>
+        </button>
+
+        <button class="publish-option" data-action="github" style="display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--border, #333); border-radius: 8px; background: var(--bg-secondary, #2d2d2d); cursor: pointer; text-align: left; color: inherit; transition: all 0.2s;">
+          <span style="font-size: 24px;">🐙</span>
+          <div>
+            <div style="font-weight: 500;">Nahrát na GitHub</div>
+            <div style="font-size: 12px; opacity: 0.6;">Commit do repozitáře</div>
+          </div>
+        </button>
+      </div>
+    `;
+
+    this.showResultModal('🚀 Publikovat', content);
+
+    // Attach event listeners
+    setTimeout(() => {
+      document.querySelectorAll('.publish-option').forEach(btn => {
+        btn.addEventListener('mouseenter', () => {
+          btn.style.background = 'var(--accent, #007acc)';
+          btn.style.borderColor = 'var(--accent, #007acc)';
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.background = 'var(--bg-secondary, #2d2d2d)';
+          btn.style.borderColor = 'var(--border, #333)';
+        });
+        btn.addEventListener('click', () => {
+          const action = btn.dataset.action;
+          document.querySelector('.result-modal-overlay')?.remove();
+
+          switch (action) {
+            case 'download':
+              this.downloadFile();
+              break;
+            case 'zip':
+              this.exportProjectAsZip();
+              break;
+            case 'copy':
+              this.copyCode();
+              break;
+            case 'dataurl':
+              this.createDataUrl();
+              break;
+            case 'github':
+              eventBus.emit('sidebar:toggle');
+              toast.info('Otevřete GitHub panel pro nahrání', 2000);
+              break;
+          }
+        });
+      });
+    }, 100);
+  }
+
+  /**
+   * Vytvoří data URL pro sdílení
+   */
+  createDataUrl() {
+    const code = state.get('editor.code');
+    if (!code) {
+      toast.warning('Žádný kód', 2000);
+      return;
+    }
+
+    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(code);
+
+    // Zkopírovat do schránky
+    navigator.clipboard.writeText(dataUrl).then(() => {
+      toast.success('📋 Data URL zkopírována do schránky!', 3000);
+    }).catch(() => {
+      // Fallback - zobrazit v modalu
+      this.showResultModal('🔗 Data URL', `
+        <p style="margin-bottom: 12px;">Zkopírujte tento odkaz:</p>
+        <textarea style="width: 100%; height: 100px; padding: 8px; font-family: monospace; font-size: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 4px; color: inherit; resize: none;">${dataUrl}</textarea>
+      `);
+    });
   }
 
   newTab() {
@@ -1345,6 +2129,52 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
 
   getRecentFiles() {
     return JSON.parse(localStorage.getItem('recentFiles') || '[]');
+  }
+
+  /**
+   * Zavře aktivní tab
+   */
+  closeActiveTab() {
+    const activeFileId = state.get('files.active');
+    if (!activeFileId) {
+      toast.info('Žádný aktivní soubor', 2000);
+      return;
+    }
+
+    const tabs = state.get('files.tabs') || [];
+    const activeTab = tabs.find(t => t.id === activeFileId);
+
+    if (!activeTab) return;
+
+    // Zkontroluj neuložené změny
+    if (activeTab.modified) {
+      if (!confirm(`Soubor "${activeTab.name}" má neuložené změny. Opravdu zavřít?`)) {
+        return;
+      }
+    }
+
+    // Odeber tab
+    const newTabs = tabs.filter(t => t.id !== activeFileId);
+    state.set('files.tabs', newTabs);
+
+    // Přepni na jiný tab nebo vytvoř nový
+    if (newTabs.length > 0) {
+      const newActive = newTabs[newTabs.length - 1];
+      state.set('files.active', newActive.id);
+      state.set('editor.code', newActive.content || '');
+      if (this.editor) {
+        this.editor.setCode(newActive.content || '');
+      }
+      if (this.preview) {
+        this.preview.update(newActive.content || '');
+      }
+    } else {
+      // Vytvoř nový prázdný tab
+      this.newTab();
+    }
+
+    eventBus.emit('files:changed');
+    toast.success(`Soubor "${activeTab.name}" zavřen`, 2000);
   }
 
   closeOtherTabs() {

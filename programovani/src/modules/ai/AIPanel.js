@@ -30,6 +30,8 @@ import { ProviderService } from './services/ProviderService.js';
 import { ErrorHandlingService } from './services/ErrorHandlingService.js';
 import { ModalBuilderService } from './services/ModalBuilderService.js';
 import { MessageProcessingService } from './services/MessageProcessingService.js';
+// Advanced AI Settings Modal
+import { getAISettingsModal } from './components/AISettingsModal.js';
 
 export class AIPanel {
   constructor() {
@@ -90,13 +92,14 @@ export class AIPanel {
       { event: 'ai:hide', handler: () => this.hide() },
       { event: 'ai:sendMessage', handler: (data) => this.sendMessage(data.message) },
       { event: 'aiSettings:show', handler: () => this.showSettings() },
+      { event: 'aiSettings:showAdvanced', handler: () => getAISettingsModal().show() },
       { event: 'console:errorCountChanged', handler: (data) => this.updateErrorIndicator(data.count) },
       { event: 'ai:github-search', handler: () => this.githubService.showGitHubSearchDialog() },
       {
         event: 'github:showLoginModal',
         handler: async ({ callback }) => {
           try {
-            const result = await this.showGitHubLoginModal();
+            const result = await this.githubService.showGitHubLoginModal();
             if (result && callback) {
               callback(result);
             }
@@ -213,6 +216,7 @@ export class AIPanel {
                 <option value="">Načítání...</option>
               </select>
             </div>
+            <button class="ai-advanced-settings-btn" type="button">⚙️ Pokročilé nastavení</button>
           </div>
         </div>
       </div>`,
@@ -288,6 +292,22 @@ export class AIPanel {
       });
     } else {
       console.error('Settings toggle or content not found!');
+    }
+
+    // Add click listener for advanced settings button
+    const advancedSettingsBtn = this.modal.element.querySelector('.ai-advanced-settings-btn');
+    if (advancedSettingsBtn) {
+      advancedSettingsBtn.addEventListener('click', () => {
+        // Close the dropdown
+        if (settingsContent) {
+          settingsContent.classList.add('hidden');
+          if (toggleArrow) {
+            toggleArrow.style.transform = 'rotate(0deg)';
+          }
+        }
+        // Open advanced settings modal
+        eventBus.emit('aiSettings:showAdvanced');
+      });
     }
   }
 
@@ -657,7 +677,7 @@ export class AIPanel {
                   id="githubToken"
                   class="github-token-input"
                   placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                  value="${this.getStoredToken()}"
+                  value="${this.githubService.getStoredToken() || ''}"
                 />
                 <div class="github-auth-buttons">
                   <button class="ai-btn-primary" id="saveGithubToken">Uložit token</button>
@@ -985,13 +1005,13 @@ export class AIPanel {
     promptItems.forEach(item => {
       item.addEventListener('click', () => {
         const promptId = item.dataset.prompt;
-        this.usePrompt(promptId);
+        this.templatesService.usePrompt(promptId);
       });
     });
 
     const addPromptBtn = this.modal.element.querySelector('#addPromptBtn');
     if (addPromptBtn) {
-      addPromptBtn.addEventListener('click', () => this.addCustomPrompt());
+      addPromptBtn.addEventListener('click', () => this.templatesService.addCustomPrompt());
     }
 
     // GitHub actions
