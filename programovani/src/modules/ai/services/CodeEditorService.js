@@ -79,10 +79,12 @@ export class CodeEditorService {
           searchCode.toLowerCase().includes(p.toLowerCase())
         );
 
-        const isTooShort = searchCode.length < 5;
+        // Krátký obsah je OK pokud není placeholder (např. emoji změna)
+        // Odmítnout pouze pokud je prázdný nebo obsahuje pouze whitespace
+        const isEmpty = !searchCode.trim();
 
-        if (!searchCode || hasPlaceholder || isTooShort) {
-          console.warn('[CodeEditor] ⚠️ Skipping invalid block (placeholder/too short)');
+        if (isEmpty || hasPlaceholder) {
+          console.warn('[CodeEditor] ⚠️ Skipping invalid block (empty/placeholder)');
           continue;
         }
 

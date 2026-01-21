@@ -1878,6 +1878,22 @@ const AI = {
     _fallbackToNextModel(prompt, options, failedProvider, failedModel) {
         console.log('🔄 Fallback from:', failedProvider, failedModel);
 
+        // Sleduj vyzkoušené modely pro prevenci nekonečné smyčky
+        const triedModels = options._triedModels || [];
+        const currentKey = `${failedProvider}:${failedModel}`;
+
+        // Přidej aktuální model do seznamu vyzkoušených
+        if (!triedModels.includes(currentKey)) {
+            triedModels.push(currentKey);
+        }
+
+        // Limit na počet pokusů (max 10 různých modelů)
+        const MAX_FALLBACK_ATTEMPTS = 10;
+        if (triedModels.length >= MAX_FALLBACK_ATTEMPTS) {
+            console.log('🛑 Max fallback attempts reached:', triedModels.length);
+            throw new Error(`Dosažen limit ${MAX_FALLBACK_ATTEMPTS} pokusů fallback`);
+        }
+
         // Nejdřív zkus jiné modely u stejného providera
         const allProviders = this.getAllProvidersWithModels();
         const currentProviderModels = allProviders[failedProvider]?.models || [];
@@ -1891,6 +1907,14 @@ const AI = {
                 if (i === currentModelIndex) continue; // Přeskoč selhavší model
 
                 const nextModel = currentProviderModels[i].value;
+                const nextKey = `${failedProvider}:${nextModel}`;
+
+                // Přeskoč už vyzkoušené modely
+                if (triedModels.includes(nextKey)) {
+                    console.log('⏭️ Skipping already tried:', nextKey);
+                    continue;
+                }
+
                 console.log(`✅ Trying another model from ${failedProvider}:`, nextModel);
 
                 try {
@@ -1900,7 +1924,7 @@ const AI = {
                         model: nextModel,
                         _keyRotations: 0,
                         autoFallback: true,
-                        _triedModels: [...(options._triedModels || []), `${failedProvider}:${failedModel}`]
+                        _triedModels: [...triedModels, nextKey]
                     });
                 } catch (e) {
                     console.log('❌ Model failed:', nextModel, e.message);
@@ -1928,6 +1952,14 @@ const AI = {
 
             // Vezmi první (výchozí) model tohoto providera
             const nextModel = this.config.models[nextProvider];
+            const nextKey = `${nextProvider}:${nextModel}`;
+
+            // Přeskoč už vyzkoušené
+            if (triedModels.includes(nextKey)) {
+                console.log('⏭️ Skipping already tried provider:', nextKey);
+                continue;
+            }
+
             console.log('✅ Trying fallback to:', nextProvider, nextModel);
 
             try {
@@ -1936,7 +1968,8 @@ const AI = {
                     provider: nextProvider,
                     model: nextModel,
                     _keyRotations: 0, // Reset rotace pro nového providera
-                    autoFallback: true
+                    autoFallback: true,
+                    _triedModels: [...triedModels, nextKey]
                 });
             } catch (e) {
                 console.log('❌ Fallback failed for', nextProvider, e.message);

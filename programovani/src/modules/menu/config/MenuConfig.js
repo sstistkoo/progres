@@ -9,15 +9,14 @@ export const MENU_SECTIONS = [
     title: '⚙️ Nastavení',
     items: [
       { icon: '🤖', label: 'Nastavení AI', action: 'aiSettings' },
+      { icon: '⚙️', label: 'Pokročilé AI nastavení', action: 'aiSettingsAdvanced' },
       { icon: '🎨', label: 'Přepnout téma', action: 'theme' }
     ]
   },
   {
     id: 'tools',
-    title: '🛠️ Pokročilé nástroje',
+    title: '🛠️ Nástroje',
     items: [
-      { icon: '📐', label: 'CSS Grid/Flex editor', action: 'gridEditor' },
-      { icon: '🌐', label: 'Živý server', action: 'liveServer' },
       { icon: '📄', label: 'Vytvořit .gitignore', action: 'gitignore' },
       { icon: '🔄', label: 'Nahradit v kódu', action: 'replace', shortcut: 'Ctrl+H' }
     ]
@@ -33,19 +32,11 @@ export const MENU_SECTIONS = [
     ]
   },
   {
-    id: 'sharing',
-    title: '🔗 Sdílení',
-    items: [
-      { icon: '🔗', label: 'Sdílet odkaz', action: 'share' }
-    ]
-  },
-  {
     id: 'github',
     title: '🐙 GitHub',
     items: [
       { icon: '🔍', label: 'Hledat na GitHubu', action: 'github-search' },
-      { icon: '🌐', label: 'Načíst z URL', action: 'load-from-url' },
-      { icon: '🚀', label: 'Deploy projekt', action: 'deploy' }
+      { icon: '🌐', label: 'Načíst z URL', action: 'load-from-url' }
     ]
   },
   {
