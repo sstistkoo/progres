@@ -85,6 +85,29 @@
         }
       };
 
+      // Toggle DevTools (otevře/zavře)
+      window.toggleDevTools = function () {
+        if (typeof eruda === 'undefined') {
+          alert('DevTools (Eruda) není dostupný');
+          return;
+        }
+
+        // Pokud není inicializován, inicializuj a ukaž
+        if (!eruda._isInit) {
+          window.initDevTools();
+          return;
+        }
+
+        // Toggle - pokud je vidět, schovej, jinak ukaž
+        if (eruda._devTools && eruda._devTools._isShow) {
+          eruda.hide();
+          console.log('🛠️ DevTools skryty');
+        } else {
+          eruda.show();
+          console.log('🛠️ DevTools zobrazeny');
+        }
+      };
+
       console.log('📱 DevTools ready - open via Menu > DevTools or call initDevTools()');
     </script>
 
@@ -458,13 +481,18 @@
           safeEmit('action:search');
         });
 
-        // DevTools button (Eruda)
+        // DevTools button (Eruda) - toggle open/close
         document.getElementById('devToolsBtn')?.addEventListener('click', () => {
-          if (typeof window.initDevTools === 'function') {
-            window.initDevTools();
+          if (typeof window.toggleDevTools === 'function') {
+            window.toggleDevTools();
           } else if (typeof eruda !== 'undefined') {
-            eruda.init();
-            eruda.show();
+            // Fallback
+            if (eruda._isInit && eruda._devTools?._isShow) {
+              eruda.hide();
+            } else {
+              if (!eruda._isInit) eruda.init();
+              eruda.show();
+            }
           } else {
             alert('DevTools (Eruda) není dostupný');
           }
