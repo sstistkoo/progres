@@ -119,6 +119,7 @@ Odpověz přátelsky a užitečně. Pokud je to vhodné, použij emoji pro lepš
 
   /**
    * Formátuje kód pro context podle typu úpravy
+   * 🔴 DŮLEŽITÉ: Pro editaci VŽDY posíláme celý kód, aby AI mohl přesně identifikovat co změnit!
    */
   formatCodeContext(currentCode, message, hasCode) {
     if (!currentCode) {
@@ -130,7 +131,7 @@ Odpověz přátelsky a užitečně. Pokud je to vhodné, použij emoji pro lepš
     // Detect if AI will likely use EDIT:LINES mode
     // Expanded keywords for better detection of edit requests
     const willEdit = hasCode && (
-      msg.match(/změň|change|uprav|edit|oprav|fix|přidej|add|odstraň|odstran|remove|smaž|smaz|delete|vymaž|vymaz|nahraď|nahrad|replace|vyhod|vyhoď|zruš|zrus|skryj|vyřaď|vyrad|zbav\s+se|pryč|pryc|hide|clear|erase|get\s+rid|throw\s+out|ať/) ||
+      msg.match(/změň|change|uprav|edit|oprav|fix|přidej|add|odstraň|odstran|remove|smaž|smaz|delete|vymaž|vymaz|nahraď|nahrad|replace|vyhod|vyhoď|zruš|zrus|skryj|vyřaď|vyrad|zbav\s+se|pryč|pryc|hide|clear|erase|get\s+rid|throw\s+out|ať|vzhled|styl|barv|font|mezera|velikost|pozic|margin|padding/) ||
       msg.includes('celý soubor') ||
       msg.includes('celý kód') ||
       msg.includes('cely soubor') ||
@@ -142,19 +143,116 @@ Odpověz přátelsky a užitečně. Pokud je to vhodné, použij emoji pro lepš
     // Detect READ-ONLY requests (description, analysis) - need full code!
     const isReadOnly = hasCode && msg.match(/popiš|popis|vysvětli|vysvětlení|analyzuj|analýza|co je|co dělá|jak funguje|jaký je|ukáž|zobraz|přečti/);
 
-    // For EDIT mode, READ-ONLY mode, or small files, send full code with line numbers
-    // 🔴 DŮLEŽITÉ: Pro editační požadavky VŽDY posíláme celý kód, aby AI mohl přesně identifikovat co změnit!
-    if (willEdit || isReadOnly || currentCode.length < 8000) {
-      console.log('[PromptBuilder] Sending full code for editing (willEdit:', willEdit, ')');
+    // 🔴 VŽDY posílej celý kód - AI potřebuje vidět kompletní kontext pro přesné úpravy
+    // Limit zvýšen na 50000 znaků (~12500 tokenů) - moderní modely to zvládnou
+    const MAX_CODE_LENGTH = 50000;
+
+    if (currentCode.length <= MAX_CODE_LENGTH) {
+      // Kód se vejde celý - pošli ho s čísly řádků
+      console.log('[PromptBuilder] Sending full code:', currentCode.length, 'chars');
       return this.addLineNumbers(currentCode);
     }
 
-    // Otherwise truncate for context
-    const truncated = this.truncateCodeIntelligently(currentCode, 3000);
+    // Pro velmi velké soubory (>50k) - inteligentní zkrácení
+    console.log('[PromptBuilder] Code too large, truncating from', currentCode.length, 'to ~', MAX_CODE_LENGTH);
+
+    // Pokud je to edit request, zkus najít relevantní sekce
+    if (willEdit || isReadOnly) {
+      // Zkus najít klíčová slova z požadavku v kódu
+      const keywords = msg.match(/\.[\w-]+|#[\w-]+|\b\w{4,}\b/g) || [];
+      const relevantSections = this.findRelevantSections(currentCode, keywords);
+
+      if (relevantSections) {
+        console.log('[PromptBuilder] Found relevant sections for editing');
+        return relevantSections;
+      }
+    }
+
+    // Fallback - truncate intelligently
+    const truncated = this.truncateCodeIntelligently(currentCode, MAX_CODE_LENGTH);
     return this.addLineNumbers(
       typeof truncated === 'string' ? truncated : truncated.code,
       typeof truncated === 'object' ? truncated : null
     );
+  }
+
+  /**
+   * Najde relevantní sekce kódu podle klíčových slov
+   */
+  findRelevantSections(code, keywords) {
+    if (!keywords || keywords.length === 0) return null;
+
+    const lines = code.split('\n');
+    const relevantRanges = [];
+
+    // Hledej řádky obsahující klíčová slova
+    keywords.forEach(keyword => {
+      if (keyword.length < 3) return;
+      const cleanKeyword = keyword.replace(/^[.#]/, '').toLowerCase();
+
+      lines.forEach((line, index) => {
+        if (line.toLowerCase().includes(cleanKeyword)) {
+          // Přidej kontext (5 řádků před a 10 po)
+          const start = Math.max(0, index - 5);
+          const end = Math.min(lines.length - 1, index + 10);
+          relevantRanges.push({ start, end, keyword });
+        }
+      });
+    });
+
+    if (relevantRanges.length === 0) return null;
+
+    // Spoj překrývající se rozsahy
+    const merged = this.mergeRanges(relevantRanges);
+
+    // Sestav výstup
+    let result = '';
+    let lastEnd = -1;
+
+    merged.forEach((range, i) => {
+      if (range.start > lastEnd + 1) {
+        result += `\n... (řádky ${lastEnd + 2}-${range.start} vynechány) ...\n\n`;
+      }
+
+      for (let j = range.start; j <= range.end; j++) {
+        result += `${String(j + 1).padStart(4, ' ')} | ${lines[j]}\n`;
+      }
+      lastEnd = range.end;
+    });
+
+    if (lastEnd < lines.length - 1) {
+      result += `\n... (řádky ${lastEnd + 2}-${lines.length} vynechány) ...\n`;
+    }
+
+    // Přidej info o celkovém souboru
+    result = `📄 Soubor má ${lines.length} řádků, zobrazuji relevantní části:\n\n${result}`;
+
+    return result;
+  }
+
+  /**
+   * Spojí překrývající se rozsahy řádků
+   */
+  mergeRanges(ranges) {
+    if (ranges.length === 0) return [];
+
+    // Seřaď podle začátku
+    const sorted = [...ranges].sort((a, b) => a.start - b.start);
+    const merged = [sorted[0]];
+
+    for (let i = 1; i < sorted.length; i++) {
+      const current = sorted[i];
+      const last = merged[merged.length - 1];
+
+      if (current.start <= last.end + 3) {
+        // Spoj rozsahy
+        last.end = Math.max(last.end, current.end);
+      } else {
+        merged.push(current);
+      }
+    }
+
+    return merged;
   }
 
   /**

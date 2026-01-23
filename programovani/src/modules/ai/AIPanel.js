@@ -346,11 +346,10 @@ export class AIPanel {
 
   /**
    * Aktualizuje UI podle režimu zařízení
+   * Nyní zobrazuje pouze jedno tlačítko bez extra indikátoru
    */
   updateDeviceModeUI() {
     const btn = this.modal?.element?.querySelector('#aiDeviceModeBtn');
-    const indicator = this.modal?.element?.querySelector('.mobile-indicator');
-    const isMobile = this.isMobileDevice();
     const mode = this.getDeviceMode();
 
     if (btn) {
@@ -358,15 +357,6 @@ export class AIPanel {
       const labels = { mobile: 'Mobile', desktop: 'Desktop', auto: 'Auto' };
       btn.innerHTML = `${icons[mode]} ${labels[mode]}`;
       btn.title = `Režim: ${labels[mode]} (klikni pro změnu)`;
-    }
-
-    if (indicator) {
-      if (isMobile) {
-        indicator.style.display = 'inline-flex';
-        indicator.textContent = '📱 Mobile-first režim';
-      } else {
-        indicator.style.display = 'none';
-      }
     }
   }
 
@@ -377,11 +367,8 @@ export class AIPanel {
     const modeIcons = { mobile: '📱', desktop: '🖥️', auto: '🔄' };
     const modeLabels = { mobile: 'Mobile', desktop: 'Desktop', auto: 'Auto' };
 
+    // Pouze jedno tlačítko pro režim - bez extra indikátoru
     const deviceModeBtn = `<button class="ai-device-mode-btn" id="aiDeviceModeBtn" title="Přepnout režim generování kódu (Mobile/Desktop/Auto)">${modeIcons[mode]} ${modeLabels[mode]}</button>`;
-
-    const deviceInfo = isMobile
-      ? `<span class="mobile-indicator" title="AI ví, že jsi na mobilu a generuje mobile-first kód">📱 Mobile-first režim</span>`
-      : '';
 
     const welcomeMessage = isMobile
       ? `Ahoj! 📱 Vidím, že jsi na <strong>mobilním zařízení</strong>. Automaticky generuji <strong>mobile-first</strong> kód optimalizovaný pro dotykové ovládání a menší obrazovky. Co potřebuješ?`
@@ -396,7 +383,6 @@ export class AIPanel {
             <div class="ai-chat-header">
               <span class="chat-history-info" id="chatHistoryInfo">Historie: 0 zpráv</span>
               ${deviceModeBtn}
-              ${deviceInfo}
               <button class="ai-mode-toggle" id="aiModeToggle" title="Přepnout režim práce">
                 <span class="mode-icon">📝</span>
                 <span class="mode-text">Pokračovat</span>
@@ -414,8 +400,7 @@ export class AIPanel {
                 <div class="changed-files-header">
                   <span class="changed-files-count">0 souborů změněno</span>
                   <div class="changed-files-actions">
-                    <button class="keep-changes-btn" title="Nechat všechny změny">Nechat</button>
-                    <button class="revert-changes-btn" title="Vrátit všechny změny zpět">Vrátit zpět</button>
+                    <button class="revert-changes-btn" title="Vrátit všechny změny zpět">↩️ Vrátit zpět</button>
                   </div>
                 </div>
                 <div class="changed-files-list" id="changedFilesList"></div>
@@ -2308,7 +2293,7 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
     this.chatService.addToHistory('user', message);
     this.chatHistory = this.chatService.getHistory();
 
-    // Show loading animation (same style as sendMessage)
+    // Show loading animation
     const loadingId = 'orchestrator-loading-' + Date.now();
     const messagesContainer = this.modal.element.querySelector('#aiChatMessages');
     const loadingMsg = document.createElement('div');
@@ -2320,7 +2305,7 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
           <div class="thinking-dots">
             <span></span><span></span><span></span>
           </div>
-          <p style="margin: 0;">🎭 Orchestrator koordinuje agenty...</p>
+          <p id="orchestrator-status" style="margin: 0;">🎭 Orchestrator koordinuje tým...</p>
         </div>
         <button class="ai-cancel-btn" style="padding: 8px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
@@ -2331,6 +2316,7 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
       </div>
     `;
     messagesContainer.appendChild(loadingMsg);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
     // Add cancel handler
     const loadingCancelBtn = loadingMsg.querySelector('.ai-cancel-btn');
@@ -2339,21 +2325,16 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
         this.cancelRequest();
       };
     }
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Status update function
+    const updateStatus = (text) => {
+      const statusEl = document.getElementById('orchestrator-status');
+      if (statusEl) statusEl.textContent = text;
+    };
 
     try {
-      // Get current code for context (limit to 15000 chars to avoid context overflow)
-      let currentCode = state.get('editor.code') || '';
-      const maxCodeLength = 15000;
-      if (currentCode.length > maxCodeLength) {
-        console.log(`[AIPanel] Kód je příliš dlouhý (${currentCode.length}), ořezávám na ${maxCodeLength} znaků`);
-        currentCode = currentCode.substring(0, maxCodeLength) + '\n... (kód zkrácen) ...';
-      }
-
-      // Check if user wants NEW project (ignore existing code)
+      // Check if user wants NEW project
       const isNewProjectMode = this.workMode === 'new-project';
-
-      // Auto-detect new project from message patterns
       const newProjectPatterns = [
         /vytvoř\s+(nový|novou|nové|mi)/i,
         /create\s+(new|a)/i,
@@ -2365,195 +2346,260 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
         /make\s+me/i,
         /build\s+me/i,
         /nakóduj/i,
-        /naprogramuj/i
+        /naprogramuj/i,
+        /kalkulačk/i,
+        /calculator/i,
+        /stránk/i,
+        /page/i,
+        /web/i,
+        /app/i
       ];
       const messageRequestsNewProject = newProjectPatterns.some(p => p.test(message));
       const shouldTreatAsNewProject = isNewProjectMode || messageRequestsNewProject;
 
-      console.log(`[AIPanel] Orchestrator - workMode: ${this.workMode}, messageRequestsNewProject: ${messageRequestsNewProject}, shouldTreatAsNewProject: ${shouldTreatAsNewProject}`);
+      console.log(`[AIPanel] Orchestrator - workMode: ${this.workMode}, shouldTreatAsNewProject: ${shouldTreatAsNewProject}`);
 
-      // In new-project mode, treat as empty project
-      if (shouldTreatAsNewProject) {
-        console.log('[AIPanel] Nový projekt režim - ignoruji existující kód');
-        currentCode = '';
+      // Získej seznam modelů seřazených podle kvality (pro fallback)
+      const sortedModels = window.AI.getAllModelsSorted ? window.AI.getAllModelsSorted() : [];
+      let modelIndex = 0;
+
+      // Get initial provider and model
+      let provider = this.modal.element.querySelector('#aiProvider')?.value;
+      let model = this.modal.element.querySelector('#aiModel')?.value;
+      const autoAI = this.modal.element.querySelector('#autoAI')?.checked;
+
+      if (autoAI || !model || model === 'null' || model === '') {
+        // Auto mode - použij nejlepší model
+        if (sortedModels.length > 0) {
+          provider = sortedModels[0].provider;
+          model = sortedModels[0].model;
+        } else {
+          const bestModel = window.AI.selectBestModel();
+          provider = bestModel.provider;
+          model = bestModel.model;
+        }
+      } else {
+        const modelSelect = this.modal.element.querySelector('#aiModel');
+        const selectedOption = modelSelect?.options[modelSelect.selectedIndex];
+        const modelProvider = selectedOption?.dataset?.provider;
+        if (modelProvider) provider = modelProvider;
       }
 
-      // Build orchestrator prompt
-      const orchestratorPrompt = shouldTreatAsNewProject
-        ? `Jsi EXPERT full-stack webový vývojář. Vytvoř KOMPLETNÍ, PROFESIONÁLNÍ webovou aplikaci.
+      console.log(`🎭 [Tým] Model: ${provider}/${model}`);
 
-🎯 **UŽIVATEL CHCE:** "${message}"
+      let finalCode = '';
+      let lastError = null;
+      const maxRetries = Math.min(sortedModels.length, 5); // Max 5 pokusů
 
-${currentCode ? '' : '📝 Toto je NOVÝ PROJEKT - vytvoř vše od začátku.'}
+      // Pomocná funkce pro volání AI s retry logikou
+      const callAIWithFallback = async (prompt, options = {}) => {
+        let currentProvider = provider;
+        let currentModel = model;
+        let attempts = 0;
 
-⚠️ KRITICKÉ PRAVIDLO PRO NOVÝ PROJEKT:`
-        : `Jsi Orchestrator - řídící AI agent pro úpravu existujícího kódu.
+        while (attempts < maxRetries) {
+          try {
+            updateStatus(`🤖 ${currentProvider}/${currentModel}...`);
+            console.log(`🎭 [Tým] Pokus ${attempts + 1}: ${currentProvider}/${currentModel}`);
 
-TVŮJ ÚKOL:
-Uživatelský požadavek: "${message}"
+            const response = await window.AI.ask(prompt, {
+              provider: currentProvider,
+              model: currentModel,
+              ...options
+            });
 
-Aktuální stav projektu:
-${currentCode ? `Projekt existuje (${currentCode.length} znaků)` : 'Prázdný editor'}
+            // Kontrola, že odpověď obsahuje kód
+            if (response && response.length > 100) {
+              return { response, provider: currentProvider, model: currentModel };
+            }
 
-⚠️ KRITICKÉ PRAVIDLO PRO ÚPRAVY EXISTUJÍCÍCH PROJEKTŮ:
-${currentCode ? `
-**PROJEKT UŽ EXISTUJE! NEPOUŽÍVEJ komplettní kód - použij SEARCH/REPLACE!**
+            throw new Error('Prázdná nebo příliš krátká odpověď');
 
-📄 **AKTUÁLNÍ KÓD V EDITORU (musíš použít PŘESNĚ tento kód v SEARCH blocích):**
-\`\`\`html
-${currentCode}
-\`\`\`
+          } catch (error) {
+            console.warn(`🎭 [Tým] Model ${currentProvider}/${currentModel} selhal:`, error.message);
+            lastError = error;
+            attempts++;
 
-Použij tento formát pro úpravu existujícího kódu:
+            // Zkus další model v pořadí
+            if (attempts < maxRetries && sortedModels.length > attempts) {
+              const nextModel = sortedModels[attempts];
+              currentProvider = nextModel.provider;
+              currentModel = nextModel.model;
+              updateStatus(`🔄 Zkouším ${currentProvider}/${currentModel}...`);
 
-\`\`\`SEARCH
-[PŘESNĚ zkopíruj část kódu z výše uvedeného - VČETNĚ MEZER A ODSAZENÍ]
-\`\`\`
-\`\`\`REPLACE
-[nový kód který nahradí SEARCH blok]
-\`\`\`
+              // Krátká pauza před dalším pokusem
+              await new Promise(r => setTimeout(r, 1000));
+            }
+          }
+        }
 
-Můžeš použít více SEARCH/REPLACE bloků najednou.
-**KRITICKÉ: SEARCH blok MUSÍ být PŘESNÁ kopie z aktuálního kódu výše! Včetně všech mezer!**
-**NIKDY nepoužívej komplettní kód - jen SEARCH/REPLACE bloky!**
+        throw lastError || new Error('Všechny modely selhaly');
+      };
 
-ODPOVĚZ VE FORMÁTU:
-📋 **Analýza požadavku:**
-[Krátká analýza co uživatel chce]
+      if (shouldTreatAsNewProject) {
+        // ===== JEDNOFÁZOVÝ WORKFLOW PRO NOVÝ PROJEKT =====
+        // Jeden silný prompt místo 3 slabých = lepší výsledky
 
-🎯 **Plán úkolů:**
-[Seznam konkrétních změn pro jednotlivé části kódu]
+        updateStatus('🚀 Tým generuje kompletní projekt...');
 
-**Změny:**
-[Použij SEARCH/REPLACE bloky pro každou změnu]
-` : `
-**🆕 NOVÝ PROJEKT - VYTVOŘ KOMPLETNÍ, PROFESIONÁLNÍ KÓD!**
+        const masterPrompt = `Jsi EXPERT tým vývojářů. Vytvoř KOMPLETNÍ, PROFESIONÁLNÍ a 100% FUNKČNÍ aplikaci.
 
-Jsi zkušený full-stack vývojář. Vytvoř KOMPLETNÍ, PLNĚ FUNKČNÍ projekt.
+ZADÁNÍ: ${message}
 
-📋 **POŽADAVKY NA KVALITU:**
-1. **HTML**: Sémantické značky, přístupnost (aria-labels), SEO meta tagy
-2. **CSS**: Moderní design, CSS Grid/Flexbox, responzivní (mobile-first), animace, přechody
-3. **JavaScript**: Čistý kód, event listeners, validace vstupů, error handling
+═══════════════════════════════════════════════════════════
+KRITICKÁ PRAVIDLA (PORUŠENÍ = SELHÁNÍ):
+═══════════════════════════════════════════════════════════
 
-🎨 **DESIGN GUIDELINES:**
-- Použij moderní barevné schéma (gradients, shadows)
-- Zaoblené rohy (border-radius)
-- Hover efekty na tlačítkách
-- Responzivní layout (funguje na mobilu i desktopu)
-- Příjemná typografie (font-size, line-height, font-family)
+1. JEDEN HTML SOUBOR obsahující vše (CSS v <style>, JS v <script>)
+2. KAŽDÁ PROMĚNNÁ deklarována POUZE JEDNOU (žádné duplicitní let/const)
+3. VŠECHNY funkce MUSÍ být PLNĚ IMPLEMENTOVANÉ (žádné TODO/placeholder)
+4. Kód MUSÍ být KOMPLETNÍ - začíná <!DOCTYPE html>, končí </html>
+5. JavaScript MUSÍ být FUNKČNÍ - všechna tlačítka/vstupy musí reagovat
 
-⚠️ **KRITICKÉ:**
-- Kód MUSÍ být KOMPLETNÍ a FUNKČNÍ - ne jen základní struktura!
-- Všechny funkce musí být implementované
-- Design musí vypadat profesionálně
-- Žádné placeholder texty - vše reálné
+═══════════════════════════════════════════════════════════
+TECHNICKÉ POŽADAVKY:
+═══════════════════════════════════════════════════════════
 
-ODPOVĚZ POUZE TAKTO (nic jiného!):
+HTML:
+- Sémantické značky (main, section, button)
+- Přístupnost (aria-label na tlačítkách)
+
+CSS:
+- * { box-sizing: border-box; margin: 0; padding: 0; }
+- CSS Grid nebo Flexbox pro layout
+- Moderní design: gradienty, stíny, zaoblené rohy
+- Responzivní (min-width/max-width nebo media queries)
+- Hover efekty na interaktivních prvcích
+
+JavaScript:
+- 'use strict'; na začátku
+- addEventListener místo onclick
+- Všechny proměnné pojmenované UNIKÁTNĚ
+- Error handling (try/catch kde je potřeba)
+
+═══════════════════════════════════════════════════════════
+FORMÁT ODPOVĚDI (POUZE TOTO):
+═══════════════════════════════════════════════════════════
 
 \`\`\`html
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>[Název projektu]</title>
-  <style>
-    /* KOMPLETNÍ CSS styly zde */
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Název aplikace</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        /* Kompletní CSS styly */
+    </style>
 </head>
 <body>
-  <!-- KOMPLETNÍ HTML struktura zde -->
-  <script>
-    // KOMPLETNÍ JavaScript zde
-  </script>
+    <!-- Kompletní HTML struktura -->
+    <script>
+        'use strict';
+        // Kompletní funkční JavaScript
+    </script>
 </body>
 </html>
 \`\`\`
 
-NEVYPISUJ žádnou analýzu ani plán - POUZE kompletní kód!
-`}`;
+NYNÍ VYGENERUJ KOMPLETNÍ KÓD:`;
 
-      // Call AI with orchestrator prompt
-      // Get provider and model from UI (same as sendMessage)
-      let provider = this.modal.element.querySelector('#aiProvider')?.value;
-      let model = this.modal.element.querySelector('#aiModel')?.value;
-      const autoAI = this.modal.element.querySelector('#autoAI')?.checked;
+        // Volání s automatickým fallbackem na další modely
+        const result = await callAIWithFallback(masterPrompt, {
+          temperature: 0.2, maxTokens: 16384
+        });
+        const response = result.response;
 
-      // If Auto AI is enabled, use intelligent model selection
-      if (autoAI) {
-        const bestModel = window.AI.selectBestCodingModel();
-        provider = bestModel.provider;
-        model = bestModel.model;
-        console.log(`🎭 [Tým] Auto AI: ${provider}/${model} (kvalita: ${bestModel.quality})`);
-      } else if (!model || model === 'null' || model === '') {
-        // Manual mode but no model selected - use best available
-        const bestModel = window.AI.selectBestModel();
-        provider = bestModel.provider;
-        model = bestModel.model;
-        console.log(`🎭 [Tým] Auto-vybrán model: ${provider}/${model}`);
-      } else {
-        // Manual mode with specific model selected
-        const modelSelect = this.modal.element.querySelector('#aiModel');
-        const selectedOption = modelSelect?.options[modelSelect.selectedIndex];
-        const modelProvider = selectedOption?.dataset?.provider;
-        if (modelProvider) {
-          provider = modelProvider;
+        // Extrahuj kód
+        const codeMatch = response.match(/```(?:html)?\n?([\s\S]*?)```/);
+        if (codeMatch && codeMatch[1]) {
+          finalCode = codeMatch[1].trim();
         }
-        console.log(`🎭 [Tým] Manuálně vybraný model: ${provider}/${model}`);
-      }
 
-      const response = await window.AI.ask(orchestratorPrompt, {
-        provider: provider,
-        model: model,
-        temperature: 0.7
-      });
+        // Kontrola kompletnosti
+        if (finalCode && !finalCode.includes('</html>')) {
+          updateStatus('🔧 Dokončuji kód...');
+          const continuePrompt = `Dokonči tento HTML kód. Pokračuj PŘESNĚ od místa kde končí:
 
-      // Remove loading message
-      const loadingEl = document.getElementById(loadingId);
-      if (loadingEl) loadingEl.remove();
+${finalCode.slice(-1000)}
 
-      // Check for SEARCH/REPLACE format (for existing projects)
-      const searchReplaceEdits = this.parseSearchReplaceInstructions(response);
+Dopiš POUZE chybějící část až po </html>. NEREPETUJ existující kód:`;
 
-      if (searchReplaceEdits.length > 0) {
-        console.log(`🔧 Orchestrator použil SEARCH/REPLACE - aplikuji ${searchReplaceEdits.length} změn`);
+          const contResult = await callAIWithFallback(continuePrompt, {
+            temperature: 0.1, maxTokens: 8192
+          });
+          const continuation = contResult.response;
 
-        // Extract description (before first SEARCH block)
-        const descriptionMatch = response.match(/([\s\S]*?)```\s*SEARCH/);
-        const description = descriptionMatch ? descriptionMatch[1].trim() : '✅ Orchestrator provedl změny.';
+          const contMatch = continuation.match(/```(?:html)?\n?([\s\S]*?)```/);
+          if (contMatch && contMatch[1]) {
+            finalCode = finalCode + '\n' + contMatch[1].trim();
+          } else if (!continuation.includes('```')) {
+            finalCode = finalCode + '\n' + continuation.trim();
+          }
+        }
 
-        // Add description to chat
-        this.addChatMessage('ai', description);
+        // Validace a oprava duplicitních proměnných
+        if (finalCode) {
+          finalCode = this.fixDuplicateVariables(finalCode);
+        }
 
-        // Add to history
-        this.chatService.addToHistory('assistant', description);
-        this.chatHistory = this.chatService.getHistory();
-        this.chatHistoryService.updateHistoryInfo();
+      } else {
+        // ===== ÚPRAVA EXISTUJÍCÍHO KÓDU =====
+        let currentCode = state.get('editor.code') || '';
+        if (currentCode.length > 15000) {
+          currentCode = currentCode.substring(0, 15000) + '\n... (zkráceno) ...';
+        }
 
-        // Show confirmation for changes
-        await this.showChangeConfirmation(searchReplaceEdits);
+        updateStatus('🔧 Analyzuji a upravuji kód...');
 
-        this.isProcessing = false;
-        return;
-      }
+        const editPrompt = `Uprav existující kód podle požadavku: "${message}"
 
-      // Extract and apply code if present (for new projects)
-      const codeMatch = response.match(/```(?:html)?\n([\s\S]*?)```/);
-      if (codeMatch && codeMatch[1]) {
-        const code = codeMatch[1].trim();
+AKTUÁLNÍ KÓD:
+\`\`\`html
+${currentCode}
+\`\`\`
 
-        // Kontrola, že kód je dostatečně dlouhý a vypadá jako HTML
-        const isValidHtml = code.length > 50 && (
-          code.includes('<!DOCTYPE') ||
-          code.includes('<html') ||
-          code.includes('<body') ||
-          code.includes('<div') ||
-          code.includes('<head')
-        );
+Použij SEARCH/REPLACE bloky pro úpravy:
+\`\`\`SEARCH
+[přesná kopie části kódu k nahrazení]
+\`\`\`
+\`\`\`REPLACE
+[nový kód]
+\`\`\``;
 
-        if (!isValidHtml) {
-          console.warn('[AIPanel] Orchestrator vrátil příliš krátký nebo nevalidní kód, zobrazuji odpověď');
+        const editResult = await callAIWithFallback(editPrompt, {
+          temperature: 0.3, maxTokens: 8192
+        });
+        const response = editResult.response;
+
+        // Zkontroluj SEARCH/REPLACE
+        const searchReplaceEdits = this.parseSearchReplaceInstructions(response);
+
+        if (searchReplaceEdits.length > 0) {
+          const loadingEl = document.getElementById(loadingId);
+          if (loadingEl) loadingEl.remove();
+
+          const descMatch = response.match(/([\s\S]*?)```\s*SEARCH/);
+          const description = descMatch ? descMatch[1].trim() : '✅ Změny připraveny.';
+
+          this.addChatMessage('ai', description);
+          this.chatService.addToHistory('assistant', description);
+          this.chatHistory = this.chatService.getHistory();
+          this.chatHistoryService.updateHistoryInfo();
+
+          await this.showChangeConfirmation(searchReplaceEdits);
+          this.isProcessing = false;
+          return;
+        }
+
+        // Fallback - zkus najít kompletní kód
+        const codeMatch = response.match(/```(?:html)?\n?([\s\S]*?)```/);
+        if (codeMatch) {
+          finalCode = codeMatch[1].trim();
+        } else {
+          const loadingEl = document.getElementById(loadingId);
+          if (loadingEl) loadingEl.remove();
           this.addChatMessage('ai', response);
           this.chatService.addToHistory('assistant', response);
           this.chatHistory = this.chatService.getHistory();
@@ -2561,49 +2607,85 @@ NEVYPISUJ žádnou analýzu ani plán - POUZE kompletní kód!
           this.isProcessing = false;
           return;
         }
+      }
 
-        // Extract only the description/plan part (before the code)
-        const descriptionMatch = response.match(/([\s\S]*?)```/);
-        const description = descriptionMatch ? descriptionMatch[1].trim() : '✅ Kód byl vygenerován a vložen do editoru.';
+      // Remove loading
+      const loadingEl = document.getElementById(loadingId);
+      if (loadingEl) loadingEl.remove();
 
-        // Add only description to chat, not the full code
-        this.addChatMessage('ai', description);
-
-        // Add to history (without full code)
-        this.chatService.addToHistory('assistant', description);
+      // Validace a vložení kódu
+      if (finalCode && finalCode.length > 100) {
+        this.addChatMessage('ai', '✅ Tým dokončil práci! Kód vložen do editoru.');
+        this.chatService.addToHistory('assistant', '✅ Projekt vytvořen týmem agentů.');
         this.chatHistory = this.chatService.getHistory();
-        // Insert code to editor
-        this.insertCodeToEditor(code, false);
 
-        // Show success toast
+        this.insertCodeToEditor(finalCode, false);
+
         eventBus.emit('toast:show', {
-          message: '✅ Orchestrator vytvořil projekt a vložil do editoru',
+          message: '✅ Tým vytvořil projekt!',
           type: 'success',
           duration: 3000
         });
       } else {
-        // No code found, show full response
-        this.addChatMessage('ai', response);
-
-        // Add to history
-        this.chatService.addToHistory('assistant', response);
-        this.chatHistory = this.chatService.getHistory();
+        this.addChatMessage('ai', '❌ Nepodařilo se vygenerovat kód. Zkuste to znovu nebo použijte jiný model.');
       }
 
-      // Update history counter
       this.chatHistoryService.updateHistoryInfo();
 
     } catch (error) {
       console.error('Orchestrator error:', error);
-
-      // Remove loading message on error
       const loadingEl = document.getElementById(loadingId);
       if (loadingEl) loadingEl.remove();
-
-      this.addChatMessage('ai', `❌ Chyba Orchestratora: ${error.message}`);
+      this.addChatMessage('ai', `❌ Chyba: ${error.message}`);
     } finally {
-      // Always reset processing state
       this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Opraví duplicitní deklarace proměnných v JavaScript kódu
+   */
+  fixDuplicateVariables(code) {
+    try {
+      // Najdi <script> sekci
+      const scriptMatch = code.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+      if (!scriptMatch) return code;
+
+      let jsCode = scriptMatch[1];
+      const declaredVars = new Map(); // varName -> count
+
+      // Najdi všechny deklarace let/const
+      const varPattern = /\b(let|const)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/g;
+      let match;
+
+      while ((match = varPattern.exec(jsCode)) !== null) {
+        const varName = match[2];
+        declaredVars.set(varName, (declaredVars.get(varName) || 0) + 1);
+      }
+
+      // Oprav duplicity - druhý a další výskyt změň na přiřazení (bez let/const)
+      for (const [varName, count] of declaredVars) {
+        if (count > 1) {
+          console.log(`[AIPanel] Opravuji duplicitní proměnnou: ${varName} (${count}x)`);
+          let occurrences = 0;
+          jsCode = jsCode.replace(
+            new RegExp(`\\b(let|const)\\s+${varName}\\s*=`, 'g'),
+            (match) => {
+              occurrences++;
+              // První výskyt necháme, další změníme na přiřazení
+              return occurrences === 1 ? match : `${varName} =`;
+            }
+          );
+        }
+      }
+
+      // Nahraď opravenou JS sekci v kódu
+      return code.replace(/<script[^>]*>[\s\S]*?<\/script>/i,
+        `<script>${jsCode}</script>`);
+
+    } catch (e) {
+      console.error('[AIPanel] Chyba při opravě duplicitních proměnných:', e);
+      return code;
     }
   }
 

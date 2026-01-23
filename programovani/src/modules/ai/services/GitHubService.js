@@ -21,16 +21,656 @@ export class GitHubService {
       'repos': () => this.showRepoManager(),
       'search-repos': () => this.showGitHubSearchDialog(),
       'clone': () => this.cloneRepo(),
-      'create-gist': () => this.createGist(),
-      'issues': () => eventBus.emit('github:showIssues'),
-      'pull-requests': () => eventBus.emit('github:showPullRequests'),
-      'deploy': () => eventBus.emit('github:deployPages')
+      'create-gist': () => this.showCreateGistModal(),
+      'issues': () => this.showIssuesModal(),
+      'pull-requests': () => this.showPullRequestsModal(),
+      'deploy': () => this.showDeployModal()
     };
 
     const actionFn = actions[action];
     if (actionFn) {
       actionFn();
     }
+  }
+
+  /**
+   * Show Issues modal
+   */
+  showIssuesModal() {
+    const token = this.getStoredToken();
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; max-height: 90vh; overflow: hidden;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">📋 GitHub Issues</h3>
+          <button class="modal-close" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer;">×</button>
+        </div>
+        <div class="modal-body" style="padding: 25px; overflow-y: auto; max-height: 60vh;">
+          ${!token ? `
+            <div style="text-align: center; padding: 20px;">
+              <p style="color: #888; margin-bottom: 16px;">Pro zobrazení Issues potřebujete GitHub token.</p>
+              <button id="setupTokenBtn" style="padding: 12px 24px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                🔑 Nastavit Token
+              </button>
+            </div>
+          ` : `
+            <div style="margin-bottom: 20px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ccc;">Repozitář (owner/repo):</label>
+              <input type="text" id="issuesRepoInput" placeholder="např. user/my-repo" style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0d0d0d; color: #fff;">
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+              <button id="loadIssuesBtn" style="flex: 1; padding: 12px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                📋 Načíst Issues
+              </button>
+              <button id="createIssueBtn" style="flex: 1; padding: 12px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                ➕ Vytvořit Issue
+              </button>
+            </div>
+            <div id="issuesList" style="display: none;"></div>
+            <div id="createIssueForm" style="display: none;">
+              <div style="margin-bottom: 12px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #ccc;">Název:</label>
+                <input type="text" id="issueTitleInput" placeholder="Název issue" style="width: 100%; padding: 10px; border: 1px solid #333; border-radius: 6px; background: #0d0d0d; color: #fff;">
+              </div>
+              <div style="margin-bottom: 12px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #ccc;">Popis:</label>
+                <textarea id="issueBodyInput" placeholder="Popis issue..." rows="4" style="width: 100%; padding: 10px; border: 1px solid #333; border-radius: 6px; background: #0d0d0d; color: #fff; resize: vertical;"></textarea>
+              </div>
+              <button id="submitIssueBtn" style="width: 100%; padding: 12px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                ✅ Odeslat Issue
+              </button>
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close handlers
+    modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    // Setup token button
+    const setupTokenBtn = modal.querySelector('#setupTokenBtn');
+    if (setupTokenBtn) {
+      setupTokenBtn.addEventListener('click', () => {
+        modal.remove();
+        this.initiateGitHubOAuth();
+      });
+    }
+
+    // Load issues
+    const loadBtn = modal.querySelector('#loadIssuesBtn');
+    const createBtn = modal.querySelector('#createIssueBtn');
+    const issuesList = modal.querySelector('#issuesList');
+    const createForm = modal.querySelector('#createIssueForm');
+
+    if (loadBtn) {
+      loadBtn.addEventListener('click', async () => {
+        const repo = modal.querySelector('#issuesRepoInput').value.trim();
+        if (!repo) {
+          eventBus.emit('toast:show', { message: 'Zadejte repozitář', type: 'warning' });
+          return;
+        }
+
+        loadBtn.textContent = '⏳ Načítání...';
+        loadBtn.disabled = true;
+
+        try {
+          const issues = await this.fetchIssues(repo);
+          issuesList.style.display = 'block';
+          createForm.style.display = 'none';
+
+          if (issues.length === 0) {
+            issuesList.innerHTML = '<p style="text-align: center; color: #888; padding: 20px;">Žádné otevřené issues.</p>';
+          } else {
+            issuesList.innerHTML = issues.map(issue => `
+              <div style="padding: 12px; background: #242424; border-radius: 8px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                  <div>
+                    <a href="${issue.html_url}" target="_blank" style="color: #58a6ff; text-decoration: none; font-weight: 600;">#${issue.number} ${issue.title}</a>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #888;">
+                      ${issue.user.login} • ${new Date(issue.created_at).toLocaleDateString('cs-CZ')}
+                      ${issue.labels.map(l => `<span style="background: #${l.color}20; color: #${l.color}; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 4px;">${l.name}</span>`).join('')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            `).join('');
+          }
+        } catch (error) {
+          issuesList.innerHTML = `<p style="color: #ff6b6b; text-align: center;">❌ ${error.message}</p>`;
+          issuesList.style.display = 'block';
+        }
+
+        loadBtn.textContent = '📋 Načíst Issues';
+        loadBtn.disabled = false;
+      });
+    }
+
+    if (createBtn) {
+      createBtn.addEventListener('click', () => {
+        issuesList.style.display = 'none';
+        createForm.style.display = 'block';
+      });
+    }
+
+    const submitBtn = modal.querySelector('#submitIssueBtn');
+    if (submitBtn) {
+      submitBtn.addEventListener('click', async () => {
+        const repo = modal.querySelector('#issuesRepoInput').value.trim();
+        const title = modal.querySelector('#issueTitleInput').value.trim();
+        const body = modal.querySelector('#issueBodyInput').value.trim();
+
+        if (!repo || !title) {
+          eventBus.emit('toast:show', { message: 'Vyplňte repozitář a název', type: 'warning' });
+          return;
+        }
+
+        submitBtn.textContent = '⏳ Odesílání...';
+        submitBtn.disabled = true;
+
+        try {
+          await this.createIssue(repo, title, body);
+          eventBus.emit('toast:show', { message: '✅ Issue vytvořeno!', type: 'success' });
+          modal.remove();
+        } catch (error) {
+          eventBus.emit('toast:show', { message: '❌ ' + error.message, type: 'error' });
+        }
+
+        submitBtn.textContent = '✅ Odeslat Issue';
+        submitBtn.disabled = false;
+      });
+    }
+  }
+
+  /**
+   * Fetch issues from GitHub
+   */
+  async fetchIssues(repo) {
+    const token = this.getStoredToken();
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`https://api.github.com/repos/${repo}/issues?state=open`, { headers });
+    if (!response.ok) throw new Error('Nepodařilo se načíst issues: ' + response.statusText);
+    return await response.json();
+  }
+
+  /**
+   * Create a new issue
+   */
+  async createIssue(repo, title, body) {
+    const token = this.getStoredToken();
+    if (!token) throw new Error('Potřebujete GitHub token');
+
+    const response = await fetch(`https://api.github.com/repos/${repo}/issues`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ title, body })
+    });
+
+    if (!response.ok) throw new Error('Nepodařilo se vytvořit issue: ' + response.statusText);
+    return await response.json();
+  }
+
+  /**
+   * Show Pull Requests modal
+   */
+  showPullRequestsModal() {
+    const token = this.getStoredToken();
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; max-height: 90vh; overflow: hidden;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">🔀 Pull Requests</h3>
+          <button class="modal-close" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer;">×</button>
+        </div>
+        <div class="modal-body" style="padding: 25px; overflow-y: auto; max-height: 60vh;">
+          ${!token ? `
+            <div style="text-align: center; padding: 20px;">
+              <p style="color: #888; margin-bottom: 16px;">Pro zobrazení Pull Requests potřebujete GitHub token.</p>
+              <button id="setupTokenBtn" style="padding: 12px 24px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                🔑 Nastavit Token
+              </button>
+            </div>
+          ` : `
+            <div style="margin-bottom: 20px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ccc;">Repozitář (owner/repo):</label>
+              <input type="text" id="prRepoInput" placeholder="např. user/my-repo" style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0d0d0d; color: #fff;">
+            </div>
+            <button id="loadPRsBtn" style="width: 100%; padding: 12px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 20px;">
+              🔀 Načíst Pull Requests
+            </button>
+            <div id="prList" style="display: none;"></div>
+          `}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    const setupTokenBtn = modal.querySelector('#setupTokenBtn');
+    if (setupTokenBtn) {
+      setupTokenBtn.addEventListener('click', () => {
+        modal.remove();
+        this.initiateGitHubOAuth();
+      });
+    }
+
+    const loadBtn = modal.querySelector('#loadPRsBtn');
+    const prList = modal.querySelector('#prList');
+
+    if (loadBtn) {
+      loadBtn.addEventListener('click', async () => {
+        const repo = modal.querySelector('#prRepoInput').value.trim();
+        if (!repo) {
+          eventBus.emit('toast:show', { message: 'Zadejte repozitář', type: 'warning' });
+          return;
+        }
+
+        loadBtn.textContent = '⏳ Načítání...';
+        loadBtn.disabled = true;
+
+        try {
+          const prs = await this.fetchPullRequests(repo);
+          prList.style.display = 'block';
+
+          if (prs.length === 0) {
+            prList.innerHTML = '<p style="text-align: center; color: #888; padding: 20px;">Žádné otevřené Pull Requests.</p>';
+          } else {
+            prList.innerHTML = prs.map(pr => `
+              <div style="padding: 12px; background: #242424; border-radius: 8px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="color: ${pr.draft ? '#8b949e' : '#238636'}; font-size: 18px;">${pr.draft ? '📝' : '🔀'}</span>
+                  <div>
+                    <a href="${pr.html_url}" target="_blank" style="color: #58a6ff; text-decoration: none; font-weight: 600;">#${pr.number} ${pr.title}</a>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #888;">
+                      ${pr.user.login} • ${pr.head.ref} → ${pr.base.ref}
+                      ${pr.draft ? '<span style="background: #30363d; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Draft</span>' : ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            `).join('');
+          }
+        } catch (error) {
+          prList.innerHTML = `<p style="color: #ff6b6b; text-align: center;">❌ ${error.message}</p>`;
+          prList.style.display = 'block';
+        }
+
+        loadBtn.textContent = '🔀 Načíst Pull Requests';
+        loadBtn.disabled = false;
+      });
+    }
+  }
+
+  /**
+   * Fetch pull requests from GitHub
+   */
+  async fetchPullRequests(repo) {
+    const token = this.getStoredToken();
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`https://api.github.com/repos/${repo}/pulls?state=open`, { headers });
+    if (!response.ok) throw new Error('Nepodařilo se načíst PRs: ' + response.statusText);
+    return await response.json();
+  }
+
+  /**
+   * Show Create Gist modal
+   */
+  showCreateGistModal() {
+    const token = this.getStoredToken();
+    const code = state.get('editor.code') || '';
+    const activeFile = state.get('files.active');
+    const tabs = state.get('files.tabs') || [];
+    const currentTab = tabs.find(t => t.id === activeFile);
+    const fileName = currentTab?.name || 'index.html';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 500px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">📝 Vytvořit Gist</h3>
+          <button class="modal-close" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer;">×</button>
+        </div>
+        <div class="modal-body" style="padding: 25px;">
+          ${!token ? `
+            <div style="text-align: center; padding: 20px;">
+              <p style="color: #888; margin-bottom: 16px;">Pro vytvoření Gist potřebujete GitHub token.</p>
+              <button id="setupTokenBtn" style="padding: 12px 24px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                🔑 Nastavit Token
+              </button>
+            </div>
+          ` : `
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ccc;">Název souboru:</label>
+              <input type="text" id="gistFileName" value="${fileName}" style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0d0d0d; color: #fff;">
+            </div>
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ccc;">Popis:</label>
+              <input type="text" id="gistDescription" placeholder="Volitelný popis..." style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0d0d0d; color: #fff;">
+            </div>
+            <div style="margin-bottom: 16px;">
+              <label style="display: flex; align-items: center; gap: 8px; color: #ccc; cursor: pointer;">
+                <input type="checkbox" id="gistPublic" style="width: 18px; height: 18px;">
+                <span>Veřejný Gist</span>
+              </label>
+            </div>
+            <div style="background: #0d0d0d; border: 1px solid #333; border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 150px; overflow-y: auto;">
+              <pre style="margin: 0; font-size: 12px; color: #888;">${code.substring(0, 500)}${code.length > 500 ? '...' : ''}</pre>
+            </div>
+            <button id="createGistBtn" style="width: 100%; padding: 14px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 15px;">
+              📝 Vytvořit Gist
+            </button>
+          `}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    const setupTokenBtn = modal.querySelector('#setupTokenBtn');
+    if (setupTokenBtn) {
+      setupTokenBtn.addEventListener('click', () => {
+        modal.remove();
+        this.initiateGitHubOAuth();
+      });
+    }
+
+    const createBtn = modal.querySelector('#createGistBtn');
+    if (createBtn) {
+      createBtn.addEventListener('click', async () => {
+        const gistFileName = modal.querySelector('#gistFileName').value.trim() || 'code.txt';
+        const description = modal.querySelector('#gistDescription').value.trim();
+        const isPublic = modal.querySelector('#gistPublic').checked;
+
+        createBtn.textContent = '⏳ Vytvářím...';
+        createBtn.disabled = true;
+
+        try {
+          const gist = await this.createGistAPI(gistFileName, code, description, isPublic);
+          eventBus.emit('toast:show', { message: '✅ Gist vytvořen!', type: 'success' });
+
+          // Otevřít v novém okně
+          window.open(gist.html_url, '_blank');
+          modal.remove();
+        } catch (error) {
+          eventBus.emit('toast:show', { message: '❌ ' + error.message, type: 'error' });
+          createBtn.textContent = '📝 Vytvořit Gist';
+          createBtn.disabled = false;
+        }
+      });
+    }
+  }
+
+  /**
+   * Create Gist via API
+   */
+  async createGistAPI(fileName, content, description, isPublic) {
+    const token = this.getStoredToken();
+    if (!token) throw new Error('Potřebujete GitHub token');
+
+    const response = await fetch('https://api.github.com/gists', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        description: description || 'Created with HTML Studio',
+        public: isPublic,
+        files: {
+          [fileName]: { content }
+        }
+      })
+    });
+
+    if (!response.ok) throw new Error('Nepodařilo se vytvořit Gist: ' + response.statusText);
+    return await response.json();
+  }
+
+  /**
+   * Show Deploy to GitHub Pages modal
+   */
+  showDeployModal() {
+    const token = this.getStoredToken();
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 550px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">🚀 Deploy na GitHub Pages</h3>
+          <button class="modal-close" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer;">×</button>
+        </div>
+        <div class="modal-body" style="padding: 25px;">
+          ${!token ? `
+            <div style="text-align: center; padding: 20px;">
+              <p style="color: #888; margin-bottom: 16px;">Pro deploy potřebujete GitHub token s právy na repozitáře.</p>
+              <button id="setupTokenBtn" style="padding: 12px 24px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                🔑 Nastavit Token
+              </button>
+            </div>
+          ` : `
+            <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+              <h4 style="margin: 0 0 12px; color: #58a6ff; font-size: 14px;">📋 Jak funguje deploy:</h4>
+              <ol style="margin: 0; padding-left: 20px; color: #8b949e; font-size: 13px; line-height: 1.6;">
+                <li>Vytvoří se nový repozitář (nebo použije existující)</li>
+                <li>Váš kód se pushne do větve <code style="background: #0d1117; padding: 2px 6px; border-radius: 4px;">gh-pages</code></li>
+                <li>GitHub Pages automaticky zpřístupní web</li>
+              </ol>
+            </div>
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ccc;">Název repozitáře:</label>
+              <input type="text" id="deployRepoName" placeholder="muj-projekt" style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0d0d0d; color: #fff;">
+              <p style="font-size: 11px; color: #888; margin-top: 6px;">
+                Výsledná URL: <code style="color: #58a6ff;">https://USERNAME.github.io/NÁZEV/</code>
+              </p>
+            </div>
+            <div style="margin-bottom: 20px;">
+              <label style="display: flex; align-items: center; gap: 8px; color: #ccc; cursor: pointer;">
+                <input type="checkbox" id="deployPrivate" style="width: 18px; height: 18px;">
+                <span>Privátní repozitář <span style="color: #888; font-size: 12px;">(vyžaduje GitHub Pro)</span></span>
+              </label>
+            </div>
+            <button id="deployBtn" style="width: 100%; padding: 14px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 15px;">
+              🚀 Nasadit na GitHub Pages
+            </button>
+            <div id="deployStatus" style="margin-top: 16px; display: none;"></div>
+          `}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    const setupTokenBtn = modal.querySelector('#setupTokenBtn');
+    if (setupTokenBtn) {
+      setupTokenBtn.addEventListener('click', () => {
+        modal.remove();
+        this.initiateGitHubOAuth();
+      });
+    }
+
+    const deployBtn = modal.querySelector('#deployBtn');
+    if (deployBtn) {
+      deployBtn.addEventListener('click', async () => {
+        const repoName = modal.querySelector('#deployRepoName').value.trim();
+        const isPrivate = modal.querySelector('#deployPrivate').checked;
+        const statusDiv = modal.querySelector('#deployStatus');
+
+        if (!repoName) {
+          eventBus.emit('toast:show', { message: 'Zadejte název repozitáře', type: 'warning' });
+          return;
+        }
+
+        deployBtn.textContent = '⏳ Nasazuji...';
+        deployBtn.disabled = true;
+        statusDiv.style.display = 'block';
+        statusDiv.innerHTML = '<p style="color: #58a6ff;">🔄 Vytvářím repozitář...</p>';
+
+        try {
+          // Get all open files
+          const tabs = state.get('files.tabs') || [];
+          const files = tabs.map(tab => ({
+            name: tab.name,
+            content: tab.content || ''
+          }));
+
+          // If no files, use current editor content
+          if (files.length === 0) {
+            const code = state.get('editor.code') || '';
+            files.push({ name: 'index.html', content: code });
+          }
+
+          const result = await this.deployToGitHubPages(repoName, files, isPrivate);
+
+          statusDiv.innerHTML = `
+            <div style="background: #0d1117; border: 1px solid #238636; border-radius: 8px; padding: 16px; text-align: center;">
+              <p style="color: #3fb950; font-weight: 600; margin: 0 0 12px;">✅ Úspěšně nasazeno!</p>
+              <p style="margin: 0 0 8px; color: #8b949e; font-size: 13px;">Váš web bude za chvíli dostupný na:</p>
+              <a href="${result.url}" target="_blank" style="color: #58a6ff; font-weight: 600; word-break: break-all;">${result.url}</a>
+            </div>
+          `;
+
+          eventBus.emit('toast:show', { message: '🚀 Nasazeno na GitHub Pages!', type: 'success' });
+        } catch (error) {
+          statusDiv.innerHTML = `<p style="color: #ff6b6b;">❌ ${error.message}</p>`;
+          eventBus.emit('toast:show', { message: '❌ ' + error.message, type: 'error' });
+          deployBtn.textContent = '🚀 Nasadit na GitHub Pages';
+          deployBtn.disabled = false;
+        }
+      });
+    }
+  }
+
+  /**
+   * Deploy files to GitHub Pages
+   */
+  async deployToGitHubPages(repoName, files, isPrivate = false) {
+    const token = this.getStoredToken();
+    if (!token) throw new Error('Potřebujete GitHub token');
+
+    // 1. Get current user
+    const userResponse = await fetch('https://api.github.com/user', {
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!userResponse.ok) throw new Error('Nepodařilo se získat uživatele');
+    const user = await userResponse.json();
+
+    // 2. Try to create repo (or use existing)
+    try {
+      await fetch('https://api.github.com/user/repos', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: repoName,
+          private: isPrivate,
+          auto_init: true
+        })
+      });
+    } catch (e) {
+      // Repo might already exist, continue
+    }
+
+    // Wait a bit for repo to be ready
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // 3. Create/update files in gh-pages branch
+    for (const file of files) {
+      const content = btoa(unescape(encodeURIComponent(file.content)));
+
+      // Check if file exists
+      let sha = null;
+      try {
+        const existingFile = await fetch(`https://api.github.com/repos/${user.login}/${repoName}/contents/${file.name}?ref=gh-pages`, {
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (existingFile.ok) {
+          const data = await existingFile.json();
+          sha = data.sha;
+        }
+      } catch (e) {}
+
+      // Create/update file
+      await fetch(`https://api.github.com/repos/${user.login}/${repoName}/contents/${file.name}`, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: `Update ${file.name}`,
+          content: content,
+          branch: 'gh-pages',
+          ...(sha && { sha })
+        })
+      });
+    }
+
+    // 4. Enable GitHub Pages
+    try {
+      await fetch(`https://api.github.com/repos/${user.login}/${repoName}/pages`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          source: { branch: 'gh-pages', path: '/' }
+        })
+      });
+    } catch (e) {
+      // Pages might already be enabled
+    }
+
+    return {
+      url: `https://${user.login}.github.io/${repoName}/`,
+      repo: `https://github.com/${user.login}/${repoName}`
+    };
   }
 
   /**
