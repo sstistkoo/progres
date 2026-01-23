@@ -274,7 +274,7 @@ export class SearchPanel {
 
     if (newCode !== code) {
       state.set('editor.code', newCode);
-      eventBus.emit('editor:setCode', { content: newCode });
+      eventBus.emit('editor:setCode', { code: newCode });
       eventBus.emit('toast:show', { message: '✅ Text nahrazen', type: 'success' });
 
       // Update results
@@ -318,7 +318,7 @@ export class SearchPanel {
       if (count > 0) {
         const newCode = code.replace(pattern, replaceText);
         state.set('editor.code', newCode);
-        eventBus.emit('editor:setCode', { content: newCode });
+        eventBus.emit('editor:setCode', { code: newCode });
         eventBus.emit('toast:show', {
           message: `✅ Nahrazeno ${count} výskytů`,
           type: 'success'

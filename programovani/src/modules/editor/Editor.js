@@ -124,6 +124,11 @@ export class Editor {
     eventBus.on('editor:setCode', ({ code, skipStateUpdate, force }) => {
       this.setCode(code, skipStateUpdate, force);
     });
+
+    // Aliasy pro kompatibilitu s menu moduly
+    eventBus.on('editor:insert', (code) => this.insertText(code));
+    eventBus.on('editor:set-value', (code) => this.setCode(code));
+    eventBus.on('editor:update', (code) => this.setCode(code));
   }
 
   handleInput() {
