@@ -410,6 +410,7 @@ export class UIRenderingService {
     const changeCount = appliedEdits.length;
     const stats = diff.stats;
 
+    // Změny se aplikují okamžitě - tlačítko pouze pro vrácení zpět
     messageEl.innerHTML = `
       <div class="diff-message-header">
         <div class="diff-title">
@@ -426,13 +427,7 @@ export class UIRenderingService {
               <path d="M3 7v6h6"></path>
               <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
             </svg>
-            <span>Undo All</span>
-          </button>
-          <button class="btn-keep-all" data-action="keep-all" title="Ponechat změny">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <span>Keep</span>
+            <span>↩️ Vrátit zpět</span>
           </button>
         </div>
       </div>
@@ -449,35 +444,19 @@ export class UIRenderingService {
 
     messagesContainer.appendChild(messageEl);
 
-    // Add event listeners
+    // Add event listeners - pouze Undo tlačítko
     const undoBtn = messageEl.querySelector('.btn-undo-all');
-    const keepBtn = messageEl.querySelector('.btn-keep-all');
 
     if (undoBtn && onUndo) {
       undoBtn.addEventListener('click', () => {
         onUndo(originalCode);
         messageEl.classList.add('undone');
         undoBtn.disabled = true;
-        keepBtn.disabled = true;
         undoBtn.innerHTML = `
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
-          <span>Vráceno</span>
-        `;
-      });
-    }
-
-    if (keepBtn) {
-      keepBtn.addEventListener('click', () => {
-        messageEl.classList.add('kept');
-        undoBtn.disabled = true;
-        keepBtn.disabled = true;
-        keepBtn.innerHTML = `
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          <span>Ponecháno</span>
+          <span>✅ Vráceno</span>
         `;
       });
     }

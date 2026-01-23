@@ -595,10 +595,24 @@ export class CodeEditorService {
   }
 
   /**
-   * Remove line numbers from code (e.g. "50| code" -> "code")
+   * Remove line numbers from code (handles multiple formats)
+   * Examples: "50| code", "  50 | code", "123. code", "  123:  code"
    */
   removeLineNumbers(code) {
-    return code.replace(/^\s*\d+\|\s*/gm, '');
+    // Pattern 1: "50| code" or "  50 | code"
+    let result = code.replace(/^\s*\d+\s*\|\s*/gm, '');
+
+    // Pattern 2: "123. code" (line number with dot)
+    result = result.replace(/^\s*\d+\.\s+/gm, '');
+
+    // Pattern 3: "123: code" (line number with colon)
+    result = result.replace(/^\s*\d+:\s+/gm, '');
+
+    // Pattern 4: "  1234   " at start (just numbers with space)
+    // Only if line starts with spaces, numbers, and more spaces
+    result = result.replace(/^\s+\d+\s{2,}/gm, '');
+
+    return result;
   }
 
   fuzzySearchCode(code, search) {
