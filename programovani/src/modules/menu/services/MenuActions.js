@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Menu Actions Service
  * Handles all menu action dispatching
  */
@@ -77,7 +77,7 @@ export class MenuActions {
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
 
     eventBus.emit('toast:show', {
-      message: `${isLight ? 'â˜€ï¸' : 'ðŸŒ™'} TÃ©ma zmÄ›nÄ›no`,
+      message: `${isLight ? '☀️' : '🌙'} Téma změněno`,
       type: 'success'
     });
   }
@@ -86,27 +86,27 @@ export class MenuActions {
 
   showGridEditor() {
     eventBus.emit('toast:show', {
-      message: 'ðŸ“ Grid Editor bude implementovÃ¡n',
+      message: '📐 Grid Editor bude implementován',
       type: 'info'
     });
   }
 
   showLiveServer() {
     eventBus.emit('toast:show', {
-      message: 'ðŸŒ Live Server funkce',
+      message: '🌐 Live Server funkce',
       type: 'info'
     });
   }
 
   showReplaceDialog() {
-    eventBus.emit('findReplace:show');
+    eventBus.emit('findreplace:show');
   }
 
   // ===== GitHub Actions =====
 
   deployProject() {
     eventBus.emit('toast:show', {
-      message: 'ðŸš€ Deploy bude implementovÃ¡n',
+      message: '🚀 Deploy bude implementován',
       type: 'info'
     });
   }
@@ -118,7 +118,7 @@ export class MenuActions {
     if (typeof window.initDevTools === 'function') {
       window.initDevTools();
       eventBus.emit('toast:show', {
-        message: ' DevTools otevřeny',
+        message: '🐞 DevTools otevřeny',
         type: 'success',
         duration: 2000
       });
@@ -128,13 +128,13 @@ export class MenuActions {
       }
       window.eruda.show();
       eventBus.emit('toast:show', {
-        message: ' DevTools otevřeny',
+        message: '🐞 DevTools otevřeny',
         type: 'success',
         duration: 2000
       });
     } else {
       eventBus.emit('toast:show', {
-        message: ' DevTools (Eruda) nejsou dostupné.',
+        message: '⚠️ DevTools (Eruda) nejsou dostupné.',
         type: 'warning'
       });
     }

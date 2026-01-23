@@ -54,7 +54,8 @@ export class SidePanel {
         <button class="panel-close" aria-label="Zavřít">&times;</button>
       </div>
       <div class="panel-body">
-        <div>
+        <!-- GitHub Section -->
+        <div style="margin-bottom: 24px;">
           <h3 style="margin: 0 0 12px 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
               <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
@@ -70,6 +71,26 @@ export class SidePanel {
             </svg>
             Přihlásit se na GitHub
           </button>
+        </div>
+
+        <!-- Files Section -->
+        <div>
+          <h3 style="margin: 0 0 12px 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+              <path d="M13 2v7h7"/>
+            </svg>
+            Soubory
+          </h3>
+          <button class="btn btn-secondary" data-action="newFile" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; font-weight: 500; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            Nový soubor
+          </button>
+          <div id="panelFilesList" style="background: var(--bg-secondary); border-radius: 8px; padding: 8px; max-height: 300px; overflow-y: auto;">
+            ${this.renderFilesList()}
+          </div>
         </div>
       </div>
     `;
@@ -197,7 +218,6 @@ export class SidePanel {
     });
 
     this.panel.querySelector('[data-action="newFile"]')?.addEventListener('click', () => {
-      toast.info('Vytváření nového souboru...', 2000);
       eventBus.emit('file:new');
     });
 

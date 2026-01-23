@@ -216,13 +216,13 @@ class App {
     eventBus.on('action:format', () => this.formatCode());
     eventBus.on('action:preview', () => this.togglePreview());
     eventBus.on('action:newTab', () => this.newTab());
+    eventBus.on('action:newFile', () => this.newTab()); // Alias pro Sidebar
     eventBus.on('action:download', () => this.downloadFile());
     eventBus.on('action:downloadAll', () => this.downloadAllFiles());
     eventBus.on('action:downloadZip', () => this.exportProjectAsZip());
     eventBus.on('action:validate', () => this.validateCode());
     eventBus.on('action:minify', () => this.minifyCode());
-    eventBus.on('action:undo', () => this.editor?.undo());
-    eventBus.on('action:redo', () => this.editor?.redo());
+    // Pozn: action:undo/redo handlery jsou v Editor.js
     eventBus.on('action:search', () => this.showSearch());
 
     // Nové akce - Nástroje a Nastavení
@@ -241,6 +241,10 @@ class App {
     eventBus.on('console:clear', () => this.clearConsole());
     eventBus.on('console:sendErrorsToAI', () => this.sendAllErrorsToAI());
     eventBus.on('preview:refresh', () => this.refreshPreview());
+
+    // Sidebar tabs management
+    eventBus.on('tabs:switch', ({ index }) => this.switchToTabByIndex(index));
+    eventBus.on('tabs:close', ({ index }) => this.closeTabByIndex(index));
 
     // File management
     eventBus.on('file:new', () => this.newTab());
@@ -261,6 +265,28 @@ class App {
         this.preview.update(code);
       }
     });
+
+    // Chybějící handlery - přidáno pro kompatibilitu
+    eventBus.on('toast:show', ({ message, type = 'info', duration = 3000 }) => {
+      toast[type]?.(message, duration) || toast.info(message, duration);
+    });
+
+    eventBus.on('editor:goToLine', ({ line }) => {
+      if (this.editor && this.editor.goToLine) {
+        this.editor.goToLine(line);
+      } else if (this.editor && this.editor.textarea) {
+        // Fallback - scroll to line
+        const lines = this.editor.getCode().split('\n');
+        let position = 0;
+        for (let i = 0; i < Math.min(line - 1, lines.length); i++) {
+          position += lines[i].length + 1;
+        }
+        this.editor.textarea.setSelectionRange(position, position);
+        this.editor.textarea.focus();
+      }
+    });
+
+    eventBus.on('action:toggleConsole', () => this.toggleConsole());
   }
 
   setupConsoleListener() {
@@ -2250,6 +2276,69 @@ Přepiš celý kód s opravami všech chyb a vysvětli, co bylo špatně.`;
     eventBus.emit('files:changed');
 
     toast.success(`Uloženo ${modifiedTabs.length} ${modifiedTabs.length === 1 ? 'soubor' : 'souborů'}`, 2000);
+  }
+
+  /**
+   * Přepne na tab podle indexu (pro Sidebar)
+   */
+  switchToTabByIndex(index) {
+    const tabs = state.get('files.tabs') || [];
+    if (index < 0 || index >= tabs.length) return;
+
+    const tab = tabs[index];
+    state.set('files.active', tab.id);
+    state.set('editor.code', tab.content || '');
+
+    if (this.editor) {
+      this.editor.setCode(tab.content || '');
+    }
+    if (this.preview) {
+      this.preview.update(tab.content || '');
+    }
+
+    eventBus.emit('files:changed');
+  }
+
+  /**
+   * Zavře tab podle indexu (pro Sidebar)
+   */
+  closeTabByIndex(index) {
+    const tabs = state.get('files.tabs') || [];
+    if (index < 0 || index >= tabs.length) return;
+
+    const tab = tabs[index];
+
+    // Zkontroluj neuložené změny
+    if (tab.modified) {
+      if (!confirm(`Soubor "${tab.name}" má neuložené změny. Opravdu zavřít?`)) {
+        return;
+      }
+    }
+
+    const activeFileId = state.get('files.active');
+    const newTabs = tabs.filter((_, i) => i !== index);
+    state.set('files.tabs', newTabs);
+
+    // Pokud zavíráme aktivní tab, přepni na jiný
+    if (tab.id === activeFileId) {
+      if (newTabs.length > 0) {
+        const newIndex = Math.min(index, newTabs.length - 1);
+        const newActive = newTabs[newIndex];
+        state.set('files.active', newActive.id);
+        state.set('editor.code', newActive.content || '');
+        if (this.editor) {
+          this.editor.setCode(newActive.content || '');
+        }
+        if (this.preview) {
+          this.preview.update(newActive.content || '');
+        }
+      } else {
+        this.newTab();
+      }
+    }
+
+    eventBus.emit('files:changed');
+    toast.success(`Soubor "${tab.name}" zavřen`, 2000);
   }
 
   destroy() {
