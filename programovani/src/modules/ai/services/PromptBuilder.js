@@ -256,35 +256,56 @@ Odpověz přátelsky a užitečně. Pokud je to vhodné, použij emoji pro lepš
   }
 
   /**
-   * Vybere prompt podle kontextu
+   * Vybere prompt podle kontextu - vylepšená detekce
    */
   selectPromptByContext(userMessage, hasCode, hasHistory, currentCode) {
     const msg = userMessage.toLowerCase();
 
-    // New project
+    // New project detection
     if (!hasCode || currentCode.trim().length < 100) {
       return 'Vytvoř KOMPLETNÍ funkční projekt (HTML + CSS + JavaScript) podle požadavku uživatele.';
     }
 
-    // Modifications
-    if (msg.includes('přidej') || msg.includes('rozšiř')) {
-      return 'Rozšiř existující kód o novou funkcionalitu - pošli POUZE změny v SEARCH/REPLACE formátu.';
+    // Delete/Remove operations - highest priority
+    if (msg.match(/smaž|vymaž|odstraň|odstran|vyhod|vyhoď|zruš|zbav|pryč|delete|remove|hide|skryj/)) {
+      return 'SMAŽ požadované elementy z kódu - použij SEARCH/REPLACE kde REPLACE je prázdný nebo bez daného elementu.';
     }
 
-    if (msg.includes('oprav') || msg.includes('fix')) {
-      return 'Oprav chyby v kódu - pošli POUZE opravy v SEARCH/REPLACE formátu.';
+    // Style/Design changes
+    if (msg.match(/barv|color|styl|style|font|velikost|size|margin|padding|border|pozad|background|vzhled|design/)) {
+      return 'Uprav STYLY (CSS) podle požadavku - použij SEARCH/REPLACE pro změnu CSS vlastností.';
     }
 
-    if (msg.includes('změň') || msg.includes('uprav')) {
-      return 'Uprav kód podle požadavku - pošli POUZE změny v SEARCH/REPLACE formátu.';
+    // Add functionality
+    if (msg.match(/přidej|add|rozšiř|extend|doplň|nový|nové|novou|vytvoř.*funkc/)) {
+      return 'PŘIDEJ novou funkcionalitu - použij SEARCH/REPLACE pro vložení nového kódu na správné místo.';
     }
 
-    if (msg.includes('vysvětli') || msg.includes('co dělá')) {
-      return 'Vysvětli co kód dělá - stručně a jasně v češtině.';
+    // Fix bugs
+    if (msg.match(/oprav|fix|nefunguje|chyba|error|bug|problém|špatně|spatne/)) {
+      return 'OPRAV chybu v kódu - identifikuj problém a použij SEARCH/REPLACE pro opravu.';
     }
 
-    // Default
-    return 'Pomoz uživateli s jeho požadavkem - buď vytvoř nový kód, nebo uprav existující pomocí SEARCH/REPLACE.';
+    // Modify/Change
+    if (msg.match(/změň|change|uprav|edit|modify|přepiš|prepis|nahraď|nahrad/)) {
+      return 'UPRAV kód podle požadavku - použij SEARCH/REPLACE pro přesné změny.';
+    }
+
+    // Explain/Describe
+    if (msg.match(/vysvětli|vysvetli|co dělá|co dela|jak funguje|popiš|popis|analyze|analyz/)) {
+      return 'VYSVĚTLI co kód dělá - stručně a jasně v češtině.';
+    }
+
+    // Refactor/Improve
+    if (msg.match(/refaktor|vylepši|zlepši|optimalizuj|zjednoduš|clean|čist/)) {
+      return 'VYLEPŠI strukturu kódu - refaktoruj pomocí SEARCH/REPLACE bloků.';
+    }
+
+    // Default - smart detection based on code size
+    if (currentCode.length > 5000) {
+      return 'Pomoz s požadavkem - pro existující kód VŽDY použij SEARCH/REPLACE formát.';
+    }
+    return 'Pomoz uživateli - vytvoř nový kód nebo uprav existující pomocí SEARCH/REPLACE.';
   }
 
   /**
@@ -668,25 +689,35 @@ ${formattedCode}
 Máš k dispozici CELÝ kód souboru výše. Pro úpravy použij:
 
 \`\`\`SEARCH
-[přesný kód který chceš nahradit]
+[přesný kód který chceš nahradit - KOPÍRUJ Z KÓDU VÝŠE]
 \`\`\`
 \`\`\`REPLACE
 [nový kód]
 \`\`\`
 
-### ⚠️ Důležitá pravidla:
-1. **Ignoruj čísla řádků** - kopíruj jen kód, ne "235|"
-2. **Zachovej odsazení** - přesně stejné mezery/tabulátory
-3. **Přesná shoda** - SEARCH musí 100% odpovídat kódu v editoru
-4. **Žádné zkratky** - nikdy "...", vždy celý text
+### ⚠️ KRITICKÁ pravidla (MUSÍŠ dodržet!):
+1. **BEZ ČÍSEL ŘÁDKŮ** - kopíruj POUZE kód, NE "235|" prefix!
+2. **PŘESNÉ odsazení** - mezery/tabulátory musí být identické
+3. **100% SHODA** - SEARCH musí PŘESNĚ odpovídat kódu výše
+4. **ŽÁDNÉ "..."** - vždy celý text, nikdy zkratky
+5. **MALÉ BLOKY** - měň co nejmenší část kódu (5-15 řádků max)
+6. **KONTEXT** - zahrň 1-2 řádky před/po pro jednoznačnost
 
-### Příklad:
+### ✅ Správný příklad:
 \`\`\`SEARCH
-<button class="btn">Klikni</button>
+    <button class="btn">Klikni</button>
+    <span class="info">Text</span>
 \`\`\`
 \`\`\`REPLACE
-<button class="btn primary" aria-label="Hlavní akce">Klikni</button>
-\`\`\``;
+    <button class="btn primary" aria-label="Hlavní akce">Klikni</button>
+    <span class="info">Text</span>
+\`\`\`
+
+### ❌ Špatně (nedělejte):
+- \`235| <button>\` - číslo řádku
+- \`...zbytek kódu...\` - zkratky
+- Blok s 50+ řádky - příliš velké
+- Jiné odsazení než originál`;
     }
 
     return systemPrompt;

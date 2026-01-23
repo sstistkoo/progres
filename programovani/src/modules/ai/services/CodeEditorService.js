@@ -14,6 +14,79 @@ export class CodeEditorService {
   }
 
   /**
+   * Auto-fix common AI mistakes in SEARCH/REPLACE blocks
+   * Opravuje běžné chyby které AI dělá
+   */
+  autoFixAIResponse(response) {
+    let fixed = response;
+    let fixCount = 0;
+
+    // Fix 1: AI používá "```search" místo "```SEARCH"
+    if (/```\s*search\s*\n/i.test(fixed) && !/```\s*SEARCH\s*\n/.test(fixed)) {
+      fixed = fixed.replace(/```\s*search\s*\n/gi, '```SEARCH\n');
+      fixed = fixed.replace(/```\s*replace\s*\n/gi, '```REPLACE\n');
+      fixCount++;
+      console.log('[CodeEditor] Auto-fix: normalized SEARCH/REPLACE case');
+    }
+
+    // Fix 2: AI zapomněl uzavřít ``` na konci (zkusíme doplnit)
+    const searchCount = (fixed.match(/```\s*SEARCH/gi) || []).length;
+    const replaceCount = (fixed.match(/```\s*REPLACE/gi) || []).length;
+    const backtickCount = (fixed.match(/```/g) || []).length;
+
+    if (backtickCount % 2 !== 0 && searchCount > 0) {
+      // Přidáme chybějící ```
+      fixed = fixed + '\n```';
+      fixCount++;
+      console.log('[CodeEditor] Auto-fix: added missing closing ```');
+    }
+
+    // Fix 3: AI použil "// ..." místo skutečného kódu (odstraníme tyto řádky)
+    const badPatterns = [
+      /^\s*\/\/\s*\.\.\.\s*$/gm,        // "// ..."
+      /^\s*\/\/\s*rest\s*of\s*/gmi,     // "// rest of..."
+      /^\s*\/\/\s*zbytek\s*/gmi,        // "// zbytek..."
+      /^\s*\/\*\s*\.\.\.\s*\*\/\s*$/gm, // "/* ... */"
+    ];
+
+    for (const pattern of badPatterns) {
+      if (pattern.test(fixed)) {
+        fixed = fixed.replace(pattern, '');
+        fixCount++;
+        console.log('[CodeEditor] Auto-fix: removed placeholder comment');
+      }
+    }
+
+    // Fix 4: AI přidal čísla řádků do SEARCH bloku (odstraníme je)
+    // Detekce: více řádků začíná "číslo|" nebo "číslo:"
+    const lineNumberPattern = /^(\s*\d+[\|:]\s*)/gm;
+    const matches = fixed.match(lineNumberPattern);
+    if (matches && matches.length > 3) {
+      fixed = fixed.replace(lineNumberPattern, '');
+      fixCount++;
+      console.log('[CodeEditor] Auto-fix: removed line numbers from code');
+    }
+
+    // Fix 5: AI dal mezi SEARCH a REPLACE text (např. "Nahraď tímto:")
+    // Najdi a odstraň text mezi ``` a ```REPLACE
+    fixed = fixed.replace(/```(\s*)([^`]+?)(\s*)```\s*REPLACE/gi, (match, ws1, text, ws2) => {
+      // Pokud je text jen whitespace nebo krátká poznámka, odstraň
+      if (text.trim().length < 50 && !text.includes('\n')) {
+        fixCount++;
+        console.log('[CodeEditor] Auto-fix: removed text between blocks');
+        return '```\n```REPLACE';
+      }
+      return match;
+    });
+
+    if (fixCount > 0) {
+      console.log(`[CodeEditor] Auto-fixed ${fixCount} AI mistakes in response`);
+    }
+
+    return fixed;
+  }
+
+  /**
    * Parse VS Code style SEARCH/REPLACE blocks
    * Podporuje více formátů:
    * - ```SEARCH ... ``` ```REPLACE ... ```
@@ -23,11 +96,14 @@ export class CodeEditorService {
   parseSearchReplaceInstructions(response) {
     const instructions = [];
 
+    // Pre-process: Auto-fix common AI mistakes
+    let cleanedResponse = this.autoFixAIResponse(response);
+
     // Debug: log raw response structure
     console.log('[CodeEditor] Parsing response for SEARCH/REPLACE blocks...');
-    console.log('[CodeEditor] Response contains "SEARCH":', response.includes('SEARCH'));
-    console.log('[CodeEditor] Response contains "```SEARCH":', response.includes('```SEARCH'));
-    console.log('[CodeEditor] Response contains "``` SEARCH":', response.includes('``` SEARCH'));
+    console.log('[CodeEditor] Response contains "SEARCH":', cleanedResponse.includes('SEARCH'));
+    console.log('[CodeEditor] Response contains "```SEARCH":', cleanedResponse.includes('```SEARCH'));
+    console.log('[CodeEditor] Response contains "``` SEARCH":', cleanedResponse.includes('``` SEARCH'));
 
     // Multiple patterns for flexibility
     const patterns = [
@@ -53,7 +129,7 @@ export class CodeEditorService {
       // Reset lastIndex for global regex
       pattern.lastIndex = 0;
 
-      while ((match = pattern.exec(response)) !== null) {
+      while ((match = pattern.exec(cleanedResponse)) !== null) {
         const searchCode = match[1].trim();
         const replaceCode = match[2].trim();
 

@@ -1472,7 +1472,14 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
               toast.success('↩️ Změny vráceny', 2000);
             }
           );
-          toast.success(`✅ Aplikováno ${searchReplaceEdits.length} změn`, 3000);
+
+          // Analyzuj kvalitu změn a poskytni feedback
+          const qualityInfo = this.analyzeEditQuality(searchReplaceEdits, result);
+          if (qualityInfo.warning) {
+            toast.warning(qualityInfo.message, 4000);
+          } else {
+            toast.success(`✅ Aplikováno ${searchReplaceEdits.length} změn${qualityInfo.fuzzyCount > 0 ? ' (některé fuzzy)' : ''}`, 3000);
+          }
         } else if (result.syntaxError) {
           // Syntax error - změny nebyly aplikovány
           // Error message už byla přidána v CodeEditorService
@@ -1738,6 +1745,55 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
     } else {
       return 'AI přemýšlí a generuje kód...';
     }
+  }
+
+  /**
+   * Analyzuj kvalitu aplikovaných změn
+   */
+  analyzeEditQuality(edits, result) {
+    let fuzzyCount = 0;
+    let semiCount = 0;
+    let exactCount = 0;
+
+    // Parsuj výsledek pro info o match typech
+    if (result.message) {
+      const fuzzyMatches = result.message.match(/fuzzy/gi);
+      const semiMatches = result.message.match(/normalized|semi/gi);
+
+      fuzzyCount = fuzzyMatches ? fuzzyMatches.length : 0;
+      semiCount = semiMatches ? semiMatches.length : 0;
+      exactCount = edits.length - fuzzyCount - semiCount;
+    }
+
+    // Varování pokud je příliš mnoho fuzzy
+    if (fuzzyCount > edits.length / 2) {
+      return {
+        warning: true,
+        message: `⚠️ ${fuzzyCount}/${edits.length} změn použilo FUZZY matching - zkontroluj výsledek!`,
+        fuzzyCount,
+        semiCount,
+        exactCount
+      };
+    }
+
+    // Info pokud některé použily semi-strict
+    if (semiCount > 0 && fuzzyCount === 0) {
+      return {
+        warning: false,
+        message: `✅ Aplikováno ${edits.length} změn (odsazení normalizováno)`,
+        fuzzyCount,
+        semiCount,
+        exactCount
+      };
+    }
+
+    return {
+      warning: false,
+      message: `✅ Aplikováno ${edits.length} změn`,
+      fuzzyCount,
+      semiCount,
+      exactCount
+    };
   }
 
   addChatMessage(role, content, messageId = null) {
@@ -2389,13 +2445,19 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
 
       let finalCode = '';
       let lastError = null;
-      const maxRetries = Math.min(sortedModels.length, 5); // Max 5 pokusů
+      // Max 5 pokusů, ale minimálně 1 (i když sortedModels je prázdné)
+      const maxRetries = Math.max(1, Math.min(sortedModels.length, 5));
 
       // Pomocná funkce pro volání AI s retry logikou
       const callAIWithFallback = async (prompt, options = {}) => {
         let currentProvider = provider;
         let currentModel = model;
         let attempts = 0;
+
+        // Pokud nemáme provider/model, selži hned
+        if (!currentProvider || !currentModel) {
+          throw new Error('Není vybrán žádný AI model. Zkontrolujte nastavení API klíčů.');
+        }
 
         while (attempts < maxRetries) {
           try {
@@ -2437,112 +2499,423 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
       };
 
       if (shouldTreatAsNewProject) {
-        // ===== JEDNOFÁZOVÝ WORKFLOW PRO NOVÝ PROJEKT =====
-        // Jeden silný prompt místo 3 slabých = lepší výsledky
+        // ===== MULTI-AGENT WORKFLOW PRO NOVÝ PROJEKT =====
+        // Každý agent má specializaci a výsledky se kombinují
 
-        updateStatus('🚀 Tým generuje kompletní projekt...');
+        // ───────────────────────────────────────────────────
+        // FÁZE 1: ARCHITEKT - Plánuje strukturu a komponenty
+        // ───────────────────────────────────────────────────
+        updateStatus('🏗️ Architekt plánuje strukturu...');
 
-        const masterPrompt = `Jsi EXPERT tým vývojářů. Vytvoř KOMPLETNÍ, PROFESIONÁLNÍ a 100% FUNKČNÍ aplikaci.
+        const architectPrompt = `Jsi SOFTWAROVÝ ARCHITEKT. Naplánuj strukturu aplikace.
 
 ZADÁNÍ: ${message}
 
+Vytvoř detailní specifikaci:
+
+1. KOMPONENTY UI:
+   - Jaké HTML elementy jsou potřeba
+   - Jejich hierarchie a vztahy
+   - ID a class názvy
+
+2. DATOVÝ MODEL:
+   - Jaké proměnné budou potřeba
+   - Jejich typy a účel
+   - Stav aplikace
+
+3. FUNKCE:
+   - Seznam všech funkcí
+   - Co každá dělá
+   - Jak spolu komunikují
+
+4. EVENTS:
+   - Jaké události zachytávat
+   - Na jakých elementech
+
+Odpověz POUZE strukturovaným plánem, žádný kód.`;
+
+        const architectResult = await callAIWithFallback(architectPrompt, {
+          temperature: 0.3, maxTokens: 2048
+        });
+        const architectPlan = architectResult.response;
+        console.log('🏗️ Architekt hotov:', architectPlan.substring(0, 200));
+
+        // ───────────────────────────────────────────────────
+        // FÁZE 2: DESIGNER - Vytváří CSS design
+        // ───────────────────────────────────────────────────
+        updateStatus('🎨 Designer tvoří vzhled...');
+
+        const designerPrompt = `Jsi UI/UX DESIGNER. Vytvoř KOMPLETNÍ CSS pro aplikaci.
+
+ZADÁNÍ: ${message}
+PLÁN ARCHITEKTA:
+${architectPlan}
+
 ═══════════════════════════════════════════════════════════
-KRITICKÁ PRAVIDLA (PORUŠENÍ = SELHÁNÍ):
+POKUD JE TO KALKULAČKA - POUŽIJ TOTO CSS:
 ═══════════════════════════════════════════════════════════
 
-1. JEDEN HTML SOUBOR obsahující vše (CSS v <style>, JS v <script>)
-2. KAŽDÁ PROMĚNNÁ deklarována POUZE JEDNOU (žádné duplicitní let/const)
-3. VŠECHNY funkce MUSÍ být PLNĚ IMPLEMENTOVANÉ (žádné TODO/placeholder)
-4. Kód MUSÍ být KOMPLETNÍ - začíná <!DOCTYPE html>, končí </html>
-5. JavaScript MUSÍ být FUNKČNÍ - všechna tlačítka/vstupy musí reagovat
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+.calculator {
+    background: #1f1f1f;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    width: 320px;
+}
+.display {
+    background: #2d2d2d;
+    color: #fff;
+    font-size: 2.5rem;
+    text-align: right;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    overflow: hidden;
+    word-break: break-all;
+}
+.buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+.btn {
+    padding: 20px;
+    font-size: 1.5rem;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+.btn.number {
+    background: #3d3d3d;
+    color: #fff;
+}
+.btn.number:hover { background: #4d4d4d; }
+.btn.operator {
+    background: #ff9500;
+    color: #fff;
+}
+.btn.operator:hover { background: #ffaa33; }
+.btn.clear {
+    background: #ff3b30;
+    color: #fff;
+}
+.btn.clear:hover { background: #ff5c54; }
+.btn.equals {
+    background: #34c759;
+    color: #fff;
+    grid-column: span 2;
+}
+.btn.equals:hover { background: #4cd964; }
+.btn.zero { grid-column: span 1; }
+.btn:active { transform: scale(0.95); }
 
 ═══════════════════════════════════════════════════════════
-TECHNICKÉ POŽADAVKY:
+PRO JINÉ APLIKACE - VYTVOŘ VLASTNÍ CSS S:
 ═══════════════════════════════════════════════════════════
 
-HTML:
-- Sémantické značky (main, section, button)
-- Přístupnost (aria-label na tlačítkách)
+- Reset: * { box-sizing: border-box; margin: 0; padding: 0; }
+- Moderní design: gradienty, stíny, zaoblení
+- Flexbox/Grid layout
+- Responzivní design
+- Hover efekty
+- Animace/transitions
 
-CSS:
-- * { box-sizing: border-box; margin: 0; padding: 0; }
-- CSS Grid nebo Flexbox pro layout
-- Moderní design: gradienty, stíny, zaoblené rohy
-- Responzivní (min-width/max-width nebo media queries)
-- Hover efekty na interaktivních prvcích
+POUZE CSS kód:
+\`\`\`css
+/* Kompletní CSS */
+\`\`\``;
 
-JavaScript:
-- 'use strict'; na začátku
-- addEventListener místo onclick
-- Všechny proměnné pojmenované UNIKÁTNĚ
-- Error handling (try/catch kde je potřeba)
+        const designerResult = await callAIWithFallback(designerPrompt, {
+          temperature: 0.4, maxTokens: 4096
+        });
+        const designerResponse = designerResult.response;
+
+        // Extrahuj CSS
+        let cssCode = '';
+        const cssMatch = designerResponse.match(/```css\n?([\s\S]*?)```/);
+        if (cssMatch) {
+          cssCode = cssMatch[1].trim();
+        } else {
+          // Fallback - zkus najít <style> obsah
+          const styleMatch = designerResponse.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+          if (styleMatch) cssCode = styleMatch[1].trim();
+        }
+        console.log('🎨 Designer hotov, CSS:', cssCode.length, 'znaků');
+
+        // ───────────────────────────────────────────────────
+        // FÁZE 3: DEVELOPER - Píše HTML a JavaScript
+        // ───────────────────────────────────────────────────
+        updateStatus('💻 Developer píše kód...');
+
+        const developerPrompt = `Jsi SENIOR FULL-STACK DEVELOPER. Napiš KOMPLETNÍ HTML a JavaScript.
+
+ZADÁNÍ: ${message}
+
+PLÁN ARCHITEKTA:
+${architectPlan}
+
+CSS JE JIŽ HOTOVÉ (nepiš CSS, jen použij třídy):
+${cssCode.substring(0, 1500)}...
 
 ═══════════════════════════════════════════════════════════
-FORMÁT ODPOVĚDI (POUZE TOTO):
+POKUD JE ZADÁNÍ KALKULAČKA - POUŽIJ PŘESNĚ TOTO:
 ═══════════════════════════════════════════════════════════
+
+HTML STRUKTURA (přesně takto):
+<div class="calculator">
+    <div class="display" id="display">0</div>
+    <div class="buttons">
+        <button class="btn clear" data-action="clear">C</button>
+        <button class="btn operator" data-action="backspace">⌫</button>
+        <button class="btn operator" data-operator="%">%</button>
+        <button class="btn operator" data-operator="/">÷</button>
+
+        <button class="btn number" data-number="7">7</button>
+        <button class="btn number" data-number="8">8</button>
+        <button class="btn number" data-number="9">9</button>
+        <button class="btn operator" data-operator="*">×</button>
+
+        <button class="btn number" data-number="4">4</button>
+        <button class="btn number" data-number="5">5</button>
+        <button class="btn number" data-number="6">6</button>
+        <button class="btn operator" data-operator="-">−</button>
+
+        <button class="btn number" data-number="1">1</button>
+        <button class="btn number" data-number="2">2</button>
+        <button class="btn number" data-number="3">3</button>
+        <button class="btn operator" data-operator="+">+</button>
+
+        <button class="btn number zero" data-number="0">0</button>
+        <button class="btn number" data-number=".">.</button>
+        <button class="btn equals" data-action="equals">=</button>
+    </div>
+</div>
+
+JAVASCRIPT (přesně takto):
+'use strict';
+const display = document.getElementById('display');
+let currentValue = '0';
+let previousValue = '';
+let operator = null;
+let shouldResetDisplay = false;
+
+function updateDisplay() {
+    display.textContent = currentValue;
+}
+
+function appendNumber(num) {
+    if (shouldResetDisplay) {
+        currentValue = num;
+        shouldResetDisplay = false;
+    } else {
+        if (num === '.' && currentValue.includes('.')) return;
+        currentValue = currentValue === '0' && num !== '.' ? num : currentValue + num;
+    }
+    updateDisplay();
+}
+
+function setOperator(op) {
+    if (operator !== null) calculate();
+    previousValue = currentValue;
+    operator = op;
+    shouldResetDisplay = true;
+}
+
+function calculate() {
+    if (operator === null || shouldResetDisplay) return;
+    const prev = parseFloat(previousValue);
+    const curr = parseFloat(currentValue);
+    let result;
+    switch (operator) {
+        case '+': result = prev + curr; break;
+        case '-': result = prev - curr; break;
+        case '*': result = prev * curr; break;
+        case '/': result = curr !== 0 ? prev / curr : 'Error'; break;
+        case '%': result = prev % curr; break;
+    }
+    currentValue = String(result);
+    operator = null;
+    shouldResetDisplay = true;
+    updateDisplay();
+}
+
+function clearDisplay() {
+    currentValue = '0';
+    previousValue = '';
+    operator = null;
+    shouldResetDisplay = false;
+    updateDisplay();
+}
+
+function backspace() {
+    currentValue = currentValue.length > 1 ? currentValue.slice(0, -1) : '0';
+    updateDisplay();
+}
+
+// Event listeners
+document.querySelectorAll('[data-number]').forEach(btn => {
+    btn.addEventListener('click', () => appendNumber(btn.dataset.number));
+});
+document.querySelectorAll('[data-operator]').forEach(btn => {
+    btn.addEventListener('click', () => setOperator(btn.dataset.operator));
+});
+document.querySelector('[data-action="clear"]').addEventListener('click', clearDisplay);
+document.querySelector('[data-action="backspace"]').addEventListener('click', backspace);
+document.querySelector('[data-action="equals"]').addEventListener('click', calculate);
+
+═══════════════════════════════════════════════════════════
+PRO JINÉ APLIKACE - OBECNÁ PRAVIDLA:
+═══════════════════════════════════════════════════════════
+
+1. 'use strict'; na začátku scriptu
+2. KAŽDÁ proměnná POUZE JEDNOU
+3. addEventListener MÍSTO onclick atributů
+4. KOMPLETNÍ implementace VŠECH funkcí
+5. Žádné TODO, placeholder, nebo prázdné funkce
+
+═══════════════════════════════════════════════════════════
+
+Vrať POUZE HTML strukturu a JavaScript:
 
 \`\`\`html
-<!DOCTYPE html>
+<body>
+    <!-- HTML struktura s class názvy z CSS -->
+
+    <script>
+        'use strict';
+
+        // Kompletní JavaScript
+    </script>
+</body>
+\`\`\``;
+
+        const developerResult = await callAIWithFallback(developerPrompt, {
+          temperature: 0.2, maxTokens: 8192
+        });
+        const developerResponse = developerResult.response;
+
+        // Extrahuj HTML/JS
+        let htmlBody = '';
+        const htmlMatch = developerResponse.match(/```html\n?([\s\S]*?)```/);
+        if (htmlMatch) {
+          htmlBody = htmlMatch[1].trim();
+        }
+        console.log('💻 Developer hotov, HTML/JS:', htmlBody.length, 'znaků');
+
+        // ───────────────────────────────────────────────────
+        // FÁZE 4: INTEGRÁTOR - Sestaví finální kód
+        // ───────────────────────────────────────────────────
+        updateStatus('🔧 Integrátor sestavuje projekt...');
+
+        // Extrahuj <body> obsah a <script> zvlášť
+        let bodyContent = '';
+        let scriptContent = '';
+
+        const bodyMatch = htmlBody.match(/<body[^>]*>([\s\S]*?)<script/i);
+        if (bodyMatch) {
+          bodyContent = bodyMatch[1].trim();
+        } else {
+          // Zkus najít obsah před <script>
+          const beforeScript = htmlBody.split(/<script/i)[0];
+          bodyContent = beforeScript.replace(/<\/?body[^>]*>/gi, '').trim();
+        }
+
+        const scriptMatch = htmlBody.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+        if (scriptMatch) {
+          scriptContent = scriptMatch[1].trim();
+        }
+
+        // Pokud nemáme body content, použij celý htmlBody
+        if (!bodyContent && htmlBody) {
+          bodyContent = htmlBody.replace(/<script[\s\S]*<\/script>/gi, '').replace(/<\/?body[^>]*>/gi, '').trim();
+        }
+
+        // Sestav finální kód
+        finalCode = `<!DOCTYPE html>
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Název aplikace</title>
+    <title>${message.substring(0, 50)}</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        /* Kompletní CSS styly */
+${cssCode || `* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; min-height: 100vh; display: flex; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }`}
     </style>
 </head>
 <body>
-    <!-- Kompletní HTML struktura -->
+    ${bodyContent || '<div class="container"><p>Chyba při generování</p></div>'}
+
     <script>
         'use strict';
-        // Kompletní funkční JavaScript
+        ${scriptContent || '// Chyba při generování JavaScriptu'}
     </script>
 </body>
-</html>
+</html>`;
+
+        // ───────────────────────────────────────────────────
+        // FÁZE 5: REVIEWER - Kontroluje a opravuje chyby
+        // ───────────────────────────────────────────────────
+        updateStatus('🔍 Reviewer kontroluje kód...');
+
+        // Nejprve lokální opravy
+        finalCode = this.fixDuplicateVariables(finalCode);
+
+        // Kontrola základních chyb
+        const hasClosingHtml = finalCode.includes('</html>');
+        const hasScript = finalCode.includes('<script>') && finalCode.includes('</script>');
+        const hasEventListeners = finalCode.includes('addEventListener');
+
+        if (!hasClosingHtml || !hasScript || !hasEventListeners) {
+          console.warn('🔍 Reviewer detekoval problémy, opravuji...');
+
+          const reviewerPrompt = `Jsi CODE REVIEWER. Oprav tento kód:
+
+\`\`\`html
+${finalCode}
 \`\`\`
 
-NYNÍ VYGENERUJ KOMPLETNÍ KÓD:`;
+PROBLÉMY K OPRAVĚ:
+${!hasClosingHtml ? '- Chybí </html>' : ''}
+${!hasScript ? '- Chybí nebo špatný <script> blok' : ''}
+${!hasEventListeners ? '- NEPOUŽÍVÁ addEventListener - OPRAV!' : ''}
 
-        // Volání s automatickým fallbackem na další modely
-        const result = await callAIWithFallback(masterPrompt, {
-          temperature: 0.2, maxTokens: 16384
-        });
-        const response = result.response;
+Vrať KOMPLETNÍ opravený kód:
+\`\`\`html
+<!DOCTYPE html>
+...kompletní opravený kód...
+</html>
+\`\`\``;
 
-        // Extrahuj kód
-        const codeMatch = response.match(/```(?:html)?\n?([\s\S]*?)```/);
-        if (codeMatch && codeMatch[1]) {
-          finalCode = codeMatch[1].trim();
-        }
-
-        // Kontrola kompletnosti
-        if (finalCode && !finalCode.includes('</html>')) {
-          updateStatus('🔧 Dokončuji kód...');
-          const continuePrompt = `Dokonči tento HTML kód. Pokračuj PŘESNĚ od místa kde končí:
-
-${finalCode.slice(-1000)}
-
-Dopiš POUZE chybějící část až po </html>. NEREPETUJ existující kód:`;
-
-          const contResult = await callAIWithFallback(continuePrompt, {
-            temperature: 0.1, maxTokens: 8192
-          });
-          const continuation = contResult.response;
-
-          const contMatch = continuation.match(/```(?:html)?\n?([\s\S]*?)```/);
-          if (contMatch && contMatch[1]) {
-            finalCode = finalCode + '\n' + contMatch[1].trim();
-          } else if (!continuation.includes('```')) {
-            finalCode = finalCode + '\n' + continuation.trim();
+          try {
+            const reviewerResult = await callAIWithFallback(reviewerPrompt, {
+              temperature: 0.1, maxTokens: 8192
+            });
+            const fixedMatch = reviewerResult.response.match(/```html\n?([\s\S]*?)```/);
+            if (fixedMatch && fixedMatch[1].includes('</html>')) {
+              finalCode = fixedMatch[1].trim();
+              finalCode = this.fixDuplicateVariables(finalCode);
+            }
+          } catch (e) {
+            console.warn('Reviewer selhal, použiji původní kód');
           }
         }
 
-        // Validace a oprava duplicitních proměnných
-        if (finalCode) {
-          finalCode = this.fixDuplicateVariables(finalCode);
-        }
+        console.log('✅ Multi-agent workflow dokončen');
 
       } else {
         // ===== ÚPRAVA EXISTUJÍCÍHO KÓDU =====
@@ -2668,8 +3041,10 @@ Použij SEARCH/REPLACE bloky pro úpravy:
         if (count > 1) {
           console.log(`[AIPanel] Opravuji duplicitní proměnnou: ${varName} (${count}x)`);
           let occurrences = 0;
+          // Escape speciálních znaků v názvu proměnné pro regex
+          const escapedVarName = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           jsCode = jsCode.replace(
-            new RegExp(`\\b(let|const)\\s+${varName}\\s*=`, 'g'),
+            new RegExp(`\\b(let|const)\\s+${escapedVarName}\\s*=`, 'g'),
             (match) => {
               occurrences++;
               // První výskyt necháme, další změníme na přiřazení
