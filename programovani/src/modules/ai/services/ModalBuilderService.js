@@ -26,12 +26,12 @@ export class ModalBuilderService {
           <button class="ai-menu-item" data-tab="chat">◆ Kód</button>
           <button class="ai-menu-item" data-tab="pokec">💬 Pokec</button>
           <button class="ai-menu-item" data-tab="agents">🤖 Agenti</button>
-          <button class="ai-menu-item" data-tab="editor">📝 Editor</button>
           <button class="ai-menu-item" data-tab="actions">⚡ Akce</button>
           <button class="ai-menu-item" data-tab="prompts">📝 Prompty</button>
           <button class="ai-menu-item" data-tab="testing">🧪 Testing</button>
           <button class="ai-menu-item" data-tab="github">🔗 GitHub</button>
           <div class="ai-menu-divider"></div>
+          <button class="ai-menu-item" data-action="ai-studios">🎨 AI Studia</button>
           <button class="ai-menu-item" data-action="export">📥 Export chatu</button>
           <button class="ai-menu-item" data-action="clear">🗑️ Vymazat historii</button>
         </div>

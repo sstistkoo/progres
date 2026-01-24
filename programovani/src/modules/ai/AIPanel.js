@@ -186,12 +186,12 @@ export class AIPanel {
           <button class="ai-menu-item" data-tab="chat">◆ Kód</button>
           <button class="ai-menu-item" data-tab="pokec">💬 Pokec</button>
           <button class="ai-menu-item" data-tab="agents">🤖 Agenti</button>
-          <button class="ai-menu-item" data-tab="editor">📝 Editor</button>
           <button class="ai-menu-item" data-tab="actions">⚡ Akce</button>
           <button class="ai-menu-item" data-tab="prompts">📝 Prompty</button>
           <button class="ai-menu-item" data-tab="testing">🧪 Testing</button>
           <button class="ai-menu-item" data-tab="github">🔗 GitHub</button>
           <div class="ai-menu-divider"></div>
+          <button class="ai-menu-item" data-action="ai-studios">🎨 AI Studia</button>
           <button class="ai-menu-item" data-action="export">📥 Export chatu</button>
           <button class="ai-menu-item" data-action="clear">🗑️ Vymazat historii</button>
         </div>
@@ -814,6 +814,17 @@ export class AIPanel {
             this.showExportDialog();
             return;
           }
+          if (action === 'ai-studios') {
+            // Import MenuModals and show AI Studios
+            import('../menu/services/MenuModals.js').then(module => {
+              const menuModals = new module.MenuModals();
+              menuModals.showAIStudios();
+            }).catch(err => {
+              console.error('[AIPanel] Failed to load AI Studios:', err);
+              toast.show('❌ Nelze načíst AI Studia', 'error');
+            });
+            return;
+          }
           if (action === 'clear') {
             if (this.conversationMode === 'chat') {
               if (confirm('Opravdu chceš vymazat historii pokec chatu?')) {
@@ -833,7 +844,6 @@ export class AIPanel {
               'chat': '◆ Kód',
               'pokec': '💬 Pokec',
               'agents': '🤖 Agenti',
-              'editor': '📝 Editor',
               'actions': '⚡ Akce',
               'prompts': '📝 Prompty',
               'testing': '🧪 Testing',
