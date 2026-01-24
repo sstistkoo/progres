@@ -47,6 +47,13 @@ export const MENU_SECTIONS = [
       { icon: '📋', label: 'Error Log', action: 'error-log' },
       { icon: '🐞', label: 'Otevřít DevTools', action: 'devtools' }
     ]
+  },
+  {
+    id: 'ai-studios',
+    title: '🎨 AI Studia',
+    items: [
+      { icon: '🌐', label: 'AI Studia pro HTML', action: 'ai-studios' }
+    ]
   }
 ];
 

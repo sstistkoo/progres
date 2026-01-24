@@ -769,4 +769,422 @@ export class MenuModals {
 
     return html;
   }
+
+  // ===== AI Studios Modal =====
+  showAIStudios() {
+    const aiStudios = {
+      dedicated: {
+        title: '✨ Specializované AI Code Editory (Pro laiky)',
+        items: [
+          { name: 'Cursor', url: 'https://cursor.sh', description: 'AI-first editor postavený na VS Code, seamless AI integrace', type: '💻 Ke stažení', hasAI: true, pricing: 'freemium', registration: 'email', limit: '50 AI requests/měsíc free', level: 'intermediate', video: 'https://youtube.com/results?search_query=cursor+ai+tutorial' },
+          { name: 'Windsurf', url: 'https://codeium.com/windsurf', description: 'Nový AI editor od Codeium, podobný Cursoru', type: '💻 Ke stažení', hasAI: true, pricing: 'free', registration: 'optional', limit: 'Neomezené', level: 'beginner', video: 'https://youtube.com/results?search_query=windsurf+codeium+tutorial' },
+          { name: 'Bolt.new', url: 'https://bolt.new', description: 'Online editor s AI od StackBlitz, instant deploy - NAPÍŠEŠ CO CHCEŠ A ONO TO VYGENERUJE', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'email', limit: '5 projektů free', level: 'beginner', video: 'https://youtube.com/results?search_query=bolt.new+tutorial' },
+          { name: 'v0.dev', url: 'https://v0.dev', description: 'AI generování React/HTML komponent z promptů (Vercel) - IDEÁLNÍ PRO LAIKY', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'github', limit: '200 credits/měsíc', level: 'beginner', video: 'https://youtube.com/results?search_query=v0.dev+tutorial' },
+          { name: 'Lovable', url: 'https://lovable.dev', description: 'Komplexní AI app builder (dříve GPT Engineer) - CELÉ APLIKACE BEZ KÓDU', type: '🌐 Online', hasAI: true, pricing: 'paid', registration: 'email', limit: 'Trial 7 dní', level: 'beginner', video: 'https://youtube.com/results?search_query=lovable+gpt+engineer' },
+          { name: 'Replit AI', url: 'https://replit.com', description: 'Online IDE s built-in AI asistentem - AI POMÁHÁ PSÁT KÓD', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'email', limit: 'Basic AI free', level: 'intermediate', video: 'https://youtube.com/results?search_query=replit+ai+tutorial' },
+          { name: 'GitHub Copilot Workspace', url: 'https://githubnext.com/projects/copilot-workspace', description: 'Experimentální AI-powered dev prostředí', type: '🌐 Online', hasAI: true, pricing: 'beta', registration: 'github', limit: 'Beta přístup', level: 'advanced', video: 'https://youtube.com/results?search_query=github+copilot+workspace' }
+        ]
+      },
+      chatbots: {
+        title: '✨ AI Chatboti s Code Support (Generují kód z popisu)',
+        items: [
+          { name: 'ChatGPT', url: 'https://chat.openai.com', description: 'GPT-4, GPT-4 Turbo, o1 modely (OpenAI) - ŘEKNI CO CHCEŠ A VYGENERUJE KÓD', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'email', limit: 'GPT-4o mini free neomezené', level: 'beginner', video: 'https://youtube.com/results?search_query=chatgpt+coding+tutorial+czech' },
+          { name: 'Claude AI', url: 'https://claude.ai', description: 'Claude 3.5 Sonnet, skvělý na coding (Anthropic) - NEJLEPŠÍ PRO SLOŽITĚJŠÍ PROJEKTY', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'email', limit: '~50-100 zpráv/den free', level: 'beginner', video: 'https://youtube.com/results?search_query=claude+ai+coding+tutorial' },
+          { name: 'Google AI Studio', url: 'https://aistudio.google.com', description: 'Gemini 1.5 Pro/Flash s dlouhým kontextem - ZPRACUJE I VELKÉ SOUBORY', type: '🌐 Online', hasAI: true, pricing: 'free', registration: 'google', limit: '1500 requests/den', level: 'beginner', video: 'https://youtube.com/results?search_query=google+ai+studio+tutorial' },
+          { name: 'Gemini', url: 'https://gemini.google.com', description: 'Google Gemini chatbot', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'google', limit: 'Basic free neomezené', level: 'beginner', video: 'https://youtube.com/results?search_query=google+gemini+tutorial+czech' },
+          { name: 'Microsoft Copilot', url: 'https://copilot.microsoft.com', description: 'GPT-4 integrovaný do ekosystému Microsoft', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'microsoft', limit: '30 zpráv/konverzace', level: 'beginner', video: 'https://youtube.com/results?search_query=microsoft+copilot+tutorial' },
+          { name: 'Perplexity', url: 'https://perplexity.ai', description: 'AI search s code capabilities', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'optional', limit: '5 Pro searches/den', level: 'beginner', video: 'https://youtube.com/results?search_query=perplexity+ai+tutorial' },
+          { name: 'DeepSeek', url: 'https://chat.deepseek.com', description: 'Open-source model, velmi dobrý na coding - ZDARMA', type: '🌐 Online', hasAI: true, pricing: 'free', registration: 'email', limit: 'Neomezené FREE', level: 'beginner', video: 'https://youtube.com/results?search_query=deepseek+ai+tutorial' },
+          { name: 'Mistral AI', url: 'https://chat.mistral.ai', description: 'Evropský konkurent, Mistral Large', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'email', limit: 'Basic free', level: 'intermediate', video: 'https://youtube.com/results?search_query=mistral+ai+tutorial' }
+        ]
+      },
+      mobileAI: {
+        title: '📱 Mobilní AI Aplikace (Chatboti s kódem)',
+        items: [
+          { name: 'Poe', url: 'https://play.google.com/store/apps/details?id=com.quora.poe', description: 'Agregátor VŠECH AI (ChatGPT, Claude, Gemini...) v jedné appce - IDEÁLNÍ!', type: '📱 Android', hasAI: true, pricing: 'freemium', registration: 'email', limit: 'Všechny modely v jednom', level: 'beginner', video: 'https://youtube.com/results?search_query=poe+ai+app+tutorial' },
+          { name: 'ChatGPT App', url: 'https://play.google.com/store/apps/details?id=com.openai.chatgpt', description: 'Oficiální OpenAI aplikace - GPT-4o mini zdarma', type: '📱 Android', hasAI: true, pricing: 'freemium', registration: 'email', limit: 'GPT-4o mini free', level: 'beginner', video: 'https://youtube.com/results?search_query=chatgpt+mobile+app' },
+          { name: 'Gemini App', url: 'https://play.google.com/store/apps/details?id=com.google.android.apps.bard', description: 'Google AI asistent v mobilu - integrace s Google službami', type: '📱 Android', hasAI: true, pricing: 'freemium', registration: 'google', limit: 'Basic zdarma', level: 'beginner', video: 'https://youtube.com/results?search_query=google+gemini+app' },
+          { name: 'Perplexity App', url: 'https://play.google.com/store/apps/details?id=ai.perplexity.app.android', description: 'AI search engine - hledání + generování kódu', type: '📱 Android', hasAI: true, pricing: 'freemium', registration: 'optional', limit: '5 Pro/den', level: 'beginner', video: 'https://youtube.com/results?search_query=perplexity+app' },
+          { name: 'Microsoft Copilot App', url: 'https://play.google.com/store/apps/details?id=com.microsoft.copilot', description: 'GPT-4 od Microsoftu v mobilu', type: '📱 Android', hasAI: true, pricing: 'freemium', registration: 'microsoft', limit: '30 zpráv/chat', level: 'beginner', video: 'https://youtube.com/results?search_query=microsoft+copilot+app' }
+        ]
+      },
+      czech: {
+        title: '🇨🇿 České AI nástroje',
+        items: [
+          { name: 'SeznamGPT', url: 'https://search.seznam.cz', description: 'Český AI asistent od Seznamu (beta) - odpovídá česky', type: '🌐 Online', hasAI: true, pricing: 'free', registration: 'optional', limit: 'Beta verze', level: 'beginner', video: 'https://youtube.com/results?search_query=seznam+gpt' },
+          { name: 'ChatGPT česky', url: 'https://chat.openai.com', description: 'ChatGPT umí perfektně česky - stačí psát česky!', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'email', limit: 'GPT-4o mini free', level: 'beginner', video: 'https://youtube.com/results?search_query=chatgpt+česky+tutorial' },
+          { name: 'Claude česky', url: 'https://claude.ai', description: 'Claude AI také skvěle rozumí češtině', type: '🌐 Online', hasAI: true, pricing: 'freemium', registration: 'email', limit: '~50 zpráv/den', level: 'beginner', video: 'https://youtube.com/results?search_query=claude+ai+česky' }
+        ]
+      },
+      playgrounds: {
+        title: '🔧 Online Code Playgrounds (Vyžadují znalost kódu)',
+        items: [
+          { name: 'CodePen', url: 'https://codepen.io', description: 'HTML/CSS/JS editor - MUSÍŠ UMĚT PSÁT KÓD', type: '🌐 Online', hasAI: false, pricing: 'freemium', registration: 'email', limit: 'Neomezené free', level: 'intermediate' },
+          { name: 'JSFiddle', url: 'https://jsfiddle.net', description: 'Podobné CodePen - KLASICKÝ EDITOR', type: '🌐 Online', hasAI: false, pricing: 'free', registration: 'optional', limit: 'Zdarma vše', level: 'intermediate' },
+          { name: 'CodeSandbox', url: 'https://codesandbox.io', description: 'Full-stack development environment - částečná AI (experimentální)', type: '🌐 Online', hasAI: 'partial', pricing: 'freemium', registration: 'github', limit: '20 sandboxů free', level: 'advanced' },
+          { name: 'Glitch', url: 'https://glitch.com', description: 'Social coding - BEZ AI, JEN EDITOR', type: '🌐 Online', hasAI: false, pricing: 'freemium', registration: 'email', limit: 'Unlimited free', level: 'intermediate' },
+          { name: 'Observable', url: 'https://observablehq.com', description: 'Data visualization a notebooks - PRO POKROČILÉ', type: '🌐 Online', hasAI: false, pricing: 'freemium', registration: 'email', limit: 'Public free', level: 'advanced' }
+        ]
+      },
+      specialized: {
+        title: '🎯 Design-to-Code Tools (Visual builder)',
+        items: [
+          { name: 'Figma AI', url: 'https://figma.com', description: 'Design → code generování - KRESLÍŠ DESIGN, VYGENERUJE KÓD', type: '💻 Ke stažení', hasAI: 'partial', pricing: 'freemium', registration: 'email', limit: '3 soubory free', level: 'intermediate' },
+          { name: 'Framer', url: 'https://framer.com', description: 'Web design tool s AI code exportem - VISUAL BUILDER', type: '🌐 Online / 💻 Desktop', hasAI: 'partial', pricing: 'freemium', registration: 'email', limit: '1 web zdarma', level: 'beginner' },
+          { name: 'Webflow', url: 'https://webflow.com', description: 'Visual builder s code exportem - TAŽENÍM MYŠÍ, NE PSANÍM KÓDU', type: '🌐 Online', hasAI: false, pricing: 'freemium', registration: 'email', limit: '2 projekty free', level: 'beginner' },
+          { name: 'Anima', url: 'https://animaapp.com', description: 'Design to code (Figma/Sketch → HTML/React)', type: '🌐 Online / 💻 Plugin', hasAI: false, pricing: 'freemium', registration: 'email', limit: '1 projekt free', level: 'intermediate' }
+        ]
+      },
+      extensions: {
+        title: '✨ VS Code Extensions (AI asistenti do VS Code)',
+        items: [
+          { name: 'GitHub Copilot', url: 'https://github.com/features/copilot', description: 'Nejpoužívanější AI asistent - DOPLŇUJE KÓD AUTOMATICKY', type: '🔌 Extension', hasAI: true, pricing: 'paid', registration: 'github', limit: '10 USD/měsíc', level: 'intermediate', video: 'https://youtube.com/results?search_query=github+copilot+tutorial' },
+          { name: 'Codeium', url: 'https://codeium.com', description: 'Free alternativa k Copilotu - ZDARMA', type: '🔌 Extension', hasAI: true, pricing: 'free', registration: 'email', limit: 'Neomezené FREE', level: 'beginner', video: 'https://youtube.com/results?search_query=codeium+tutorial' },
+          { name: 'TabNine', url: 'https://tabnine.com', description: 'AI code completion', type: '🔌 Extension', hasAI: true, pricing: 'freemium', registration: 'email', limit: 'Basic free', level: 'intermediate' },
+          { name: 'AWS CodeWhisperer', url: 'https://aws.amazon.com/codewhisperer', description: 'Amazon AI asistent - ZDARMA', type: '🔌 Extension', hasAI: true, pricing: 'free', registration: 'aws', limit: 'FREE pro jednotlivce', level: 'intermediate', video: 'https://youtube.com/results?search_query=aws+codewhisperer' },
+          { name: 'Sourcery', url: 'https://sourcery.ai', description: 'Code review a refactoring', type: '🔌 Extension', hasAI: true, pricing: 'freemium', registration: 'github', limit: 'Basic free', level: 'advanced' }
+        ]
+      },
+      androidApps: {
+        title: '🔧 Android Aplikace (Klasické editory - BEZ AI)',
+        items: [
+          { name: 'Acode', url: 'https://play.google.com/store/apps/details?id=com.foxdebug.acodefree', description: 'Výkonný code editor pro Android - MUSÍŠ UMĚT PROGRAMOVAT', type: '📱 Android', hasAI: false, pricing: 'freemium', registration: 'none', limit: 'Free plná verze', level: 'intermediate' },
+          { name: 'Spck Editor', url: 'https://play.google.com/store/apps/details?id=io.spck', description: 'Git client a code editor s live preview - KLASICKÝ EDITOR', type: '📱 Android', hasAI: false, pricing: 'freemium', registration: 'optional', limit: 'Basic free', level: 'intermediate' },
+          { name: 'WebCode', url: 'https://play.google.com/store/apps/details?id=com.rhmsoft.code', description: 'IDE pro web development s FTP/SFTP - PRO PROGRAMÁTORY', type: '📱 Android', hasAI: false, pricing: 'freemium', registration: 'none', limit: 'Pro features paid', level: 'advanced' },
+          { name: 'DroidEdit', url: 'https://play.google.com/store/apps/details?id=com.aor.droidedit', description: 'Text a source code editor - BEZ AI', type: '📱 Android', hasAI: false, pricing: 'freemium', registration: 'none', limit: 'Free + Pro', level: 'intermediate' },
+          { name: 'Dcoder', url: 'https://play.google.com/store/apps/details?id=com.paprbit.dcoder', description: 'Mobilní IDE s kompilátorem - VYŽADUJE ZNALOST KÓDU', type: '📱 Android', hasAI: false, pricing: 'freemium', registration: 'email', limit: 'Basic free', level: 'intermediate' },
+          { name: 'Code Editor', url: 'https://play.google.com/store/apps/details?id=com.rhmsoft.edit', description: 'Lightweight HTML/CSS/JS editor - ZÁKLADNÍ EDITOR', type: '📱 Android', hasAI: false, pricing: 'free', registration: 'none', limit: 'FREE vše', level: 'beginner' },
+          { name: 'QuickEdit', url: 'https://play.google.com/store/apps/details?id=com.rhmsoft.edit.pro', description: 'Text editor s syntax highlighting - PRO RUČNÍ PSANÍ', type: '📱 Android', hasAI: false, pricing: 'freemium', registration: 'none', limit: 'Free + Pro', level: 'beginner' },
+          { name: 'Termux', url: 'https://play.google.com/store/apps/details?id=com.termux', description: 'Terminál emulátor - instalace vim, nano, git - PRO POKROČILÉ', type: '📱 Android', hasAI: false, pricing: 'free', registration: 'none', limit: 'Open source FREE', level: 'advanced' }
+        ]
+      }
+    };
+
+    const content = document.createElement('div');
+    content.style.cssText = 'padding: 20px; max-height: 70vh; overflow-y: auto;';
+
+    // Intro text
+    const intro = document.createElement('p');
+    intro.style.cssText = 'margin-bottom: 24px; color: var(--text-secondary); font-size: 14px; line-height: 1.6;';
+    intro.innerHTML = '🎯 <strong>PRO LAIKY:</strong> Hledej nástroje se značkou <span style="background: #4ade80; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: 600;">✨ S AI</span> - ty generují kód z popisu, nemusíš umět programovat!<br><br>� <strong>CENY:</strong> <span style="background: #22c55e; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: 600;">💚 FREE</span> = úplně zdarma | <span style="background: #3b82f6; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: 600;">💰 Free+Paid</span> = základní verze zdarma<br><br>�🔧 Nástroje se značkou <span style="background: var(--border); color: var(--text-secondary); padding: 2px 6px; border-radius: 3px; font-size: 12px;">🔧 Bez AI</span> vyžadují znalost programování.';
+    content.appendChild(intro);
+
+    // Quick filters section
+    const filtersContainer = document.createElement('div');
+    filtersContainer.style.cssText = 'margin-bottom: 24px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border);';
+
+    const filtersLabel = document.createElement('div');
+    filtersLabel.textContent = '🔍 Rychlé filtry:';
+    filtersLabel.style.cssText = 'font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary);';
+    filtersContainer.appendChild(filtersLabel);
+
+    const filters = document.createElement('div');
+    filters.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap;';
+
+    const filterButtons = [
+      { id: 'all', label: '📋 Vše', active: true },
+      { id: 'free', label: '💚 Jen zdarma' },
+      { id: 'ai', label: '✨ Jen s AI' },
+      { id: 'online', label: '🌐 Jen online' },
+      { id: 'mobile', label: '📱 Jen mobil' },
+      { id: 'beginner', label: '🌱 Pro začátečníky' }
+    ];
+
+    let activeFilter = 'all';
+
+    filterButtons.forEach(btn => {
+      const filterBtn = document.createElement('button');
+      filterBtn.textContent = btn.label;
+      filterBtn.style.cssText = `padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: ${btn.active ? 'var(--accent)' : 'var(--bg-primary)'}; color: ${btn.active ? '#fff' : 'var(--text-primary)'}; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s;`;
+
+      filterBtn.addEventListener('click', () => {
+        activeFilter = btn.id;
+        filters.querySelectorAll('button').forEach(b => {
+          b.style.background = 'var(--bg-primary)';
+          b.style.color = 'var(--text-primary)';
+        });
+        filterBtn.style.background = 'var(--accent)';
+        filterBtn.style.color = '#fff';
+
+        // Apply filter
+        const allSections = content.querySelectorAll('.category-section');
+        allSections.forEach(section => {
+          const cards = section.querySelectorAll('.studio-card');
+          let visibleCount = 0;
+
+          cards.forEach(card => {
+            const item = card.__itemData;
+            if (!item) {
+              card.style.display = 'none';
+              return;
+            }
+            let shouldShow = true;
+
+            if (btn.id !== 'all') {
+              if (btn.id === 'free' && item.pricing !== 'free') shouldShow = false;
+              if (btn.id === 'ai' && item.hasAI !== true) shouldShow = false;
+              if (btn.id === 'online' && (!item.type || !item.type.includes('🌐'))) shouldShow = false;
+              if (btn.id === 'mobile' && (!item.type || !item.type.includes('📱'))) shouldShow = false;
+              if (btn.id === 'beginner' && item.level !== 'beginner') shouldShow = false;
+            }
+
+            card.style.display = shouldShow ? 'block' : 'none';
+            if (shouldShow) visibleCount++;
+          });
+
+          section.style.display = visibleCount > 0 ? 'block' : 'none';
+        });
+      });
+
+      filterBtn.addEventListener('mouseenter', () => {
+        if (activeFilter !== btn.id) filterBtn.style.background = 'var(--bg-accent)';
+      });
+
+      filterBtn.addEventListener('mouseleave', () => {
+        if (activeFilter !== btn.id) filterBtn.style.background = 'var(--bg-primary)';
+      });
+
+      filters.appendChild(filterBtn);
+    });
+
+    filtersContainer.appendChild(filters);
+    content.appendChild(filtersContainer);
+
+    // Render each category
+    Object.values(aiStudios).forEach(category => {
+      const section = document.createElement('div');
+      section.style.marginBottom = '28px';
+      section.classList.add('category-section');
+
+      // Category title
+      const title = document.createElement('h3');
+      title.textContent = category.title;
+      title.style.cssText = 'color: var(--accent); margin-bottom: 16px; font-size: 16px; border-bottom: 2px solid var(--border); padding-bottom: 8px;';
+      section.appendChild(title);
+
+      // Items grid
+      const grid = document.createElement('div');
+      grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;';
+
+      category.items.forEach(item => {
+        const card = document.createElement('div');
+        card.style.cssText = 'border: 1px solid var(--border); border-radius: 8px; padding: 14px; background: var(--bg-secondary); transition: all 0.2s; cursor: pointer;';
+        card.classList.add('studio-card');
+        card.__itemData = item; // Store item data for filtering
+
+        // Name as link with type badge
+        const headerDiv = document.createElement('div');
+        headerDiv.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;';
+
+        const nameLink = document.createElement('a');
+        nameLink.href = item.url;
+        nameLink.target = '_blank';
+        nameLink.rel = 'noopener noreferrer';
+        nameLink.textContent = item.name;
+        nameLink.style.cssText = 'color: var(--accent); font-weight: 600; font-size: 15px; text-decoration: none; flex: 1;';
+        nameLink.addEventListener('mouseenter', () => {
+          nameLink.style.textDecoration = 'underline';
+        });
+        nameLink.addEventListener('mouseleave', () => {
+          nameLink.style.textDecoration = 'none';
+        });
+
+        // Type badge
+        const badgesContainer = document.createElement('div');
+        badgesContainer.style.cssText = 'display: flex; gap: 6px; margin-left: 8px; flex-wrap: wrap;';
+
+        const typeBadge = document.createElement('span');
+        typeBadge.textContent = item.type;
+        typeBadge.style.cssText = 'font-size: 11px; padding: 3px 8px; border-radius: 4px; background: var(--bg-accent); color: var(--text-secondary); white-space: nowrap;';
+        badgesContainer.appendChild(typeBadge);
+
+        // AI badge
+        if (item.hasAI === true) {
+          const aiBadge = document.createElement('span');
+          aiBadge.textContent = '✨ S AI';
+          aiBadge.style.cssText = 'font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #4ade80; color: #000; font-weight: 600; white-space: nowrap;';
+          badgesContainer.appendChild(aiBadge);
+        } else if (item.hasAI === 'partial') {
+          const aiBadge = document.createElement('span');
+          aiBadge.textContent = '⚡ Částečná AI';
+          aiBadge.style.cssText = 'font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #fbbf24; color: #000; font-weight: 600; white-space: nowrap;';
+          badgesContainer.appendChild(aiBadge);
+        } else if (item.hasAI === false) {
+          const noAiBadge = document.createElement('span');
+          noAiBadge.textContent = '🔧 Bez AI';
+          noAiBadge.style.cssText = 'font-size: 11px; padding: 3px 8px; border-radius: 4px; background: var(--border); color: var(--text-secondary); white-space: nowrap;';
+          badgesContainer.appendChild(noAiBadge);
+        }
+
+        // Pricing badge
+        if (item.pricing === 'free') {
+          const priceBadge = document.createElement('span');
+          priceBadge.textContent = '💚 FREE';
+          priceBadge.style.cssText = 'font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #22c55e; color: #fff; font-weight: 600; white-space: nowrap;';
+          badgesContainer.appendChild(priceBadge);
+        } else if (item.pricing === 'freemium') {
+          const priceBadge = document.createElement('span');
+          priceBadge.textContent = '💰 Free+Paid';
+          priceBadge.style.cssText = 'font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #3b82f6; color: #fff; font-weight: 600; white-space: nowrap;';
+          badgesContainer.appendChild(priceBadge);
+        } else if (item.pricing === 'paid') {
+          const priceBadge = document.createElement('span');
+          priceBadge.textContent = '💳 Placené';
+          priceBadge.style.cssText = 'font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #ef4444; color: #fff; font-weight: 600; white-space: nowrap;';
+          badgesContainer.appendChild(priceBadge);
+        } else if (item.pricing === 'beta') {
+          const priceBadge = document.createElement('span');
+          priceBadge.textContent = '🧪 Beta';
+          priceBadge.style.cssText = 'font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #a855f7; color: #fff; font-weight: 600; white-space: nowrap;';
+          badgesContainer.appendChild(priceBadge);
+        }
+
+        headerDiv.appendChild(nameLink);
+        headerDiv.appendChild(badgesContainer);
+
+        // Description
+        const desc = document.createElement('div');
+        desc.textContent = item.description;
+        desc.style.cssText = 'font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px;';
+
+        card.appendChild(headerDiv);
+        card.appendChild(desc);
+
+        // Additional info section (level, limit, registration)
+        if (item.level || item.limit || item.registration) {
+          const infoDiv = document.createElement('div');
+          infoDiv.style.cssText = 'font-size: 11px; color: var(--text-secondary); border-top: 1px solid var(--border); padding-top: 8px; margin-top: 8px; line-height: 1.6;';
+
+          const infoParts = [];
+
+          // Level badge
+          if (item.level) {
+            const levelEmoji = item.level === 'beginner' ? '🌱' : item.level === 'intermediate' ? '🌿' : '🌳';
+            const levelText = item.level === 'beginner' ? 'Začátečník' : item.level === 'intermediate' ? 'Pokročilý' : 'Expert';
+            infoParts.push(`${levelEmoji} <strong>${levelText}</strong>`);
+          }
+
+          // Limit info
+          if (item.limit) {
+            infoParts.push(`📊 ${item.limit}`);
+          }
+
+          // Registration info
+          if (item.registration) {
+            const regText = item.registration === 'none' ? '🔓 Bez registrace' :
+                           item.registration === 'optional' ? '🔓 Nepovinná registrace' :
+                           item.registration === 'email' ? '📧 Vyžaduje email' :
+                           item.registration === 'phone' ? '📱 Vyžaduje telefon' :
+                           item.registration === 'github' ? '🐙 GitHub účet' :
+                           item.registration === 'google' ? '🔑 Google účet' :
+                           item.registration === 'microsoft' ? '🔑 Microsoft účet' :
+                           item.registration === 'aws' ? '☁️ AWS účet' : item.registration;
+            infoParts.push(regText);
+          }
+
+          infoDiv.innerHTML = infoParts.join(' • ');
+          card.appendChild(infoDiv);
+        }
+
+        // Video tutorial button
+        if (item.video) {
+          const videoBtn = document.createElement('a');
+          videoBtn.href = item.video;
+          videoBtn.target = '_blank';
+          videoBtn.rel = 'noopener noreferrer';
+          videoBtn.textContent = '📺 Jak na to (video tutoriály)';
+          videoBtn.style.cssText = 'display: inline-block; margin-top: 10px; padding: 6px 12px; background: #ff0000; color: #fff; text-decoration: none; border-radius: 5px; font-size: 12px; font-weight: 600; transition: all 0.2s;';
+          videoBtn.addEventListener('mouseenter', () => {
+            videoBtn.style.background = '#cc0000';
+            videoBtn.style.transform = 'scale(1.05)';
+          });
+          videoBtn.addEventListener('mouseleave', () => {
+            videoBtn.style.background = '#ff0000';
+            videoBtn.style.transform = 'scale(1)';
+          });
+          videoBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+          });
+          card.appendChild(videoBtn);
+        }
+
+        // Hover effect
+        card.addEventListener('mouseenter', () => {
+          card.style.borderColor = 'var(--accent)';
+          card.style.transform = 'translateY(-2px)';
+        });
+        card.addEventListener('mouseleave', () => {
+          card.style.borderColor = 'var(--border)';
+          card.style.transform = 'none';
+        });
+
+        // Click on card also opens link
+        card.addEventListener('click', (e) => {
+          if (e.target !== nameLink && !e.target.closest('a')) {
+            window.open(item.url, '_blank', 'noopener,noreferrer');
+          }
+        });
+
+        grid.appendChild(card);
+      });
+
+      section.appendChild(grid);
+      content.appendChild(section);
+    });
+
+    // Best choices section
+    const bestChoices = document.createElement('div');
+    bestChoices.style.cssText = 'margin-top: 32px; padding: 16px; background: var(--bg-accent); border-left: 4px solid var(--accent); border-radius: 8px;';
+
+    const bestTitle = document.createElement('h4');
+    bestTitle.textContent = '🌟 TOP 5 pro laiky (BEZ znalosti programování):';
+    bestTitle.style.cssText = 'color: var(--accent); margin-bottom: 12px;';
+    bestChoices.appendChild(bestTitle);
+
+    const bestList = document.createElement('ul');
+    bestList.style.cssText = 'margin: 0; padding-left: 24px; font-size: 14px; line-height: 2;';
+    bestList.innerHTML = `
+      <li><strong>Bolt.new</strong> ✨💰 - Napíšeš co chceš, ono to vytvoří (základní verze free)</li>
+      <li><strong>v0.dev</strong> ✨💰 - Popíšeš UI, vygeneruje komponentu (omezený free)</li>
+      <li><strong>Claude AI</strong> ✨💰 - Nejlepší AI chat pro generování kódu (free verze je dobrá)</li>
+      <li><strong>ChatGPT</strong> ✨💰 - Populární AI chat, skvělý pro začátečníky (free GPT-4o mini)</li>
+      <li><strong>Google AI Studio</strong> ✨💚 - Gemini API s dlouhým kontextem (ZDARMA!)</li>
+    `;
+    bestChoices.appendChild(bestList);
+
+    const note = document.createElement('p');
+    note.style.cssText = 'margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-secondary); line-height: 1.6;';
+    note.innerHTML = '<strong>💡 Jak to funguje pro laiky?</strong><br>1. Otevřeš nástroj s ✨ S AI<br>2. Napíšeš co chceš: "Vytvořit kontaktní formulář s emailem"<br>3. AI vygeneruje hotový kód<br>4. Zkopíruješ do HTML Studia<br><br><strong>💚 TIP PRO ZAČÁTEK (ZDARMA):</strong><br>• <strong>DeepSeek</strong> - zcela zdarma bez limitů<br>• <strong>Google AI Studio</strong> - zdarma s velkým limitem (1500/den)<br>• <strong>Windsurf</strong> - free AI editor ke stažení (neomezené)<br>• <strong>Poe App</strong> 📱 - všechny AI modely v jedné mobilní appce<br><br><strong>🇨🇿 České možnosti:</strong><br>• ChatGPT, Claude, Gemini - všechny mluví česky!<br>• SeznamGPT - český AI asistent (beta)<br><br><strong>🎯 Tvoje HTML Studio</strong> má podobné funkce jako Bolt.new, ale s focus na mobilní použití!<br><br><strong>📖 Legenda:</strong><br>✨ = S AI (pro laiky) | 🔧 = Bez AI (vyžaduje kódování)<br>💚 = FREE (zdarma) | 💰 = Free+Paid (základní zdarma) | 💳 = Placené<br>🌱 = Začátečník | 🌿 = Pokročilý | 🌳 = Expert<br>📧 = Email registrace | 🐙 = GitHub | 🔑 = Google/Microsoft | 🔓 = Bez registrace<br>📺 = Video tutoriály dostupné<br>🌐 = Online | 💻 = Ke stažení | 📱 = Android | 🔌 = Extension';
+    bestChoices.appendChild(note);
+
+    content.appendChild(bestChoices);
+
+    const modal = new Modal({
+      title: '🎨 AI Studia pro HTML',
+      content: content,
+      width: '1000px'
+    });
+
+    modal.open();
+
+    // Cleanup event listeners when modal closes
+    const cleanup = () => {
+      filters.querySelectorAll('button').forEach(btn => {
+        btn.replaceWith(btn.cloneNode(true));
+      });
+    };
+
+    // Add cleanup on modal close if Modal supports it
+    if (modal.element) {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'childList' && !document.body.contains(modal.element)) {
+            cleanup();
+            observer.disconnect();
+          }
+        });
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+  }
 }

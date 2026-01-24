@@ -50,7 +50,10 @@ export class MenuActions {
       // Dev tools
       'devtools': () => this.openDevTools(),
       'error-log': () => this.menuPanel.modals.showErrorLog(),
-      'audit': () => this.menuPanel.modals.showAuditReport()
+      'audit': () => this.menuPanel.modals.showAuditReport(),
+
+      // AI Studios
+      'ai-studios': () => this.menuPanel.modals.showAIStudios()
     };
 
     const actionFn = actions[action];
