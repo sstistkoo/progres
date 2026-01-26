@@ -1421,7 +1421,7 @@ export class GitHubService {
   /**
    * Save GitHub token
    */
-  saveGitHubToken(modal) {
+  async saveGitHubToken(modal) {
     const tokenInput = modal.element.querySelector('#githubToken');
     if (!tokenInput) return;
 
@@ -1443,7 +1443,7 @@ export class GitHubService {
     }
 
     localStorage.setItem('github_token', token);
-    this.checkGitHubConnection(modal);
+    await this.checkGitHubConnection(modal);
 
     eventBus.emit('toast:show', {
       message: 'GitHub token byl uložen',
@@ -1452,16 +1452,47 @@ export class GitHubService {
   }
 
   /**
-   * Check GitHub connection status
+   * Check GitHub connection status and fetch username
    */
-  checkGitHubConnection(modal) {
+  async checkGitHubConnection(modal) {
     const token = this.getStoredToken();
     const statusElement = modal?.element?.querySelector('#githubConnected');
 
     if (statusElement) {
       if (token) {
-        statusElement.textContent = '✅ Připojeno';
-        statusElement.style.color = '#10b981';
+        // Zkus načíst username z API
+        try {
+          const response = await fetch('https://api.github.com/user', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          });
+
+          if (response.ok) {
+            const userData = await response.json();
+            localStorage.setItem('github_username', userData.login);
+            statusElement.innerHTML = `
+              <span style="display: inline-flex; align-items: center; gap: 6px; color: #10b981;">
+                ✅ Připojeno jako
+                <img src="${userData.avatar_url}" style="width: 16px; height: 16px; border-radius: 50%;" />
+                <strong>@${userData.login}</strong>
+              </span>
+            `;
+          } else {
+            statusElement.textContent = '❌ Neplatný token';
+            statusElement.style.color = '#ef4444';
+          }
+        } catch (error) {
+          // Fallback - zobraz jen "Připojeno"
+          const savedUsername = localStorage.getItem('github_username');
+          if (savedUsername) {
+            statusElement.innerHTML = `<span style="color: #10b981;">✅ Připojeno jako <strong>@${savedUsername}</strong></span>`;
+          } else {
+            statusElement.textContent = '✅ Připojeno';
+            statusElement.style.color = '#10b981';
+          }
+        }
       } else {
         statusElement.textContent = '❌ Nepřipojeno';
         statusElement.style.color = '#ef4444';
@@ -1957,10 +1988,13 @@ export class GitHubService {
   }
 
   /**
-   * Show repository manager (simplified stub - full implementation in AIPanel)
+   * Show repository manager - full implementation
    */
   async showRepoManager() {
+    console.log('🔧 showRepoManager called');
     const token = this.getStoredToken();
+    console.log('🔧 Token:', token ? 'exists' : 'missing');
+
     if (!token) {
       eventBus.emit('toast:show', {
         message: 'Nejprve nastavte GitHub token',
@@ -1969,10 +2003,246 @@ export class GitHubService {
       return;
     }
 
-    eventBus.emit('toast:show', {
-      message: 'Repository Manager - funkce bude implementována v další fázi refaktoringu',
-      type: 'info'
+    // Vytvoř modal
+    console.log('🔧 Creating modal...');
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay github-repo-manager open';
+    modal.setAttribute('style', 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.85) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 999999 !important; opacity: 1 !important;');
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 800px; max-height: 80vh; display: flex; flex-direction: column; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; width: 90%;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #fff; font-size: 18px; display: flex; align-items: center; gap: 10px;">
+            📦 GitHub Repository Manager
+          </h3>
+          <button class="modal-close" style="background: #333; border: none; color: #fff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
+        </div>
+        <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
+          <div class="repo-toolbar" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+            <button id="createRepoBtn" style="padding: 10px 16px; background: #238636; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+              ➕ Nový repozitář
+            </button>
+            <button id="refreshReposBtn" style="padding: 10px 16px; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 6px;">
+              🔄 Obnovit
+            </button>
+            <input type="text" id="repoSearchInput" placeholder="🔍 Hledat repozitář..." style="flex: 1; min-width: 200px; padding: 10px 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 14px;" />
+          </div>
+          <div id="repoList" style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="text-align: center; padding: 40px; color: #8b949e;">
+              <div style="font-size: 24px; margin-bottom: 10px;">⏳</div>
+              Načítám repozitáře...
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    console.log('🔧 Modal appended to body');
+
+    // Event handlers
+    modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    const repoList = modal.querySelector('#repoList');
+    const searchInput = modal.querySelector('#repoSearchInput');
+    const createBtn = modal.querySelector('#createRepoBtn');
+    const refreshBtn = modal.querySelector('#refreshReposBtn');
+
+    // Načti repozitáře
+    const loadRepos = async () => {
+      repoList.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #8b949e;">
+          <div style="font-size: 24px; margin-bottom: 10px;">⏳</div>
+          Načítám repozitáře...
+        </div>
+      `;
+
+      try {
+        const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=50', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+
+        if (!response.ok) throw new Error('Nepodařilo se načíst repozitáře');
+
+        const repos = await response.json();
+
+        if (repos.length === 0) {
+          repoList.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #8b949e;">
+              <div style="font-size: 48px; margin-bottom: 10px;">📁</div>
+              <p>Zatím nemáte žádné repozitáře</p>
+              <p style="font-size: 13px;">Vytvořte svůj první repozitář kliknutím na "Nový repozitář"</p>
+            </div>
+          `;
+          return;
+        }
+
+        this.renderRepoList(repoList, repos, modal);
+      } catch (error) {
+        repoList.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: #f85149;">
+            <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+            Chyba: ${error.message}
+          </div>
+        `;
+      }
+    };
+
+    // Vyhledávání
+    searchInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      const items = repoList.querySelectorAll('.repo-item');
+      items.forEach(item => {
+        const name = item.dataset.name?.toLowerCase() || '';
+        const desc = item.dataset.desc?.toLowerCase() || '';
+        item.style.display = (name.includes(query) || desc.includes(query)) ? 'flex' : 'none';
+      });
     });
+
+    // Vytvořit repozitář
+    createBtn.addEventListener('click', async () => {
+      const name = prompt('Název nového repozitáře:');
+      if (!name) return;
+
+      const description = prompt('Popis (volitelné):') || '';
+      const isPrivate = confirm('Vytvořit jako privátní repozitář?');
+
+      try {
+        eventBus.emit('toast:show', { message: '⏳ Vytvářím repozitář...', type: 'info' });
+
+        const response = await fetch('https://api.github.com/user/repos', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name,
+            description,
+            private: isPrivate,
+            auto_init: true
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Nepodařilo se vytvořit repozitář');
+        }
+
+        eventBus.emit('toast:show', { message: `✅ Repozitář "${name}" vytvořen!`, type: 'success' });
+        loadRepos();
+      } catch (error) {
+        eventBus.emit('toast:show', { message: `❌ ${error.message}`, type: 'error' });
+      }
+    });
+
+    // Obnovit
+    refreshBtn.addEventListener('click', loadRepos);
+
+    // Načti repozitáře
+    loadRepos();
+  }
+
+  /**
+   * Render repository list
+   */
+  renderRepoList(container, repos, modal) {
+    container.innerHTML = repos.map(repo => `
+      <div class="repo-item" data-name="${repo.name}" data-desc="${repo.description || ''}" style="
+        display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+        background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+        cursor: pointer; transition: all 0.2s;
+      " onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#30363d'">
+        <div style="font-size: 24px;">${repo.private ? '🔒' : '📁'}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-weight: 600; color: #58a6ff; margin-bottom: 4px;">${repo.name}</div>
+          <div style="font-size: 13px; color: #8b949e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${repo.description || 'Bez popisu'}
+          </div>
+          <div style="display: flex; gap: 12px; margin-top: 6px; font-size: 12px; color: #8b949e;">
+            ${repo.language ? `<span>💻 ${repo.language}</span>` : ''}
+            <span>⭐ ${repo.stargazers_count}</span>
+            <span>🍴 ${repo.forks_count}</span>
+            <span>📅 ${new Date(repo.updated_at).toLocaleDateString('cs-CZ')}</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="repo-open-btn" data-url="${repo.html_url}" style="padding: 8px 12px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; cursor: pointer; font-size: 12px;">
+            🔗 GitHub
+          </button>
+          <button class="repo-load-btn" data-name="${repo.full_name}" style="padding: 8px 12px; background: #238636; border: none; border-radius: 6px; color: #fff; cursor: pointer; font-size: 12px;">
+            📥 Načíst
+          </button>
+          <button class="repo-delete-btn" data-name="${repo.full_name}" data-repo="${repo.name}" style="padding: 8px 12px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #f85149; cursor: pointer; font-size: 12px;">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `).join('');
+
+    // Event handlers pro tlačítka
+    container.querySelectorAll('.repo-open-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.open(btn.dataset.url, '_blank');
+      });
+    });
+
+    container.querySelectorAll('.repo-load-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        modal.remove();
+        await this.loadGitHubRepo(btn.dataset.name, btn.dataset.name.split('/')[1]);
+      });
+    });
+
+    container.querySelectorAll('.repo-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await this.deleteRepository(btn.dataset.name, btn.dataset.repo, modal);
+      });
+    });
+  }
+
+  /**
+   * Delete repository
+   */
+  async deleteRepository(fullName, repoName, modal) {
+    const confirmation = prompt(
+      `⚠️ POZOR: Tato akce je nevratná!\n\nPro smazání repozitáře "${repoName}" napište jeho název:`
+    );
+
+    if (confirmation !== repoName) {
+      eventBus.emit('toast:show', { message: 'Smazání zrušeno - název nesouhlasí', type: 'warning' });
+      return;
+    }
+
+    try {
+      eventBus.emit('toast:show', { message: '⏳ Mažu repozitář...', type: 'info' });
+
+      const response = await fetch(`https://api.github.com/repos/${fullName}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.getStoredToken()}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+
+      if (!response.ok && response.status !== 204) {
+        throw new Error('Nepodařilo se smazat repozitář');
+      }
+
+      eventBus.emit('toast:show', { message: `✅ Repozitář "${repoName}" smazán`, type: 'success' });
+
+      // Znovu načti seznam
+      modal.querySelector('#refreshReposBtn')?.click();
+    } catch (error) {
+      eventBus.emit('toast:show', { message: `❌ ${error.message}`, type: 'error' });
+    }
   }
 
   /**
