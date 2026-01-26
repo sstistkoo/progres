@@ -40,32 +40,40 @@ export class GitHubService {
     const token = this.getStoredToken();
 
     const modal = document.createElement('div');
-    modal.className = 'modal-backdrop';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.className = 'modal-overlay open';
+    modal.setAttribute('style', 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.85) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 999999 !important; opacity: 1 !important;');
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 600px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; max-height: 90vh; overflow: hidden;">
-        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">📋 GitHub Issues</h3>
-          <button class="modal-close" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer;">×</button>
+      <div class="modal-content" style="max-width: 650px; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; max-height: 85vh; overflow: hidden; width: 90%;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #fff; font-size: 18px; display: flex; align-items: center; gap: 10px;">📋 GitHub Issues</h3>
+          <button class="modal-close" style="background: #21262d; border: none; color: #fff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
         </div>
-        <div class="modal-body" style="padding: 25px; overflow-y: auto; max-height: 60vh;">
+        <div class="modal-body" style="padding: 25px; overflow-y: auto; max-height: calc(85vh - 80px);">
           ${!token ? `
             <div style="text-align: center; padding: 20px;">
-              <p style="color: #888; margin-bottom: 16px;">Pro zobrazení Issues potřebujete GitHub token.</p>
-              <button id="setupTokenBtn" style="padding: 12px 24px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              <p style="color: #8b949e; margin-bottom: 16px;">Pro zobrazení Issues potřebujete GitHub token.</p>
+              <button id="setupTokenBtn" style="padding: 12px 24px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 🔑 Nastavit Token
               </button>
             </div>
           ` : `
-            <div style="margin-bottom: 20px;">
-              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ccc;">Repozitář (owner/repo):</label>
-              <input type="text" id="issuesRepoInput" placeholder="např. user/my-repo" style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0d0d0d; color: #fff;">
+            <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+              <h4 style="margin: 0 0 12px; color: #58a6ff; font-size: 14px;">📋 Co jsou Issues:</h4>
+              <ul style="margin: 0; padding-left: 20px; color: #8b949e; font-size: 13px; line-height: 1.8;">
+                <li>Sledování bugů, úkolů a vylepšení</li>
+                <li>Možnost přiřadit štítky a milníky</li>
+                <li>Propojení s Pull Requesty</li>
+              </ul>
+            </div>
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #c9d1d9;">Repozitář (owner/repo):</label>
+              <input type="text" id="issuesRepoInput" placeholder="např. facebook/react" style="width: 100%; padding: 12px; border: 1px solid #30363d; border-radius: 8px; background: #0d1117; color: #c9d1d9; font-size: 14px;">
             </div>
             <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-              <button id="loadIssuesBtn" style="flex: 1; padding: 12px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              <button id="loadIssuesBtn" style="flex: 1; padding: 12px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
                 📋 Načíst Issues
               </button>
-              <button id="createIssueBtn" style="flex: 1; padding: 12px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              <button id="createIssueBtn" style="flex: 1; padding: 12px; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
                 ➕ Vytvořit Issue
               </button>
             </div>
@@ -231,28 +239,36 @@ export class GitHubService {
     const token = this.getStoredToken();
 
     const modal = document.createElement('div');
-    modal.className = 'modal-backdrop';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.className = 'modal-overlay open';
+    modal.setAttribute('style', 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.85) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 999999 !important; opacity: 1 !important;');
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 600px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; max-height: 90vh; overflow: hidden;">
-        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">🔀 Pull Requests</h3>
-          <button class="modal-close" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer;">×</button>
+      <div class="modal-content" style="max-width: 650px; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; max-height: 85vh; overflow: hidden; width: 90%;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #fff; font-size: 18px; display: flex; align-items: center; gap: 10px;">🔀 Pull Requests</h3>
+          <button class="modal-close" style="background: #21262d; border: none; color: #fff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
         </div>
-        <div class="modal-body" style="padding: 25px; overflow-y: auto; max-height: 60vh;">
+        <div class="modal-body" style="padding: 25px; overflow-y: auto; max-height: calc(85vh - 80px);">
           ${!token ? `
             <div style="text-align: center; padding: 20px;">
-              <p style="color: #888; margin-bottom: 16px;">Pro zobrazení Pull Requests potřebujete GitHub token.</p>
-              <button id="setupTokenBtn" style="padding: 12px 24px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              <p style="color: #8b949e; margin-bottom: 16px;">Pro zobrazení Pull Requests potřebujete GitHub token.</p>
+              <button id="setupTokenBtn" style="padding: 12px 24px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 🔑 Nastavit Token
               </button>
             </div>
           ` : `
-            <div style="margin-bottom: 20px;">
-              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ccc;">Repozitář (owner/repo):</label>
-              <input type="text" id="prRepoInput" placeholder="např. user/my-repo" style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0d0d0d; color: #fff;">
+            <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+              <h4 style="margin: 0 0 12px; color: #58a6ff; font-size: 14px;">🔀 Co jsou Pull Requests:</h4>
+              <ul style="margin: 0; padding-left: 20px; color: #8b949e; font-size: 13px; line-height: 1.8;">
+                <li>Návrhy na změny kódu v repozitáři</li>
+                <li>Umožňují code review a diskuzi</li>
+                <li>Po schválení se sloučí do hlavní větve</li>
+              </ul>
             </div>
-            <button id="loadPRsBtn" style="width: 100%; padding: 12px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 20px;">
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #c9d1d9;">Repozitář (owner/repo):</label>
+              <input type="text" id="prRepoInput" placeholder="např. facebook/react" style="width: 100%; padding: 12px; border: 1px solid #30363d; border-radius: 8px; background: #0d1117; color: #c9d1d9; font-size: 14px;">
+            </div>
+            <button id="loadPRsBtn" style="width: 100%; padding: 12px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 8px;">
               🔀 Načíst Pull Requests
             </button>
             <div id="prList" style="display: none;"></div>
@@ -348,42 +364,54 @@ export class GitHubService {
     const fileName = currentTab?.name || 'index.html';
 
     const modal = document.createElement('div');
-    modal.className = 'modal-backdrop';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.className = 'modal-overlay open';
+    modal.setAttribute('style', 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.85) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 999999 !important; opacity: 1 !important;');
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 500px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px;">
-        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">📝 Vytvořit Gist</h3>
-          <button class="modal-close" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer;">×</button>
+      <div class="modal-content" style="max-width: 550px; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; width: 90%;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #fff; font-size: 18px; display: flex; align-items: center; gap: 10px;">📝 Vytvořit Gist</h3>
+          <button class="modal-close" style="background: #21262d; border: none; color: #fff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
         </div>
         <div class="modal-body" style="padding: 25px;">
           ${!token ? `
             <div style="text-align: center; padding: 20px;">
-              <p style="color: #888; margin-bottom: 16px;">Pro vytvoření Gist potřebujete GitHub token.</p>
-              <button id="setupTokenBtn" style="padding: 12px 24px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              <p style="color: #8b949e; margin-bottom: 16px;">Pro vytvoření Gist potřebujete GitHub token.</p>
+              <button id="setupTokenBtn" style="padding: 12px 24px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 🔑 Nastavit Token
               </button>
             </div>
           ` : `
-            <div style="margin-bottom: 16px;">
-              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ccc;">Název souboru:</label>
-              <input type="text" id="gistFileName" value="${fileName}" style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0d0d0d; color: #fff;">
+            <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+              <h4 style="margin: 0 0 12px; color: #58a6ff; font-size: 14px;">📋 Co je Gist:</h4>
+              <ul style="margin: 0; padding-left: 20px; color: #8b949e; font-size: 13px; line-height: 1.8;">
+                <li>Rychlé sdílení kódu nebo úryvků</li>
+                <li>Veřejný = viditelný pro všechny, Privátní = pouze s odkazem</li>
+                <li>Podpora verzování a komentářů</li>
+              </ul>
             </div>
             <div style="margin-bottom: 16px;">
-              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ccc;">Popis:</label>
-              <input type="text" id="gistDescription" placeholder="Volitelný popis..." style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0d0d0d; color: #fff;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #c9d1d9;">Název souboru:</label>
+              <input type="text" id="gistFileName" value="${fileName}" style="width: 100%; padding: 12px; border: 1px solid #30363d; border-radius: 8px; background: #0d1117; color: #c9d1d9; font-size: 14px;">
             </div>
             <div style="margin-bottom: 16px;">
-              <label style="display: flex; align-items: center; gap: 8px; color: #ccc; cursor: pointer;">
-                <input type="checkbox" id="gistPublic" style="width: 18px; height: 18px;">
-                <span>Veřejný Gist</span>
+              <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #c9d1d9;">Popis:</label>
+              <input type="text" id="gistDescription" placeholder="Volitelný popis..." style="width: 100%; padding: 12px; border: 1px solid #30363d; border-radius: 8px; background: #0d1117; color: #c9d1d9; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 16px;">
+              <label style="display: flex; align-items: center; gap: 10px; color: #c9d1d9; cursor: pointer; padding: 10px; background: #161b22; border-radius: 6px;">
+                <input type="checkbox" id="gistPublic" style="width: 18px; height: 18px; accent-color: #238636;">
+                <div>
+                  <span style="font-weight: 600;">Veřejný Gist</span>
+                  <p style="margin: 4px 0 0; font-size: 12px; color: #8b949e;">Bude viditelný ve vyhledávání</p>
+                </div>
               </label>
             </div>
-            <div style="background: #0d0d0d; border: 1px solid #333; border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 150px; overflow-y: auto;">
-              <pre style="margin: 0; font-size: 12px; color: #888;">${code.substring(0, 500)}${code.length > 500 ? '...' : ''}</pre>
+            <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; margin-bottom: 20px; max-height: 120px; overflow-y: auto;">
+              <p style="margin: 0 0 8px; font-size: 11px; color: #8b949e;">Náhled kódu (${code.length} znaků):</p>
+              <pre style="margin: 0; font-size: 12px; color: #c9d1d9; white-space: pre-wrap; word-break: break-all;">${code.substring(0, 300).replace(/</g, '&lt;').replace(/>/g, '&gt;')}${code.length > 300 ? '...' : ''}</pre>
             </div>
-            <button id="createGistBtn" style="width: 100%; padding: 14px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 15px;">
-              📝 Vytvořit Gist
+            <button id="createGistBtn" style="width: 100%; padding: 14px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+              ✅ Vytvořit Gist
             </button>
           `}
         </div>
@@ -463,18 +491,18 @@ export class GitHubService {
     const token = this.getStoredToken();
 
     const modal = document.createElement('div');
-    modal.className = 'modal-backdrop';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.className = 'modal-overlay open';
+    modal.setAttribute('style', 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.85) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 999999 !important; opacity: 1 !important;');
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 550px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px;">
-        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">🚀 Deploy na GitHub Pages</h3>
-          <button class="modal-close" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer;">×</button>
+      <div class="modal-content" style="max-width: 550px; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; width: 90%;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #fff; font-size: 18px; display: flex; align-items: center; gap: 10px;">🚀 Deploy na GitHub Pages</h3>
+          <button class="modal-close" style="background: #21262d; border: none; color: #fff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
         </div>
         <div class="modal-body" style="padding: 25px;">
           ${!token ? `
             <div style="text-align: center; padding: 20px;">
-              <p style="color: #888; margin-bottom: 16px;">Pro deploy potřebujete GitHub token s právy na repozitáře.</p>
+              <p style="color: #8b949e; margin-bottom: 16px;">Pro deploy potřebujete GitHub token s právy na repozitáře.</p>
               <button id="setupTokenBtn" style="padding: 12px 24px; background: #0066cc; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 🔑 Nastavit Token
               </button>
@@ -678,42 +706,45 @@ export class GitHubService {
    */
   showGitHubSearchDialog() {
     const modal = document.createElement('div');
-    modal.className = 'modal-backdrop';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.className = 'modal-overlay open';
+    modal.setAttribute('style', 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.85) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 999999 !important; opacity: 1 !important;');
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 850px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
-        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; color: #ffffff; font-size: 18px;">🔍 Hledat na GitHub</h3>
-          <button class="modal-close" id="githubSearchClose" style="background: #333; border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
+      <div class="modal-content" style="max-width: 850px; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; width: 90%;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #fff; font-size: 18px; display: flex; align-items: center; gap: 10px;">🔍 Hledat na GitHub</h3>
+          <button class="modal-close" id="githubSearchClose" style="background: #21262d; border: none; color: #fff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
         </div>
         <div class="modal-body" style="padding: 0; overflow-y: auto;">
+          <div style="background: #161b22; border-bottom: 1px solid #30363d; padding: 16px 25px;">
+            <h4 style="margin: 0 0 12px; color: #58a6ff; font-size: 14px;">🔍 Co můžete hledat:</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #8b949e; font-size: 13px; line-height: 1.8;">
+              <li><strong>Repozitáře</strong> - celé projekty dle klíčových slov</li>
+              <li><strong>Kód</strong> - konkrétní úryvky kódu ve veřejných repo</li>
+            </ul>
+          </div>
 
           <!-- Rozbalovací formulář -->
-          <div id="searchFormSection" style="border-bottom: 1px solid #333;">
-            <button id="toggleSearchForm" style="width: 100%; padding: 15px 25px; background: transparent; border: none; color: #ffffff; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; transition: background 0.2s;">
+          <div id="searchFormSection" style="border-bottom: 1px solid #30363d;">
+            <button id="toggleSearchForm" style="width: 100%; padding: 15px 25px; background: transparent; border: none; color: #c9d1d9; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; transition: background 0.2s;">
               <span>⚙️ Nastavení vyhledávání</span>
               <span id="toggleIcon" style="font-size: 18px; transition: transform 0.3s;">▼</span>
             </button>
 
             <div id="searchFormContent" style="padding: 0 25px 25px 25px;">
               <div style="margin-bottom: 12px;">
-                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cccccc;">GitHub Token (volitelné pro více výsledků)</label>
-                <input type="password" id="githubToken" placeholder="ghp_..." value="${localStorage.getItem('github_token') || ''}" style="width: 100%; padding: 10px; border: 1px solid #333; border-radius: 6px; font-size: 13px; background: #0d0d0d; color: #ffffff;">
-                <p style="font-size: 11px; color: #888888; margin-top: 4px;">
-                  Token se uloží do prohlížeče. <a href="https://github.com/settings/tokens" target="_blank" style="color: #0066cc;">Vytvořit token</a>
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #c9d1d9;">GitHub Token (volitelné pro více výsledků)</label>
+                <input type="password" id="githubToken" placeholder="ghp_..." value="${localStorage.getItem('github_token') || ''}" style="width: 100%; padding: 10px; border: 1px solid #30363d; border-radius: 6px; font-size: 13px; background: #0d1117; color: #c9d1d9;">
+                <p style="font-size: 11px; color: #8b949e; margin-top: 4px;">
+                  Token se uloží do prohlížeče. <a href="https://github.com/settings/tokens" target="_blank" style="color: #58a6ff;">Vytvořit token</a>
                 </p>
               </div>
               <div style="margin-bottom: 16px;">
-                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cccccc;">Co hledáte?</label>
-                <input type="text" id="githubSearchQuery" placeholder="Např. landing page, portfolio, navbar..." style="width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; font-size: 14px; background: #0d0d0d; color: #ffffff;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #c9d1d9;">Co hledáte?</label>
+                <input type="text" id="githubSearchQuery" placeholder="Např. landing page, portfolio, navbar..." style="width: 100%; padding: 12px; border: 1px solid #30363d; border-radius: 8px; font-size: 14px; background: #0d1117; color: #c9d1d9;">
               </div>
               <div style="margin-bottom: 16px;">
-                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cccccc;">Jazyk (volitelné)</label>
-                <select id="githubLanguage" style="width: 100%; padding: 10px; border: 1px solid #333; border-radius: 6px; font-size: 13px; background: #0d0d0d; color: #ffffff;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #c9d1d9;">Jazyk (volitelné)</label>
+                <select id="githubLanguage" style="width: 100%; padding: 10px; border: 1px solid #30363d; border-radius: 6px; font-size: 13px; background: #0d1117; color: #c9d1d9;">
                   <option value="">Všechny jazyky</option>
                   <option value="html">HTML</option>
                   <option value="css">CSS</option>
@@ -726,10 +757,10 @@ export class GitHubService {
                 </select>
               </div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <button id="searchRepos" style="padding: 14px; background: #0066cc; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;">
+                <button id="searchRepos" style="padding: 14px; background: #238636; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;">
                   📦 Hledat repozitáře
                 </button>
-                <button id="searchCode" style="padding: 14px; background: #333; color: #ffffff; border: 1px solid #555; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;">
+                <button id="searchCode" style="padding: 14px; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;">
                   📄 Hledat kód
                 </button>
               </div>
@@ -744,8 +775,8 @@ export class GitHubService {
               <div id="githubPagination" style="margin-top: 16px;"></div>
             </div>
             <div id="githubSearchLoading" style="display: none; text-align: center; padding: 40px;">
-              <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #333; border-top-color: #0066cc; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-              <p style="margin-top: 15px; color: #888888;">Hledání na GitHub...</p>
+              <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #30363d; border-top-color: #238636; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+              <p style="margin-top: 15px; color: #8b949e;">Hledání na GitHub...</p>
             </div>
           </div>
         </div>
@@ -1382,13 +1413,157 @@ export class GitHubService {
   }
 
   /**
-   * Clone repository
+   * Clone repository - show modal
    */
   cloneRepo() {
-    const url = prompt('URL GitHub repozitáře:');
-    if (url) {
-      eventBus.emit('github:clone', { url });
-    }
+    const token = this.getStoredToken();
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay open';
+    modal.setAttribute('style', 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.85) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 999999 !important; opacity: 1 !important;');
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 550px; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; width: 90%;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #fff; font-size: 18px; display: flex; align-items: center; gap: 10px;">📥 Klonovat repozitář</h3>
+          <button class="modal-close" style="background: #21262d; border: none; color: #fff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
+        </div>
+        <div class="modal-body" style="padding: 25px;">
+          <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px; color: #58a6ff; font-size: 14px;">📋 Co dělá klonování:</h4>
+            <ol style="margin: 0; padding-left: 20px; color: #8b949e; font-size: 13px; line-height: 1.8;">
+              <li>Načte obsah repozitáře z GitHubu</li>
+              <li>Zobrazí strukturu souborů</li>
+              <li>Umožní importovat soubory do editoru</li>
+            </ol>
+          </div>
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #c9d1d9;">URL nebo owner/repo:</label>
+            <input type="text" id="cloneRepoUrl" placeholder="např. https://github.com/user/repo nebo user/repo"
+              style="width: 100%; padding: 12px; border: 1px solid #30363d; border-radius: 8px; background: #0d1117; color: #c9d1d9; font-size: 14px;">
+            <p style="font-size: 11px; color: #8b949e; margin-top: 6px;">
+              Příklady: <code style="color: #58a6ff;">facebook/react</code> nebo <code style="color: #58a6ff;">https://github.com/vuejs/vue</code>
+            </p>
+          </div>
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #c9d1d9;">Větev (volitelné):</label>
+            <input type="text" id="cloneBranch" placeholder="main"
+              style="width: 100%; padding: 12px; border: 1px solid #30363d; border-radius: 8px; background: #0d1117; color: #c9d1d9; font-size: 14px;">
+          </div>
+          <button id="cloneRepoBtn" style="width: 100%; padding: 14px; background: #238636; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            📥 Klonovat repozitář
+          </button>
+          <div id="cloneStatus" style="margin-top: 16px; display: none;"></div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    const cloneBtn = modal.querySelector('#cloneRepoBtn');
+    const statusDiv = modal.querySelector('#cloneStatus');
+
+    cloneBtn.addEventListener('click', async () => {
+      let repoUrl = modal.querySelector('#cloneRepoUrl').value.trim();
+      const branch = modal.querySelector('#cloneBranch').value.trim() || 'main';
+
+      if (!repoUrl) {
+        eventBus.emit('toast:show', { message: 'Zadejte URL repozitáře', type: 'warning' });
+        return;
+      }
+
+      // Parse repo URL
+      let owner, repo;
+      if (repoUrl.includes('github.com')) {
+        const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+        if (match) {
+          owner = match[1];
+          repo = match[2].replace('.git', '');
+        }
+      } else if (repoUrl.includes('/')) {
+        [owner, repo] = repoUrl.split('/');
+      }
+
+      if (!owner || !repo) {
+        eventBus.emit('toast:show', { message: 'Neplatný formát repozitáře', type: 'error' });
+        return;
+      }
+
+      cloneBtn.innerHTML = '⏳ Klonuji...';
+      cloneBtn.disabled = true;
+      statusDiv.style.display = 'block';
+      statusDiv.innerHTML = '<p style="color: #58a6ff;">🔄 Načítám strukturu repozitáře...</p>';
+
+      try {
+        const headers = { 'Accept': 'application/vnd.github.v3+json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        // Get repo tree
+        const treeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, { headers });
+        if (!treeResponse.ok) throw new Error('Nepodařilo se načíst repozitář');
+
+        const treeData = await treeResponse.json();
+        const files = treeData.tree.filter(item => item.type === 'blob' &&
+          (item.path.endsWith('.html') || item.path.endsWith('.css') || item.path.endsWith('.js') || item.path.endsWith('.json')));
+
+        if (files.length === 0) {
+          statusDiv.innerHTML = '<p style="color: #f0883e;">⚠️ Žádné HTML/CSS/JS soubory nenalezeny</p>';
+          cloneBtn.innerHTML = '📥 Klonovat repozitář';
+          cloneBtn.disabled = false;
+          return;
+        }
+
+        statusDiv.innerHTML = `
+          <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px;">
+            <p style="color: #3fb950; font-weight: 600; margin: 0 0 12px;">✅ Nalezeno ${files.length} souborů</p>
+            <div style="max-height: 200px; overflow-y: auto;">
+              ${files.slice(0, 20).map(f => `
+                <label style="display: flex; align-items: center; gap: 8px; padding: 6px; cursor: pointer; color: #c9d1d9; font-size: 13px;">
+                  <input type="checkbox" class="clone-file-checkbox" data-path="${f.path}" data-sha="${f.sha}" checked>
+                  ${f.path}
+                </label>
+              `).join('')}
+              ${files.length > 20 ? '<p style="color: #8b949e; font-size: 12px; margin: 8px 0 0;">...a dalších ${files.length - 20} souborů</p>' : ''}
+            </div>
+            <button id="importFilesBtn" style="width: 100%; margin-top: 12px; padding: 12px; background: #238636; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              📂 Importovat vybrané soubory
+            </button>
+          </div>
+        `;
+
+        modal.querySelector('#importFilesBtn')?.addEventListener('click', async () => {
+          const selectedFiles = Array.from(modal.querySelectorAll('.clone-file-checkbox:checked'));
+          if (selectedFiles.length === 0) {
+            eventBus.emit('toast:show', { message: 'Vyberte soubory k importu', type: 'warning' });
+            return;
+          }
+
+          for (const checkbox of selectedFiles) {
+            const path = checkbox.dataset.path;
+            const sha = checkbox.dataset.sha;
+            try {
+              const blobResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/blobs/${sha}`, { headers });
+              const blobData = await blobResponse.json();
+              const content = atob(blobData.content);
+
+              eventBus.emit('file:create', { name: path, content });
+            } catch (e) {
+              console.error('Failed to load file:', path, e);
+            }
+          }
+
+          eventBus.emit('toast:show', { message: `✅ Importováno ${selectedFiles.length} souborů`, type: 'success' });
+          modal.remove();
+        });
+
+      } catch (error) {
+        statusDiv.innerHTML = `<p style="color: #f85149;">❌ ${error.message}</p>`;
+        cloneBtn.innerHTML = '📥 Klonovat repozitář';
+        cloneBtn.disabled = false;
+      }
+    });
   }
 
   /**
@@ -1991,9 +2166,7 @@ export class GitHubService {
    * Show repository manager - full implementation
    */
   async showRepoManager() {
-    console.log('🔧 showRepoManager called');
     const token = this.getStoredToken();
-    console.log('🔧 Token:', token ? 'exists' : 'missing');
 
     if (!token) {
       eventBus.emit('toast:show', {
@@ -2004,19 +2177,26 @@ export class GitHubService {
     }
 
     // Vytvoř modal
-    console.log('🔧 Creating modal...');
     const modal = document.createElement('div');
     modal.className = 'modal-overlay github-repo-manager open';
     modal.setAttribute('style', 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.85) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 999999 !important; opacity: 1 !important;');
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 800px; max-height: 80vh; display: flex; flex-direction: column; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; width: 90%;">
-        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+      <div class="modal-content" style="max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; width: 90%;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
           <h3 style="margin: 0; color: #fff; font-size: 18px; display: flex; align-items: center; gap: 10px;">
             📦 GitHub Repository Manager
           </h3>
-          <button class="modal-close" style="background: #333; border: none; color: #fff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
+          <button class="modal-close" style="background: #21262d; border: none; color: #fff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
         </div>
         <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
+          <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px; color: #58a6ff; font-size: 14px;">📦 Co je Repository Manager:</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #8b949e; font-size: 13px; line-height: 1.8;">
+              <li>Správa všech vašich GitHub repozitářů</li>
+              <li>Vytvoření nového repozitáře</li>
+              <li>Načtení souborů z repozitáře do editoru</li>
+            </ul>
+          </div>
           <div class="repo-toolbar" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
             <button id="createRepoBtn" style="padding: 10px 16px; background: #238636; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px;">
               ➕ Nový repozitář
@@ -2037,7 +2217,6 @@ export class GitHubService {
     `;
 
     document.body.appendChild(modal);
-    console.log('🔧 Modal appended to body');
 
     // Event handlers
     modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
