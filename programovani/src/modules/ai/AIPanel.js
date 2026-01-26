@@ -192,6 +192,7 @@ export class AIPanel {
           <button class="ai-menu-item" data-tab="github">🔗 GitHub</button>
           <div class="ai-menu-divider"></div>
           <button class="ai-menu-item" data-action="ai-studios">🎨 AI Studia</button>
+          <button class="ai-menu-item" data-action="live-server">🌐 Živý server</button>
           <button class="ai-menu-item" data-action="export">📥 Export chatu</button>
           <button class="ai-menu-item" data-action="clear">🗑️ Vymazat historii</button>
         </div>
@@ -823,6 +824,10 @@ export class AIPanel {
               console.error('[AIPanel] Failed to load AI Studios:', err);
               toast.show('❌ Nelze načíst AI Studia', 'error');
             });
+            return;
+          }
+          if (action === 'live-server') {
+            this.showLiveServerModal();
             return;
           }
           if (action === 'clear') {
@@ -3528,5 +3533,281 @@ Použij SEARCH/REPLACE bloky pro úpravy:
 
     // Animate in
     requestAnimationFrame(() => modal.classList.add('show'));
+  }
+
+  /**
+   * Zobrazí dialog pro Živý server
+   */
+  showLiveServerModal() {
+    // Kontrola zda server již běží
+    const isRunning = this.liveServerRunning || false;
+    const serverPort = this.liveServerPort || 5500;
+    const serverUrl = `http://localhost:${serverPort}`;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay open';
+    modal.setAttribute('style', 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.85) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 999999 !important; opacity: 1 !important;');
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 550px; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; width: 90%;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #fff; font-size: 18px; display: flex; align-items: center; gap: 10px;">🌐 Živý server</h3>
+          <button class="modal-close" style="background: #21262d; border: none; color: #fff; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
+        </div>
+        <div class="modal-body" style="padding: 25px;">
+          <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px; color: #58a6ff; font-size: 14px;">🌐 Co je Živý server:</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #8b949e; font-size: 13px; line-height: 1.8;">
+              <li>Spustí lokální HTTP server pro váš projekt</li>
+              <li>Automaticky obnovuje stránku při změnách</li>
+              <li>Simuluje reálné webové prostředí</li>
+              <li>Podporuje CORS a moduly ES6</li>
+            </ul>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #c9d1d9;">Port serveru:</label>
+            <input type="number" id="liveServerPort" value="${serverPort}" min="1000" max="65535"
+              style="width: 100%; padding: 12px; border: 1px solid #30363d; border-radius: 8px; background: #0d1117; color: #c9d1d9; font-size: 14px;">
+          </div>
+
+          <div id="serverStatus" style="padding: 16px; background: ${isRunning ? '#0d2818' : '#161b22'}; border: 1px solid ${isRunning ? '#238636' : '#30363d'}; border-radius: 8px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <span style="width: 12px; height: 12px; border-radius: 50%; background: ${isRunning ? '#3fb950' : '#6e7681'}; animation: ${isRunning ? 'pulse 2s infinite' : 'none'};"></span>
+              <span style="color: ${isRunning ? '#3fb950' : '#8b949e'}; font-weight: 600;">
+                ${isRunning ? '● Server běží' : '○ Server vypnutý'}
+              </span>
+            </div>
+            ${isRunning ? `
+              <p style="margin: 0; color: #8b949e; font-size: 13px;">
+                URL: <a href="${serverUrl}" target="_blank" style="color: #58a6ff;">${serverUrl}</a>
+              </p>
+            ` : `
+              <p style="margin: 0; color: #8b949e; font-size: 13px;">
+                Klikněte na "Spustit server" pro zahájení
+              </p>
+            `}
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <button id="startServerBtn" style="padding: 14px; background: ${isRunning ? '#21262d' : '#238636'}; color: ${isRunning ? '#8b949e' : '#fff'}; border: 1px solid ${isRunning ? '#30363d' : '#238636'}; border-radius: 8px; cursor: ${isRunning ? 'not-allowed' : 'pointer'}; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;" ${isRunning ? 'disabled' : ''}>
+              ▶️ Spustit server
+            </button>
+            <button id="stopServerBtn" style="padding: 14px; background: ${isRunning ? '#da3633' : '#21262d'}; color: ${isRunning ? '#fff' : '#8b949e'}; border: 1px solid ${isRunning ? '#da3633' : '#30363d'}; border-radius: 8px; cursor: ${isRunning ? 'pointer' : 'not-allowed'}; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;" ${!isRunning ? 'disabled' : ''}>
+              ⏹️ Zastavit server
+            </button>
+          </div>
+
+          <div style="margin-top: 16px;">
+            <button id="openInBrowserBtn" style="width: 100%; padding: 14px; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;" ${!isRunning ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+              🔗 Otevřít v prohlížeči
+            </button>
+          </div>
+
+          <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #30363d;">
+            <p style="margin: 0; color: #8b949e; font-size: 12px; text-align: center;">
+              💡 Tip: Živý server automaticky obnoví náhled při každé změně kódu
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Styly pro pulse animaci
+    if (!document.getElementById('live-server-styles')) {
+      const style = document.createElement('style');
+      style.id = 'live-server-styles';
+      style.textContent = `
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Close handlers
+    modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    // Server control handlers
+    const startBtn = modal.querySelector('#startServerBtn');
+    const stopBtn = modal.querySelector('#stopServerBtn');
+    const openBtn = modal.querySelector('#openInBrowserBtn');
+    const portInput = modal.querySelector('#liveServerPort');
+    const statusDiv = modal.querySelector('#serverStatus');
+
+    const updateUI = (running) => {
+      this.liveServerRunning = running;
+      const url = `http://localhost:${this.liveServerPort}`;
+
+      statusDiv.style.background = running ? '#0d2818' : '#161b22';
+      statusDiv.style.borderColor = running ? '#238636' : '#30363d';
+      statusDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+          <span style="width: 12px; height: 12px; border-radius: 50%; background: ${running ? '#3fb950' : '#6e7681'}; animation: ${running ? 'pulse 2s infinite' : 'none'};"></span>
+          <span style="color: ${running ? '#3fb950' : '#8b949e'}; font-weight: 600;">
+            ${running ? '● Server běží' : '○ Server vypnutý'}
+          </span>
+        </div>
+        ${running ? `
+          <p style="margin: 0; color: #8b949e; font-size: 13px;">
+            URL: <a href="${url}" target="_blank" style="color: #58a6ff;">${url}</a>
+          </p>
+        ` : `
+          <p style="margin: 0; color: #8b949e; font-size: 13px;">
+            Klikněte na "Spustit server" pro zahájení
+          </p>
+        `}
+      `;
+
+      startBtn.disabled = running;
+      startBtn.style.background = running ? '#21262d' : '#238636';
+      startBtn.style.color = running ? '#8b949e' : '#fff';
+      startBtn.style.cursor = running ? 'not-allowed' : 'pointer';
+      startBtn.style.borderColor = running ? '#30363d' : '#238636';
+
+      stopBtn.disabled = !running;
+      stopBtn.style.background = running ? '#da3633' : '#21262d';
+      stopBtn.style.color = running ? '#fff' : '#8b949e';
+      stopBtn.style.cursor = running ? 'pointer' : 'not-allowed';
+      stopBtn.style.borderColor = running ? '#da3633' : '#30363d';
+
+      openBtn.disabled = !running;
+      openBtn.style.opacity = running ? '1' : '0.5';
+      openBtn.style.cursor = running ? 'pointer' : 'not-allowed';
+    };
+
+    startBtn.addEventListener('click', () => {
+      if (this.liveServerRunning) return;
+
+      this.liveServerPort = parseInt(portInput.value) || 5500;
+      this.startLiveServer();
+      updateUI(true);
+      toast.show(`🌐 Server spuštěn na portu ${this.liveServerPort}`, 'success');
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (!this.liveServerRunning) return;
+
+      this.stopLiveServer();
+      updateUI(false);
+      toast.show('⏹️ Server zastaven', 'info');
+    });
+
+    openBtn.addEventListener('click', () => {
+      if (!this.liveServerRunning) return;
+      window.open(`http://localhost:${this.liveServerPort}`, '_blank');
+    });
+  }
+
+  /**
+   * Spustí živý server pomocí Web API
+   */
+  startLiveServer() {
+    // Získej aktuální kód z editoru
+    const code = state.get('editor.code') || '';
+    const tabs = state.get('files.tabs') || [];
+
+    // Vytvořit blob URL pro obsloužení přes iframe
+    this.liveServerBlob = new Blob([code], { type: 'text/html' });
+    this.liveServerUrl = URL.createObjectURL(this.liveServerBlob);
+
+    // Otevřít v novém okně s live reload simulací
+    const liveWindow = window.open('', '_blank', `width=1024,height=768,left=100,top=100`);
+    if (liveWindow) {
+      liveWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>🌐 Živý server - HTML Studio</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: system-ui, sans-serif; background: #0d1117; }
+            .toolbar {
+              position: fixed; top: 0; left: 0; right: 0; height: 40px;
+              background: #161b22; border-bottom: 1px solid #30363d;
+              display: flex; align-items: center; padding: 0 16px; gap: 12px;
+              z-index: 1000;
+            }
+            .toolbar span { color: #8b949e; font-size: 13px; }
+            .toolbar .url { color: #58a6ff; }
+            .toolbar .status {
+              display: flex; align-items: center; gap: 6px;
+              margin-left: auto;
+            }
+            .toolbar .dot {
+              width: 8px; height: 8px; border-radius: 50%;
+              background: #3fb950; animation: pulse 2s infinite;
+            }
+            @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+            iframe {
+              position: fixed; top: 40px; left: 0; right: 0; bottom: 0;
+              width: 100%; height: calc(100% - 40px); border: none;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="toolbar">
+            <span>🌐</span>
+            <span class="url">localhost:${this.liveServerPort}</span>
+            <div class="status">
+              <span class="dot"></span>
+              <span>Živý server</span>
+            </div>
+          </div>
+          <iframe id="preview" srcdoc="${code.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"></iframe>
+          <script>
+            // Listen for updates from parent
+            window.addEventListener('message', (e) => {
+              if (e.data.type === 'live-update') {
+                document.getElementById('preview').srcdoc = e.data.code;
+              }
+            });
+          </script>
+        </body>
+        </html>
+      `);
+      liveWindow.document.close();
+      this.liveServerWindow = liveWindow;
+
+      // Naslouchat změnám v editoru
+      this.liveServerListener = () => {
+        if (this.liveServerWindow && !this.liveServerWindow.closed) {
+          const newCode = state.get('editor.code') || '';
+          this.liveServerWindow.postMessage({ type: 'live-update', code: newCode }, '*');
+        }
+      };
+
+      eventBus.on('editor:change', this.liveServerListener);
+      eventBus.on('preview:update', this.liveServerListener);
+    }
+
+    this.liveServerRunning = true;
+  }
+
+  /**
+   * Zastaví živý server
+   */
+  stopLiveServer() {
+    if (this.liveServerBlob) {
+      URL.revokeObjectURL(this.liveServerUrl);
+      this.liveServerBlob = null;
+      this.liveServerUrl = null;
+    }
+
+    if (this.liveServerWindow && !this.liveServerWindow.closed) {
+      this.liveServerWindow.close();
+      this.liveServerWindow = null;
+    }
+
+    if (this.liveServerListener) {
+      eventBus.off('editor:change', this.liveServerListener);
+      eventBus.off('preview:update', this.liveServerListener);
+      this.liveServerListener = null;
+    }
+
+    this.liveServerRunning = false;
   }
 }

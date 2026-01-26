@@ -32,6 +32,7 @@ export class ModalBuilderService {
           <button class="ai-menu-item" data-tab="github">🔗 GitHub</button>
           <div class="ai-menu-divider"></div>
           <button class="ai-menu-item" data-action="ai-studios">🎨 AI Studia</button>
+          <button class="ai-menu-item" data-action="live-server">🌐 Živý server</button>
           <button class="ai-menu-item" data-action="export">📥 Export chatu</button>
           <button class="ai-menu-item" data-action="clear">🗑️ Vymazat historii</button>
         </div>
