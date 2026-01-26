@@ -43,7 +43,9 @@ export class AISettingsModal {
       this.createModal();
     }
     this.modal.open();
+    this.selectedProvider = window.AI?.config?.defaultProvider || 'gemini';
     this.updateUI();
+    this.updateLimitsGrid();
   }
 
   hide() {
@@ -99,6 +101,21 @@ export class AISettingsModal {
           </div>
         </div>
 
+        <!-- Rate Limit Info -->
+        <div class="settings-section collapsible open">
+          <div class="collapsible-header" id="limitsToggle">
+            <h3 class="settings-title">⏱️ Rate Limity & RPD</h3>
+            <span class="collapse-arrow">▼</span>
+          </div>
+          <div class="collapsible-content" id="limitsContent">
+            <p class="info-text">RPM = Requests Per Minute | RPD = Requests Per Day<br>
+            💡 Klikněte na tlačítko u každého providera pro kontrolu aktuálních limitů</p>
+            <div class="limits-grid" id="limitsGrid">
+              <!-- Dynamicky naplněno -->
+            </div>
+          </div>
+        </div>
+
         <!-- API Keys Section -->
         <div class="settings-section collapsible">
           <div class="collapsible-header" id="keysToggle">
@@ -110,6 +127,18 @@ export class AISettingsModal {
               ${this.createKeysGrid()}
             </div>
             <p class="keys-legend-text">✅ Vlastní klíč nastaven &nbsp;|&nbsp; ⚠️ Používá se demo klíč &nbsp;|&nbsp; ❌ Žádný klíč</p>
+            <div class="keys-info" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 12px; color: var(--text-muted);">
+              <strong>💡 Multiple API Keys:</strong> Můžete přidat více klíčů pro jeden provider pomocí:
+              <code style="display: block; margin-top: 8px; padding: 4px 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                AI.keys.add('provider', 'api-key-123', 'Klíč 1')<br>
+                AI.keys.add('provider', 'api-key-456', 'Klíč 2')
+              </code>
+              <div style="margin-top: 8px;">
+                ✅ <strong>Vlastní klíče mají vždy přednost</strong> před demo klíči<br>
+                ✅ Při rate limitu se <strong>nejdřív rotuje klíč</strong>, pak až model<br>
+                ✅ Kontrola: <code>AI.keys.list('provider')</code> | Rotace: <code>AI.keys.rotate('provider')</code>
+              </div>
+            </div>
             <div class="keys-actions">
               <button class="btn-secondary" id="saveKeysBtn">💾 Uložit klíče</button>
               <button class="btn-secondary" id="testKeysBtn">🧪 Test klíčů</button>
@@ -174,6 +203,10 @@ export class AISettingsModal {
               <div class="stats-row">
                 <span class="stats-label">⏱️ Zbývá RPM:</span>
                 <span class="stats-value" id="remainingRpm">--</span>
+              </div>
+              <div class="stats-row">
+                <span class="stats-label">📅 Zbývá RPD:</span>
+                <span class="stats-value" id="remainingRpd">--</span>
               </div>
             </div>
             <div class="stats-by-provider" id="statsByProvider">
@@ -436,7 +469,7 @@ export class AISettingsModal {
         }
 
         .collapsible.open .collapsible-content {
-          max-height: 600px;
+          max-height: 1200px;
           padding-top: 16px;
         }
 
@@ -794,6 +827,70 @@ export class AISettingsModal {
           border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
+        .limits-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .limit-card {
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-color);
+          border-radius: 10px;
+          padding: 12px;
+        }
+
+        .limit-card-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .limit-card-body {
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+
+        .limit-card-body div {
+          margin: 4px 0;
+        }
+
+        .openrouter-tier-check {
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-color);
+          border-radius: 10px;
+          padding: 16px;
+        }
+
+        .info-text {
+          font-size: 12px;
+          color: var(--text-muted);
+          margin-bottom: 12px;
+        }
+
+        #openRouterTierResult {
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+          border-radius: 8px;
+          padding: 12px;
+          font-size: 12px;
+        }
+
+        #openRouterTierResult.free {
+          background: rgba(251, 191, 36, 0.1);
+          border-color: rgba(251, 191, 36, 0.3);
+        }
+
+        #openRouterTierResult.paid {
+          background: rgba(34, 197, 94, 0.1);
+          border-color: rgba(34, 197, 94, 0.3);
+        }
+
         /* Footer */
         .settings-footer {
           display: flex;
@@ -922,7 +1019,7 @@ export class AISettingsModal {
     });
 
     // Collapsible sections
-    ['keys', 'discover', 'stats'].forEach(section => {
+    ['keys', 'discover', 'stats', 'limits'].forEach(section => {
       const toggle = element.querySelector(`#${section}Toggle`);
       const content = element.querySelector(`#${section}Content`);
       if (toggle && content) {
@@ -1065,6 +1162,7 @@ export class AISettingsModal {
     const totalEl = this.modal.element.querySelector('#totalCalls');
     const todayEl = this.modal.element.querySelector('#todayCalls');
     const remainingEl = this.modal.element.querySelector('#remainingRpm');
+    const remainingRpdEl = this.modal.element.querySelector('#remainingRpd');
     const tokensInEl = this.modal.element.querySelector('#totalTokensIn');
     const tokensOutEl = this.modal.element.querySelector('#totalTokensOut');
     const byProviderEl = this.modal.element.querySelector('#statsByProvider');
@@ -1077,6 +1175,22 @@ export class AISettingsModal {
     if (remainingEl && window.AI.rateLimit) {
       const remaining = window.AI.rateLimit.remaining(this.selectedProvider);
       remainingEl.textContent = remaining;
+    }
+
+    // Calculate RPD remaining
+    if (remainingRpdEl) {
+      const dailyCalls = stats.dailyCalls || 0;
+      const rpdLimits = {
+        gemini: 1500,
+        groq: 14400,
+        openrouter: 50, // Default to free tier
+        mistral: 500,
+        cohere: 1000,
+        huggingface: 500
+      };
+      const limit = rpdLimits[this.selectedProvider] || 1000;
+      const remaining = Math.max(0, limit - dailyCalls);
+      remainingRpdEl.textContent = remaining;
     }
 
     // Per-provider stats
@@ -1516,6 +1630,187 @@ export class AISettingsModal {
   showModelComparison() {
     toast.info('🔄 Porovnání modelů - připravuje se...', 2000);
     // TODO: Implement model comparison feature
+  }
+
+  updateLimitsGrid() {
+    const grid = this.modal.element.querySelector('#limitsGrid');
+    if (!grid || typeof window.AI === 'undefined') return;
+
+    const providers = ['gemini', 'groq', 'openrouter', 'mistral', 'cohere', 'huggingface'];
+    const providerInfo = {
+      gemini: { emoji: '🔷', name: 'Gemini', rpm: 15, rpd: 1500 },
+      groq: { emoji: '⚡', name: 'Groq', rpm: 30, rpd: 14400 },
+      openrouter: { emoji: '🌐', name: 'OpenRouter', rpm: 20, rpd: '50-1000', note: 'Free: 50 | Paid: 1000' },
+      mistral: { emoji: '🌬️', name: 'Mistral', rpm: 10, rpd: 500 },
+      cohere: { emoji: '💬', name: 'Cohere', rpm: 20, rpd: 1000 },
+      huggingface: { emoji: '🤗', name: 'HuggingFace', rpm: 10, rpd: 500 }
+    };
+
+    grid.innerHTML = providers.map(provider => {
+      const info = providerInfo[provider];
+      const keyStatus = this.getKeyStatus(provider);
+
+      return `
+        <div class="limit-card">
+          <div class="limit-card-header">
+            <span>${info.emoji}</span>
+            <span>${info.name}</span>
+            <span class="key-status ${keyStatus.class}" style="margin-left: auto;">${keyStatus.icon}</span>
+          </div>
+          <div class="limit-card-body">
+            <div><strong>RPM:</strong> ${info.rpm} req/min</div>
+            <div><strong>RPD:</strong> ${info.rpd} req/day</div>
+            ${info.note ? `<div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">${info.note}</div>` : ''}
+            <button class="btn-small btn-check-limits" data-provider="${provider}" style="margin-top: 8px; width: 100%;">
+              🔍 Zkontrolovat limity
+            </button>
+            <div class="provider-limits-result" id="limits-${provider}" style="display: none; margin-top: 8px;"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Attach event listeners to check buttons
+    grid.querySelectorAll('.btn-check-limits').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const provider = e.target.dataset.provider;
+        await this.checkProviderLimits(provider, e.target);
+      });
+    });
+  }
+
+  async checkOpenRouterTier() {
+    const btn = this.modal.element.querySelector('#checkOpenRouterTierBtn');
+    const resultDiv = this.modal.element.querySelector('#openRouterTierResult');
+
+    if (!btn || !resultDiv) return;
+
+    // Show loading
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Kontroluji...';
+    resultDiv.style.display = 'none';
+
+    try {
+      if (typeof window.AI === 'undefined' || !window.AI.checkOpenRouterTier) {
+        throw new Error('AI modul není načten nebo nepodporuje kontrolu OpenRouter tier');
+      }
+
+      const tierInfo = await window.AI.checkOpenRouterTier();
+
+      // Display result
+      resultDiv.style.display = 'block';
+      resultDiv.className = tierInfo.isFreeTier ? 'free' : 'paid';
+
+      const tierIcon = tierInfo.isFreeTier ? '⚠️' : '✅';
+      const tierName = tierInfo.isFreeTier ? 'FREE TIER' : 'PAID TIER';
+      const tierColor = tierInfo.isFreeTier ? '#f59e0b' : '#22c55e';
+
+      resultDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span style="font-size: 20px;">${tierIcon}</span>
+          <strong style="color: ${tierColor}; font-size: 14px;">${tierName}</strong>
+        </div>
+        <div style="margin: 4px 0;"><strong>RPM:</strong> ${tierInfo.rpm} requests/minute</div>
+        <div style="margin: 4px 0;"><strong>RPD:</strong> ${tierInfo.rpd} requests/day</div>
+        ${tierInfo.label ? `<div style="margin: 4px 0;"><strong>Label:</strong> ${tierInfo.label}</div>` : ''}
+        ${tierInfo.usageDaily !== undefined ? `<div style="margin: 4px 0;"><strong>Dnes použito:</strong> ${tierInfo.usageDaily} / ${tierInfo.rpd}</div>` : ''}
+        ${tierInfo.limitRemaining !== null && tierInfo.limitRemaining !== undefined ? `<div style="margin: 4px 0;"><strong>Zbývá kredit:</strong> $${tierInfo.limitRemaining.toFixed(2)}</div>` : ''}
+        ${tierInfo.error ? `<div style="color: #ef4444; margin-top: 8px; font-size: 11px;">${tierInfo.error}</div>` : ''}
+        ${tierInfo.isFreeTier ? `
+          <div style="margin-top: 12px; padding: 8px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; font-size: 11px;">
+            💡 <strong>TIP:</strong> Dobijte $10+ pro zvýšení limitu na 1000 RPD
+          </div>
+        ` : ''}
+      `;
+
+      toast.success(`✅ OpenRouter: ${tierName}`, 3000);
+
+    } catch (error) {
+      resultDiv.style.display = 'block';
+      resultDiv.className = '';
+      resultDiv.innerHTML = `
+        <div style="color: #ef4444;">
+          <strong>❌ Chyba při kontrole:</strong><br>
+          ${error.message}
+        </div>
+      `;
+      toast.error('❌ Nepodařilo se zkontrolovat OpenRouter tier', 3000);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="btn-icon">🔍</span> Zkontrolovat OpenRouter Tier';
+    }
+  }
+
+  async checkProviderLimits(provider, button) {
+    const resultDiv = this.modal.element.querySelector(`#limits-${provider}`);
+    if (!button || !resultDiv) return;
+
+    // Show loading
+    button.disabled = true;
+    button.innerHTML = '<span class="loading-spinner"></span> Kontroluji...';
+    resultDiv.style.display = 'none';
+
+    try {
+      if (typeof window.AI === 'undefined' || !window.AI.checkProviderLimits) {
+        throw new Error('AI modul není načten');
+      }
+
+      const limitInfo = await window.AI.checkProviderLimits(provider);
+
+      // Display result
+      resultDiv.style.display = 'block';
+
+      const providerEmojis = {
+        gemini: '🔷',
+        groq: '⚡',
+        openrouter: '🌐',
+        mistral: '🌬️',
+        cohere: '💬',
+        huggingface: '🤗'
+      };
+
+      let html = `
+        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 10px; font-size: 12px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+            <span style="font-size: 16px;">${providerEmojis[provider]}</span>
+            <strong>${limitInfo.providerName || provider}</strong>
+          </div>
+      `;
+
+      if (limitInfo.isFreeTier !== undefined) {
+        // OpenRouter special case
+        const tierIcon = limitInfo.isFreeTier ? '⚠️' : '✅';
+        const tierName = limitInfo.isFreeTier ? 'FREE TIER' : 'PAID TIER';
+        html += `<div style="margin: 3px 0;"><strong>${tierIcon} ${tierName}</strong></div>`;
+      }
+
+      html += `
+        <div style="margin: 3px 0;"><strong>RPM:</strong> ${limitInfo.rpm || '--'} req/min</div>
+        <div style="margin: 3px 0;"><strong>RPD:</strong> ${limitInfo.rpd || '--'} req/day</div>
+        ${limitInfo.remaining !== null && limitInfo.remaining !== undefined ? `<div style="margin: 3px 0;"><strong>Zbývá RPM:</strong> ${limitInfo.remaining}</div>` : ''}
+        ${limitInfo.usedToday !== null && limitInfo.usedToday !== undefined ? `<div style="margin: 3px 0;"><strong>Dnes použito:</strong> ${limitInfo.usedToday}${limitInfo.rpd ? ` / ${limitInfo.rpd}` : ''}</div>` : ''}
+        ${limitInfo.limitRemaining !== null && limitInfo.limitRemaining !== undefined ? `<div style="margin: 3px 0;"><strong>Zbývá kredit:</strong> $${limitInfo.limitRemaining.toFixed(2)}</div>` : ''}
+        ${limitInfo.label && provider === 'openrouter' ? `<div style="margin: 3px 0; font-size: 10px; color: #94a3b8;"><strong>Label:</strong> ${limitInfo.label}</div>` : ''}
+        ${limitInfo.reset ? `<div style="margin: 3px 0; font-size: 10px; color: #94a3b8;"><strong>Reset:</strong> ${limitInfo.reset}</div>` : ''}
+        ${limitInfo.error ? `<div style="color: #ef4444; margin-top: 6px; font-size: 10px;">${limitInfo.error}</div>` : ''}
+      </div>
+      `;
+
+      resultDiv.innerHTML = html;
+      toast.success(`✅ ${limitInfo.providerName} limity načteny`, 2000);
+
+    } catch (error) {
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = `
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; padding: 8px; font-size: 11px; color: #ef4444;">
+          <strong>❌ Chyba:</strong> ${error.message}
+        </div>
+      `;
+      toast.error(`❌ Chyba při kontrole ${provider}`, 2000);
+    } finally {
+      button.disabled = false;
+      button.innerHTML = '🔍 Zkontrolovat limity';
+    }
   }
 
   saveSettings() {
