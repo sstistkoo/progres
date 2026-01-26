@@ -86,7 +86,7 @@ export const config = {
       },
       huggingface: {
         name: 'HuggingFace',
-        endpoint: 'https://api-inference.huggingface.co/models',
+        endpoint: 'http://localhost:5010/models',
         requiresKey: true,
       },
     },

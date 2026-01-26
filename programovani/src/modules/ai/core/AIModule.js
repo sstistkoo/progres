@@ -800,46 +800,34 @@ const AI = {
             { value: "mixtral-8x7b-32768", name: "⚡ Mixtral 8x7B", rpm: 30, quality: 80, free: true }
         ],
         openrouter: [
-            { value: "xiaomi/mimo-v2-flash:free", name: "🏆 Xiaomi MiMo-V2-Flash", rpm: 20, quality: 95, free: true },
             { value: "mistralai/devstral-2512:free", name: "💻 Mistral Devstral 2", rpm: 20, quality: 93, free: true },
-            { value: "qwen/qwen3-coder:free", name: "💻 Qwen3 Coder 480B", rpm: 20, quality: 94, free: true },
             { value: "deepseek/deepseek-r1-0528:free", name: "🧠 DeepSeek R1 (o1-level)", rpm: 20, quality: 96, free: true },
             { value: "meta-llama/llama-3.3-70b-instruct:free", name: "🦙 Llama 3.3 70B", rpm: 20, quality: 88, free: true },
             { value: "google/gemma-3-27b-it:free", name: "🤖 Gemma 3 27B", rpm: 20, quality: 86, free: true },
-            { value: "openai/gpt-oss-120b:free", name: "🧠 GPT-OSS 120B", rpm: 20, quality: 87, free: true },
             { value: "nvidia/nemotron-3-nano-30b-a3b:free", name: "⚡ NVIDIA Nemotron 3 Nano", rpm: 20, quality: 85, free: true },
             { value: "nvidia/nemotron-nano-12b-v2-vl:free", name: "👁️ NVIDIA Nemotron VL", rpm: 20, quality: 83, free: true },
-            { value: "kwaipilot/kat-coder-pro:free", name: "💻 KAT-Coder-Pro", rpm: 20, quality: 90, free: true },
             { value: "tngtech/deepseek-r1t2-chimera:free", name: "🧬 DeepSeek R1T2 Chimera", rpm: 20, quality: 92, free: true },
             { value: "tngtech/deepseek-r1t-chimera:free", name: "🧬 DeepSeek R1T Chimera", rpm: 20, quality: 90, free: true },
             { value: "tngtech/tng-r1t-chimera:free", name: "🎭 TNG R1T Chimera", rpm: 20, quality: 88, free: true },
-            { value: "nex-agi/deepseek-v3.1-nex-n1:free", name: "🤖 DeepSeek V3.1 Nex N1", rpm: 20, quality: 89, free: true },
             { value: "z-ai/glm-4.5-air:free", name: "💭 GLM 4.5 Air", rpm: 20, quality: 84, free: true },
-            { value: "allenai/olmo-3.1-32b-think:free", name: "🧠 Olmo 3.1 32B Think", rpm: 20, quality: 86, free: true },
             { value: "mistralai/mistral-small-3.1-24b-instruct:free", name: "🔥 Mistral Small 3.1", rpm: 20, quality: 82, free: true }
         ],
         mistral: [
             { value: "mistral-small-latest", name: "🧠 Mistral Small", rpm: 10, quality: 85, free: true },
             { value: "open-mistral-7b", name: "🤖 Mistral 7B (Open)", rpm: 10, quality: 75, free: true },
-            { value: "codestral-latest", name: "💻 Codestral", rpm: 10, quality: 88, free: true },
-            { value: "mistral-embed", name: "📊 Mistral Embed", rpm: 10, quality: 80, free: true }
+            { value: "codestral-latest", name: "💻 Codestral", rpm: 10, quality: 88, free: true }
         ],
         cohere: [
             { value: "command-r-plus", name: "🏆 Command R+", rpm: 20, quality: 90, free: true },
             { value: "command-r", name: "💬 Command R", rpm: 20, quality: 85, free: true },
-            { value: "command-r7b-12-2024", name: "⚡ Command R7B", rpm: 20, quality: 78, free: true },
-            { value: "embed-english-v3.0", name: "📊 Embed English v3", rpm: 100, quality: 85, free: true },
-            { value: "embed-multilingual-v3.0", name: "🌍 Embed Multilingual v3", rpm: 100, quality: 85, free: true },
-            { value: "rerank-english-v3.0", name: "🎯 Rerank English v3", rpm: 10, quality: 88, free: true }
+            { value: "command-r7b-12-2024", name: "⚡ Command R7B", rpm: 20, quality: 78, free: true }
         ],
         huggingface: [
             { value: "meta-llama/Llama-3.2-3B-Instruct", name: "🦙 Llama 3.2 3B", rpm: 10, quality: 70, free: true },
             { value: "mistralai/Mistral-7B-Instruct-v0.3", name: "🔥 Mistral 7B v0.3", rpm: 10, quality: 75, free: true },
             { value: "microsoft/Phi-3-mini-4k-instruct", name: "🔬 Phi-3 Mini", rpm: 10, quality: 72, free: true },
             { value: "google/gemma-2-9b-it", name: "🤖 Gemma 2 9B", rpm: 10, quality: 73, free: true },
-            { value: "Qwen/Qwen2.5-7B-Instruct", name: "💻 Qwen 2.5 7B", rpm: 10, quality: 76, free: true },
-            { value: "openai/whisper-large-v3", name: "🎤 Whisper Large v3", rpm: 10, quality: 92, free: true },
-            { value: "sentence-transformers/all-MiniLM-L6-v2", name: "📊 All-MiniLM-L6-v2", rpm: 100, quality: 80, free: true }
+            { value: "Qwen/Qwen2.5-7B-Instruct", name: "💻 Qwen 2.5 7B", rpm: 10, quality: 76, free: true }
         ]
     },
 
@@ -955,14 +943,19 @@ const AI = {
             // is_free_tier: true = nikdy nenabil = 50 RPD
             // is_free_tier: false = nabil $10+ = 1,000 RPD
             const tierInfo = {
+                provider: 'openrouter',
+                providerName: 'OpenRouter',
                 isFreeTier: data.is_free_tier,
-                rpm: data.is_free_tier ? 1 : 20,  // Free: ~1 RPM, Paid: ~20 RPM
+                rpm: 20,  // OpenRouter má 20 RPM pro free i paid
                 rpd: data.is_free_tier ? 50 : 1000,
                 usage: data.usage || 0,
-                usageDaily: data.usage_daily || 0,
+                usageDaily: data.usage_daily || 0,  // API vrací správné denní využití
+                remaining: this.rateLimit.remaining('openrouter'),
+                usedToday: data.usage_daily || 0,  // Použij API data místo lokálních statistik
                 label: data.label || 'Unknown',
-                limit: data.limit,
-                limitRemaining: data.limit_remaining
+                limit: data.limit !== undefined ? data.limit : null,
+                limitRemaining: data.limit_remaining !== undefined ? data.limit_remaining : null,
+                rateLimit: data.rate_limit || null
             };
 
             // Cache result
@@ -976,13 +969,127 @@ const AI = {
             console.error('Chyba při kontrole OpenRouter tier:', error);
             // Fallback na free tier limity
             return {
+                provider: 'openrouter',
+                providerName: 'OpenRouter',
                 isFreeTier: true,
-                rpm: 1,
+                rpm: 20,
                 rpd: 50,
                 usage: 0,
                 usageDaily: 0,
+                remaining: this.rateLimit.remaining('openrouter'),
+                usedToday: this.stats.get().byProvider?.openrouter?.calls || 0,
                 error: error.message
             };
+        }
+    },
+
+    // Cache pro rate limit info všech providerů
+    _rateLimitInfoCache: {},
+
+    /**
+     * Zkontroluje rate limity pro kteréhokoliv providera
+     * @param {string} provider - Provider name
+     * @returns {Promise<Object>}
+     */
+    async checkProviderLimits(provider) {
+        // Zkontroluj cache (platnost 2 minuty)
+        const cached = this._rateLimitInfoCache[provider];
+        if (cached && Date.now() - cached.timestamp < 2 * 60 * 1000) {
+            return cached.data;
+        }
+
+        const key = this.getKey(provider);
+        if (!key) {
+            throw new Error(`${provider} API klíč nenalezen`);
+        }
+
+        let limitInfo = {
+            provider,
+            providerName: this.getProviderDisplayName(provider),
+            rpm: this.rateLimit._getLimit(provider),
+            rpd: null,
+            remaining: null,
+            reset: null,
+            usedToday: null,
+            error: null
+        };
+
+        try {
+            switch (provider) {
+                case 'openrouter':
+                    return await this.checkOpenRouterTier();
+
+                case 'gemini':
+                    // Gemini má RPM limity podle modelu
+                    limitInfo.rpm = 15;
+                    limitInfo.rpd = 1500;
+                    limitInfo.remaining = this.rateLimit.remaining(provider);
+                    limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                    break;
+
+                case 'groq':
+                    // Zkus získat info z Groq API
+                    try {
+                        const response = await fetch('https://api.groq.com/openai/v1/models', {
+                            headers: { 'Authorization': `Bearer ${key}` }
+                        });
+                        if (response.ok) {
+                            limitInfo.rpm = 30;
+                            limitInfo.rpd = 14400;
+                            limitInfo.remaining = this.rateLimit.remaining(provider);
+                            limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                            // Čti rate limit z headers
+                            const rateLimit = response.headers.get('x-ratelimit-limit-requests');
+                            const rateLimitRemaining = response.headers.get('x-ratelimit-remaining-requests');
+                            const rateLimitReset = response.headers.get('x-ratelimit-reset-requests');
+                            if (rateLimit) limitInfo.rpm = parseInt(rateLimit);
+                            if (rateLimitRemaining) limitInfo.remaining = parseInt(rateLimitRemaining);
+                            if (rateLimitReset) limitInfo.reset = rateLimitReset;
+                        }
+                    } catch (e) {
+                        console.warn('Groq API info nedostupné:', e.message);
+                        limitInfo.rpm = 30;
+                        limitInfo.rpd = 14400;
+                        limitInfo.remaining = this.rateLimit.remaining(provider);
+                        limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                    }
+                    break;
+
+                case 'mistral':
+                    limitInfo.rpm = 10;
+                    limitInfo.rpd = 500;
+                    limitInfo.remaining = this.rateLimit.remaining(provider);
+                    limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                    break;
+
+                case 'cohere':
+                    limitInfo.rpm = 20;
+                    limitInfo.rpd = 1000;
+                    limitInfo.remaining = this.rateLimit.remaining(provider);
+                    limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                    break;
+
+                case 'huggingface':
+                    limitInfo.rpm = 10;
+                    limitInfo.rpd = 500;
+                    limitInfo.remaining = this.rateLimit.remaining(provider);
+                    limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                    break;
+
+                default:
+                    throw new Error(`Neznámý provider: ${provider}`);
+            }
+
+            // Cache výsledek
+            this._rateLimitInfoCache[provider] = {
+                timestamp: Date.now(),
+                data: limitInfo
+            };
+
+            return limitInfo;
+        } catch (error) {
+            limitInfo.error = error.message;
+            return limitInfo;
         }
     },
 

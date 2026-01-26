@@ -17,26 +17,26 @@
         // Modely seřazené podle kvality pro kódování (od nejlepšího)
         this.CODING_MODELS_PRIORITY = [
             // Tier 1: Nejlepší pro kódování (90-100 kvalita)
-            { provider: 'gemini', model: 'gemini-2.5-flash', rpm: 15, quality: 95, penaltyMinutes: 60 },
-            { provider: 'gemini', model: 'gemini-2.5-pro', rpm: 5, quality: 98, penaltyMinutes: 120 },
+            { provider: 'gemini', model: 'gemini-2.5-flash', rpm: 15, quality: 95, penaltyMinutes: 120 },
+            { provider: 'gemini', model: 'gemini-2.5-pro', rpm: 5, quality: 98, penaltyMinutes: 180 },
             { provider: 'groq', model: 'llama-3.3-70b-versatile', rpm: 30, quality: 92, penaltyMinutes: 30 },
 
             // Tier 2: Velmi dobré (80-90 kvalita)
             { provider: 'groq', model: 'mixtral-8x7b-32768', rpm: 30, quality: 88, penaltyMinutes: 30 },
-            { provider: 'mistral', model: 'codestral-latest', rpm: 10, quality: 90, penaltyMinutes: 60 },
-            { provider: 'mistral', model: 'mistral-small-latest', rpm: 30, quality: 85, penaltyMinutes: 60 },
-            { provider: 'cohere', model: 'command-r-plus', rpm: 20, quality: 87, penaltyMinutes: 60 },
+            { provider: 'mistral', model: 'codestral-latest', rpm: 10, quality: 90, penaltyMinutes: 90 },
+            { provider: 'mistral', model: 'mistral-small-latest', rpm: 30, quality: 85, penaltyMinutes: 90 },
+            { provider: 'cohere', model: 'command-r-plus', rpm: 20, quality: 87, penaltyMinutes: 90 },
 
             // Tier 3: Dobré (70-80 kvalita)
             { provider: 'groq', model: 'gemma-2-9b-it', rpm: 30, quality: 78, penaltyMinutes: 30 },
-            { provider: 'cohere', model: 'command-r', rpm: 20, quality: 82, penaltyMinutes: 60 },
-            { provider: 'openrouter', model: 'google/gemini-2.5-flash-thinking-exp:free', rpm: 20, quality: 93, penaltyMinutes: 60 },
-            { provider: 'openrouter', model: 'meta-llama/llama-3.1-70b-instruct:free', rpm: 20, quality: 85, penaltyMinutes: 60 },
-            { provider: 'huggingface', model: 'Qwen/Qwen2.5-7B-Instruct', rpm: 10, quality: 76, penaltyMinutes: 120 },
+            { provider: 'cohere', model: 'command-r', rpm: 20, quality: 82, penaltyMinutes: 90 },
+            { provider: 'openrouter', model: 'deepseek/deepseek-r1-0528:free', rpm: 20, quality: 96, penaltyMinutes: 90 },
+            { provider: 'openrouter', model: 'mistralai/devstral-2512:free', rpm: 20, quality: 93, penaltyMinutes: 90 },
+            { provider: 'huggingface', model: 'Qwen/Qwen2.5-7B-Instruct', rpm: 10, quality: 76, penaltyMinutes: 180 },
 
             // Tier 4: Základní (60-70 kvalita)
-            { provider: 'huggingface', model: 'meta-llama/Llama-3.2-3B-Instruct', rpm: 10, quality: 70, penaltyMinutes: 120 },
-            { provider: 'openrouter', model: 'mistralai/mistral-small-3.1-24b-instruct:free', rpm: 20, quality: 75, penaltyMinutes: 60 }
+            { provider: 'huggingface', model: 'meta-llama/Llama-3.2-3B-Instruct', rpm: 10, quality: 70, penaltyMinutes: 180 },
+            { provider: 'openrouter', model: 'mistralai/mistral-small-3.1-24b-instruct:free', rpm: 20, quality: 75, penaltyMinutes: 90 }
         ];
 
         // Tracking rate limitů pro každý model
