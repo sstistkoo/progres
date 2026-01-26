@@ -2357,8 +2357,14 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
 
     this.isProcessing = true;
 
+    // Zobraz uživateli v jakém režimu tým pracuje
+    const isNewProjectMode = this.workMode === 'new-project';
+    const modeLabel = isNewProjectMode
+      ? '🆕 [Tým - Nový projekt]'
+      : '🔧 [Tým - Úprava]';
+
     // Add user message to chat
-    this.addChatMessage('user', `🎭 [Tým] ${message}`);
+    this.addChatMessage('user', `🎭 ${modeLabel} ${message}`);
 
     // Add to history
     this.chatService.addToHistory('user', message);
@@ -2427,6 +2433,12 @@ VYTVOŘ KOMPLETNÍ KÓD NYNÍ!
       ];
       const messageRequestsNewProject = newProjectPatterns.some(p => p.test(message));
       const shouldTreatAsNewProject = isNewProjectMode || messageRequestsNewProject;
+
+      // Zobraz uživateli v jakém režimu orchestrator pracuje
+      const modeInfo = shouldTreatAsNewProject
+        ? '🆕 Tým vytváří NOVÝ projekt od začátku...'
+        : '🔧 Tým upravuje existující kód...';
+      updateStatus(modeInfo);
 
       console.log(`[AIPanel] Orchestrator - workMode: ${this.workMode}, shouldTreatAsNewProject: ${shouldTreatAsNewProject}`);
 

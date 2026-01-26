@@ -1426,12 +1426,62 @@ export class CodeEditorService {
     const closing = new Set(['}', ']', ')']);
 
     // Remove strings and comments to avoid false positives
-    const cleaned = code
+    let cleaned = code
       .replace(/\/\/.*$/gm, '')           // Single-line comments
       .replace(/\/\*[\s\S]*?\*\//g, '')   // Multi-line comments
-      .replace(/'(?:[^'\\]|\\.)*'/g, '')  // Single-quoted strings
-      .replace(/"(?:[^"\\]|\\.)*"/g, '')  // Double-quoted strings
-      .replace(/`(?:[^`\\]|\\.)*`/g, ''); // Template literals
+      .replace(/'(?:[^'\\]|\\.)*'/g, '""')  // Single-quoted strings -> empty
+      .replace(/"(?:[^"\\]|\\.)*"/g, '""'); // Double-quoted strings -> empty
+
+    // Handle template literals more carefully (can have nested ${})
+    // Replace template literals character by character
+    let inTemplate = false;
+    let braceDepth = 0;
+    let result = '';
+
+    for (let i = 0; i < cleaned.length; i++) {
+      const char = cleaned[i];
+      const prevChar = i > 0 ? cleaned[i - 1] : '';
+
+      if (char === '`' && prevChar !== '\\') {
+        inTemplate = !inTemplate;
+        result += ' '; // Replace backtick with space
+        continue;
+      }
+
+      if (inTemplate) {
+        if (char === '$' && cleaned[i + 1] === '{') {
+          braceDepth++;
+          result += '  '; // Skip ${
+          i++;
+          continue;
+        }
+        if (char === '{' && braceDepth > 0) {
+          braceDepth++;
+          result += char; // Keep nested braces for validation
+          continue;
+        }
+        if (char === '}' && braceDepth > 0) {
+          braceDepth--;
+          if (braceDepth === 0) {
+            result += ' '; // Closing } of ${} - skip it
+            continue;
+          }
+          result += char; // Keep nested closing braces
+          continue;
+        }
+        // Inside template but outside ${} - skip content
+        if (braceDepth === 0) {
+          result += ' ';
+          continue;
+        }
+        // Inside ${} - keep for validation
+        result += char;
+      } else {
+        result += char;
+      }
+    }
+
+    cleaned = result;
 
     for (let i = 0; i < cleaned.length; i++) {
       const char = cleaned[i];

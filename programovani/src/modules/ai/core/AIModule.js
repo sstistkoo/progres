@@ -465,6 +465,306 @@ const AI = {
         return Math.ceil(text.length / 3.5);
     },
 
+    // ============== SMART CONTEXT COMPRESSION ==============
+    contextCompression: {
+        /**
+         * Komprimuje kontext pro úsporu tokenů
+         * Zachovává důležité části, odstraňuje zbytečnosti
+         */
+        compress(text, options = {}) {
+            if (!text) return text;
+
+            const maxTokens = options.maxTokens || 8000;
+            const aggressive = options.aggressive || false;
+            let compressed = text;
+
+            // 1. Odstraň prázdné řádky (víc než 2 po sobě → max 1)
+            compressed = compressed.replace(/\n{3,}/g, '\n\n');
+
+            // 2. Odstraň trailing whitespace
+            compressed = compressed.replace(/[ \t]+$/gm, '');
+
+            // 3. Zkrať dlouhé komentáře (aggressive mode)
+            if (aggressive) {
+                // HTML komentáře
+                compressed = compressed.replace(/<!--[\s\S]*?-->/g, match =>
+                    match.length > 100 ? '<!-- ... -->' : match
+                );
+                // JS/CSS blokové komentáře
+                compressed = compressed.replace(/\/\*[\s\S]*?\*\//g, match =>
+                    match.length > 100 ? '/* ... */' : match
+                );
+                // Dlouhé console.log
+                compressed = compressed.replace(/console\.(log|debug|info)\([^)]{100,}\)/g,
+                    'console.log(/* truncated */)');
+            }
+
+            // 4. Zkrať velmi dlouhé řetězce (data URI, base64)
+            compressed = compressed.replace(/data:[^;]+;base64,[a-zA-Z0-9+/=]{500,}/g,
+                'data:...base64...[TRUNCATED]');
+
+            // 5. Pokud stále příliš dlouhé, zkrať inteligentně
+            const currentTokens = AI.estimateTokens(compressed);
+            if (currentTokens > maxTokens) {
+                compressed = this.truncateSmartly(compressed, maxTokens);
+            }
+
+            return compressed;
+        },
+
+        /**
+         * Inteligentní zkrácení s kontextem
+         */
+        truncateSmartly(text, maxTokens) {
+            const lines = text.split('\n');
+            const totalLines = lines.length;
+
+            // Pokud je málo řádků, prostě ořízni
+            if (totalLines < 50) {
+                const maxChars = maxTokens * 3.5;
+                return text.substring(0, maxChars) + '\n... [zkráceno]';
+            }
+
+            // Jinak zachovej začátek a konec
+            const keepLines = Math.floor(maxTokens / 10); // ~10 tokenů na řádek
+            const headLines = Math.floor(keepLines * 0.6);
+            const tailLines = keepLines - headLines;
+
+            const head = lines.slice(0, headLines).join('\n');
+            const tail = lines.slice(-tailLines).join('\n');
+            const omitted = totalLines - headLines - tailLines;
+
+            return `${head}\n\n... [${omitted} řádků vynecháno] ...\n\n${tail}`;
+        },
+
+        /**
+         * Detekuje typ obsahu pro lepší kompresi
+         */
+        detectContentType(text) {
+            if (text.includes('<!DOCTYPE') || text.includes('<html')) return 'html';
+            if (text.includes('function') || text.includes('const ') || text.includes('let ')) return 'javascript';
+            if (text.includes('{') && text.includes(':') && text.includes(';')) return 'css';
+            if (text.startsWith('{') || text.startsWith('[')) return 'json';
+            return 'text';
+        }
+    },
+
+    // ============== ADAPTIVE TOKEN BUDGET ==============
+    tokenBudget: {
+        _budgets: {
+            // Free modely - nižší limity
+            free: {
+                system: 1000,
+                context: 4000,
+                history: 1000,
+                total: 8000
+            },
+            // Standard modely
+            standard: {
+                system: 2000,
+                context: 12000,
+                history: 3000,
+                total: 20000
+            },
+            // Premium modely
+            premium: {
+                system: 4000,
+                context: 30000,
+                history: 6000,
+                total: 50000
+            }
+        },
+
+        /**
+         * Získej budget pro daný model
+         */
+        getBudget(model, provider) {
+            // Detekce free modelu
+            const isFree = model?.includes(':free') ||
+                          model?.includes('-free') ||
+                          this._isFreeModel(model, provider);
+
+            // Detekce premium modelu
+            const isPremium = model?.includes('pro') ||
+                             model?.includes('opus') ||
+                             model?.includes('gpt-4') ||
+                             model?.includes('claude-3');
+
+            if (isFree) return this._budgets.free;
+            if (isPremium) return this._budgets.premium;
+            return this._budgets.standard;
+        },
+
+        /**
+         * Kontrola zda je model free
+         */
+        _isFreeModel(model, provider) {
+            const freeModels = AI.ALL_MODELS[provider]?.filter(m => m.free) || [];
+            return freeModels.some(m => m.value === model);
+        },
+
+        /**
+         * Optimalizuj prompt podle budgetu
+         */
+        optimizeForBudget(prompt, context, history, model, provider) {
+            const budget = this.getBudget(model, provider);
+            let optimized = {
+                prompt: prompt,
+                context: context,
+                history: history,
+                budget: budget
+            };
+
+            // Komprimuj context pokud přesahuje budget
+            if (context && AI.estimateTokens(context) > budget.context) {
+                optimized.context = AI.contextCompression.compress(context, {
+                    maxTokens: budget.context,
+                    aggressive: budget === this._budgets.free
+                });
+            }
+
+            // Zkrať historii pokud přesahuje
+            if (history && AI.estimateTokens(JSON.stringify(history)) > budget.history) {
+                const keepMessages = Math.floor(budget.history / 100); // ~100 tokenů na zprávu
+                optimized.history = history.slice(-keepMessages);
+            }
+
+            return optimized;
+        }
+    },
+
+    // ============== PROMPT OPTIMIZER (Smart prompt shortening) ==============
+    promptOptimizer: {
+        // Typy dotazů a jejich optimální konfigurace
+        _queryTypes: {
+            simple: {
+                patterns: [/^co je/i, /^co znamená/i, /^definuj/i, /^vysvětli$/i, /^what is/i, /^define/i],
+                systemPrompt: 'Odpovídej stručně a jasně.',
+                maxTokens: 500
+            },
+            yesno: {
+                patterns: [/^je to/i, /^můžu/i, /^mohu/i, /^je možné/i, /^can i/i, /^is it/i, /^should i/i],
+                systemPrompt: 'Odpověz ano/ne a krátce vysvětli.',
+                maxTokens: 200
+            },
+            list: {
+                patterns: [/^vyjmenuj/i, /^seznam/i, /napiš.*seznam/i, /^list/i, /^enumerate/i],
+                systemPrompt: 'Vytvoř stručný seznam.',
+                maxTokens: 800
+            },
+            code: {
+                patterns: [/^napiš kód/i, /^naprogramuj/i, /^kód pro/i, /^write code/i, /^implement/i],
+                systemPrompt: 'Vrať pouze čistý kód s krátkými komentáři.',
+                maxTokens: 2000
+            },
+            fix: {
+                patterns: [/^oprav/i, /^fix/i, /chyba/i, /error/i, /nefunguje/i],
+                systemPrompt: 'Oprav problém. Vrať jen opravený kód.',
+                maxTokens: 1500
+            },
+            analyze: {
+                patterns: [/^analyzuj/i, /^analyze/i, /^rozeber/i, /^review/i],
+                systemPrompt: 'Analyzuj stručně. Zaměř se na klíčové body.',
+                maxTokens: 1200
+            }
+        },
+
+        /**
+         * Detekuj typ dotazu
+         */
+        detectQueryType(prompt) {
+            const cleanPrompt = prompt.trim().toLowerCase();
+
+            for (const [type, config] of Object.entries(this._queryTypes)) {
+                for (const pattern of config.patterns) {
+                    if (pattern.test(cleanPrompt)) {
+                        return { type, ...config };
+                    }
+                }
+            }
+
+            // Default - komplexní dotaz
+            return {
+                type: 'complex',
+                systemPrompt: null, // Použij původní
+                maxTokens: 4000
+            };
+        },
+
+        /**
+         * Optimalizuj options podle typu dotazu
+         */
+        optimizeOptions(prompt, options = {}) {
+            const queryInfo = this.detectQueryType(prompt);
+            const optimized = { ...options };
+
+            // Nezasahuj do explicitně nastavených options
+            if (options._skipOptimization) return options;
+
+            // Pro jednoduché dotazy použij kratší system prompt
+            if (queryInfo.systemPrompt && !options.system) {
+                optimized.system = queryInfo.systemPrompt;
+            }
+
+            // Nastav max_tokens pokud není explicitně zadáno
+            if (!options.maxTokens && !options.max_tokens) {
+                optimized.maxTokens = queryInfo.maxTokens;
+            }
+
+            // Pro jednoduché dotazy použij nižší temperature
+            if (queryInfo.type === 'simple' || queryInfo.type === 'yesno') {
+                optimized.temperature = optimized.temperature || 0.3;
+            }
+
+            optimized._queryType = queryInfo.type;
+            return optimized;
+        },
+
+        /**
+         * Zkrať systémový prompt pro free modely
+         */
+        shortenSystemPrompt(systemPrompt, model, provider) {
+            if (!systemPrompt) return systemPrompt;
+            if (!AI.tokenBudget._isFreeModel(model, provider)) return systemPrompt;
+
+            const tokens = AI.estimateTokens(systemPrompt);
+            const budget = AI.tokenBudget._budgets.free.system;
+
+            if (tokens <= budget) return systemPrompt;
+
+            // Zkrať - zachovej nejdůležitější části
+            const lines = systemPrompt.split('\n');
+            const essential = [];
+            const optional = [];
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+
+                // Důležité řádky (obsahují klíčová slova)
+                if (/^(jsi|you are|musíš|must|vždy|always|nikdy|never|důležité|important)/i.test(trimmed)) {
+                    essential.push(line);
+                } else {
+                    optional.push(line);
+                }
+            }
+
+            let result = essential.join('\n');
+            let currentTokens = AI.estimateTokens(result);
+
+            // Přidávej optional dokud je místo
+            for (const line of optional) {
+                const lineTokens = AI.estimateTokens(line);
+                if (currentTokens + lineTokens <= budget) {
+                    result += '\n' + line;
+                    currentTokens += lineTokens;
+                }
+            }
+
+            return result;
+        }
+    },
+
     // ============== ZRUŠENÍ POŽADAVKU ==============
     cancel() {
         if (this._activeController) {
@@ -2260,31 +2560,78 @@ const AI = {
         }
     },
 
-    // ============== RESPONSE CACHE ==============
+    // ============== RESPONSE CACHE (Improved) ==============
     cache: {
         _data: {},
         _maxAge: 3600000, // 1 hodina
         _maxSize: 100,
+        _hits: 0,
+        _misses: 0,
 
-        // Generuj klíč pro cache
+        // Generuj klíč pro cache (vylepšený - normalizuje prompt)
         _makeKey(prompt, options) {
             const provider = options.provider || 'default';
             const model = options.model || 'default';
-            return `${provider}:${model}:${prompt.substring(0, 100)}`;
+            // Normalizuj prompt - odstraň whitespace a převeď na lowercase pro lepší matching
+            const normalizedPrompt = prompt.toLowerCase()
+                .replace(/\s+/g, ' ')
+                .trim()
+                .substring(0, 150);
+            return `${provider}:${model}:${normalizedPrompt}`;
         },
 
-        // Získej z cache
+        // Získej z cache (s fuzzy matching)
         get(prompt, options = {}) {
             const key = this._makeKey(prompt, options);
             const entry = this._data[key];
 
-            if (!entry) return null;
-            if (Date.now() - entry.timestamp > this._maxAge) {
-                delete this._data[key];
-                return null;
+            if (entry && Date.now() - entry.timestamp <= this._maxAge) {
+                this._hits++;
+                console.log('📦 Cache hit! Úspora tokenu.');
+                return entry.response;
             }
 
-            return entry.response;
+            // Fuzzy match - hledej podobné dotazy (>85% shoda)
+            const fuzzyMatch = this._findSimilar(prompt, options);
+            if (fuzzyMatch) {
+                this._hits++;
+                console.log('📦 Fuzzy cache hit!');
+                return fuzzyMatch;
+            }
+
+            if (entry) delete this._data[key]; // Expirovaný
+            this._misses++;
+            return null;
+        },
+
+        // Najdi podobný dotaz v cache
+        _findSimilar(prompt, options) {
+            const normalizedPrompt = prompt.toLowerCase().replace(/\s+/g, ' ').trim();
+            const provider = options.provider || 'default';
+            const model = options.model || 'default';
+            const prefix = `${provider}:${model}:`;
+
+            for (const [key, entry] of Object.entries(this._data)) {
+                if (!key.startsWith(prefix)) continue;
+                if (Date.now() - entry.timestamp > this._maxAge) continue;
+
+                const cachedPrompt = key.substring(prefix.length);
+                const similarity = this._calculateSimilarity(normalizedPrompt, cachedPrompt);
+
+                if (similarity > 0.85) {
+                    return entry.response;
+                }
+            }
+            return null;
+        },
+
+        // Jednoduchý výpočet podobnosti (Jaccard index)
+        _calculateSimilarity(str1, str2) {
+            const set1 = new Set(str1.split(' '));
+            const set2 = new Set(str2.split(' '));
+            const intersection = new Set([...set1].filter(x => set2.has(x)));
+            const union = new Set([...set1, ...set2]);
+            return intersection.size / union.size;
         },
 
         // Ulož do cache
@@ -2305,21 +2652,174 @@ const AI = {
                 response,
                 timestamp: Date.now()
             };
+
+            // Persist to localStorage
+            this._save();
         },
 
         // Vyčisti cache
         clear() {
             this._data = {};
+            this._hits = 0;
+            this._misses = 0;
+            localStorage.removeItem('ai_response_cache');
         },
 
         // Statistiky cache
         stats() {
             const keys = Object.keys(this._data);
+            const hitRate = this._hits + this._misses > 0
+                ? Math.round((this._hits / (this._hits + this._misses)) * 100)
+                : 0;
             return {
                 size: keys.length,
                 maxSize: this._maxSize,
-                maxAge: this._maxAge
+                maxAge: this._maxAge,
+                hits: this._hits,
+                misses: this._misses,
+                hitRate: `${hitRate}%`
             };
+        },
+
+        // Ulož do localStorage
+        _save() {
+            try {
+                // Ulož pouze posledních 50 položek
+                const entries = Object.entries(this._data)
+                    .sort((a, b) => b[1].timestamp - a[1].timestamp)
+                    .slice(0, 50);
+                localStorage.setItem('ai_response_cache', JSON.stringify(Object.fromEntries(entries)));
+            } catch (e) {}
+        },
+
+        // Načti z localStorage
+        load() {
+            try {
+                const stored = localStorage.getItem('ai_response_cache');
+                if (stored) {
+                    this._data = JSON.parse(stored);
+                    // Vyčisti expirované
+                    const now = Date.now();
+                    Object.keys(this._data).forEach(key => {
+                        if (now - this._data[key].timestamp > this._maxAge) {
+                            delete this._data[key];
+                        }
+                    });
+                }
+            } catch (e) {}
+        }
+    },
+
+    // ============== SMART RETRY WITH FALLBACK ==============
+    smartRetry: {
+        // Pořadí fallback modelů podle providera
+        _fallbackOrder: {
+            gemini: ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite'],
+            groq: ['llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
+            openrouter: [
+                'meta-llama/llama-3.3-70b-instruct:free',
+                'mistralai/mistral-small-3.1-24b-instruct:free',
+                'google/gemma-3-27b-it:free'
+            ],
+            mistral: ['open-mistral-7b', 'mistral-small-latest']
+        },
+
+        // Alternativní provideři v pořadí priorit
+        _providerFallback: ['groq', 'openrouter', 'gemini', 'mistral'],
+
+        /**
+         * Pokusí se o dotaz s automatickým fallbackem
+         */
+        async askWithFallback(prompt, options = {}) {
+            const maxRetries = options.maxRetries || 3;
+            const retryDelay = options.retryDelay || 2000;
+            let lastError = null;
+
+            // Zkus původní model/provider
+            const originalProvider = options.provider || AI.config.defaultProvider;
+            const originalModel = options.model;
+
+            // 1. Pokus s původním nastavením
+            try {
+                if (AI.rateLimit.canMakeRequest(originalProvider, originalModel)) {
+                    return await AI.ask(prompt, options);
+                }
+            } catch (error) {
+                lastError = error;
+                console.warn(`⚠️ Pokus selhal (${originalProvider}):`, error.message);
+            }
+
+            // 2. Zkus fallback modely stejného providera
+            const fallbackModels = this._fallbackOrder[originalProvider] || [];
+            for (const model of fallbackModels) {
+                if (model === originalModel) continue;
+
+                try {
+                    if (AI.rateLimit.canMakeRequest(originalProvider, model)) {
+                        console.log(`🔄 Fallback na model: ${model}`);
+                        return await AI.ask(prompt, { ...options, model });
+                    }
+                } catch (error) {
+                    lastError = error;
+                    console.warn(`⚠️ Fallback model selhal (${model}):`, error.message);
+                }
+            }
+
+            // 3. Zkus jiné providery
+            for (const provider of this._providerFallback) {
+                if (provider === originalProvider) continue;
+                if (!AI.keys.get(provider)) continue; // Nemáme klíč
+
+                const models = this._fallbackOrder[provider] || [];
+                for (const model of models) {
+                    try {
+                        if (AI.rateLimit.canMakeRequest(provider, model)) {
+                            console.log(`🔄 Fallback na provider: ${provider}, model: ${model}`);
+                            return await AI.ask(prompt, { ...options, provider, model });
+                        }
+                    } catch (error) {
+                        lastError = error;
+                    }
+                }
+            }
+
+            // 4. Poslední pokus - čekej a zkus znovu
+            for (let i = 0; i < maxRetries; i++) {
+                await new Promise(r => setTimeout(r, retryDelay * (i + 1)));
+
+                try {
+                    if (AI.rateLimit.canMakeRequest(originalProvider, originalModel)) {
+                        console.log(`🔄 Retry pokus ${i + 1}/${maxRetries}`);
+                        return await AI.ask(prompt, options);
+                    }
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+
+            throw lastError || new Error('Všechny pokusy selhaly');
+        },
+
+        /**
+         * Získej doporučený model pro aktuální situaci
+         */
+        getRecommendedModel(provider) {
+            const models = AI.ALL_MODELS[provider] || [];
+
+            // Najdi model s nejvyšším zbývajícím limitem
+            let bestModel = null;
+            let bestRemaining = -1;
+
+            for (const m of models) {
+                if (!m.free) continue;
+                const remaining = AI.rateLimit.remaining(provider, m.value);
+                if (remaining > bestRemaining) {
+                    bestRemaining = remaining;
+                    bestModel = m.value;
+                }
+            }
+
+            return bestModel;
         }
     },
 
@@ -3376,6 +3876,7 @@ const AI = {
         this.keys.load();
         this.templates.load();
         this.memory.load();
+        this.cache.load(); // Načti cache z localStorage
 
         // Emituj init event
         this.emit('init', { version: '3.0', providers: this.getAvailableProviders() });
@@ -3387,6 +3888,8 @@ const AI = {
         console.log('   🎯 Intent: AI.detectIntent("text")');
         console.log('   ⚡ Smart: AI.smartAsk("prompt")');
         console.log('   📦 Parallel: AI.parallel([prompts])');
+        console.log('   💾 Cache: AI.cache.stats()');
+        console.log('   🔄 Retry: AI.smartRetry.askWithFallback(prompt)');
 
         return this;
     },
