@@ -108,6 +108,7 @@
       <div
         class="tool-submenu ai-overlay"
         id="toolsAi"
+        style="display: none;"
       >
         <div
           id="aiPanel"
@@ -434,7 +435,7 @@
       </div>
 
       <!-- Kreslení panel -->
-      <div class="tool-submenu" id="toolsDrawing" class="d-none">
+      <div class="tool-submenu d-none" id="toolsDrawing" style="display: none;">
         <div class="drawing-panel drawing-panel-wrapper">
         <!-- Header: polar snap angle + grip -->
         <div class="tool-header drawing-panel-header">
@@ -567,7 +568,7 @@
       </div>
 
       <!-- Úpravy panel -->
-      <div class="tool-submenu d-none" id="toolsEdit">
+      <div class="tool-submenu d-none" id="toolsEdit" style="display: none;">
         <div class="tool-submenu-panel max-w-500">
           <div class="flex-wrap-center">
             <!-- Editace -->
@@ -648,7 +649,7 @@
       </div>
 
       <!-- Souřadnice panel -->
-      <div class="tool-submenu coords-panel d-none" id="toolsCoords">
+      <div class="tool-submenu coords-panel d-none" id="toolsCoords" style="display: none;">
         <div class="tool-submenu-panel max-w-400">
           <!-- Bod -->
           <div class="section-wrapper">
@@ -657,7 +658,7 @@
               <span id="coordBodToggle" class="section-toggle">▼</span>
             </div>
             <div id="coordBod" class="section-content">
-              <div class="flex-gap-8" class="mb-8">
+              <div class="flex-gap-8 mb-8">
                 <input type="number" id="quickPointZ" placeholder="Z" step="0.01" class="coord-input" />
                 <input type="number" id="quickPointX" placeholder="X" step="0.01" class="coord-input" />
               </div>
@@ -676,12 +677,12 @@
             </div>
             <div id="coordLine" class="section-content">
               <div class="input-label">Bod 1:</div>
-              <div class="flex-gap-8" class="mb-8">
+              <div class="flex-gap-8 mb-8">
                 <input type="number" id="lineZ1" placeholder="Z1" step="0.01" class="coord-input-sm" />
                 <input type="number" id="lineX1" placeholder="X1" step="0.01" class="coord-input-sm" />
               </div>
               <div class="input-label">Bod 2:</div>
-              <div class="flex-gap-8" class="mb-8">
+              <div class="flex-gap-8 mb-8">
                 <input type="number" id="lineZ2" placeholder="Z2" step="0.01" class="coord-input-sm" />
                 <input type="number" id="lineX2" placeholder="X2" step="0.01" class="coord-input-sm" />
               </div>
@@ -697,7 +698,7 @@
             </div>
             <div id="coordCircle" class="section-content">
               <div class="input-label">Střed:</div>
-              <div class="flex-gap-8" class="mb-8">
+              <div class="flex-gap-8 mb-8">
                 <input type="number" id="quickCircleZ" placeholder="Z" step="0.01" class="coord-input" />
                 <input type="number" id="quickCircleX" placeholder="X" step="0.01" class="coord-input" />
               </div>
@@ -715,11 +716,11 @@
             </div>
             <div id="coordPolar" class="section-content">
               <div class="input-label">Počáteční bod:</div>
-              <div class="flex-gap-8" class="mb-8">
+              <div class="flex-gap-8 mb-8">
                 <input type="number" id="polarStartZ" placeholder="Z" step="0.01" class="coord-input" />
                 <input type="number" id="polarStartX" placeholder="X" step="0.01" class="coord-input" />
               </div>
-              <div class="flex-gap-8" class="mb-8">
+              <div class="flex-gap-8 mb-8">
                 <div class="flex-1">
                   <div class="input-label-sm">Vzdálenost:</div>
                   <input type="number" id="polarDist" placeholder="mm" step="0.1" class="coord-input-full" />
@@ -740,14 +741,14 @@
       </div>
 
       <!-- Ostatní panel -->
-      <div class="tool-submenu d-none" id="toolsOther">
+      <div class="tool-submenu d-none" id="toolsOther" style="display: none;">
         <div class="tool-submenu-panel max-w-500 max-h-70vh">
           <!-- Akce -->
           <div class="section-wrapper">
             <div class="section-header-static">
               <strong class="section-title">⚡ Akce</strong>
             </div>
-            <div class="flex-wrap-center" class="mt-8">
+            <div class="flex-wrap-center mt-8">
               <button class="tool-btn no-margin flex-1 min-w-80" onclick="window.undo()" title="Zpět">
                 <span class="tool-btn-icon-lg">↶</span>
                 <div class="tool-btn-label-sm">Zpět</div>
@@ -761,7 +762,7 @@
                 <div class="tool-btn-label-sm">Export PNG</div>
               </button>
             </div>
-            <div class="flex-wrap-center" class="mt-8">
+            <div class="flex-wrap-center mt-8">
               <button class="tool-btn no-margin flex-1 min-w-100" onclick="window.saveProject()" title="Uložit projekt">
                 <span class="tool-btn-icon-lg">💾</span>
                 <div class="tool-btn-label">Uložit</div>
@@ -786,11 +787,11 @@
               <span id="otherHelpersToggle" class="section-toggle">▼</span>
             </div>
             <div id="otherHelpers" class="section-content">
-              <label class="checkbox-label" class="mb-8">
+              <label class="checkbox-label mb-8">
                 <input type="checkbox" id="snapGrid" onchange="window.updateSnapSettings()" class="checkbox-lg" />
                 <span>Přichycení k mřížce</span>
               </label>
-              <label class="checkbox-label" class="mb-8">
+              <label class="checkbox-label mb-8">
                 <input type="checkbox" id="snapPoints" checked onchange="window.updateSnapSettings()" class="checkbox-lg" />
                 <span>Přichycení k bodům</span>
               </label>
@@ -808,19 +809,19 @@
               <span id="otherDisplayToggle" class="section-toggle">▼</span>
             </div>
             <div id="otherDisplay" class="section-content">
-              <label class="checkbox-label" class="mb-8">
+              <label class="checkbox-label mb-8">
                 <input type="checkbox" id="showGrid" checked onchange="window.draw()" class="checkbox-lg" />
                 <span>Mřížka</span>
               </label>
-              <label class="checkbox-label" class="mb-8">
+              <label class="checkbox-label mb-8">
                 <input type="checkbox" id="showAxes" checked onchange="window.draw()" class="checkbox-lg" />
                 <span>Osy (X, Z)</span>
               </label>
-              <label class="checkbox-label" class="mb-8">
+              <label class="checkbox-label mb-8">
                 <input type="checkbox" id="showPoints" checked onchange="window.draw()" class="checkbox-lg" />
                 <span>Body</span>
               </label>
-              <label class="checkbox-label" class="mb-8">
+              <label class="checkbox-label mb-8">
                 <input type="checkbox" id="enableMeasureInput" onchange="window.toggleMeasureInput()" class="checkbox-lg" />
                 <span>Míra - zadání rozměrů</span>
               </label>
@@ -1483,7 +1484,7 @@
         </div>
       </div>
     </div>
-    <div id="directionModal" class="modal-overlay" class="d-none">
+    <div id="directionModal" class="modal-overlay d-none">
       <div class="modal-window" style="max-width: 350px">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px">
           <h2 style="color: #6ab0ff; font-size: 18px; margin: 0">🧭 Směrové kreslení</h2>
@@ -1614,7 +1615,7 @@
     </div>
 
     <!-- DIRECTION MODAL - Výběr směru pro usečky -->
-    <div id="directionModal" class="modal-overlay" class="d-none">
+    <div id="directionModal" class="modal-overlay d-none">
       <div class="modal-window" style="max-width: 280px">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px">
           <h2 style="color: #6ab0ff; font-size: 16px; margin: 0">🧭 Směr usečky</h2>
@@ -1637,7 +1638,7 @@
     </div>
 
     <!-- LENGTH MODAL - Zadání délky usečky -->
-    <div id="lengthModal" class="modal-overlay" class="d-none">
+    <div id="lengthModal" class="modal-overlay d-none">
       <div class="modal-window" style="max-width: 300px">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px">
           <h2 style="color: #6ab0ff; font-size: 16px; margin: 0">📏 Délka usečky</h2>
@@ -1653,7 +1654,7 @@
     </div>
 
     <!-- AI TEST SUITE MODAL -->
-    <div id="aiTestModal" class="modal-overlay" class="d-none">
+    <div id="aiTestModal" class="modal-overlay d-none">
       <div class="modal-window" style="max-width: 700px; max-height: 85vh; overflow-y: auto">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #3a7bc8; padding-bottom: 10px">
           <h2 style="color: #6ab0ff; font-size: 18px; margin: 0">🧪 AI TEST SUITE</h2>

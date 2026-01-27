@@ -1428,27 +1428,40 @@ canvas {
     width: 100% !important;
   }
 
-  /* KRITICKÉ: AI panel musí mít pointer-events: auto na mobilu */
+  /* KRITICKÉ: Když je AI panel otevřený, skrýt ostatní panely */
+  #toolsAi[style*="display: flex"] ~ .tool-submenu,
+  #toolsAi[style*="display:flex"] ~ .tool-submenu {
+    display: none !important;
+  }
+
+  /* KRITICKÉ: AI panel musí být fullscreen overlay na mobilu */
   #toolsAi {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    z-index: 3000 !important;
-    background: rgba(0, 0, 0, 0.7) !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 9999 !important;
+    background: rgba(0, 0, 0, 0.95) !important;
     pointer-events: auto !important;
     display: none;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
   }
 
   #toolsAi[style*="display: flex"],
   #toolsAi[style*="display:flex"] {
     display: flex !important;
-    justify-content: center !important;
-    align-items: flex-start !important;
-    padding-top: 10px !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    padding: 10px !important;
+    overflow-y: auto !important;
   }
 
   #aiPanel {
@@ -1458,15 +1471,41 @@ canvas {
     right: auto !important;
     bottom: auto !important;
     transform: none !important;
-    width: 96% !important;
-    max-width: 100% !important;
+    width: 100% !important;
+    max-width: 500px !important;
     height: auto !important;
-    max-height: calc(100vh - 30px) !important;
+    max-height: calc(100vh - 40px) !important;
+    max-height: calc(100dvh - 40px) !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    z-index: 3001 !important;
-    padding: 10px !important;
+    z-index: 1 !important;
+    padding: 12px !important;
     pointer-events: auto !important;
+    background: rgba(26, 26, 26, 0.98) !important;
+    border-radius: 12px !important;
+    border: 1px solid #444 !important;
+  }
+
+  /* KRITICKÉ: Skrýt VŠECHNY ostatní panely na mobilu když je AI otevřený */
+  #toolsDrawing,
+  #toolsEdit,
+  #toolsCoords,
+  #toolsOther {
+    z-index: 900 !important;
+  }
+
+  /* Když je AI panel viditelný, ostatní panely MUSÍ být skryté */
+  body:has(#toolsAi[style*="display: flex"]) #toolsDrawing,
+  body:has(#toolsAi[style*="display: flex"]) #toolsEdit,
+  body:has(#toolsAi[style*="display: flex"]) #toolsCoords,
+  body:has(#toolsAi[style*="display: flex"]) #toolsOther,
+  body:has(#toolsAi[style*="display:flex"]) #toolsDrawing,
+  body:has(#toolsAi[style*="display:flex"]) #toolsEdit,
+  body:has(#toolsAi[style*="display:flex"]) #toolsCoords,
+  body:has(#toolsAi[style*="display:flex"]) #toolsOther {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
   }
 
   #aiHeaderRow {
@@ -2494,7 +2533,7 @@ canvas {
 }
 
 .d-none {
-  display: none;
+  display: none !important;
 }
 
 /* ===== KEY INDICATOR ===== */
