@@ -275,13 +275,27 @@ function handleWindowResize() {
   if (window.draw) window.draw();
 }
 
+// Debounced verze resize handleru pro lepší výkon na mobilech
+let resizeTimeout = null;
+function debouncedResize() {
+  if (resizeTimeout) {
+    clearTimeout(resizeTimeout);
+  }
+  resizeTimeout = setTimeout(handleWindowResize, 100);
+}
+
 // ===== INITIALIZATION ON PAGE LOAD =====
 
 document.addEventListener("DOMContentLoaded", function () {
   initializeApp();
 });
 
-window.addEventListener("resize", handleWindowResize);
+window.addEventListener("resize", debouncedResize);
+// Orientační změna na mobilech
+window.addEventListener("orientationchange", function() {
+  // Mírné zpoždění pro dokončení rotace
+  setTimeout(handleWindowResize, 200);
+});
 
 // ===== EXPORT =====
 if (typeof module !== "undefined" && module.exports) {

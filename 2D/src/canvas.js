@@ -41,6 +41,7 @@ function setupCanvasEvents() {
   canvas.addEventListener("touchstart", safeEventHandler(onCanvasTouchStart), { passive: false });
   canvas.addEventListener("touchmove", safeEventHandler(onCanvasTouchMove), { passive: false });
   canvas.addEventListener("touchend", safeEventHandler(onCanvasTouchEnd), { passive: false });
+  canvas.addEventListener("touchcancel", safeEventHandler(onCanvasTouchCancel), { passive: false });
 
   // Context menu
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -404,17 +405,37 @@ function onCanvasWheel(e) {
 let touchStart = null;
 let touchIsPanning = false;
 let touchActionStarted = false; // Zaznamenává, zda jsme už provedli akci (např. bod, čára)
+let lastTouchDrawTime = 0; // Pro throttling překreslení
+const TOUCH_DRAW_THROTTLE = 16; // ~60fps
+
+/**
+ * Získá správné souřadnice z touch eventu s korekcí pro canvas scale
+ */
+function getTouchCanvasCoords(touch, canvas) {
+  const rect = canvas.getBoundingClientRect();
+
+  // Korekce pro škálování canvasu (CSS vs skutečná velikost)
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  // Pozice dotyku relativně k canvasu
+  const screenX = (touch.clientX - rect.left) * scaleX;
+  const screenY = (touch.clientY - rect.top) * scaleY;
+
+  return { screenX, screenY, scaleX, scaleY };
+}
 
 function onCanvasTouchStart(e) {
   e.preventDefault();
+  e.stopPropagation();
 
-  const canvas = e.target;
-  const rect = canvas.getBoundingClientRect();
+  // Vždy použijeme canvas element přímo, ne e.target
+  const canvas = document.getElementById("canvas");
+  if (!canvas) return;
 
   if (e.touches.length === 1) {
     const touch = e.touches[0];
-    const screenX = touch.clientX - rect.left;
-    const screenY = touch.clientY - rect.top;
+    const { screenX, screenY } = getTouchCanvasCoords(touch, canvas);
 
     touchStart = { x: screenX, y: screenY, time: Date.now() };
     touchIsPanning = false;
@@ -450,9 +471,11 @@ function onCanvasTouchStart(e) {
     const t2 = e.touches[1];
     const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
 
-    // Střed mezi dvěma prsty (v souřadnicích obrazovky)
-    const centerX = (t1.clientX + t2.clientX) / 2 - rect.left;
-    const centerY = (t1.clientY + t2.clientY) / 2 - rect.top;
+    // Střed mezi dvěma prsty (v souřadnicích obrazovky) - s korekcí pro scale
+    const { screenX: centerX, screenY: centerY, scaleX, scaleY } = getTouchCanvasCoords(
+      { clientX: (t1.clientX + t2.clientX) / 2, clientY: (t1.clientY + t2.clientY) / 2 },
+      canvas
+    );
 
     // Světové souřadnice středu pro správný zoom
     const worldCenter = window.screenToWorld ? window.screenToWorld(centerX, centerY) : { x: 0, y: 0 };
@@ -464,7 +487,9 @@ function onCanvasTouchStart(e) {
       centerY: centerY,
       worldCenter: worldCenter,
       panX: window.panX,
-      panY: window.panY
+      panY: window.panY,
+      scaleX: scaleX,
+      scaleY: scaleY
     };
 
     // Zrušíme single-touch panning
@@ -475,21 +500,33 @@ function onCanvasTouchStart(e) {
 
 function onCanvasTouchMove(e) {
   e.preventDefault();
+  e.stopPropagation();
 
-  const canvas = e.target;
-  const rect = canvas.getBoundingClientRect();
+  // Vždy použijeme canvas element přímo
+  const canvas = document.getElementById("canvas");
+  if (!canvas) return;
 
   if (e.touches.length === 1 && touchStart) {
     const touch = e.touches[0];
-    const screenX = touch.clientX - rect.left;
-    const screenY = touch.clientY - rect.top;
+    const { screenX, screenY, scaleX, scaleY } = getTouchCanvasCoords(touch, canvas);
 
-    const dx = screenX - touchStart.x;
-    const dy = screenY - touchStart.y;
+    // Delta je v CSS pixelech, ne v canvas pixelech - pro panning
+    const rect = canvas.getBoundingClientRect();
+    const cssX = touch.clientX - rect.left;
+    const cssY = touch.clientY - rect.top;
+
+    // Pro panning použijeme CSS souřadnice (neškálované)
+    const touchStartCSS = {
+      x: touchStart.x / scaleX,
+      y: touchStart.y / scaleY
+    };
+
+    const dx = (cssX - touchStartCSS.x) * scaleX;
+    const dy = (cssY - touchStartCSS.y) * scaleY;
     const moveDistance = Math.hypot(dx, dy);
 
     // Pokud je pohyb větší než práh, začneme pannovat
-    const panThreshold = 10; // px
+    const panThreshold = 10 * scaleX; // Práh s korekcí pro scale
     if (!touchIsPanning && moveDistance > panThreshold) {
       touchIsPanning = true;
     }
@@ -500,7 +537,13 @@ function onCanvasTouchMove(e) {
       if (window.panY !== undefined) window.panY += dy;
       touchStart.x = screenX;
       touchStart.y = screenY;
-      if (window.draw) window.draw();
+
+      // Throttle překreslení pro plynulejší panning
+      const now = Date.now();
+      if (now - lastTouchDrawTime > TOUCH_DRAW_THROTTLE) {
+        lastTouchDrawTime = now;
+        if (window.draw) window.draw();
+      }
       return;
     }
 
@@ -517,7 +560,13 @@ function onCanvasTouchMove(e) {
         y2: snapped.y,
         color: window.defaultDrawColor || "#4a9eff",
       };
-      if (window.draw) window.draw();
+
+      // Throttle překreslení
+      const now = Date.now();
+      if (now - lastTouchDrawTime > TOUCH_DRAW_THROTTLE) {
+        lastTouchDrawTime = now;
+        if (window.draw) window.draw();
+      }
     } else if (window.mode === "circle" && window.startPt) {
       const r = Math.sqrt(
         (snapped.x - window.startPt.x) ** 2 + (snapped.y - window.startPt.y) ** 2
@@ -528,16 +577,24 @@ function onCanvasTouchMove(e) {
         cy: window.startPt.y,
         r: r,
       };
-      if (window.draw) window.draw();
+
+      // Throttle překreslení
+      const now = Date.now();
+      if (now - lastTouchDrawTime > TOUCH_DRAW_THROTTLE) {
+        lastTouchDrawTime = now;
+        if (window.draw) window.draw();
+      }
     }
   } else if (e.touches.length === 2 && window.pinchStart) {
     const t1 = e.touches[0];
     const t2 = e.touches[1];
     const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
 
-    // Nový střed mezi prsty
-    const newCenterX = (t1.clientX + t2.clientX) / 2 - rect.left;
-    const newCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
+    // Nový střed mezi prsty - s korekcí pro scale
+    const { screenX: newCenterX, screenY: newCenterY } = getTouchCanvasCoords(
+      { clientX: (t1.clientX + t2.clientX) / 2, clientY: (t1.clientY + t2.clientY) / 2 },
+      canvas
+    );
 
     // Vypočítáme nový zoom
     const ratio = dist / window.pinchStart.dist;
@@ -559,19 +616,28 @@ function onCanvasTouchMove(e) {
       }
     }
 
-    if (window.draw) window.draw();
+    // Throttle překreslení pro plynulejší zoom
+    const now = Date.now();
+    if (now - lastTouchDrawTime > TOUCH_DRAW_THROTTLE) {
+      lastTouchDrawTime = now;
+      if (window.draw) window.draw();
+    }
   }
 }
 
 function onCanvasTouchEnd(e) {
   e.preventDefault();
+  e.stopPropagation();
+
+  // Finální překreslení po ukončení gesta
+  if (window.draw) window.draw();
 
   // Pokud to byl krátký tap (ne panning) v pan módu, můžeme vybrat bod
   if (touchStart && !touchIsPanning && window.mode === "pan") {
     const elapsed = Date.now() - touchStart.time;
     if (elapsed < 300) { // Krátký tap
       const canvas = document.getElementById("canvas");
-      const rect = canvas.getBoundingClientRect();
+      if (!canvas) return;
       const worldPt = window.screenToWorld ? window.screenToWorld(touchStart.x, touchStart.y) : { x: 0, y: 0 };
       const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
 
@@ -602,6 +668,25 @@ function onCanvasTouchEnd(e) {
   touchIsPanning = false;
   touchActionStarted = false;
   window.pinchStart = null;
+}
+
+/**
+ * Handler pro přerušené touch gesto (např. systémové gesto, notifikace)
+ */
+function onCanvasTouchCancel(e) {
+  e.preventDefault();
+
+  // Reset všech stavů - gesto bylo přerušeno
+  touchStart = null;
+  touchIsPanning = false;
+  touchActionStarted = false;
+  window.pinchStart = null;
+  window.tempShape = null;
+
+  // Překreslit canvas bez dočasného tvaru
+  if (window.draw) window.draw();
+
+  console.log('[Touch] Gesto přerušeno (touchcancel)');
 }
 
 // ===== MODE HANDLERS =====
