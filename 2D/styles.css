@@ -33,18 +33,21 @@ body {
   .canvas-btn:hover,
   .btn:hover,
   .controller-btn:hover,
-  .preset-btn:hover {
+  .preset-btn:hover,
+  .ai-header-btn:hover,
+  .ai-btn-transparent:hover {
     transform: none !important;
-    background: inherit;
-    border-color: inherit;
+    /* Neměnit background - nechat původní */
   }
 
   /* Zajistit že active stavy fungují správně */
   .tool-btn:active,
   .canvas-btn:active,
   .btn:active,
-  .controller-btn:active {
+  .controller-btn:active,
+  .ai-header-btn:active {
     transform: scale(0.95) !important;
+    opacity: 0.8;
   }
 }
 
@@ -254,6 +257,13 @@ canvas {
   pointer-events: none;
 }
 
+/* AI panel NENÍ normální submenu - má jiné chování */
+.tool-submenu#toolsAi {
+  position: fixed !important;
+  pointer-events: auto !important;
+  animation: none !important;
+}
+
 .tool-submenu > * {
   pointer-events: auto;
 }
@@ -275,6 +285,16 @@ canvas {
     animation: slideLeft 0.2s ease-out;
   }
 
+  /* AI panel má vlastní pozicování - nepřebírat z .tool-submenu */
+  .tool-submenu#toolsAi {
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
   @keyframes slideLeft {
     from {
       transform: translateY(-50%) translateX(10px);
@@ -292,6 +312,14 @@ canvas {
     bottom: max(120px, calc(110px + env(safe-area-inset-bottom)));
     left: 10px;
     right: 10px;
+  }
+
+  /* AI panel má vlastní pozicování - nepřebírat z .tool-submenu */
+  .tool-submenu#toolsAi {
+    bottom: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
   }
 }
 
@@ -333,12 +361,17 @@ canvas {
 }
 
 /* Ensure AI panel can be displayed */
-#toolsAi[style*="display: flex"] {
+#toolsAi[style*="display: flex"],
+#toolsAi[style*="display:flex"] {
   display: flex !important;
   pointer-events: auto !important;
 }
 
-#toolsAi * {
+#toolsAi *,
+#toolsAi button,
+#toolsAi select,
+#toolsAi input,
+#toolsAi textarea {
   pointer-events: auto !important;
 }
 
@@ -1395,26 +1428,45 @@ canvas {
     width: 100% !important;
   }
 
+  /* KRITICKÉ: AI panel musí mít pointer-events: auto na mobilu */
   #toolsAi {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
     z-index: 3000 !important;
-    background: rgba(0, 0, 0, 0.85) !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    pointer-events: auto !important;
+    display: none;
+  }
+
+  #toolsAi[style*="display: flex"],
+  #toolsAi[style*="display:flex"] {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+    padding-top: 10px !important;
   }
 
   #aiPanel {
-    position: fixed !important;
-    top: 10px !important;
-    left: 50% !important;
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
     right: auto !important;
-    bottom: 15px !important;
-    transform: translateX(-50%) !important;
+    bottom: auto !important;
+    transform: none !important;
     width: 96% !important;
     max-width: 100% !important;
     height: auto !important;
-    max-height: calc(100vh - 25px) !important;
+    max-height: calc(100vh - 30px) !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     z-index: 3001 !important;
-    padding: 8px !important;
+    padding: 10px !important;
+    pointer-events: auto !important;
   }
 
   #aiHeaderRow {
