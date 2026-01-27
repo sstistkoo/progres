@@ -447,6 +447,80 @@ canvas {
   box-shadow: 0 0 5px rgba(255, 68, 68, 0.8);
 }
 
+/* ===== PRECISION MODE ===== */
+.touch-cursor.precision-mode {
+  display: block !important;
+  width: 60px;
+  height: 60px;
+  animation: precisionModeActivate 0.2s ease-out;
+}
+
+.touch-cursor.precision-mode::before {
+  height: 60px;
+  background: #00ff88;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.9), 0 0 5px rgba(255, 255, 255, 0.9);
+}
+
+.touch-cursor.precision-mode::after {
+  width: 60px;
+  background: #00ff88;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.9), 0 0 5px rgba(255, 255, 255, 0.9);
+}
+
+.touch-cursor.precision-mode .touch-cursor-center {
+  width: 12px;
+  height: 12px;
+  background: #00ff88;
+  border: 3px solid white;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.9), 0 0 20px rgba(0, 255, 136, 0.5);
+}
+
+/* Spojovací čára od prstu ke kurzoru */
+.precision-line {
+  position: absolute;
+  pointer-events: none;
+  z-index: 9999;
+  display: none;
+  width: 2px;
+  background: linear-gradient(to top, rgba(0, 255, 136, 0.8), rgba(0, 255, 136, 0.2));
+  transform-origin: bottom center;
+}
+
+.precision-line.active {
+  display: block;
+}
+
+/* Indikátor pozice prstu */
+.precision-finger-indicator {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px dashed rgba(0, 255, 136, 0.6);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  display: none;
+  transform: translate(-50%, -50%);
+}
+
+.precision-finger-indicator.active {
+  display: block;
+}
+
+@keyframes precisionModeActivate {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 @keyframes slideUp {
   from {
     transform: translateY(10px);
