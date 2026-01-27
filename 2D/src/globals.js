@@ -128,6 +128,131 @@ window.aiMetrics = {
 // ===== ANIMATION =====
 window.animationFrameId = null;
 
+// ===== ERROR HANDLING =====
+window.errorLog = [];
+window.MAX_ERROR_LOG = 50;
+
+/**
+ * Global Error Handler - catches unhandled errors
+ */
+window.onerror = function(message, source, lineno, colno, error) {
+  const errorInfo = {
+    type: 'error',
+    message: message,
+    source: source,
+    line: lineno,
+    column: colno,
+    stack: error?.stack || 'N/A',
+    timestamp: new Date().toISOString()
+  };
+
+  window.errorLog.push(errorInfo);
+  if (window.errorLog.length > window.MAX_ERROR_LOG) {
+    window.errorLog.shift();
+  }
+
+  console.error('🔴 Global Error:', errorInfo);
+
+  // Show user-friendly notification
+  if (window.showErrorNotification) {
+    window.showErrorNotification(`Chyba: ${message}`);
+  }
+
+  return false; // Don't prevent default error handling
+};
+
+/**
+ * Unhandled Promise Rejection Handler
+ */
+window.onunhandledrejection = function(event) {
+  const errorInfo = {
+    type: 'unhandledrejection',
+    message: event.reason?.message || String(event.reason),
+    stack: event.reason?.stack || 'N/A',
+    timestamp: new Date().toISOString()
+  };
+
+  window.errorLog.push(errorInfo);
+  if (window.errorLog.length > window.MAX_ERROR_LOG) {
+    window.errorLog.shift();
+  }
+
+  console.error('🔴 Unhandled Promise Rejection:', errorInfo);
+
+  if (window.showErrorNotification) {
+    window.showErrorNotification(`Async chyba: ${errorInfo.message}`);
+  }
+};
+
+/**
+ * Show error notification to user
+ */
+window.showErrorNotification = function(message, duration = 5000) {
+  // Remove existing notification
+  const existing = document.querySelector('.error-notification');
+  if (existing) existing.remove();
+
+  const notification = document.createElement('div');
+  notification.className = 'error-notification';
+  notification.innerHTML = `
+    <button class="error-notification-close" onclick="this.parentElement.remove()">×</button>
+    <span>⚠️ ${message}</span>
+  `;
+
+  document.body.appendChild(notification);
+
+  setTimeout(() => {
+    if (notification.parentElement) {
+      notification.remove();
+    }
+  }, duration);
+};
+
+/**
+ * Safe function wrapper - catches errors and logs them
+ */
+window.safeCall = function(fn, context = null, ...args) {
+  try {
+    return fn.apply(context, args);
+  } catch (error) {
+    console.error('🔴 SafeCall Error:', error);
+    if (window.showErrorNotification) {
+      window.showErrorNotification(`Operace selhala: ${error.message}`);
+    }
+    return null;
+  }
+};
+
+/**
+ * Safe async function wrapper
+ */
+window.safeAsync = async function(fn, context = null, ...args) {
+  try {
+    return await fn.apply(context, args);
+  } catch (error) {
+    console.error('🔴 SafeAsync Error:', error);
+    if (window.showErrorNotification) {
+      window.showErrorNotification(`Async operace selhala: ${error.message}`);
+    }
+    return null;
+  }
+};
+
+/**
+ * Get error log for debugging
+ */
+window.getErrorLog = function() {
+  return window.errorLog;
+};
+
+/**
+ * Clear error log
+ */
+window.clearErrorLog = function() {
+  window.errorLog = [];
+  console.log('✅ Error log cleared');
+};
+
 // DEBUG: kontrola množství logů; nastavte na true pro detailní debug
 window.debugMode = false;
 window.logDebug = function(...args) {

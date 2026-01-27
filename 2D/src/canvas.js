@@ -4,26 +4,43 @@
  * - Touch events
  * - Keyboard shortcuts
  * - Drawing operations
+ * - Error boundaries for all event handlers
  */
 
 // ===== CANVAS SETUP =====
 
 window.logDebug && window.logDebug("✅ src/canvas.js loaded");
 
+/**
+ * Wrapper for safe event handling
+ */
+function safeEventHandler(handler) {
+  return function(e) {
+    try {
+      handler.call(this, e);
+    } catch (error) {
+      console.error('🔴 Canvas Event Error:', error);
+      if (window.showErrorNotification) {
+        window.showErrorNotification('Chyba při zpracování události');
+      }
+    }
+  };
+}
+
 function setupCanvasEvents() {
   const canvas = document.getElementById("canvas");
   if (!canvas) return;
 
-  // Mouse events
-  canvas.addEventListener("mousedown", onCanvasMouseDown);
-  canvas.addEventListener("mousemove", onCanvasMouseMove);
-  canvas.addEventListener("mouseup", onCanvasMouseUp);
-  canvas.addEventListener("wheel", onCanvasWheel, { passive: false });
+  // Mouse events - wrapped with error handling
+  canvas.addEventListener("mousedown", safeEventHandler(onCanvasMouseDown));
+  canvas.addEventListener("mousemove", safeEventHandler(onCanvasMouseMove));
+  canvas.addEventListener("mouseup", safeEventHandler(onCanvasMouseUp));
+  canvas.addEventListener("wheel", safeEventHandler(onCanvasWheel), { passive: false });
 
-  // Touch events
-  canvas.addEventListener("touchstart", onCanvasTouchStart, { passive: false });
-  canvas.addEventListener("touchmove", onCanvasTouchMove, { passive: false });
-  canvas.addEventListener("touchend", onCanvasTouchEnd, { passive: false });
+  // Touch events - wrapped with error handling
+  canvas.addEventListener("touchstart", safeEventHandler(onCanvasTouchStart), { passive: false });
+  canvas.addEventListener("touchmove", safeEventHandler(onCanvasTouchMove), { passive: false });
+  canvas.addEventListener("touchend", safeEventHandler(onCanvasTouchEnd), { passive: false });
 
   // Context menu
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
