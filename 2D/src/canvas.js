@@ -385,60 +385,109 @@ function onCanvasWheel(e) {
 // ===== TOUCH HANDLERS =====
 
 let touchStart = null;
+let touchIsPanning = false;
+let touchActionStarted = false; // Zaznamenává, zda jsme už provedli akci (např. bod, čára)
 
 function onCanvasTouchStart(e) {
   e.preventDefault();
+
+  const canvas = e.target;
+  const rect = canvas.getBoundingClientRect();
+
   if (e.touches.length === 1) {
     const touch = e.touches[0];
-    const canvas = e.target;
-    const rect = canvas.getBoundingClientRect();
     const screenX = touch.clientX - rect.left;
     const screenY = touch.clientY - rect.top;
 
     touchStart = { x: screenX, y: screenY, time: Date.now() };
+    touchIsPanning = false;
+    touchActionStarted = false;
+
+    // V pan módu neprovádíme žádnou akci hned - počkáme na touchEnd nebo touchMove
+    if (window.mode === "pan") {
+      return;
+    }
 
     const worldPt = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
     const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
 
+    // Pro kreslicí módy provedeme akci
     if (window.mode === "point") {
       handlePointMode(snapped.x, snapped.y);
+      touchActionStarted = true;
     } else if (window.mode === "line") {
       handleLineMode(snapped.x, snapped.y);
+      touchActionStarted = true;
     } else if (window.mode === "circle") {
       handleCircleMode(snapped.x, snapped.y);
+      touchActionStarted = true;
     } else if (window.mode === "select") {
       handleSelectMode(snapped.x, snapped.y, false);
+      touchActionStarted = true;
     }
 
     if (window.draw) window.draw();
   } else if (e.touches.length === 2) {
-    // Pinch zoom
+    // Pinch zoom - uložíme počáteční vzdálenost a střed
     const t1 = e.touches[0];
     const t2 = e.touches[1];
     const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-    window.pinchStart = { dist: dist, zoom: window.zoom };
+
+    // Střed mezi dvěma prsty (v souřadnicích obrazovky)
+    const centerX = (t1.clientX + t2.clientX) / 2 - rect.left;
+    const centerY = (t1.clientY + t2.clientY) / 2 - rect.top;
+
+    // Světové souřadnice středu pro správný zoom
+    const worldCenter = window.screenToWorld ? window.screenToWorld(centerX, centerY) : { x: 0, y: 0 };
+
+    window.pinchStart = {
+      dist: dist,
+      zoom: window.zoom,
+      centerX: centerX,
+      centerY: centerY,
+      worldCenter: worldCenter,
+      panX: window.panX,
+      panY: window.panY
+    };
+
+    // Zrušíme single-touch panning
+    touchStart = null;
+    touchIsPanning = false;
   }
 }
 
 function onCanvasTouchMove(e) {
   e.preventDefault();
+
+  const canvas = e.target;
+  const rect = canvas.getBoundingClientRect();
+
   if (e.touches.length === 1 && touchStart) {
     const touch = e.touches[0];
-    const canvas = e.target;
-    const rect = canvas.getBoundingClientRect();
     const screenX = touch.clientX - rect.left;
     const screenY = touch.clientY - rect.top;
 
-    if (Date.now() - touchStart.time < 100 && Math.abs(screenX - touchStart.x) < 20 && Math.abs(screenY - touchStart.y) < 20) {
-      // Pan
-      const dx = screenX - touchStart.x;
-      const dy = screenY - touchStart.y;
+    const dx = screenX - touchStart.x;
+    const dy = screenY - touchStart.y;
+    const moveDistance = Math.hypot(dx, dy);
+
+    // Pokud je pohyb větší než práh, začneme pannovat
+    const panThreshold = 10; // px
+    if (!touchIsPanning && moveDistance > panThreshold) {
+      touchIsPanning = true;
+    }
+
+    // Panning - v pan módu VŽDY, v ostatních módech jen pokud nekresíme
+    if (touchIsPanning && (window.mode === "pan" || (!window.startPt && !touchActionStarted))) {
       if (window.panX !== undefined) window.panX += dx;
       if (window.panY !== undefined) window.panY += dy;
       touchStart.x = screenX;
       touchStart.y = screenY;
+      if (window.draw) window.draw();
+      return;
     }
 
+    // Kreslení - tempShape pro line/circle
     const worldPt = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
     const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
 
@@ -449,7 +498,9 @@ function onCanvasTouchMove(e) {
         y1: window.startPt.y,
         x2: snapped.x,
         y2: snapped.y,
+        color: window.defaultDrawColor || "#4a9eff",
       };
+      if (window.draw) window.draw();
     } else if (window.mode === "circle" && window.startPt) {
       const r = Math.sqrt(
         (snapped.x - window.startPt.x) ** 2 + (snapped.y - window.startPt.y) ** 2
@@ -460,27 +511,79 @@ function onCanvasTouchMove(e) {
         cy: window.startPt.y,
         r: r,
       };
+      if (window.draw) window.draw();
     }
-
-    if (window.draw) window.draw();
-  } else if (e.touches.length === 2) {
+  } else if (e.touches.length === 2 && window.pinchStart) {
     const t1 = e.touches[0];
     const t2 = e.touches[1];
     const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-    if (window.pinchStart) {
-      const ratio = dist / window.pinchStart.dist;
-      if (window.zoom !== undefined) {
-        window.zoom = window.pinchStart.zoom * ratio;
-        window.zoom = Math.max(0.1, Math.min(window.zoom, 100));
+
+    // Nový střed mezi prsty
+    const newCenterX = (t1.clientX + t2.clientX) / 2 - rect.left;
+    const newCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
+
+    // Vypočítáme nový zoom
+    const ratio = dist / window.pinchStart.dist;
+    const newZoom = Math.max(0.1, Math.min(window.pinchStart.zoom * ratio, 100));
+
+    if (window.zoom !== undefined) {
+      // Zoom ke středu pinch gesta (jako u wheel zoom)
+      // worldCenter zůstává na místě, přepočítáme panX a panY
+      const worldCenter = window.pinchStart.worldCenter;
+
+      window.zoom = newZoom;
+
+      // Přepočet pan tak, aby worldCenter zůstal na novém středu pinche
+      if (window.panX !== undefined) {
+        window.panX = newCenterX - worldCenter.x * newZoom;
       }
-      if (window.draw) window.draw();
+      if (window.panY !== undefined) {
+        window.panY = worldCenter.y * newZoom + newCenterY;
+      }
     }
+
+    if (window.draw) window.draw();
   }
 }
 
 function onCanvasTouchEnd(e) {
   e.preventDefault();
+
+  // Pokud to byl krátký tap (ne panning) v pan módu, můžeme vybrat bod
+  if (touchStart && !touchIsPanning && window.mode === "pan") {
+    const elapsed = Date.now() - touchStart.time;
+    if (elapsed < 300) { // Krátký tap
+      const canvas = document.getElementById("canvas");
+      const rect = canvas.getBoundingClientRect();
+      const worldPt = window.screenToWorld ? window.screenToWorld(touchStart.x, touchStart.y) : { x: 0, y: 0 };
+      const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
+
+      // Zkusíme vybrat bod pokud existuje
+      if (window.cachedSnapPoints && window.cachedSnapPoints.length > 0) {
+        const tolerance = 10 / (window.zoom || 2);
+        let best = null;
+        let bestDist = Infinity;
+        for (let p of window.cachedSnapPoints) {
+          const dx = p.x - snapped.x;
+          const dy = p.y - snapped.y;
+          const d = Math.hypot(dx, dy);
+          if (d < tolerance && d < bestDist) {
+            bestDist = d;
+            best = p;
+          }
+        }
+        if (best && (best.type === "point" || best.type === "endpoint" || best.type === "intersection")) {
+          if (typeof handleSelectMode === "function") {
+            handleSelectMode(best.x, best.y, false);
+          }
+        }
+      }
+    }
+  }
+
   touchStart = null;
+  touchIsPanning = false;
+  touchActionStarted = false;
   window.pinchStart = null;
 }
 
