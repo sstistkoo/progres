@@ -408,6 +408,150 @@ let touchActionStarted = false; // Zaznamenává, zda jsme už provedli akci (na
 let lastTouchDrawTime = 0; // Pro throttling překreslení
 const TOUCH_DRAW_THROTTLE = 16; // ~60fps
 
+// ===== PRECISION CURSOR MODE =====
+let precisionModeActive = false;
+let precisionModeTimer = null;
+const PRECISION_MODE_DELAY = 400; // ms - doba podržení pro aktivaci
+const PRECISION_CURSOR_OFFSET_Y = -80; // px - offset nahoru od prstu (záporné = nahoru)
+const PRECISION_CURSOR_OFFSET_X = 0; // px - offset do strany
+
+/**
+ * Aktivuje precision mode - zobrazí kurzor s offsetem
+ */
+function activatePrecisionMode(touch, canvas) {
+  precisionModeActive = true;
+
+  const touchCursor = document.getElementById("touchCursor");
+  const precisionLine = document.getElementById("precisionLine");
+  const precisionFinger = document.getElementById("precisionFinger");
+  const rect = canvas.getBoundingClientRect();
+
+  // Pozice prstu relativně k canvasu
+  const fingerX = touch.clientX - rect.left;
+  const fingerY = touch.clientY - rect.top;
+
+  // Pozice kurzoru (s offsetem)
+  const cursorX = fingerX + PRECISION_CURSOR_OFFSET_X;
+  const cursorY = fingerY + PRECISION_CURSOR_OFFSET_Y;
+
+  if (touchCursor) {
+    touchCursor.classList.add("active");
+    touchCursor.classList.add("precision-mode");
+    touchCursor.style.left = cursorX + "px";
+    touchCursor.style.top = cursorY + "px";
+  }
+
+  // Indikátor pozice prstu
+  if (precisionFinger) {
+    precisionFinger.classList.add("active");
+    precisionFinger.style.left = fingerX + "px";
+    precisionFinger.style.top = fingerY + "px";
+  }
+
+  // Spojovací čára od prstu ke kurzoru
+  if (precisionLine) {
+    const lineLength = Math.abs(PRECISION_CURSOR_OFFSET_Y);
+    precisionLine.classList.add("active");
+    precisionLine.style.height = lineLength + "px";
+    precisionLine.style.left = fingerX + "px";
+    precisionLine.style.top = (fingerY + PRECISION_CURSOR_OFFSET_Y) + "px";
+  }
+
+  // Vibrační feedback pokud je dostupný
+  if (navigator.vibrate) {
+    navigator.vibrate(30);
+  }
+
+  console.log('[Touch] Precision mode aktivován');
+}
+
+/**
+ * Deaktivuje precision mode
+ */
+function deactivatePrecisionMode() {
+  precisionModeActive = false;
+
+  if (precisionModeTimer) {
+    clearTimeout(precisionModeTimer);
+    precisionModeTimer = null;
+  }
+
+  const touchCursor = document.getElementById("touchCursor");
+  const precisionLine = document.getElementById("precisionLine");
+  const precisionFinger = document.getElementById("precisionFinger");
+
+  if (touchCursor) {
+    touchCursor.classList.remove("active");
+    touchCursor.classList.remove("precision-mode");
+  }
+
+  if (precisionLine) {
+    precisionLine.classList.remove("active");
+  }
+
+  if (precisionFinger) {
+    precisionFinger.classList.remove("active");
+  }
+}
+
+/**
+ * Získá souřadnice pro precision mode (s offsetem)
+ */
+function getPrecisionCoords(touch, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  // Pozice kurzoru (s offsetem)
+  const cursorX = touch.clientX - rect.left + PRECISION_CURSOR_OFFSET_X;
+  const cursorY = touch.clientY - rect.top + PRECISION_CURSOR_OFFSET_Y;
+
+  // Přepočet na canvas souřadnice
+  const screenX = cursorX * scaleX;
+  const screenY = cursorY * scaleY;
+
+  return { screenX, screenY, scaleX, scaleY, cursorX, cursorY };
+}
+
+/**
+ * Aktualizuje pozici precision kurzoru a spojovací čáry
+ */
+function updatePrecisionCursor(touch, canvas) {
+  if (!precisionModeActive) return;
+
+  const touchCursor = document.getElementById("touchCursor");
+  const precisionLine = document.getElementById("precisionLine");
+  const precisionFinger = document.getElementById("precisionFinger");
+  const rect = canvas.getBoundingClientRect();
+
+  // Pozice prstu relativně k canvasu
+  const fingerX = touch.clientX - rect.left;
+  const fingerY = touch.clientY - rect.top;
+
+  // Pozice kurzoru (s offsetem)
+  const cursorX = fingerX + PRECISION_CURSOR_OFFSET_X;
+  const cursorY = fingerY + PRECISION_CURSOR_OFFSET_Y;
+
+  if (touchCursor) {
+    touchCursor.style.left = cursorX + "px";
+    touchCursor.style.top = cursorY + "px";
+  }
+
+  // Aktualizace indikátoru prstu
+  if (precisionFinger) {
+    precisionFinger.style.left = fingerX + "px";
+    precisionFinger.style.top = fingerY + "px";
+  }
+
+  // Aktualizace spojovací čáry
+  if (precisionLine) {
+    const lineLength = Math.abs(PRECISION_CURSOR_OFFSET_Y);
+    precisionLine.style.height = lineLength + "px";
+    precisionLine.style.left = fingerX + "px";
+    precisionLine.style.top = (fingerY + PRECISION_CURSOR_OFFSET_Y) + "px";
+  }
+}
+
 /**
  * Získá správné souřadnice z touch eventu s korekcí pro canvas scale
  */
@@ -433,32 +577,54 @@ function onCanvasTouchStart(e) {
   const canvas = document.getElementById("canvas");
   if (!canvas) return;
 
+  // Zrušit předchozí precision mode timer
+  if (precisionModeTimer) {
+    clearTimeout(precisionModeTimer);
+    precisionModeTimer = null;
+  }
+
   if (e.touches.length === 1) {
     const touch = e.touches[0];
     const { screenX, screenY } = getTouchCanvasCoords(touch, canvas);
 
-    touchStart = { x: screenX, y: screenY, time: Date.now() };
+    touchStart = { x: screenX, y: screenY, time: Date.now(), touch: touch };
     touchIsPanning = false;
     touchActionStarted = false;
+
+    // Spustit timer pro precision mode (pokud nejsme v pan módu)
+    if (window.mode !== "pan") {
+      precisionModeTimer = setTimeout(() => {
+        if (touchStart && !touchIsPanning && !touchActionStarted) {
+          activatePrecisionMode(touch, canvas);
+        }
+      }, PRECISION_MODE_DELAY);
+    }
 
     // V pan módu neprovádíme žádnou akci hned - počkáme na touchEnd nebo touchMove
     if (window.mode === "pan") {
       return;
     }
 
+    // DŮLEŽITÉ: V precision mode neprovádíme akci hned - čekáme na touchEnd
+    // Pokud precision mode není aktivní a není to první dotyk pro čáru/kružnici, provedeme akci
+    // Ale pro line/circle v precision mode chceme počkat
+
     const worldPt = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
     const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
 
-    // Pro kreslicí módy provedeme akci
+    // Pro kreslicí módy provedeme akci (ale ne pro line/circle pokud čekáme na precision)
     if (window.mode === "point") {
-      handlePointMode(snapped.x, snapped.y);
-      touchActionStarted = true;
+      // Pro bod - počkáme na touchEnd kvůli precision mode
+      // handlePointMode(snapped.x, snapped.y);
+      // touchActionStarted = true;
     } else if (window.mode === "line") {
-      handleLineMode(snapped.x, snapped.y);
-      touchActionStarted = true;
+      // Pro čáru - pokud není startPt, nastavíme ho při touchEnd
+      // handleLineMode(snapped.x, snapped.y);
+      // touchActionStarted = true;
     } else if (window.mode === "circle") {
-      handleCircleMode(snapped.x, snapped.y);
-      touchActionStarted = true;
+      // Pro kružnici - pokud není startPt, nastavíme ho při touchEnd
+      // handleCircleMode(snapped.x, snapped.y);
+      // touchActionStarted = true;
     } else if (window.mode === "select") {
       handleSelectMode(snapped.x, snapped.y, false);
       touchActionStarted = true;
@@ -508,7 +674,32 @@ function onCanvasTouchMove(e) {
 
   if (e.touches.length === 1 && touchStart) {
     const touch = e.touches[0];
-    const { screenX, screenY, scaleX, scaleY } = getTouchCanvasCoords(touch, canvas);
+
+    // Pokud je precision mode aktivní, použijeme offsetované souřadnice
+    let screenX, screenY, scaleX, scaleY;
+
+    if (precisionModeActive) {
+      const coords = getPrecisionCoords(touch, canvas);
+      screenX = coords.screenX;
+      screenY = coords.screenY;
+      scaleX = coords.scaleX;
+      scaleY = coords.scaleY;
+
+      // Aktualizovat pozici kurzoru
+      updatePrecisionCursor(touch, canvas);
+
+      // Zrušit precision timer - už jsme v precision mode
+      if (precisionModeTimer) {
+        clearTimeout(precisionModeTimer);
+        precisionModeTimer = null;
+      }
+    } else {
+      const coords = getTouchCanvasCoords(touch, canvas);
+      screenX = coords.screenX;
+      screenY = coords.screenY;
+      scaleX = coords.scaleX;
+      scaleY = coords.scaleY;
+    }
 
     // Delta je v CSS pixelech, ne v canvas pixelech - pro panning
     const rect = canvas.getBoundingClientRect();
@@ -525,14 +716,19 @@ function onCanvasTouchMove(e) {
     const dy = (cssY - touchStartCSS.y) * scaleY;
     const moveDistance = Math.hypot(dx, dy);
 
-    // Pokud je pohyb větší než práh, začneme pannovat
+    // Pokud je pohyb větší než práh, začneme pannovat (ale ne v precision mode!)
     const panThreshold = 10 * scaleX; // Práh s korekcí pro scale
-    if (!touchIsPanning && moveDistance > panThreshold) {
+    if (!touchIsPanning && !precisionModeActive && moveDistance > panThreshold) {
       touchIsPanning = true;
+      // Zrušit precision timer pokud se začne pohyb
+      if (precisionModeTimer) {
+        clearTimeout(precisionModeTimer);
+        precisionModeTimer = null;
+      }
     }
 
-    // Panning - v pan módu VŽDY, v ostatních módech jen pokud nekresíme
-    if (touchIsPanning && (window.mode === "pan" || (!window.startPt && !touchActionStarted))) {
+    // Panning - v pan módu VŽDY, v ostatních módech jen pokud nekresíme a není precision mode
+    if (touchIsPanning && !precisionModeActive && (window.mode === "pan" || (!window.startPt && !touchActionStarted))) {
       if (window.panX !== undefined) window.panX += dx;
       if (window.panY !== undefined) window.panY += dy;
       touchStart.x = screenX;
@@ -629,40 +825,77 @@ function onCanvasTouchEnd(e) {
   e.preventDefault();
   e.stopPropagation();
 
+  const canvas = document.getElementById("canvas");
+
+  // Zrušit precision timer
+  if (precisionModeTimer) {
+    clearTimeout(precisionModeTimer);
+    precisionModeTimer = null;
+  }
+
   // Finální překreslení po ukončení gesta
   if (window.draw) window.draw();
 
-  // Pokud to byl krátký tap (ne panning) v pan módu, můžeme vybrat bod
-  if (touchStart && !touchIsPanning && window.mode === "pan") {
-    const elapsed = Date.now() - touchStart.time;
-    if (elapsed < 300) { // Krátký tap
-      const canvas = document.getElementById("canvas");
-      if (!canvas) return;
-      const worldPt = window.screenToWorld ? window.screenToWorld(touchStart.x, touchStart.y) : { x: 0, y: 0 };
-      const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
+  // Zpracování akce na konci dotyku
+  if (touchStart && !touchIsPanning) {
+    // Získáme finální souřadnice
+    let finalScreenX = touchStart.x;
+    let finalScreenY = touchStart.y;
 
-      // Zkusíme vybrat bod pokud existuje
-      if (window.cachedSnapPoints && window.cachedSnapPoints.length > 0) {
-        const tolerance = 10 / (window.zoom || 2);
-        let best = null;
-        let bestDist = Infinity;
-        for (let p of window.cachedSnapPoints) {
-          const dx = p.x - snapped.x;
-          const dy = p.y - snapped.y;
-          const d = Math.hypot(dx, dy);
-          if (d < tolerance && d < bestDist) {
-            bestDist = d;
-            best = p;
+    // Pokud byl precision mode aktivní a máme poslední dotyk, použijeme ho
+    if (precisionModeActive && e.changedTouches && e.changedTouches.length > 0) {
+      const touch = e.changedTouches[0];
+      const coords = getPrecisionCoords(touch, canvas);
+      finalScreenX = coords.screenX;
+      finalScreenY = coords.screenY;
+    }
+
+    const worldPt = window.screenToWorld ? window.screenToWorld(finalScreenX, finalScreenY) : { x: 0, y: 0 };
+    const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
+
+    // Pokud je pan mód a byl to krátký tap, vybrat bod
+    if (window.mode === "pan") {
+      const elapsed = Date.now() - touchStart.time;
+      if (elapsed < 300) { // Krátký tap
+        // Zkusíme vybrat bod pokud existuje
+        if (window.cachedSnapPoints && window.cachedSnapPoints.length > 0) {
+          const tolerance = 10 / (window.zoom || 2);
+          let best = null;
+          let bestDist = Infinity;
+          for (let p of window.cachedSnapPoints) {
+            const dx = p.x - snapped.x;
+            const dy = p.y - snapped.y;
+            const d = Math.hypot(dx, dy);
+            if (d < tolerance && d < bestDist) {
+              bestDist = d;
+              best = p;
+            }
           }
-        }
-        if (best && (best.type === "point" || best.type === "endpoint" || best.type === "intersection")) {
-          if (typeof handleSelectMode === "function") {
-            handleSelectMode(best.x, best.y, false);
+          if (best && (best.type === "point" || best.type === "endpoint" || best.type === "intersection")) {
+            if (typeof handleSelectMode === "function") {
+              handleSelectMode(best.x, best.y, false);
+            }
           }
         }
       }
     }
+    // Pro kreslicí módy provedeme akci při touchEnd
+    else if (window.mode === "point" && !touchActionStarted) {
+      handlePointMode(snapped.x, snapped.y);
+      touchActionStarted = true;
+    }
+    else if (window.mode === "line" && !touchActionStarted) {
+      handleLineMode(snapped.x, snapped.y);
+      touchActionStarted = true;
+    }
+    else if (window.mode === "circle" && !touchActionStarted) {
+      handleCircleMode(snapped.x, snapped.y);
+      touchActionStarted = true;
+    }
   }
+
+  // Deaktivovat precision mode
+  deactivatePrecisionMode();
 
   touchStart = null;
   touchIsPanning = false;
@@ -675,6 +908,9 @@ function onCanvasTouchEnd(e) {
  */
 function onCanvasTouchCancel(e) {
   e.preventDefault();
+
+  // Deaktivovat precision mode
+  deactivatePrecisionMode();
 
   // Reset všech stavů - gesto bylo přerušeno
   touchStart = null;
