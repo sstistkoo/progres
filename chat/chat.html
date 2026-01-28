@@ -4381,14 +4381,14 @@
       // ============================================================
       function openContentModal(section) {
         closeMainMenu();
-        
+
         const modal = document.getElementById('contentModal');
         const title = document.getElementById('contentModalTitle');
         const body = document.getElementById('contentModalBody');
-        
+
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
-        
+
         // Generuj obsah podle sekce
         switch(section) {
           case 'settings':
@@ -4483,30 +4483,51 @@
             </div>
             <div class="toggle-switch ${autoSwitch ? 'active' : ''}" onclick="toggleAutoSwitch(); this.classList.toggle('active');"></div>
           </div>
-          
+
           <div style="margin-bottom: 16px; font-weight: 600;">📋 Všechny modely (seřazeno podle kvality)</div>
           <div style="display: grid; gap: 8px; max-height: 400px; overflow-y: auto;">
         `;
-        
+
         try {
-          const models = AI.getAllModelsRanked();
+          const allProviders = AI.getAllProvidersWithModels();
+          const models = [];
+          
+          // Sbírej všechny modely ze všech providerů
+          for (const [providerKey, providerData] of Object.entries(allProviders)) {
+            providerData.models.forEach(m => {
+              models.push({
+                provider: providerKey,
+                id: m.value,
+                name: m.label,
+                quality: m.quality || 50,
+                rpm: m.rpm || 0,
+                free: m.free
+              });
+            });
+          }
+          
+          // Seřaď podle kvality
+          models.sort((a, b) => (b.quality || 0) - (a.quality || 0));
+          
           models.forEach((model, i) => {
             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+            const freeTag = model.free ? '<span style="color: var(--accent-green); font-size: 10px; margin-left: 6px;">FREE</span>' : '';
             html += `
               <div class="menu-subitem" onclick="closeContentModal(); selectModelFromMenu('${model.provider}', '${model.id}')" style="padding: 12px;">
                 <span style="min-width: 30px;">${medal}</span>
                 <div style="flex: 1;">
-                  <div style="font-weight: 500;">${model.name}</div>
-                  <div style="font-size: 11px; color: var(--text-secondary);">${model.provider}</div>
+                  <div style="font-weight: 500;">${model.name}${freeTag}</div>
+                  <div style="font-size: 11px; color: var(--text-secondary);">${model.provider} • ${model.rpm || '?'} RPM</div>
                 </div>
-                <span class="badge">${model.quality}%</span>
+                <span class="badge">${model.quality || '?'}%</span>
               </div>
             `;
           });
         } catch (e) {
-          html += '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nepodařilo se načíst modely</div>';
+          console.error('Chyba při načítání modelů:', e);
+          html += '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nepodařilo se načíst modely: ' + e.message + '</div>';
         }
-        
+
         html += '</div>';
         return html;
       }
@@ -4518,30 +4539,57 @@
           </div>
           <div style="display: grid; gap: 16px;">
         `;
-        
+
         try {
-          const models = AI.getAllModelsRanked().slice(0, 3);
+          // Použij AI.getBestModels() místo neexistující getAllModelsRanked
+          const models = AI.getBestModels ? AI.getBestModels(3) : [];
+          
+          if (models.length === 0) {
+            // Fallback - získej modely manuálně
+            const allProviders = AI.getAllProvidersWithModels();
+            for (const [providerKey, providerData] of Object.entries(allProviders)) {
+              providerData.models.forEach(m => {
+                if (m.quality && m.quality >= 85) {
+                  models.push({
+                    provider: providerKey,
+                    model: m.value,
+                    name: `${providerData.name} - ${m.label}`,
+                    quality: m.quality
+                  });
+                }
+              });
+            }
+            models.sort((a, b) => (b.quality || 0) - (a.quality || 0));
+            models.splice(3);
+          }
+          
           const medals = ['🥇', '🥈', '🥉'];
           const colors = ['linear-gradient(135deg, #ffd700, #ffed4a)', 'linear-gradient(135deg, #c0c0c0, #e8e8e8)', 'linear-gradient(135deg, #cd7f32, #d4a574)'];
-          
+
           models.forEach((model, i) => {
+            const modelId = model.model || model.id || model.value;
             html += `
-              <div onclick="closeContentModal(); selectModelFromMenu('${model.provider}', '${model.id}')" 
+              <div onclick="closeContentModal(); selectModelFromMenu('${model.provider}', '${modelId}')"
                    style="padding: 24px; background: ${colors[i]}; border-radius: 16px; cursor: pointer; color: #1a1a2e; text-align: center; transition: transform 0.2s;"
                    onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                 <div style="font-size: 48px; margin-bottom: 8px;">${medals[i]}</div>
                 <div style="font-size: 20px; font-weight: 700;">#${i + 1} ${model.name}</div>
                 <div style="font-size: 14px; opacity: 0.8; margin-top: 4px;">${model.provider}</div>
                 <div style="margin-top: 12px; background: rgba(0,0,0,0.2); padding: 8px 16px; border-radius: 20px; display: inline-block;">
-                  Kvalita: ${model.quality}%
+                  Kvalita: ${model.quality || '?'}%
                 </div>
               </div>
             `;
           });
+          
+          if (models.length === 0) {
+            html += '<div style="color: var(--text-secondary); text-align: center; padding: 40px;">Žádné modely s vysokou kvalitou nenalezeny</div>';
+          }
         } catch (e) {
-          html += '<div style="color: var(--text-secondary); text-align: center; padding: 40px;">Nepodařilo se načíst modely</div>';
+          console.error('Chyba při načítání priority modelů:', e);
+          html += '<div style="color: var(--text-secondary); text-align: center; padding: 40px;">Nepodařilo se načíst modely: ' + e.message + '</div>';
         }
-        
+
         html += '</div>';
         return html;
       }
@@ -4552,31 +4600,34 @@
             <div>
               <strong>RPM</strong> = Requests Per Minute | <strong>RPD</strong> = Requests Per Day
             </div>
-            <button class="btn-secondary" onclick="renderRateLimitsInModal()">🔄 Refresh</button>
+            <button class="btn-secondary" onclick="closeContentModal(); scrollToSection('rateLimitsSection')">📊 Detailní přehled</button>
           </div>
-          <div id="modalRateLimitsGrid" style="display: grid; gap: 12px;">
+          <div style="display: grid; gap: 12px;">
         `;
-        
+
         try {
-          const limits = AI.getRateLimits ? AI.getRateLimits() : {};
-          const providers = ['gemini', 'groq', 'openrouter', 'mistral', 'cohere', 'huggingface'];
-          
+          const providers = Object.keys(PROVIDER_LIMITS);
+
           providers.forEach(provider => {
-            const limit = limits[provider] || { rpm: '?', rpd: '?' };
-            const icon = provider === 'gemini' ? '🌟' : provider === 'groq' ? '🦙' : provider === 'openrouter' ? '🌐' : provider === 'mistral' ? '🔥' : provider === 'cohere' ? '🧠' : '🤗';
+            const limit = PROVIDER_LIMITS[provider];
+            const hasKey = AI.getKey && AI.getKey(provider);
+            const statusIcon = hasKey ? '✅' : '❌';
             html += `
               <div style="background: rgba(15, 23, 42, 0.4); padding: 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span style="font-size: 24px;">${icon}</span>
-                  <strong style="text-transform: capitalize;">${provider}</strong>
+                  <span style="font-size: 24px;">${limit.icon}</span>
+                  <div>
+                    <strong>${limit.name}</strong>
+                    <div style="font-size: 11px; color: var(--text-secondary);">${statusIcon} ${hasKey ? 'API klíč nastaven' : 'Chybí API klíč'}</div>
+                  </div>
                 </div>
                 <div style="display: flex; gap: 16px;">
                   <div style="text-align: center;">
-                    <div style="font-size: 18px; font-weight: bold; color: var(--accent-blue);">${limit.rpm || '?'}</div>
+                    <div style="font-size: 18px; font-weight: bold; color: var(--accent-blue);">${limit.rpm}</div>
                     <div style="font-size: 10px; color: var(--text-secondary);">RPM</div>
                   </div>
                   <div style="text-align: center;">
-                    <div style="font-size: 18px; font-weight: bold; color: var(--accent-purple);">${limit.rpd || '?'}</div>
+                    <div style="font-size: 18px; font-weight: bold; color: var(--accent-purple);">${limit.rpd}</div>
                     <div style="font-size: 10px; color: var(--text-secondary);">RPD</div>
                   </div>
                 </div>
@@ -4584,19 +4635,31 @@
             `;
           });
         } catch (e) {
+          console.error('Chyba při načítání limitů:', e);
           html += '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nepodařilo se načíst limity</div>';
         }
-        
+
         html += '</div>';
         return html;
       }
 
       function generateStatsContent() {
         let html = '';
-        
+
         try {
-          const stats = AI.getStats ? AI.getStats() : {};
+          // Získej statistiky z localStorage nebo z AI modulu
+          const savedStats = localStorage.getItem('aiModuleStats');
+          const stats = savedStats ? JSON.parse(savedStats) : {
+            totalRequests: 0,
+            successfulRequests: 0,
+            failedRequests: 0,
+            totalTokens: 0
+          };
           
+          // Spočítej počet nastavených klíčů
+          const providers = Object.keys(PROVIDER_LIMITS);
+          const configuredKeys = providers.filter(p => AI.getKey && AI.getKey(p)).length;
+
           html = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 24px;">
               <div style="background: rgba(59, 130, 246, 0.2); padding: 20px; border-radius: 12px; text-align: center;">
@@ -4612,20 +4675,38 @@
                 <div style="font-size: 12px; color: var(--text-secondary);">Neúspěšných</div>
               </div>
               <div style="background: rgba(139, 92, 246, 0.2); padding: 20px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 32px; font-weight: bold; color: var(--accent-purple);">${stats.totalTokens || 0}</div>
-                <div style="font-size: 12px; color: var(--text-secondary);">Tokenů</div>
+                <div style="font-size: 32px; font-weight: bold; color: var(--accent-purple);">${configuredKeys}/${providers.length}</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">API klíče</div>
               </div>
             </div>
             
+            <div style="background: rgba(15, 23, 42, 0.4); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+              <div style="font-weight: 600; margin-bottom: 12px;">📊 Stav providerů</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
+                ${providers.map(p => {
+                  const info = PROVIDER_LIMITS[p];
+                  const hasKey = AI.getKey && AI.getKey(p);
+                  return `
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: rgba(30, 41, 59, 0.5); border-radius: 8px;">
+                      <span>${info.icon}</span>
+                      <span style="flex: 1;">${info.name}</span>
+                      <span style="color: ${hasKey ? 'var(--accent-green)' : 'var(--accent-red)'};">${hasKey ? '✓' : '✗'}</span>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+
             <div style="display: flex; gap: 12px; justify-content: center;">
               <button class="btn-secondary" onclick="closeContentModal(); showStats()">📊 Detailní statistiky</button>
               <button class="btn-danger" onclick="if(confirm('Opravdu resetovat statistiky?')) { resetStats(); closeContentModal(); }">🗑️ Reset</button>
             </div>
           `;
         } catch (e) {
+          console.error('Chyba při načítání statistik:', e);
           html = '<div style="color: var(--text-secondary); text-align: center; padding: 40px;">Nepodařilo se načíst statistiky</div>';
         }
-        
+
         return html;
       }
 
