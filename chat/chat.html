@@ -914,6 +914,56 @@
         padding: 16px;
       }
 
+      /* Content Modal - velké okno pro zobrazení obsahu sekcí */
+      .content-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(8px);
+        z-index: 1001;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 20px;
+        overflow-y: auto;
+      }
+
+      .content-modal-box {
+        background: var(--bg-secondary);
+        border-radius: 16px;
+        max-width: 900px;
+        width: 100%;
+        margin: 20px 0;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      }
+
+      .content-modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
+        border-radius: 16px 16px 0 0;
+      }
+
+      .content-modal-header h2 {
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .content-modal-body {
+        padding: 24px;
+        max-height: 70vh;
+        overflow-y: auto;
+      }
+
       /* Menu Sub-items */
       .menu-subitem {
         padding: 10px 14px;
@@ -2287,181 +2337,90 @@
           <button class="modal-close" onclick="closeMainMenu()">×</button>
         </div>
         <div class="menu-modal-body">
-          
+
           <!-- Nastavení -->
-          <div class="menu-accordion-item">
-            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+          <div class="menu-accordion-item" onclick="openContentModal('settings')" style="cursor: pointer;">
+            <div class="menu-accordion-header">
               <div class="menu-accordion-title">
                 <span class="icon">⚙️</span> Nastavení
               </div>
-              <span class="menu-accordion-arrow">▼</span>
-            </div>
-            <div class="menu-accordion-content">
-              <div class="menu-accordion-inner">
-                <div class="menu-subitem" onclick="closeMainMenu(); scrollToSection('keysSection')">
-                  🔑 API Klíče
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); exportSettings()">
-                  📥 Export nastavení
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); importSettings()">
-                  📤 Import nastavení
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); clearKeys()">
-                  🗑️ Smazat klíče
-                </div>
-              </div>
+              <span class="menu-accordion-arrow">➔</span>
             </div>
           </div>
 
           <!-- Objevit modely -->
-          <div class="menu-accordion-item">
-            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+          <div class="menu-accordion-item" onclick="openContentModal('discover')" style="cursor: pointer;">
+            <div class="menu-accordion-header">
               <div class="menu-accordion-title">
                 <span class="icon">🔍</span> Objevit modely od providerů
               </div>
-              <span class="menu-accordion-arrow">▼</span>
-            </div>
-            <div class="menu-accordion-content">
-              <div class="menu-accordion-inner">
-                <div class="menu-subitem" onclick="closeMainMenu(); discoverModels('gemini')">
-                  🌟 Google Gemini
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); discoverModels('groq')">
-                  🦙 Groq
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); discoverModels('openrouter')">
-                  🌐 OpenRouter
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); discoverModels('mistral')">
-                  🔥 Mistral
-                </div>
-              </div>
+              <span class="menu-accordion-arrow">➔</span>
             </div>
           </div>
 
           <!-- Smart Model Selection -->
-          <div class="menu-accordion-item">
-            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+          <div class="menu-accordion-item" onclick="openContentModal('smartModel')" style="cursor: pointer;">
+            <div class="menu-accordion-header">
               <div class="menu-accordion-title">
                 <span class="icon">🎯</span> Smart Model Selection
               </div>
-              <span class="menu-accordion-arrow">▼</span>
-            </div>
-            <div class="menu-accordion-content">
-              <div class="menu-accordion-inner">
-                <div class="menu-subitem" onclick="closeMainMenu(); scrollToSection('smartModelSection')">
-                  📋 Zobrazit všechny modely
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); toggleAutoSwitch()">
-                  🔄 Toggle Auto-Switch
-                  <span class="badge" id="menuAutoSwitchBadge">ON</span>
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); selectBestModel()">
-                  ⚡ Vybrat nejlepší model
-                </div>
-              </div>
+              <span class="menu-accordion-arrow">➔</span>
             </div>
           </div>
 
-          <!-- Priority #1 #2 #3 -->
-          <div class="menu-accordion-item">
-            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+          <!-- Priority modely -->
+          <div class="menu-accordion-item" onclick="openContentModal('priority')" style="cursor: pointer;">
+            <div class="menu-accordion-header">
               <div class="menu-accordion-title">
-                <span class="icon">🏆</span> Priority modely
+                <span class="icon">🏆</span> Priority modely (#1, #2, #3)
               </div>
-              <span class="menu-accordion-arrow">▼</span>
-            </div>
-            <div class="menu-accordion-content">
-              <div class="menu-accordion-inner" id="menuPriorityModels">
-                <div class="menu-subitem">
-                  #1 Načítám...
-                </div>
-                <div class="menu-subitem">
-                  #2 Načítám...
-                </div>
-                <div class="menu-subitem">
-                  #3 Načítám...
-                </div>
-              </div>
+              <span class="menu-accordion-arrow">➔</span>
             </div>
           </div>
 
           <!-- Rate Limity -->
-          <div class="menu-accordion-item">
-            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+          <div class="menu-accordion-item" onclick="openContentModal('rateLimits')" style="cursor: pointer;">
+            <div class="menu-accordion-header">
               <div class="menu-accordion-title">
                 <span class="icon">⏱️</span> Rate Limity & RPD
               </div>
-              <span class="menu-accordion-arrow">▼</span>
-            </div>
-            <div class="menu-accordion-content">
-              <div class="menu-accordion-inner">
-                <div class="menu-subitem" onclick="closeMainMenu(); scrollToSection('rateLimitsSection')">
-                  📊 Zobrazit limity
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); checkAllRateLimits()">
-                  🔄 Refresh všech limitů
-                </div>
-              </div>
+              <span class="menu-accordion-arrow">➔</span>
             </div>
           </div>
 
           <!-- Statistiky -->
-          <div class="menu-accordion-item">
-            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+          <div class="menu-accordion-item" onclick="openContentModal('stats')" style="cursor: pointer;">
+            <div class="menu-accordion-header">
               <div class="menu-accordion-title">
                 <span class="icon">📊</span> Statistiky použití
               </div>
-              <span class="menu-accordion-arrow">▼</span>
-            </div>
-            <div class="menu-accordion-content">
-              <div class="menu-accordion-inner">
-                <div class="menu-subitem" onclick="closeMainMenu(); showStats()">
-                  📈 Zobrazit statistiky
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); scrollToSection('usageStatsSection')">
-                  📋 Detailní přehled
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); resetStats()">
-                  🗑️ Reset statistik
-                </div>
-              </div>
+              <span class="menu-accordion-arrow">➔</span>
             </div>
           </div>
 
           <!-- Nové funkce -->
-          <div class="menu-accordion-item">
-            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+          <div class="menu-accordion-item" onclick="openContentModal('features')" style="cursor: pointer;">
+            <div class="menu-accordion-header">
               <div class="menu-accordion-title">
                 <span class="icon">🚀</span> Nové funkce v3.0
               </div>
-              <span class="menu-accordion-arrow">▼</span>
-            </div>
-            <div class="menu-accordion-content">
-              <div class="menu-accordion-inner">
-                <div class="menu-subitem" onclick="closeMainMenu(); testContextCompression()">
-                  🗜️ Context Compression
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); testTokenBudget()">
-                  💰 Token Budget
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); testPromptOptimizer()">
-                  ⚡ Prompt Optimizer
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); testSmartRetry()">
-                  🔄 Smart Retry
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); testCache()">
-                  💾 Response Cache
-                </div>
-                <div class="menu-subitem" onclick="closeMainMenu(); testParallel()">
-                  ⚡ Parallel Queries
-                </div>
-              </div>
+              <span class="menu-accordion-arrow">➔</span>
             </div>
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <!-- Content Modal - univerzální modální okno pro zobrazení obsahu sekcí -->
+    <div id="contentModal" class="content-modal" style="display: none" onclick="if(event.target === this) closeContentModal()">
+      <div class="content-modal-box">
+        <div class="content-modal-header">
+          <h2 id="contentModalTitle">Načítám...</h2>
+          <button class="modal-close" onclick="closeContentModal()">×</button>
+        </div>
+        <div class="content-modal-body" id="contentModalBody">
+          <!-- Dynamicky naplněno -->
         </div>
       </div>
     </div>
@@ -4408,8 +4367,6 @@
       function openMainMenu() {
         const modal = document.getElementById('mainMenuModal');
         modal.style.display = 'flex';
-        updateMenuPriorityModels();
-        updateMenuAutoSwitchBadge();
         document.body.style.overflow = 'hidden';
       }
 
@@ -4419,13 +4376,294 @@
         document.body.style.overflow = '';
       }
 
-      function toggleMenuAccordion(header) {
-        const content = header.nextElementSibling;
-        const isOpen = content.classList.contains('open');
+      // ============================================================
+      // CONTENT MODAL FUNCTIONS
+      // ============================================================
+      function openContentModal(section) {
+        closeMainMenu();
         
-        // Toggle current
-        header.classList.toggle('active');
-        content.classList.toggle('open');
+        const modal = document.getElementById('contentModal');
+        const title = document.getElementById('contentModalTitle');
+        const body = document.getElementById('contentModalBody');
+        
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        
+        // Generuj obsah podle sekce
+        switch(section) {
+          case 'settings':
+            title.innerHTML = '⚙️ Nastavení';
+            body.innerHTML = generateSettingsContent();
+            break;
+          case 'discover':
+            title.innerHTML = '🔍 Objevit modely od providerů';
+            body.innerHTML = generateDiscoverContent();
+            break;
+          case 'smartModel':
+            title.innerHTML = '🎯 Smart Model Selection';
+            body.innerHTML = generateSmartModelContent();
+            break;
+          case 'priority':
+            title.innerHTML = '🏆 Priority modely';
+            body.innerHTML = generatePriorityContent();
+            break;
+          case 'rateLimits':
+            title.innerHTML = '⏱️ Rate Limity & RPD';
+            body.innerHTML = generateRateLimitsContent();
+            break;
+          case 'stats':
+            title.innerHTML = '📊 Statistiky použití';
+            body.innerHTML = generateStatsContent();
+            break;
+          case 'features':
+            title.innerHTML = '🚀 Nové funkce v3.0';
+            body.innerHTML = generateFeaturesContent();
+            break;
+        }
+      }
+
+      function closeContentModal() {
+        const modal = document.getElementById('contentModal');
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+      }
+
+      function generateSettingsContent() {
+        return `
+          <div style="display: grid; gap: 12px;">
+            <div class="menu-subitem" onclick="closeContentModal(); scrollToSection('keysSection')" style="padding: 16px;">
+              🔑 <strong>API Klíče</strong>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Spravovat API klíče pro všechny providery</div>
+            </div>
+            <div class="menu-subitem" onclick="closeContentModal(); exportSettings()" style="padding: 16px;">
+              📥 <strong>Export nastavení</strong>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Stáhnout nastavení jako JSON soubor</div>
+            </div>
+            <div class="menu-subitem" onclick="closeContentModal(); importSettings()" style="padding: 16px;">
+              📤 <strong>Import nastavení</strong>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Nahrát nastavení z JSON souboru</div>
+            </div>
+            <div class="menu-subitem" onclick="closeContentModal(); clearKeys()" style="padding: 16px; border: 1px solid var(--accent-red);">
+              🗑️ <strong style="color: var(--accent-red);">Smazat klíče</strong>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Odstranit všechny uložené API klíče</div>
+            </div>
+          </div>
+        `;
+      }
+
+      function generateDiscoverContent() {
+        return `
+          <div style="margin-bottom: 20px; text-align: center; color: var(--text-secondary);">
+            Klikněte na providera pro načtení dostupných modelů z API
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+            <button class="discover-provider-btn" onclick="closeContentModal(); discoverModels('gemini')" style="padding: 20px; font-size: 16px;">
+              🌟 Google Gemini
+            </button>
+            <button class="discover-provider-btn" onclick="closeContentModal(); discoverModels('groq')" style="padding: 20px; font-size: 16px;">
+              🦙 Groq
+            </button>
+            <button class="discover-provider-btn" onclick="closeContentModal(); discoverModels('openrouter')" style="padding: 20px; font-size: 16px;">
+              🌐 OpenRouter
+            </button>
+            <button class="discover-provider-btn" onclick="closeContentModal(); discoverModels('mistral')" style="padding: 20px; font-size: 16px;">
+              🔥 Mistral
+            </button>
+          </div>
+          <div id="modalDiscoverResults"></div>
+        `;
+      }
+
+      function generateSmartModelContent() {
+        let html = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 16px; background: rgba(59, 130, 246, 0.1); border-radius: 12px;">
+            <div>
+              <strong>⚡ Auto-Switch</strong>
+              <div style="font-size: 12px; color: var(--text-secondary);">Automaticky přepíná na dostupný model při rate limitu</div>
+            </div>
+            <div class="toggle-switch ${autoSwitch ? 'active' : ''}" onclick="toggleAutoSwitch(); this.classList.toggle('active');"></div>
+          </div>
+          
+          <div style="margin-bottom: 16px; font-weight: 600;">📋 Všechny modely (seřazeno podle kvality)</div>
+          <div style="display: grid; gap: 8px; max-height: 400px; overflow-y: auto;">
+        `;
+        
+        try {
+          const models = AI.getAllModelsRanked();
+          models.forEach((model, i) => {
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+            html += `
+              <div class="menu-subitem" onclick="closeContentModal(); selectModelFromMenu('${model.provider}', '${model.id}')" style="padding: 12px;">
+                <span style="min-width: 30px;">${medal}</span>
+                <div style="flex: 1;">
+                  <div style="font-weight: 500;">${model.name}</div>
+                  <div style="font-size: 11px; color: var(--text-secondary);">${model.provider}</div>
+                </div>
+                <span class="badge">${model.quality}%</span>
+              </div>
+            `;
+          });
+        } catch (e) {
+          html += '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nepodařilo se načíst modely</div>';
+        }
+        
+        html += '</div>';
+        return html;
+      }
+
+      function generatePriorityContent() {
+        let html = `
+          <div style="text-align: center; margin-bottom: 20px; color: var(--text-secondary);">
+            Top 3 nejlepší modely podle kvality a dostupnosti
+          </div>
+          <div style="display: grid; gap: 16px;">
+        `;
+        
+        try {
+          const models = AI.getAllModelsRanked().slice(0, 3);
+          const medals = ['🥇', '🥈', '🥉'];
+          const colors = ['linear-gradient(135deg, #ffd700, #ffed4a)', 'linear-gradient(135deg, #c0c0c0, #e8e8e8)', 'linear-gradient(135deg, #cd7f32, #d4a574)'];
+          
+          models.forEach((model, i) => {
+            html += `
+              <div onclick="closeContentModal(); selectModelFromMenu('${model.provider}', '${model.id}')" 
+                   style="padding: 24px; background: ${colors[i]}; border-radius: 16px; cursor: pointer; color: #1a1a2e; text-align: center; transition: transform 0.2s;"
+                   onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="font-size: 48px; margin-bottom: 8px;">${medals[i]}</div>
+                <div style="font-size: 20px; font-weight: 700;">#${i + 1} ${model.name}</div>
+                <div style="font-size: 14px; opacity: 0.8; margin-top: 4px;">${model.provider}</div>
+                <div style="margin-top: 12px; background: rgba(0,0,0,0.2); padding: 8px 16px; border-radius: 20px; display: inline-block;">
+                  Kvalita: ${model.quality}%
+                </div>
+              </div>
+            `;
+          });
+        } catch (e) {
+          html += '<div style="color: var(--text-secondary); text-align: center; padding: 40px;">Nepodařilo se načíst modely</div>';
+        }
+        
+        html += '</div>';
+        return html;
+      }
+
+      function generateRateLimitsContent() {
+        let html = `
+          <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>RPM</strong> = Requests Per Minute | <strong>RPD</strong> = Requests Per Day
+            </div>
+            <button class="btn-secondary" onclick="renderRateLimitsInModal()">🔄 Refresh</button>
+          </div>
+          <div id="modalRateLimitsGrid" style="display: grid; gap: 12px;">
+        `;
+        
+        try {
+          const limits = AI.getRateLimits ? AI.getRateLimits() : {};
+          const providers = ['gemini', 'groq', 'openrouter', 'mistral', 'cohere', 'huggingface'];
+          
+          providers.forEach(provider => {
+            const limit = limits[provider] || { rpm: '?', rpd: '?' };
+            const icon = provider === 'gemini' ? '🌟' : provider === 'groq' ? '🦙' : provider === 'openrouter' ? '🌐' : provider === 'mistral' ? '🔥' : provider === 'cohere' ? '🧠' : '🤗';
+            html += `
+              <div style="background: rgba(15, 23, 42, 0.4); padding: 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 24px;">${icon}</span>
+                  <strong style="text-transform: capitalize;">${provider}</strong>
+                </div>
+                <div style="display: flex; gap: 16px;">
+                  <div style="text-align: center;">
+                    <div style="font-size: 18px; font-weight: bold; color: var(--accent-blue);">${limit.rpm || '?'}</div>
+                    <div style="font-size: 10px; color: var(--text-secondary);">RPM</div>
+                  </div>
+                  <div style="text-align: center;">
+                    <div style="font-size: 18px; font-weight: bold; color: var(--accent-purple);">${limit.rpd || '?'}</div>
+                    <div style="font-size: 10px; color: var(--text-secondary);">RPD</div>
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+        } catch (e) {
+          html += '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nepodařilo se načíst limity</div>';
+        }
+        
+        html += '</div>';
+        return html;
+      }
+
+      function generateStatsContent() {
+        let html = '';
+        
+        try {
+          const stats = AI.getStats ? AI.getStats() : {};
+          
+          html = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 24px;">
+              <div style="background: rgba(59, 130, 246, 0.2); padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; color: var(--accent-blue);">${stats.totalRequests || 0}</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">Celkem dotazů</div>
+              </div>
+              <div style="background: rgba(34, 197, 94, 0.2); padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; color: var(--accent-green);">${stats.successfulRequests || 0}</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">Úspěšných</div>
+              </div>
+              <div style="background: rgba(239, 68, 68, 0.2); padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; color: var(--accent-red);">${stats.failedRequests || 0}</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">Neúspěšných</div>
+              </div>
+              <div style="background: rgba(139, 92, 246, 0.2); padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; color: var(--accent-purple);">${stats.totalTokens || 0}</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">Tokenů</div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px; justify-content: center;">
+              <button class="btn-secondary" onclick="closeContentModal(); showStats()">📊 Detailní statistiky</button>
+              <button class="btn-danger" onclick="if(confirm('Opravdu resetovat statistiky?')) { resetStats(); closeContentModal(); }">🗑️ Reset</button>
+            </div>
+          `;
+        } catch (e) {
+          html = '<div style="color: var(--text-secondary); text-align: center; padding: 40px;">Nepodařilo se načíst statistiky</div>';
+        }
+        
+        return html;
+      }
+
+      function generateFeaturesContent() {
+        return `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+            <div class="feature-card" onclick="closeContentModal(); testContextCompression()" style="cursor: pointer; padding: 24px; text-align: center; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px solid var(--border-color); transition: all 0.2s;" onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-color)'">
+              <div style="font-size: 36px; margin-bottom: 12px;">🗜️</div>
+              <div style="font-weight: 600; margin-bottom: 8px;">Context Compression</div>
+              <div style="font-size: 12px; color: var(--text-secondary);">Automatická komprese dlouhých textů</div>
+            </div>
+            <div class="feature-card" onclick="closeContentModal(); testTokenBudget()" style="cursor: pointer; padding: 24px; text-align: center; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px solid var(--border-color); transition: all 0.2s;" onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-color)'">
+              <div style="font-size: 36px; margin-bottom: 12px;">💰</div>
+              <div style="font-weight: 600; margin-bottom: 8px;">Token Budget</div>
+              <div style="font-size: 12px; color: var(--text-secondary);">Adaptivní správa tokenů</div>
+            </div>
+            <div class="feature-card" onclick="closeContentModal(); testPromptOptimizer()" style="cursor: pointer; padding: 24px; text-align: center; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px solid var(--border-color); transition: all 0.2s;" onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-color)'">
+              <div style="font-size: 36px; margin-bottom: 12px;">⚡</div>
+              <div style="font-weight: 600; margin-bottom: 8px;">Prompt Optimizer</div>
+              <div style="font-size: 12px; color: var(--text-secondary);">Chytrá optimalizace promptů</div>
+            </div>
+            <div class="feature-card" onclick="closeContentModal(); testSmartRetry()" style="cursor: pointer; padding: 24px; text-align: center; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px solid var(--border-color); transition: all 0.2s;" onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-color)'">
+              <div style="font-size: 36px; margin-bottom: 12px;">🔄</div>
+              <div style="font-weight: 600; margin-bottom: 8px;">Smart Retry</div>
+              <div style="font-size: 12px; color: var(--text-secondary);">Automatický fallback</div>
+            </div>
+            <div class="feature-card" onclick="closeContentModal(); testCache()" style="cursor: pointer; padding: 24px; text-align: center; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px solid var(--border-color); transition: all 0.2s;" onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-color)'">
+              <div style="font-size: 36px; margin-bottom: 12px;">💾</div>
+              <div style="font-weight: 600; margin-bottom: 8px;">Response Cache</div>
+              <div style="font-size: 12px; color: var(--text-secondary);">Ukládání odpovědí</div>
+            </div>
+            <div class="feature-card" onclick="closeContentModal(); testParallel()" style="cursor: pointer; padding: 24px; text-align: center; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px solid var(--border-color); transition: all 0.2s;" onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-color)'">
+              <div style="font-size: 36px; margin-bottom: 12px;">⚡</div>
+              <div style="font-weight: 600; margin-bottom: 8px;">Parallel Queries</div>
+              <div style="font-size: 12px; color: var(--text-secondary);">Paralelní dotazy</div>
+            </div>
+          </div>
+        `;
       }
 
       function scrollToSection(sectionId) {
@@ -4439,36 +4677,6 @@
           }
           // Scrolluj na sekci
           section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-
-      function updateMenuPriorityModels() {
-        const container = document.getElementById('menuPriorityModels');
-        if (!container) return;
-
-        try {
-          const models = AI.getAllModelsRanked().slice(0, 3);
-          container.innerHTML = models.map((model, i) => `
-            <div class="menu-subitem" onclick="closeMainMenu(); selectModelFromMenu('${model.provider}', '${model.id}')">
-              <span style="color: ${i === 0 ? 'gold' : i === 1 ? 'silver' : '#cd7f32'};">#${i + 1}</span>
-              ${model.name}
-              <span class="badge">${model.quality}%</span>
-            </div>
-          `).join('');
-        } catch (e) {
-          container.innerHTML = `
-            <div class="menu-subitem">#1 Gemini 2.0 Flash</div>
-            <div class="menu-subitem">#2 Groq Llama 3.3</div>
-            <div class="menu-subitem">#3 Mistral Large</div>
-          `;
-        }
-      }
-
-      function updateMenuAutoSwitchBadge() {
-        const badge = document.getElementById('menuAutoSwitchBadge');
-        if (badge) {
-          badge.textContent = autoSwitch ? 'ON' : 'OFF';
-          badge.style.background = autoSwitch ? 'var(--accent-green)' : 'var(--accent-red)';
         }
       }
 
@@ -4490,6 +4698,7 @@
       }
 
       function selectBestModel() {
+        closeContentModal();
         try {
           const models = AI.getAllModelsRanked();
           if (models.length > 0) {
