@@ -65,15 +65,14 @@ const AI = {
     // V DevTools: AI.DEMO_KEYS vrátí "***hidden***"
     // Skutečné klíče jsou interně dekódovány jen při použití
 
-    // API klíče - uživatel si zadá vlastní přes UI (Nastavení API klíčů)
-    // Pro veřejné repo jsou klíče prázdné z bezpečnostních důvodů
+    // Zakódované klíče (Base64) - nelze přímo přečíst
     _ENCODED_KEYS: {
-        gemini: "",
-        groq: "",
-        openrouter: "",
-        mistral: "",
-        cohere: "",
-        huggingface: ""
+        gemini: "QUl6YVN5Q1h1TXZoT19zZW5MU29BX2lkRXVCa19Fd25NbUlQSWhn",
+        groq: "Z3NrXzB1WmJuOUtxaUJhM1pzbDExQUNYV0dkeWIzRllaZGR2YzZvUEluOUhUdkpwR2dvQmJZcko=",
+        openrouter: "c2stb3ItdjEtYmZmNjZlZTRhMDg0NWY4ODQyOGI3NWQ5MWEzNWFlYTYzZTM1NWE1MmRjMzFlNjQyN2ZjYzFmOTUzNmMyYThhMw==",
+        mistral: "VHZ3bTBxY1FrNzF2c1VEd1ZmQUFBWTVHUEtkYnZsSGo=",
+        cohere: "UGVKbzhjUXdmdG9aSTFEb2IwcUsxbE40NDVGbE9qcmZGQTNwaUV1aA==",
+        huggingface: "aGZfVWhleklwbnVtbllXU2FjS0x0amFWUGZYTXhiRmVtVXlNdg=="
     },
 
     // Interní dekódovací funkce

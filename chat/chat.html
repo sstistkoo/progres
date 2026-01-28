@@ -778,6 +778,175 @@
         color: var(--text-secondary);
       }
 
+      /* Main Menu Button */
+      .main-menu-btn {
+        background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+        border: none;
+        border-radius: 6px;
+        padding: 4px 10px;
+        color: white;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.2s;
+        font-weight: 500;
+      }
+
+      .main-menu-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+      }
+
+      /* Menu Modal */
+      .menu-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(5px);
+        z-index: 1000;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 40px 20px;
+        overflow-y: auto;
+      }
+
+      .menu-modal-content {
+        background: var(--bg-secondary);
+        border-radius: 16px;
+        max-width: 500px;
+        width: 100%;
+        max-height: 85vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+
+      .menu-modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+      }
+
+      .menu-modal-header h2 {
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .menu-modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+      }
+
+      /* Menu Accordion Items */
+      .menu-accordion-item {
+        margin-bottom: 8px;
+        border-radius: 10px;
+        overflow: hidden;
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid var(--border-color);
+      }
+
+      .menu-accordion-header {
+        padding: 14px 16px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background 0.2s;
+      }
+
+      .menu-accordion-header:hover {
+        background: rgba(59, 130, 246, 0.1);
+      }
+
+      .menu-accordion-header.active {
+        background: rgba(59, 130, 246, 0.15);
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .menu-accordion-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+        font-size: 14px;
+      }
+
+      .menu-accordion-title .icon {
+        font-size: 16px;
+      }
+
+      .menu-accordion-arrow {
+        transition: transform 0.3s;
+        color: var(--text-secondary);
+      }
+
+      .menu-accordion-header.active .menu-accordion-arrow {
+        transform: rotate(180deg);
+      }
+
+      .menu-accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+        background: rgba(15, 23, 42, 0.3);
+      }
+
+      .menu-accordion-content.open {
+        max-height: 500px;
+      }
+
+      .menu-accordion-inner {
+        padding: 16px;
+      }
+
+      /* Menu Sub-items */
+      .menu-subitem {
+        padding: 10px 14px;
+        margin-bottom: 6px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        color: var(--text-secondary);
+        transition: all 0.2s;
+        background: rgba(30, 41, 59, 0.5);
+      }
+
+      .menu-subitem:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
+
+      .menu-subitem:last-child {
+        margin-bottom: 0;
+      }
+
+      .menu-subitem .badge {
+        margin-left: auto;
+        background: var(--accent-blue);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 10px;
+      }
+
       /* Modal */
       .modal {
         position: fixed;
@@ -1778,6 +1947,9 @@
               <div class="card-title" style="margin: 0">
                 <span class="icon">💬</span> Chat
               </div>
+              <button class="main-menu-btn" onclick="event.stopPropagation(); openMainMenu();" title="Hlavní menu">
+                ☰ Menu
+              </button>
               <div class="chat-actions-dropdown" onclick="event.stopPropagation()">
                 <button
                   class="chat-actions-btn"
@@ -2103,6 +2275,193 @@
               <div class="feature-desc">Paralelní dotazy</div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Menu Modal -->
+    <div id="mainMenuModal" class="menu-modal" style="display: none" onclick="if(event.target === this) closeMainMenu()">
+      <div class="menu-modal-content">
+        <div class="menu-modal-header">
+          <h2>☰ Hlavní Menu</h2>
+          <button class="modal-close" onclick="closeMainMenu()">×</button>
+        </div>
+        <div class="menu-modal-body">
+          
+          <!-- Nastavení -->
+          <div class="menu-accordion-item">
+            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+              <div class="menu-accordion-title">
+                <span class="icon">⚙️</span> Nastavení
+              </div>
+              <span class="menu-accordion-arrow">▼</span>
+            </div>
+            <div class="menu-accordion-content">
+              <div class="menu-accordion-inner">
+                <div class="menu-subitem" onclick="closeMainMenu(); scrollToSection('keysSection')">
+                  🔑 API Klíče
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); exportSettings()">
+                  📥 Export nastavení
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); importSettings()">
+                  📤 Import nastavení
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); clearKeys()">
+                  🗑️ Smazat klíče
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Objevit modely -->
+          <div class="menu-accordion-item">
+            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+              <div class="menu-accordion-title">
+                <span class="icon">🔍</span> Objevit modely od providerů
+              </div>
+              <span class="menu-accordion-arrow">▼</span>
+            </div>
+            <div class="menu-accordion-content">
+              <div class="menu-accordion-inner">
+                <div class="menu-subitem" onclick="closeMainMenu(); discoverModels('gemini')">
+                  🌟 Google Gemini
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); discoverModels('groq')">
+                  🦙 Groq
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); discoverModels('openrouter')">
+                  🌐 OpenRouter
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); discoverModels('mistral')">
+                  🔥 Mistral
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Smart Model Selection -->
+          <div class="menu-accordion-item">
+            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+              <div class="menu-accordion-title">
+                <span class="icon">🎯</span> Smart Model Selection
+              </div>
+              <span class="menu-accordion-arrow">▼</span>
+            </div>
+            <div class="menu-accordion-content">
+              <div class="menu-accordion-inner">
+                <div class="menu-subitem" onclick="closeMainMenu(); scrollToSection('smartModelSection')">
+                  📋 Zobrazit všechny modely
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); toggleAutoSwitch()">
+                  🔄 Toggle Auto-Switch
+                  <span class="badge" id="menuAutoSwitchBadge">ON</span>
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); selectBestModel()">
+                  ⚡ Vybrat nejlepší model
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Priority #1 #2 #3 -->
+          <div class="menu-accordion-item">
+            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+              <div class="menu-accordion-title">
+                <span class="icon">🏆</span> Priority modely
+              </div>
+              <span class="menu-accordion-arrow">▼</span>
+            </div>
+            <div class="menu-accordion-content">
+              <div class="menu-accordion-inner" id="menuPriorityModels">
+                <div class="menu-subitem">
+                  #1 Načítám...
+                </div>
+                <div class="menu-subitem">
+                  #2 Načítám...
+                </div>
+                <div class="menu-subitem">
+                  #3 Načítám...
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rate Limity -->
+          <div class="menu-accordion-item">
+            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+              <div class="menu-accordion-title">
+                <span class="icon">⏱️</span> Rate Limity & RPD
+              </div>
+              <span class="menu-accordion-arrow">▼</span>
+            </div>
+            <div class="menu-accordion-content">
+              <div class="menu-accordion-inner">
+                <div class="menu-subitem" onclick="closeMainMenu(); scrollToSection('rateLimitsSection')">
+                  📊 Zobrazit limity
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); checkAllRateLimits()">
+                  🔄 Refresh všech limitů
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Statistiky -->
+          <div class="menu-accordion-item">
+            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+              <div class="menu-accordion-title">
+                <span class="icon">📊</span> Statistiky použití
+              </div>
+              <span class="menu-accordion-arrow">▼</span>
+            </div>
+            <div class="menu-accordion-content">
+              <div class="menu-accordion-inner">
+                <div class="menu-subitem" onclick="closeMainMenu(); showStats()">
+                  📈 Zobrazit statistiky
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); scrollToSection('usageStatsSection')">
+                  📋 Detailní přehled
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); resetStats()">
+                  🗑️ Reset statistik
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nové funkce -->
+          <div class="menu-accordion-item">
+            <div class="menu-accordion-header" onclick="toggleMenuAccordion(this)">
+              <div class="menu-accordion-title">
+                <span class="icon">🚀</span> Nové funkce v3.0
+              </div>
+              <span class="menu-accordion-arrow">▼</span>
+            </div>
+            <div class="menu-accordion-content">
+              <div class="menu-accordion-inner">
+                <div class="menu-subitem" onclick="closeMainMenu(); testContextCompression()">
+                  🗜️ Context Compression
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); testTokenBudget()">
+                  💰 Token Budget
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); testPromptOptimizer()">
+                  ⚡ Prompt Optimizer
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); testSmartRetry()">
+                  🔄 Smart Retry
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); testCache()">
+                  💾 Response Cache
+                </div>
+                <div class="menu-subitem" onclick="closeMainMenu(); testParallel()">
+                  ⚡ Parallel Queries
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -4041,6 +4400,112 @@
           empty.style.display = 'block';
         }
         lastResponse = '';
+      }
+
+      // ============================================================
+      // MAIN MENU FUNCTIONS
+      // ============================================================
+      function openMainMenu() {
+        const modal = document.getElementById('mainMenuModal');
+        modal.style.display = 'flex';
+        updateMenuPriorityModels();
+        updateMenuAutoSwitchBadge();
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeMainMenu() {
+        const modal = document.getElementById('mainMenuModal');
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+      }
+
+      function toggleMenuAccordion(header) {
+        const content = header.nextElementSibling;
+        const isOpen = content.classList.contains('open');
+        
+        // Toggle current
+        header.classList.toggle('active');
+        content.classList.toggle('open');
+      }
+
+      function scrollToSection(sectionId) {
+        const section = document.getElementById(sectionId);
+        if (section) {
+          // Otevři sekci pokud je zavřená
+          if (!section.classList.contains('open')) {
+            section.classList.add('open');
+            const arrow = document.getElementById(sectionId + 'Arrow');
+            if (arrow) arrow.textContent = '▼';
+          }
+          // Scrolluj na sekci
+          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+
+      function updateMenuPriorityModels() {
+        const container = document.getElementById('menuPriorityModels');
+        if (!container) return;
+
+        try {
+          const models = AI.getAllModelsRanked().slice(0, 3);
+          container.innerHTML = models.map((model, i) => `
+            <div class="menu-subitem" onclick="closeMainMenu(); selectModelFromMenu('${model.provider}', '${model.id}')">
+              <span style="color: ${i === 0 ? 'gold' : i === 1 ? 'silver' : '#cd7f32'};">#${i + 1}</span>
+              ${model.name}
+              <span class="badge">${model.quality}%</span>
+            </div>
+          `).join('');
+        } catch (e) {
+          container.innerHTML = `
+            <div class="menu-subitem">#1 Gemini 2.0 Flash</div>
+            <div class="menu-subitem">#2 Groq Llama 3.3</div>
+            <div class="menu-subitem">#3 Mistral Large</div>
+          `;
+        }
+      }
+
+      function updateMenuAutoSwitchBadge() {
+        const badge = document.getElementById('menuAutoSwitchBadge');
+        if (badge) {
+          badge.textContent = autoSwitch ? 'ON' : 'OFF';
+          badge.style.background = autoSwitch ? 'var(--accent-green)' : 'var(--accent-red)';
+        }
+      }
+
+      function selectModelFromMenu(provider, modelId) {
+        // Přepni na manuální režim
+        setChatMode('manual');
+        // Nastav provider a model
+        const providerSelect = document.getElementById('chatProviderSelect');
+        if (providerSelect) {
+          providerSelect.value = provider;
+          onChatProviderChange();
+          setTimeout(() => {
+            const modelSelect = document.getElementById('chatModelSelect');
+            if (modelSelect) {
+              modelSelect.value = modelId;
+            }
+          }, 100);
+        }
+      }
+
+      function selectBestModel() {
+        try {
+          const models = AI.getAllModelsRanked();
+          if (models.length > 0) {
+            const best = models[0];
+            selectModelFromMenu(best.provider, best.id);
+            addMessage('assistant', `✅ Vybrán nejlepší model: ${best.name} (${best.quality}% kvalita)`);
+          }
+        } catch (e) {
+          addMessage('assistant', '❌ Nepodařilo se vybrat model: ' + e.message);
+        }
+      }
+
+      function checkAllRateLimits() {
+        // Scroll na rate limits sekci a aktualizuj
+        scrollToSection('rateLimitsSection');
+        renderRateLimits();
       }
 
       // Chat Actions Dropdown functions
