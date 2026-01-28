@@ -4429,26 +4429,147 @@
       }
 
       function generateSettingsContent() {
+        const providers = ['gemini', 'groq', 'openrouter', 'mistral', 'cohere', 'huggingface'];
+        const providerInfo = {
+          gemini: { icon: '🤖', name: 'Gemini', placeholder: 'AIza...' },
+          groq: { icon: '⚡', name: 'Groq', placeholder: 'gsk_...' },
+          openrouter: { icon: '🌐', name: 'OpenRouter', placeholder: 'sk-or-...' },
+          mistral: { icon: '🔥', name: 'Mistral', placeholder: '...' },
+          cohere: { icon: '🧬', name: 'Cohere', placeholder: '...' },
+          huggingface: { icon: '🤗', name: 'HuggingFace', placeholder: 'hf_...' }
+        };
+        
+        // Získej aktuální hodnoty klíčů
+        const keyValues = {};
+        providers.forEach(p => {
+          const key = AI.getKey ? AI.getKey(p) : '';
+          keyValues[p] = key ? key.substring(0, 6) + '...' : '';
+        });
+        
+        // Zjisti aktuálního providera a model
+        const currentProvider = currentProvider || 'gemini';
+        
         return `
-          <div style="display: grid; gap: 12px;">
-            <div class="menu-subitem" onclick="closeContentModal(); scrollToSection('keysSection')" style="padding: 16px;">
-              🔑 <strong>API Klíče</strong>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Spravovat API klíče pro všechny providery</div>
-            </div>
-            <div class="menu-subitem" onclick="closeContentModal(); exportSettings()" style="padding: 16px;">
-              📥 <strong>Export nastavení</strong>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Stáhnout nastavení jako JSON soubor</div>
-            </div>
-            <div class="menu-subitem" onclick="closeContentModal(); importSettings()" style="padding: 16px;">
-              📤 <strong>Import nastavení</strong>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Nahrát nastavení z JSON souboru</div>
-            </div>
-            <div class="menu-subitem" onclick="closeContentModal(); clearKeys()" style="padding: 16px; border: 1px solid var(--accent-red);">
-              🗑️ <strong style="color: var(--accent-red);">Smazat klíče</strong>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Odstranit všechny uložené API klíče</div>
+          <!-- Provider výběr -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 500;">Poskytovatel:</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              ${providers.map(p => {
+                const info = providerInfo[p];
+                const hasKey = AI.getKey && AI.getKey(p);
+                return `
+                  <button onclick="modalSelectProvider('${p}')" 
+                          id="modalProviderBtn_${p}"
+                          style="padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border-color); 
+                                 background: ${p === 'gemini' ? 'var(--accent-blue)' : 'var(--bg-tertiary)'}; 
+                                 color: var(--text-primary); cursor: pointer; display: flex; align-items: center; gap: 6px;
+                                 transition: all 0.2s;">
+                    ${info.icon} ${info.name}
+                    ${hasKey ? '<span style="color: var(--accent-green);">✓</span>' : ''}
+                  </button>
+                `;
+              }).join('')}
             </div>
           </div>
+          
+          <!-- Model výběr -->
+          <div style="margin-bottom: 20px; padding: 16px; background: rgba(15, 23, 42, 0.4); border-radius: 12px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 500;">Model:</label>
+            <select id="modalModelSelect" style="width: 100%; padding: 12px; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); font-size: 14px;">
+              <option>Načítám modely...</option>
+            </select>
+            <div id="modalModelInfo" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);"></div>
+          </div>
+          
+          <!-- API Klíče -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 12px; font-weight: 500;">API Klíče:</label>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+              ${providers.map(p => {
+                const info = providerInfo[p];
+                const hasKey = AI.getKey && AI.getKey(p);
+                const statusColor = hasKey ? 'var(--accent-green)' : 'var(--text-secondary)';
+                return `
+                  <div style="position: relative;">
+                    <label style="display: block; margin-bottom: 4px; font-size: 12px;">${info.icon} ${info.name}</label>
+                    <input type="password" 
+                           id="modalKey_${p}" 
+                           placeholder="${info.placeholder}"
+                           value="${keyValues[p]}"
+                           style="width: 100%; padding: 10px 36px 10px 12px; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); font-size: 12px;"
+                           onfocus="this.value = AI.getKey ? AI.getKey('${p}') || '' : ''"
+                    />
+                    <span style="position: absolute; right: 12px; top: 32px; color: ${statusColor};">●</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+          
+          <!-- Tlačítka -->
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding-top: 16px; border-top: 1px solid var(--border-color);">
+            <button onclick="modalSaveKeys()" class="btn-success" style="padding: 12px 24px;">💾 Uložit klíče</button>
+            <button onclick="closeContentModal(); exportSettings()" class="btn-secondary" style="padding: 12px 24px;">📥 Export</button>
+            <button onclick="closeContentModal(); importSettings()" class="btn-secondary" style="padding: 12px 24px;">📤 Import</button>
+            <button onclick="modalClearKeys()" class="btn-danger" style="padding: 12px 24px;">🗑️ Smazat vše</button>
+          </div>
         `;
+      }
+      
+      // Pomocné funkce pro modální nastavení
+      function modalSelectProvider(provider) {
+        // Aktualizuj tlačítka
+        document.querySelectorAll('[id^="modalProviderBtn_"]').forEach(btn => {
+          btn.style.background = 'var(--bg-tertiary)';
+        });
+        const btn = document.getElementById('modalProviderBtn_' + provider);
+        if (btn) btn.style.background = 'var(--accent-blue)';
+        
+        // Načti modely pro providera
+        const select = document.getElementById('modalModelSelect');
+        const info = document.getElementById('modalModelInfo');
+        if (select && AI.getAllProvidersWithModels) {
+          const allProviders = AI.getAllProvidersWithModels();
+          const providerData = allProviders[provider];
+          if (providerData && providerData.models) {
+            select.innerHTML = providerData.models.map(m => 
+              `<option value="${m.value}">${m.label} ${m.free ? '(FREE)' : ''}</option>`
+            ).join('');
+            
+            // Info o prvním modelu
+            const first = providerData.models[0];
+            if (first && info) {
+              info.innerHTML = `RPM: ${first.rpm || '?'} | Kvalita: ${first.quality || '?'}%`;
+            }
+          }
+        }
+      }
+      
+      function modalSaveKeys() {
+        const providers = ['gemini', 'groq', 'openrouter', 'mistral', 'cohere', 'huggingface'];
+        providers.forEach(p => {
+          const input = document.getElementById('modalKey_' + p);
+          if (input && input.value && !input.value.includes('...')) {
+            AI.setKey(p, input.value);
+          }
+        });
+        alert('✅ API klíče uloženy!');
+        closeContentModal();
+        loadKeys(); // Aktualizuj hlavní stránku
+      }
+      
+      function modalClearKeys() {
+        if (confirm('Opravdu smazat všechny API klíče?')) {
+          clearKeys();
+          closeContentModal();
+        }
+      }
+      
+      // Po otevření settings modalu inicializuj
+      function initSettingsModal() {
+        setTimeout(() => {
+          modalSelectProvider('gemini');
+        }, 100);
       }
 
       function generateDiscoverContent() {
@@ -4491,7 +4612,7 @@
         try {
           const allProviders = AI.getAllProvidersWithModels();
           const models = [];
-          
+
           // Sbírej všechny modely ze všech providerů
           for (const [providerKey, providerData] of Object.entries(allProviders)) {
             providerData.models.forEach(m => {
@@ -4505,10 +4626,10 @@
               });
             });
           }
-          
+
           // Seřaď podle kvality
           models.sort((a, b) => (b.quality || 0) - (a.quality || 0));
-          
+
           models.forEach((model, i) => {
             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
             const freeTag = model.free ? '<span style="color: var(--accent-green); font-size: 10px; margin-left: 6px;">FREE</span>' : '';
@@ -4543,7 +4664,7 @@
         try {
           // Použij AI.getBestModels() místo neexistující getAllModelsRanked
           const models = AI.getBestModels ? AI.getBestModels(3) : [];
-          
+
           if (models.length === 0) {
             // Fallback - získej modely manuálně
             const allProviders = AI.getAllProvidersWithModels();
@@ -4562,7 +4683,7 @@
             models.sort((a, b) => (b.quality || 0) - (a.quality || 0));
             models.splice(3);
           }
-          
+
           const medals = ['🥇', '🥈', '🥉'];
           const colors = ['linear-gradient(135deg, #ffd700, #ffed4a)', 'linear-gradient(135deg, #c0c0c0, #e8e8e8)', 'linear-gradient(135deg, #cd7f32, #d4a574)'];
 
@@ -4581,7 +4702,7 @@
               </div>
             `;
           });
-          
+
           if (models.length === 0) {
             html += '<div style="color: var(--text-secondary); text-align: center; padding: 40px;">Žádné modely s vysokou kvalitou nenalezeny</div>';
           }
@@ -4655,7 +4776,7 @@
             failedRequests: 0,
             totalTokens: 0
           };
-          
+
           // Spočítej počet nastavených klíčů
           const providers = Object.keys(PROVIDER_LIMITS);
           const configuredKeys = providers.filter(p => AI.getKey && AI.getKey(p)).length;
@@ -4679,7 +4800,7 @@
                 <div style="font-size: 12px; color: var(--text-secondary);">API klíče</div>
               </div>
             </div>
-            
+
             <div style="background: rgba(15, 23, 42, 0.4); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
               <div style="font-weight: 600; margin-bottom: 12px;">📊 Stav providerů</div>
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
