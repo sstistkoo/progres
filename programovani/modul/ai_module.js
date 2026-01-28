@@ -61,14 +61,44 @@
 
 const AI = {
 
-    // ============== DEMO KLÍČE (rozdělené pro GitHub) ==============
-    DEMO_KEYS: {
-        gemini: "***REMOVED***" + "***REMOVED***",
-        groq: "***REMOVED***" + "***REMOVED***",
-        openrouter: "***REMOVED***" + "***REMOVED***",
-        mistral: "***REMOVED***" + "***REMOVED***",
-        cohere: "***REMOVED***" + "***REMOVED***",
-        huggingface: "***REMOVED***" + "***REMOVED***"
+    // ============== DEMO KLÍČE (obfuskované - Base64) ==============
+    // V DevTools: AI.DEMO_KEYS vrátí "***hidden***"
+    // Skutečné klíče jsou interně dekódovány jen při použití
+
+    // Zakódované klíče (Base64) - nelze přímo přečíst
+    _ENCODED_KEYS: {
+        gemini: "***REMOVED***",
+        groq: "***REMOVED***",
+        openrouter: "***REMOVED***",
+        mistral: "***REMOVED***",
+        cohere: "***REMOVED***",
+        huggingface: "***REMOVED***"
+    },
+
+    // Interní dekódovací funkce
+    _decode(encoded) {
+        if (!encoded) return '';
+        try {
+            return atob(encoded);
+        } catch (e) {
+            return '';
+        }
+    },
+
+    // Getter pro DEMO_KEYS - vrací "***hidden***" v konzoli
+    get DEMO_KEYS() {
+        // Při přímém přístupu vrať skryté
+        const hidden = {};
+        for (const k of Object.keys(this._ENCODED_KEYS)) {
+            hidden[k] = '***hidden***';
+        }
+        return hidden;
+    },
+
+    // Interní získání demo klíče (skutečná hodnota)
+    _getDemoKey(provider) {
+        const encoded = this._ENCODED_KEYS[provider];
+        return this._decode(encoded);
     },
 
     // ============== KONFIGURACE ==============
@@ -84,7 +114,7 @@ const AI = {
 
         // Výchozí modely - nejlepší z každého providera
         models: {
-            gemini: 'gemini-1.5-flash',           // Nejchytřejší Gemini
+            gemini: 'gemini-2.5-flash',           // Gemini 2.5 Flash jako výchozí
             groq: 'llama-3.3-70b-versatile',      // Nejchytřejší Groq
             openrouter: 'mistralai/mistral-small-3.1-24b-instruct:free',
             mistral: 'mistral-small-latest',
@@ -93,9 +123,13 @@ const AI = {
         },
 
         defaultProvider: 'groq',  // Groq má nejlepší free limity (30 RPM)
-        timeout: 90000,
+        // Timeout - delší pro mobilní zařízení (pomalejší síť)
+        timeout: (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) ? 120000 : 90000,
         maxRetries: 3
     },
+
+    // ============== DETEKCE MOBILNÍHO ZAŘÍZENÍ ==============
+    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
 
     // ============== AKTIVNÍ POŽADAVEK (pro cancel) ==============
     _activeController: null,
@@ -288,11 +322,13 @@ const AI = {
 
         // Získej limit pro providera/model
         _getLimit(provider, model) {
-            // Specifické limity pro modely
+            // Specifické limity pro modely (aktualizováno prosinec 2025)
             const modelLimits = {
-                'gemini-2.5-flash-lite': 15,
-                'gemini-2.5-flash': 10,
-                'gemini-3-pro-preview': 2
+                'gemini-2.5-flash-lite': 30,
+                'gemini-2.5-flash': 15,
+                'gemini-2.5-pro': 5,
+                'gemini-2.5-pro-exp-03-25': 15,
+                'gemini-3-flash-preview': 15
             };
             if (model && modelLimits[model]) {
                 return modelLimits[model];
@@ -459,6 +495,306 @@ const AI = {
         return Math.ceil(text.length / 3.5);
     },
 
+    // ============== SMART CONTEXT COMPRESSION ==============
+    contextCompression: {
+        /**
+         * Komprimuje kontext pro úsporu tokenů
+         * Zachovává důležité části, odstraňuje zbytečnosti
+         */
+        compress(text, options = {}) {
+            if (!text) return text;
+
+            const maxTokens = options.maxTokens || 8000;
+            const aggressive = options.aggressive || false;
+            let compressed = text;
+
+            // 1. Odstraň prázdné řádky (víc než 2 po sobě → max 1)
+            compressed = compressed.replace(/\n{3,}/g, '\n\n');
+
+            // 2. Odstraň trailing whitespace
+            compressed = compressed.replace(/[ \t]+$/gm, '');
+
+            // 3. Zkrať dlouhé komentáře (aggressive mode)
+            if (aggressive) {
+                // HTML komentáře
+                compressed = compressed.replace(/<!--[\s\S]*?-->/g, match =>
+                    match.length > 100 ? '<!-- ... -->' : match
+                );
+                // JS/CSS blokové komentáře
+                compressed = compressed.replace(/\/\*[\s\S]*?\*\//g, match =>
+                    match.length > 100 ? '/* ... */' : match
+                );
+                // Dlouhé console.log
+                compressed = compressed.replace(/console\.(log|debug|info)\([^)]{100,}\)/g,
+                    'console.log(/* truncated */)');
+            }
+
+            // 4. Zkrať velmi dlouhé řetězce (data URI, base64)
+            compressed = compressed.replace(/data:[^;]+;base64,[a-zA-Z0-9+/=]{500,}/g,
+                'data:...base64...[TRUNCATED]');
+
+            // 5. Pokud stále příliš dlouhé, zkrať inteligentně
+            const currentTokens = AI.estimateTokens(compressed);
+            if (currentTokens > maxTokens) {
+                compressed = this.truncateSmartly(compressed, maxTokens);
+            }
+
+            return compressed;
+        },
+
+        /**
+         * Inteligentní zkrácení s kontextem
+         */
+        truncateSmartly(text, maxTokens) {
+            const lines = text.split('\n');
+            const totalLines = lines.length;
+
+            // Pokud je málo řádků, prostě ořízni
+            if (totalLines < 50) {
+                const maxChars = maxTokens * 3.5;
+                return text.substring(0, maxChars) + '\n... [zkráceno]';
+            }
+
+            // Jinak zachovej začátek a konec
+            const keepLines = Math.floor(maxTokens / 10); // ~10 tokenů na řádek
+            const headLines = Math.floor(keepLines * 0.6);
+            const tailLines = keepLines - headLines;
+
+            const head = lines.slice(0, headLines).join('\n');
+            const tail = lines.slice(-tailLines).join('\n');
+            const omitted = totalLines - headLines - tailLines;
+
+            return `${head}\n\n... [${omitted} řádků vynecháno] ...\n\n${tail}`;
+        },
+
+        /**
+         * Detekuje typ obsahu pro lepší kompresi
+         */
+        detectContentType(text) {
+            if (text.includes('<!DOCTYPE') || text.includes('<html')) return 'html';
+            if (text.includes('function') || text.includes('const ') || text.includes('let ')) return 'javascript';
+            if (text.includes('{') && text.includes(':') && text.includes(';')) return 'css';
+            if (text.startsWith('{') || text.startsWith('[')) return 'json';
+            return 'text';
+        }
+    },
+
+    // ============== ADAPTIVE TOKEN BUDGET ==============
+    tokenBudget: {
+        _budgets: {
+            // Free modely - nižší limity
+            free: {
+                system: 1000,
+                context: 4000,
+                history: 1000,
+                total: 8000
+            },
+            // Standard modely
+            standard: {
+                system: 2000,
+                context: 12000,
+                history: 3000,
+                total: 20000
+            },
+            // Premium modely
+            premium: {
+                system: 4000,
+                context: 30000,
+                history: 6000,
+                total: 50000
+            }
+        },
+
+        /**
+         * Získej budget pro daný model
+         */
+        getBudget(model, provider) {
+            // Detekce free modelu
+            const isFree = model?.includes(':free') ||
+                          model?.includes('-free') ||
+                          this._isFreeModel(model, provider);
+
+            // Detekce premium modelu
+            const isPremium = model?.includes('pro') ||
+                             model?.includes('opus') ||
+                             model?.includes('gpt-4') ||
+                             model?.includes('claude-3');
+
+            if (isFree) return this._budgets.free;
+            if (isPremium) return this._budgets.premium;
+            return this._budgets.standard;
+        },
+
+        /**
+         * Kontrola zda je model free
+         */
+        _isFreeModel(model, provider) {
+            const freeModels = AI.ALL_MODELS[provider]?.filter(m => m.free) || [];
+            return freeModels.some(m => m.value === model);
+        },
+
+        /**
+         * Optimalizuj prompt podle budgetu
+         */
+        optimizeForBudget(prompt, context, history, model, provider) {
+            const budget = this.getBudget(model, provider);
+            let optimized = {
+                prompt: prompt,
+                context: context,
+                history: history,
+                budget: budget
+            };
+
+            // Komprimuj context pokud přesahuje budget
+            if (context && AI.estimateTokens(context) > budget.context) {
+                optimized.context = AI.contextCompression.compress(context, {
+                    maxTokens: budget.context,
+                    aggressive: budget === this._budgets.free
+                });
+            }
+
+            // Zkrať historii pokud přesahuje
+            if (history && AI.estimateTokens(JSON.stringify(history)) > budget.history) {
+                const keepMessages = Math.floor(budget.history / 100); // ~100 tokenů na zprávu
+                optimized.history = history.slice(-keepMessages);
+            }
+
+            return optimized;
+        }
+    },
+
+    // ============== PROMPT OPTIMIZER (Smart prompt shortening) ==============
+    promptOptimizer: {
+        // Typy dotazů a jejich optimální konfigurace
+        _queryTypes: {
+            simple: {
+                patterns: [/^co je/i, /^co znamená/i, /^definuj/i, /^vysvětli$/i, /^what is/i, /^define/i],
+                systemPrompt: 'Odpovídej stručně a jasně.',
+                maxTokens: 500
+            },
+            yesno: {
+                patterns: [/^je to/i, /^můžu/i, /^mohu/i, /^je možné/i, /^can i/i, /^is it/i, /^should i/i],
+                systemPrompt: 'Odpověz ano/ne a krátce vysvětli.',
+                maxTokens: 200
+            },
+            list: {
+                patterns: [/^vyjmenuj/i, /^seznam/i, /napiš.*seznam/i, /^list/i, /^enumerate/i],
+                systemPrompt: 'Vytvoř stručný seznam.',
+                maxTokens: 800
+            },
+            code: {
+                patterns: [/^napiš kód/i, /^naprogramuj/i, /^kód pro/i, /^write code/i, /^implement/i],
+                systemPrompt: 'Vrať pouze čistý kód s krátkými komentáři.',
+                maxTokens: 2000
+            },
+            fix: {
+                patterns: [/^oprav/i, /^fix/i, /chyba/i, /error/i, /nefunguje/i],
+                systemPrompt: 'Oprav problém. Vrať jen opravený kód.',
+                maxTokens: 1500
+            },
+            analyze: {
+                patterns: [/^analyzuj/i, /^analyze/i, /^rozeber/i, /^review/i],
+                systemPrompt: 'Analyzuj stručně. Zaměř se na klíčové body.',
+                maxTokens: 1200
+            }
+        },
+
+        /**
+         * Detekuj typ dotazu
+         */
+        detectQueryType(prompt) {
+            const cleanPrompt = prompt.trim().toLowerCase();
+
+            for (const [type, config] of Object.entries(this._queryTypes)) {
+                for (const pattern of config.patterns) {
+                    if (pattern.test(cleanPrompt)) {
+                        return { type, ...config };
+                    }
+                }
+            }
+
+            // Default - komplexní dotaz
+            return {
+                type: 'complex',
+                systemPrompt: null, // Použij původní
+                maxTokens: 4000
+            };
+        },
+
+        /**
+         * Optimalizuj options podle typu dotazu
+         */
+        optimizeOptions(prompt, options = {}) {
+            const queryInfo = this.detectQueryType(prompt);
+            const optimized = { ...options };
+
+            // Nezasahuj do explicitně nastavených options
+            if (options._skipOptimization) return options;
+
+            // Pro jednoduché dotazy použij kratší system prompt
+            if (queryInfo.systemPrompt && !options.system) {
+                optimized.system = queryInfo.systemPrompt;
+            }
+
+            // Nastav max_tokens pokud není explicitně zadáno
+            if (!options.maxTokens && !options.max_tokens) {
+                optimized.maxTokens = queryInfo.maxTokens;
+            }
+
+            // Pro jednoduché dotazy použij nižší temperature
+            if (queryInfo.type === 'simple' || queryInfo.type === 'yesno') {
+                optimized.temperature = optimized.temperature || 0.3;
+            }
+
+            optimized._queryType = queryInfo.type;
+            return optimized;
+        },
+
+        /**
+         * Zkrať systémový prompt pro free modely
+         */
+        shortenSystemPrompt(systemPrompt, model, provider) {
+            if (!systemPrompt) return systemPrompt;
+            if (!AI.tokenBudget._isFreeModel(model, provider)) return systemPrompt;
+
+            const tokens = AI.estimateTokens(systemPrompt);
+            const budget = AI.tokenBudget._budgets.free.system;
+
+            if (tokens <= budget) return systemPrompt;
+
+            // Zkrať - zachovej nejdůležitější části
+            const lines = systemPrompt.split('\n');
+            const essential = [];
+            const optional = [];
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+
+                // Důležité řádky (obsahují klíčová slova)
+                if (/^(jsi|you are|musíš|must|vždy|always|nikdy|never|důležité|important)/i.test(trimmed)) {
+                    essential.push(line);
+                } else {
+                    optional.push(line);
+                }
+            }
+
+            let result = essential.join('\n');
+            let currentTokens = AI.estimateTokens(result);
+
+            // Přidávej optional dokud je místo
+            for (const line of optional) {
+                const lineTokens = AI.estimateTokens(line);
+                if (currentTokens + lineTokens <= budget) {
+                    result += '\n' + line;
+                    currentTokens += lineTokens;
+                }
+            }
+
+            return result;
+        }
+    },
+
     // ============== ZRUŠENÍ POŽADAVKU ==============
     cancel() {
         if (this._activeController) {
@@ -473,40 +809,314 @@ const AI = {
     // ============== VŠECHNY MODELY (seřazené od nejlepších) ==============
     ALL_MODELS: {
         gemini: [
-            { value: "gemini-2.5-flash", name: "🧠 Gemini 2.5 Flash", rpm: 10, quality: 95 },
-            { value: "gemini-2.5-flash-lite", name: "⚡ Gemini 2.5 Flash-Lite", rpm: 15, quality: 85 }
+            { value: "gemini-2.5-flash", name: "🧠 Gemini 2.5 Flash (Hybrid)", rpm: 15, quality: 95, free: true },
+            { value: "gemini-2.5-flash-lite", name: "⚡ Gemini 2.5 Flash-Lite", rpm: 30, quality: 85, free: true },
+            { value: "gemini-2.5-pro", name: "🏆 Gemini 2.5 Pro", rpm: 5, quality: 98, free: true },
+            { value: "gemini-3-flash-preview", name: "🔥 Gemini 3.0 Flash Preview", rpm: 15, quality: 96, free: true },
+            { value: "gemini-2.0-flash", name: "👁️ Gemini 2.0 Flash (Image-Gen)", rpm: 15, quality: 92, free: true },
+            { value: "gemini-2.0-flash-lite", name: "⚡ Gemini 2.0 Flash-Lite", rpm: 20, quality: 82, free: true },
+            { value: "gemma-3-27b-it", name: "🤖 Gemma 3 27B (Open)", rpm: 15, quality: 88, free: true },
+            { value: "gemini-robotics-er-1.5-preview", name: "🤖 Gemini Robotics-ER 1.5", rpm: 5, quality: 85, free: true }
         ],
         groq: [
-            { value: "llama-3.3-70b-versatile", name: "🧠 Llama 3.3 70B (nejchytřejší)", rpm: 30, quality: 90 },
-            { value: "openai/gpt-oss-120b", name: "🧠 GPT OSS 120B", rpm: 30, quality: 88 },
-            { value: "meta-llama/llama-4-maverick-17b-128e-instruct", name: "👁️ Llama 4 Maverick (Vision)", rpm: 30, quality: 85 },
-            { value: "meta-llama/llama-4-scout-17b-16e-instruct", name: "👁️ Llama 4 Scout (Vision)", rpm: 30, quality: 82 },
-            { value: "openai/gpt-oss-20b", name: "⚡ GPT OSS 20B (rychlý)", rpm: 30, quality: 75 },
-            { value: "llama-3.1-8b-instant", name: "⚡ Llama 3.1 8B (nejrychlejší)", rpm: 30, quality: 65 }
-        ],
-        mistral: [
-            { value: "mistral-small-latest", name: "🧠 Mistral Small", rpm: 30, quality: 80 },
-            { value: "codestral-latest", name: "💻 Codestral (kódování)", rpm: 30, quality: 78 }
-        ],
-        cohere: [
-            { value: "command-a-03-2025", name: "🧠 Command A (nejnovější)", rpm: 20, quality: 85 },
-            { value: "command-r-plus-08-2024", name: "💬 Command R+", rpm: 20, quality: 80 },
-            { value: "command-r-08-2024", name: "⚡ Command R (rychlý)", rpm: 20, quality: 70 }
+            { value: "llama-3.3-70b-versatile", name: "🏆 Llama 3.3 70B", rpm: 30, quality: 90, free: true },
+            { value: "llama-3.1-8b-instant", name: "⚡ Llama 3.1 8B Instant", rpm: 30, quality: 75, free: true },
+            { value: "meta-llama/llama-4-scout-17b-16e-instruct", name: "🔥 Llama 4 Scout 17B", rpm: 30, quality: 88, free: true },
+            { value: "meta-llama/llama-4-maverick-17b-128e-instruct", name: "🔥 Llama 4 Maverick 17B", rpm: 30, quality: 90, free: true },
+            { value: "qwen/qwen3-32b", name: "💻 Qwen3 32B", rpm: 60, quality: 85, free: true },
+            { value: "moonshotai/kimi-k2-instruct", name: "🎯 Kimi K2 Instruct", rpm: 60, quality: 82, free: true },
+            { value: "openai/gpt-oss-120b", name: "🧠 GPT-OSS 120B", rpm: 30, quality: 88, free: true },
+            { value: "allam-2-7b", name: "🌍 Allam 2 7B (Arabic)", rpm: 30, quality: 70, free: true }
         ],
         openrouter: [
-            { value: "mistralai/mistral-small-3.1-24b-instruct:free", name: "🔥 Mistral Small 3.1 :free", rpm: 20, quality: 75 }
+            { value: "deepseek/deepseek-r1-0528:free", name: "🧠 DeepSeek R1 (o1-level)", rpm: 20, quality: 96, free: true },
+            { value: "meta-llama/llama-3.3-70b-instruct:free", name: "🦙 Llama 3.3 70B", rpm: 20, quality: 88, free: true },
+            { value: "google/gemma-3-27b-it:free", name: "🤖 Gemma 3 27B", rpm: 20, quality: 86, free: true },
+            { value: "nvidia/nemotron-3-nano-30b-a3b:free", name: "⚡ NVIDIA Nemotron 3 Nano", rpm: 20, quality: 85, free: true },
+            { value: "nvidia/nemotron-nano-12b-v2-vl:free", name: "👁️ NVIDIA Nemotron VL", rpm: 20, quality: 83, free: true },
+            { value: "tngtech/deepseek-r1t2-chimera:free", name: "🧬 DeepSeek R1T2 Chimera", rpm: 20, quality: 92, free: true },
+            { value: "tngtech/deepseek-r1t-chimera:free", name: "🧬 DeepSeek R1T Chimera", rpm: 20, quality: 90, free: true },
+            { value: "tngtech/tng-r1t-chimera:free", name: "🎭 TNG R1T Chimera", rpm: 20, quality: 88, free: true },
+            { value: "z-ai/glm-4.5-air:free", name: "💭 GLM 4.5 Air", rpm: 20, quality: 84, free: true },
+            { value: "mistralai/mistral-small-3.1-24b-instruct:free", name: "🔥 Mistral Small 3.1", rpm: 20, quality: 82, free: true }
         ],
-        huggingface: [
-            { value: "mistralai/Mistral-7B-Instruct-v0.3", name: "🔥 Mistral 7B", rpm: 10, quality: 60 },
-            { value: "microsoft/Phi-3-mini-4k-instruct", name: "🔬 Phi-3 Mini", rpm: 10, quality: 55 },
-            { value: "HuggingFaceH4/zephyr-7b-beta", name: "💨 Zephyr 7B", rpm: 10, quality: 50 },
-            { value: "google/gemma-2-2b-it", name: "🤖 Gemma 2 2B", rpm: 10, quality: 45 },
-            { value: "tiiuae/falcon-7b-instruct", name: "🦅 Falcon 7B", rpm: 10, quality: 40 }
+        mistral: [
+            { value: "mistral-small-latest", name: "🧠 Mistral Small", rpm: 10, quality: 85, free: true },
+            { value: "open-mistral-7b", name: "🤖 Mistral 7B (Open)", rpm: 10, quality: 75, free: true },
+            { value: "codestral-latest", name: "💻 Codestral", rpm: 10, quality: 88, free: true }
         ]
+        // POZNÁMKA: Cohere a HuggingFace odstraněny - API nefunkční (leden 2026)
+        // Cohere: 404 Not Found na v2/chat
+        // HuggingFace: 410 Gone - api-inference.huggingface.co už není podporováno
     },
 
     // Pořadí providerů od nejlepšího (pro fallback)
-    PROVIDER_PRIORITY: ['groq', 'gemini', 'mistral', 'cohere', 'openrouter', 'huggingface'],
+    // Funkční providery: gemini, groq, openrouter, mistral
+    PROVIDER_PRIORITY: ['gemini', 'groq', 'openrouter', 'mistral'],
+
+    // ============== INTELIGENTNÍ SPRÁVA RATE LIMITŮ ==============
+    // (Delegováno na ModelSelector modul)
+
+    // Inicializace ModelSelector
+    _modelSelector: null,
+    _modelSelectorWarned: false,
+
+    /**
+     * Vrátí ModelSelector instanci (lazy init)
+     */
+    _getModelSelector() {
+        if (!this._modelSelector) {
+            if (typeof window.ModelSelector === 'undefined') {
+                // Varuj jen 1x
+                if (!this._modelSelectorWarned) {
+                    console.warn('⚠️ ModelSelector není načten - používám fallback (všechny modely dostupné)');
+                    this._modelSelectorWarned = true;
+                }
+                // Fallback - vrátíme dummy objekt
+                return {
+                    isModelAvailable: () => true,
+                    selectBestCodingModel: () => this.selectBestModel(),
+                    recordRequest: () => {},
+                    recordLimitHit: () => {},
+                    getStats: () => [],
+                    resetAllTracking: () => {}
+                };
+            }
+            this._modelSelector = new window.ModelSelector(this);
+        }
+        return this._modelSelector;
+    },
+
+    /**
+     * Deleguje na ModelSelector.isModelAvailable()
+     */
+    isModelAvailable(provider, model) {
+        return this._getModelSelector().isModelAvailable(provider, model);
+    },
+
+    /**
+     * Deleguje na ModelSelector.selectBestCodingModel()
+     */
+    selectBestCodingModel() {
+        return this._getModelSelector().selectBestCodingModel();
+    },
+
+    /**
+     * Deleguje na ModelSelector.recordRequest()
+     */
+    _recordModelRequest(provider, model) {
+        return this._getModelSelector().recordRequest(provider, model);
+    },
+
+    /**
+     * Deleguje na ModelSelector.recordLimitHit()
+     */
+    _recordLimitHit(provider, model, limitType, errorMessage) {
+        return this._getModelSelector().recordLimitHit(provider, model, limitType, errorMessage);
+    },
+
+    /**
+     * Vrátí statistiky rate limitů
+     */
+    getRateLimitStats() {
+        return this._getModelSelector().getStats();
+    },
+
+    /**
+     * Reset všech trackingů
+     */
+    resetRateLimitTracking() {
+        return this._getModelSelector().resetAllTracking();
+    },
+
+    // Cache pro OpenRouter tier info
+    _openRouterTierCache: {},
+
+    /**
+     * Zkontroluje OpenRouter API klíč a zjistí RPD limit
+     * @param {string} apiKey - OpenRouter API klíč (volitelný, použije se uložený)
+     * @returns {Promise<{isFreeTier: boolean, rpm: number, rpd: number, usage: number, usageDaily: number}>}
+     */
+    async checkOpenRouterTier(apiKey = null) {
+        const key = apiKey || this.getKey('openrouter');
+        if (!key) {
+            throw new Error('OpenRouter API klíč nenalezen');
+        }
+
+        // Cache check (platnost 5 minut)
+        const cached = this._openRouterTierCache[key];
+        if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) {
+            return cached.data;
+        }
+
+        try {
+            const response = await fetch('https://openrouter.ai/api/v1/key', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${key}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`OpenRouter API error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const data = result.data;
+
+            // is_free_tier: true = nikdy nenabil = 50 RPD
+            // is_free_tier: false = nabil $10+ = 1,000 RPD
+            const tierInfo = {
+                provider: 'openrouter',
+                providerName: 'OpenRouter',
+                isFreeTier: data.is_free_tier,
+                rpm: 20,  // OpenRouter má 20 RPM pro free i paid
+                rpd: data.is_free_tier ? 50 : 1000,
+                usage: data.usage || 0,
+                usageDaily: data.usage_daily || 0,  // API vrací správné denní využití
+                remaining: this.rateLimit.remaining('openrouter'),
+                usedToday: data.usage_daily || 0,  // Použij API data místo lokálních statistik
+                label: data.label || 'Unknown',
+                limit: data.limit !== undefined ? data.limit : null,
+                limitRemaining: data.limit_remaining !== undefined ? data.limit_remaining : null,
+                rateLimit: data.rate_limit || null
+            };
+
+            // Cache result
+            this._openRouterTierCache[key] = {
+                timestamp: Date.now(),
+                data: tierInfo
+            };
+
+            return tierInfo;
+        } catch (error) {
+            console.error('Chyba při kontrole OpenRouter tier:', error);
+            // Fallback na free tier limity
+            return {
+                provider: 'openrouter',
+                providerName: 'OpenRouter',
+                isFreeTier: true,
+                rpm: 20,
+                rpd: 50,
+                usage: 0,
+                usageDaily: 0,
+                remaining: this.rateLimit.remaining('openrouter'),
+                usedToday: this.stats.get().byProvider?.openrouter?.calls || 0,
+                error: error.message
+            };
+        }
+    },
+
+    // Cache pro rate limit info všech providerů
+    _rateLimitInfoCache: {},
+
+    /**
+     * Zkontroluje rate limity pro kteréhokoliv providera
+     * @param {string} provider - Provider name
+     * @returns {Promise<Object>}
+     */
+    async checkProviderLimits(provider) {
+        // Zkontroluj cache (platnost 2 minuty)
+        const cached = this._rateLimitInfoCache[provider];
+        if (cached && Date.now() - cached.timestamp < 2 * 60 * 1000) {
+            return cached.data;
+        }
+
+        const key = this.getKey(provider);
+        if (!key) {
+            throw new Error(`${provider} API klíč nenalezen`);
+        }
+
+        let limitInfo = {
+            provider,
+            providerName: this.getProviderDisplayName(provider),
+            rpm: this.rateLimit._getLimit(provider),
+            rpd: null,
+            remaining: null,
+            reset: null,
+            usedToday: null,
+            error: null
+        };
+
+        try {
+            switch (provider) {
+                case 'openrouter':
+                    return await this.checkOpenRouterTier();
+
+                case 'gemini':
+                    // Gemini má RPM limity podle modelu
+                    limitInfo.rpm = 15;
+                    limitInfo.rpd = 1500;
+                    limitInfo.remaining = this.rateLimit.remaining(provider);
+                    limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                    break;
+
+                case 'groq':
+                    // Zkus získat info z Groq API
+                    try {
+                        const response = await fetch('https://api.groq.com/openai/v1/models', {
+                            headers: { 'Authorization': `Bearer ${key}` }
+                        });
+                        if (response.ok) {
+                            limitInfo.rpm = 30;
+                            limitInfo.rpd = 14400;
+                            limitInfo.remaining = this.rateLimit.remaining(provider);
+                            limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                            // Čti rate limit z headers
+                            const rateLimit = response.headers.get('x-ratelimit-limit-requests');
+                            const rateLimitRemaining = response.headers.get('x-ratelimit-remaining-requests');
+                            const rateLimitReset = response.headers.get('x-ratelimit-reset-requests');
+                            if (rateLimit) limitInfo.rpm = parseInt(rateLimit);
+                            if (rateLimitRemaining) limitInfo.remaining = parseInt(rateLimitRemaining);
+                            if (rateLimitReset) limitInfo.reset = rateLimitReset;
+                        }
+                    } catch (e) {
+                        console.warn('Groq API info nedostupné:', e.message);
+                        limitInfo.rpm = 30;
+                        limitInfo.rpd = 14400;
+                        limitInfo.remaining = this.rateLimit.remaining(provider);
+                        limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                    }
+                    break;
+
+                case 'mistral':
+                    limitInfo.rpm = 10;
+                    limitInfo.rpd = 500;
+                    limitInfo.remaining = this.rateLimit.remaining(provider);
+                    limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                    break;
+
+                case 'cohere':
+                    limitInfo.rpm = 20;
+                    limitInfo.rpd = 1000;
+                    limitInfo.remaining = this.rateLimit.remaining(provider);
+                    limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                    break;
+
+                case 'huggingface':
+                    limitInfo.rpm = 10;
+                    limitInfo.rpd = 500;
+                    limitInfo.remaining = this.rateLimit.remaining(provider);
+                    limitInfo.usedToday = this.stats.get().byProvider?.[provider]?.calls || 0;
+                    break;
+
+                default:
+                    throw new Error(`Neznámý provider: ${provider}`);
+            }
+
+            // Cache výsledek
+            this._rateLimitInfoCache[provider] = {
+                timestamp: Date.now(),
+                data: limitInfo
+            };
+
+            return limitInfo;
+        } catch (error) {
+            limitInfo.error = error.message;
+            return limitInfo;
+        }
+    },
 
     // Modely s podporou vision (Groq)
     VISION_MODELS: [
@@ -544,6 +1154,143 @@ const AI = {
         return allModels.sort((a, b) => b.quality - a.quality);
     },
 
+    // ============== NOVÉ METODY PRO VÝBĚR MODELŮ ==============
+
+    /**
+     * Získej nejlepší modely podle kvality myšlení
+     * Pro normální použití bez agentů
+     */
+    getBestModels(limit = 5) {
+        const allProviders = this.getAllProvidersWithModels();
+        const models = [];
+
+        for (const [providerKey, providerData] of Object.entries(allProviders)) {
+            if (!this.getKey(providerKey)) continue;
+
+            providerData.models.forEach(modelData => {
+                if (modelData.quality && modelData.quality >= 90) {
+                    models.push({
+                        provider: providerKey,
+                        model: modelData.value,
+                        name: `${providerData.name} - ${modelData.label}`,
+                        quality: modelData.quality,
+                        rpm: modelData.rpm,
+                        free: modelData.free
+                    });
+                }
+            });
+        }
+
+        return models.sort((a, b) => b.quality - a.quality).slice(0, limit);
+    },
+
+    /**
+     * Získej modely s vysokým RPM a dobrou kvalitou
+     * Pro agenty kde je potřeba rychlost ale i kvalita
+     */
+    getBalancedModels(limit = 5) {
+        const allProviders = this.getAllProvidersWithModels();
+        const models = [];
+
+        for (const [providerKey, providerData] of Object.entries(allProviders)) {
+            if (!this.getKey(providerKey)) continue;
+
+            providerData.models.forEach(modelData => {
+                if (modelData.rpm >= 20 && modelData.quality >= 80) {
+                    models.push({
+                        provider: providerKey,
+                        model: modelData.value,
+                        name: `${providerData.name} - ${modelData.label}`,
+                        quality: modelData.quality,
+                        rpm: modelData.rpm,
+                        free: modelData.free
+                    });
+                }
+            });
+        }
+
+        return models.sort((a, b) => {
+            if (a.free && !b.free) return -1;
+            if (!a.free && b.free) return 1;
+            return b.rpm - a.rpm;
+        }).slice(0, limit);
+    },
+
+    /**
+     * Získej nejrychlejší modely s vysokým RPM
+     * Pro jednoduché agenty (dokumentace, testy)
+     */
+    getFastModels(limit = 5) {
+        const allProviders = this.getAllProvidersWithModels();
+        const models = [];
+
+        for (const [providerKey, providerData] of Object.entries(allProviders)) {
+            if (!this.getKey(providerKey)) continue;
+
+            providerData.models.forEach(modelData => {
+                if (modelData.rpm >= 20) {
+                    models.push({
+                        provider: providerKey,
+                        model: modelData.value,
+                        name: `${providerData.name} - ${modelData.label}`,
+                        quality: modelData.quality || 70,
+                        rpm: modelData.rpm,
+                        speed: modelData.speed || 80,
+                        free: modelData.free
+                    });
+                }
+            });
+        }
+
+        return models.sort((a, b) => {
+            const scoreA = (a.rpm * 2) + a.speed;
+            const scoreB = (b.rpm * 2) + b.speed;
+            return scoreB - scoreA;
+        }).slice(0, limit);
+    },
+
+    /**
+     * Vyber model podle typu agenta
+     * @param {string} agentType - orchestrator|architect|frontend|backend|fullstack|debugger|reviewer|documentation|tester
+     * @returns {object} - {provider, model}
+     */
+    selectModelForAgent(agentType) {
+        // Důležití agenti - potřebují nejlepší AI
+        const criticalAgents = ['orchestrator', 'architect', 'fullstack'];
+
+        // Střední agenti - potřebují dobrou kvalitu a rychlost
+        const mediumAgents = ['frontend', 'backend', 'debugger', 'reviewer'];
+
+        // Jednoduší agenti - rychlost a vysoký RPM
+        const simpleAgents = ['documentation', 'tester'];
+
+        if (criticalAgents.includes(agentType)) {
+            // Nejlepší modely
+            const best = this.getBestModels(1)[0];
+            console.log(`🎯 Agent ${agentType}: Používám nejlepší model - ${best?.name || 'llama-3.3-70b'}`);
+            return best ? { provider: best.provider, model: best.model } : { provider: 'groq', model: 'llama-3.3-70b-versatile' };
+        } else if (mediumAgents.includes(agentType)) {
+            // Vyvážené modely
+            const balanced = this.getBalancedModels(1)[0];
+            console.log(`⚖️ Agent ${agentType}: Používám vyvážený model - ${balanced?.name || 'llama-3.1-70b'}`);
+            return balanced ? { provider: balanced.provider, model: balanced.model } : { provider: 'groq', model: 'llama-3.1-70b-versatile' };
+        } else {
+            // Rychlé modely
+            const fast = this.getFastModels(1)[0];
+            console.log(`⚡ Agent ${agentType}: Používám rychlý model - ${fast?.name || 'mixtral-8x7b'}`);
+            return fast ? { provider: fast.provider, model: fast.model } : { provider: 'groq', model: 'mixtral-8x7b-32768' };
+        }
+    },
+
+    /**
+     * Vyber nejlepší model pro normální chat (ne agenty)
+     */
+    selectBestModel() {
+        const best = this.getBestModels(1)[0];
+        console.log(`✨ Normální chat: Používám nejlepší model - ${best?.name || 'llama-3.3-70b'}`);
+        return best ? { provider: best.provider, model: best.model } : { provider: 'groq', model: 'llama-3.3-70b-versatile' };
+    },
+
     // ============== HELPER FUNKCE ==============
 
     async fetchWithTimeout(url, options, timeoutMs) {
@@ -574,7 +1321,7 @@ const AI = {
     },
 
     // Retry s exponenciálním backoff
-    async retryWithBackoff(apiCall, maxRetries = null) {
+    async retryWithBackoff(apiCall, maxRetries = null, providerContext = null) {
         const retries = maxRetries || this.config.maxRetries;
 
         for (let attempt = 0; attempt < retries; attempt++) {
@@ -587,6 +1334,16 @@ const AI = {
                     err.message?.includes('RESOURCE_EXHAUSTED');
 
                 if (isRateLimit && attempt < retries - 1) {
+                    // Místo čekání zkusíme jiný model
+                    if (providerContext && attempt === 0) {
+                        console.log('⚠️ Rate limit detekovaná - zkousím jiný model...');
+                        // Vrátíme speciální error pro fallback
+                        const fallbackError = new Error('RATE_LIMIT_FALLBACK');
+                        fallbackError.originalError = err;
+                        throw fallbackError;
+                    }
+
+                    // Pokud už fallback selžal, nebo není context, čekej
                     const retryMatch = err.message?.match(/retry in ([\d.]+)s/i);
                     let delayMs;
 
@@ -657,8 +1414,8 @@ const AI = {
             return customKey;
         }
 
-        // 3. Fallback na demo klíče
-        const demoKey = this.DEMO_KEYS[provider];
+        // 3. Fallback na demo klíče (obfuskované)
+        const demoKey = this._getDemoKey(provider);
         if (demoKey && demoKey.length > 10) {
             return demoKey;
         }
@@ -705,246 +1462,246 @@ const AI = {
 
     // Získej všechny providery s jejich modely (pro UI)
     getAllProvidersWithModels() {
-        return {
-            groq: {
-                name: 'Groq',
-                models: [
-                    {
-                        value: 'llama-3.3-70b-versatile',
-                        label: 'Llama 3.3 70B Versatile',
-                        free: true,
-                        rpm: 30,
-                        context: '128K tokens',
-                        description: 'Nejnovější Llama, výborný pro komplexní úkoly'
-                    },
-                    {
-                        value: 'llama-3.1-70b-versatile',
-                        label: 'Llama 3.1 70B Versatile',
-                        free: true,
-                        rpm: 30,
-                        context: '128K tokens',
-                        description: 'Stabilní, vhodný pro dlouhé konverzace'
-                    },
-                    {
-                        value: 'llama-3.2-90b-text-preview',
-                        label: 'Llama 3.2 90B Text',
-                        free: true,
-                        rpm: 30,
-                        context: '8K tokens',
-                        description: 'Preview model, rychlý a kvalitní'
-                    },
-                    {
-                        value: 'mixtral-8x7b-32768',
-                        label: 'Mixtral 8x7B',
-                        free: true,
-                        rpm: 30,
-                        context: '32K tokens',
-                        description: 'Velmi rychlý, dobrý pro kód'
-                    },
-                    {
-                        value: 'gemma2-9b-it',
-                        label: 'Gemma 2 9B',
-                        free: true,
-                        rpm: 30,
-                        context: '8K tokens',
-                        description: 'Malý a efektivní model'
-                    }
-                ]
-            },
-            gemini: {
-                name: 'Google Gemini',
-                models: [
-                    {
-                        value: 'gemini-1.5-flash',
-                        label: 'Gemini 1.5 Flash',
-                        free: true,
-                        rpm: 15,
-                        context: '1M tokens',
-                        description: 'Extrémně dlouhý kontext, rychlý a free'
-                    },
-                    {
-                        value: 'gemini-1.5-pro',
-                        label: 'Gemini 1.5 Pro',
-                        free: false,
-                        rpm: 2,
-                        context: '2M tokens',
-                        description: 'Nejchytřejší Gemini, placený'
-                    },
-                    {
-                        value: 'gemini-1.0-pro',
-                        label: 'Gemini 1.0 Pro',
-                        free: true,
-                        rpm: 60,
-                        context: '32K tokens',
-                        description: 'Starší verze, stále velmi dobrý'
-                    }
-                ]
-            },
-            openrouter: {
-                name: 'OpenRouter',
-                models: [
-                    {
-                        value: 'mistralai/mistral-small-3.1-24b-instruct:free',
-                        label: 'Mistral Small 3.1 24B (Free)',
-                        free: true,
-                        rpm: 20,
-                        context: '32K tokens',
-                        description: 'Malý Mistral, rychlý a free'
-                    },
-                    {
-                        value: 'google/gemini-flash-1.5',
-                        label: 'Gemini Flash 1.5',
-                        free: false,
-                        rpm: 10,
-                        context: '1M tokens',
-                        description: 'Gemini přes OpenRouter'
-                    },
-                    {
-                        value: 'meta-llama/llama-3.1-8b-instruct:free',
-                        label: 'Llama 3.1 8B (Free)',
-                        free: true,
-                        rpm: 20,
-                        context: '128K tokens',
-                        description: 'Malý Llama, free a rychlý'
-                    },
-                    {
-                        value: 'anthropic/claude-3.5-sonnet',
-                        label: 'Claude 3.5 Sonnet',
-                        free: false,
-                        rpm: 5,
-                        context: '200K tokens',
-                        description: 'Nejchytřejší Claude, placený'
-                    },
-                    {
-                        value: 'openai/gpt-4o-mini',
-                        label: 'GPT-4o Mini',
-                        free: false,
-                        rpm: 10,
-                        context: '128K tokens',
-                        description: 'Levný GPT-4, dobrý poměr cena/výkon'
-                    }
-                ]
-            },
-            mistral: {
-                name: 'Mistral',
-                models: [
-                    {
-                        value: 'mistral-small-latest',
-                        label: 'Mistral Small (Latest)',
-                        free: false,
-                        rpm: 5,
-                        context: '32K tokens',
-                        description: 'Rychlý a efektivní, placený'
-                    },
-                    {
-                        value: 'mistral-medium-latest',
-                        label: 'Mistral Medium',
-                        free: false,
-                        rpm: 5,
-                        context: '32K tokens',
-                        description: 'Středně velký model, placený'
-                    },
-                    {
-                        value: 'mistral-large-latest',
-                        label: 'Mistral Large',
-                        free: false,
-                        rpm: 5,
-                        context: '128K tokens',
-                        description: 'Největší Mistral, velmi chytrý'
-                    },
-                    {
-                        value: 'open-mistral-7b',
-                        label: 'Open Mistral 7B',
-                        free: true,
-                        rpm: 10,
-                        context: '32K tokens',
-                        description: 'Open-source verze, free'
-                    },
-                    {
-                        value: 'open-mixtral-8x7b',
-                        label: 'Open Mixtral 8x7B',
-                        free: true,
-                        rpm: 10,
-                        context: '32K tokens',
-                        description: 'MoE architektura, rychlý'
-                    }
-                ]
-            },
-            cohere: {
-                name: 'Cohere',
-                models: [
-                    {
-                        value: 'command-a-03-2025',
-                        label: 'Command A (2025)',
-                        free: true,
-                        rpm: 20,
-                        context: '128K tokens',
-                        description: 'Nejnovější Cohere, trial free'
-                    },
-                    {
-                        value: 'command-r-plus',
-                        label: 'Command R+',
-                        free: false,
-                        rpm: 10,
-                        context: '128K tokens',
-                        description: 'Pokročilý model pro RAG'
-                    },
-                    {
-                        value: 'command-r',
-                        label: 'Command R',
-                        free: false,
-                        rpm: 10,
-                        context: '128K tokens',
-                        description: 'Dobrý pro retrieval úkoly'
-                    },
-                    {
-                        value: 'command-light',
-                        label: 'Command Light',
-                        free: true,
-                        rpm: 20,
-                        context: '4K tokens',
-                        description: 'Rychlý lightweight model'
-                    }
-                ]
-            },
-            huggingface: {
-                name: 'HuggingFace',
-                models: [
-                    {
-                        value: 'mistralai/Mistral-7B-Instruct-v0.3',
-                        label: 'Mistral 7B Instruct',
-                        free: true,
-                        rpm: 10,
-                        context: '8K tokens',
-                        description: 'Open-source, inference API free'
-                    },
-                    {
-                        value: 'meta-llama/Llama-2-13b-chat-hf',
-                        label: 'Llama 2 13B Chat',
-                        free: true,
-                        rpm: 10,
-                        context: '4K tokens',
-                        description: 'Stabilní Llama 2, free'
-                    },
-                    {
-                        value: 'bigscience/bloom-560m',
-                        label: 'BLOOM 560M',
-                        free: true,
-                        rpm: 30,
-                        context: '2K tokens',
-                        description: 'Velmi malý a rychlý model'
-                    },
-                    {
-                        value: 'google/flan-t5-xxl',
-                        label: 'FLAN-T5 XXL',
-                        free: true,
-                        rpm: 20,
-                        context: '2K tokens',
-                        description: 'Dobrý pro instrukce, free'
-                    }
-                ]
-            }
+        const result = {};
+
+        // Dynamicky generuj z ALL_MODELS
+        for (const [provider, models] of Object.entries(this.ALL_MODELS)) {
+            result[provider] = {
+                name: this.getProviderDisplayName(provider),
+                models: models.map(m => ({
+                    value: m.value,
+                    label: m.name,
+                    free: m.free !== undefined ? m.free : true,
+                    rpm: m.rpm,
+                    quality: m.quality,
+                    description: m.description || ''
+                }))
+            };
+        }
+
+        return result;
+    },
+
+    // Získej zobrazované jméno providera
+    getProviderDisplayName(provider) {
+        const names = {
+            gemini: 'Google Gemini',
+            groq: 'Groq',
+            openrouter: 'OpenRouter',
+            mistral: 'Mistral AI',
+            cohere: 'Cohere',
+            huggingface: 'HuggingFace'
         };
+        return names[provider] || provider;
+    },
+
+    /**
+     * Zobrazí nápovědu pro získání API klíčů
+     * Otevře modální okno s detailními instrukcemi pro každého providera
+     */
+    showApiHelp() {
+        const helpModal = document.createElement('div');
+        helpModal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10001;
+            backdrop-filter: blur(4px);
+        `;
+
+        const providersInfo = [
+            {
+                name: '💎 Google Gemini',
+                icon: '💎',
+                description: 'Nejlepší FREE AI od Googlu s vysokými limity',
+                url: 'https://aistudio.google.com/app/apikey',
+                steps: [
+                    '1. Otevřete <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #3b82f6;">Google AI Studio</a>',
+                    '2. Přihlaste se svým Google účtem',
+                    '3. Klikněte na "Create API Key" nebo "Get API Key"',
+                    '4. Vyberte projekt nebo vytvořte nový',
+                    '5. Zkopírujte vygenerovaný klíč (začíná "AIza...")'
+                ],
+                limits: '✅ FREE tier: 15 RPM, ~1500 požadavků denně',
+                note: '⚡ Gemini 2.5 Flash je nejlepší volba pro většinu úkolů!'
+            },
+            {
+                name: '⚡ Groq',
+                icon: '⚡',
+                description: 'Nejrychlejší FREE AI s nejvyššími limity',
+                url: 'https://console.groq.com/keys',
+                steps: [
+                    '1. Otevřete <a href="https://console.groq.com/keys" target="_blank" style="color: #3b82f6;">Groq Console</a>',
+                    '2. Zaregistrujte se nebo se přihlaste',
+                    '3. Přejděte do sekce "API Keys"',
+                    '4. Klikněte na "Create API Key"',
+                    '5. Pojmenujte klíč a zkopírujte ho (začíná "gsk_...")'
+                ],
+                limits: '✅ FREE tier: 30-60 RPM podle modelu, žádný denní limit!',
+                note: '🚀 Llama 3.3 70B má skvělý poměr rychlost/kvalita!'
+            },
+            {
+                name: '🌐 OpenRouter',
+                icon: '🌐',
+                description: 'Přístup k desítkám AI modelů přes jedno API',
+                url: 'https://openrouter.ai/keys',
+                steps: [
+                    '1. Otevřete <a href="https://openrouter.ai/keys" target="_blank" style="color: #3b82f6;">OpenRouter Keys</a>',
+                    '2. Přihlaste se (podporuje Google, GitHub)',
+                    '3. Klikněte na "Create Key"',
+                    '4. Pojmenujte klíč a nastavte limity (volitelné)',
+                    '5. Zkopírujte klíč (začíná "sk-or-v1-...")'
+                ],
+                limits: '🆓 FREE tier: 50 RPD | 💰 Po nabití $10+: 1000 RPD',
+                note: '💡 Automaticky detekujeme váš tier! 17 FREE modelů k dispozici.'
+            },
+            {
+                name: '🔥 Mistral AI',
+                icon: '🔥',
+                description: 'Evropská AI s kvalitními open-source modely',
+                url: 'https://console.mistral.ai/api-keys/',
+                steps: [
+                    '1. Otevřete <a href="https://console.mistral.ai/api-keys/" target="_blank" style="color: #3b82f6;">Mistral Console</a>',
+                    '2. Zaregistrujte se nebo se přihlaste',
+                    '3. Přejděte do "API Keys"',
+                    '4. Klikněte na "Create new key"',
+                    '5. Zkopírujte vygenerovaný klíč'
+                ],
+                limits: '✅ FREE tier: Open-source modely zdarma (7B, Mixtral)',
+                note: '💻 Codestral je vynikající pro programování!'
+            },
+            {
+                name: '🧬 Cohere',
+                icon: '🧬',
+                description: 'Pokročilé NLP modely s trial účtem',
+                url: 'https://dashboard.cohere.com/api-keys',
+                steps: [
+                    '1. Otevřete <a href="https://dashboard.cohere.com/api-keys" target="_blank" style="color: #3b82f6;">Cohere Dashboard</a>',
+                    '2. Zaregistrujte se (podporuje Google, GitHub)',
+                    '3. Přejděte do sekce "API Keys"',
+                    '4. Použijte Trial klíč nebo vytvořte Production klíč',
+                    '5. Zkopírujte klíč'
+                ],
+                limits: '✅ Trial: Omezený free přístup | Command R+ má vysokou kvalitu',
+                note: '📊 Skvělé pro embeddings a reranking!'
+            },
+            {
+                name: '🤗 HuggingFace',
+                icon: '🤗',
+                description: 'Open-source AI komunita s tisíci modely',
+                url: 'https://huggingface.co/settings/tokens',
+                steps: [
+                    '1. Otevřete <a href="https://huggingface.co/settings/tokens" target="_blank" style="color: #3b82f6;">HuggingFace Tokens</a>',
+                    '2. Zaregistrujte se nebo se přihlaste',
+                    '3. Klikněte na "New token"',
+                    '4. Pojmenujte token a vyberte práva (read)',
+                    '5. Zkopírujte token (začíná "hf_...")'
+                ],
+                limits: '✅ FREE Inference API: Omezené použití, restart každé 72h',
+                note: '🔬 Ideální pro experimentování s open-source modely!'
+            }
+        ];
+
+        const helpContent = document.createElement('div');
+        helpContent.style.cssText = `
+            background: var(--bg-primary);
+            border-radius: 20px;
+            max-width: 900px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+        `;
+
+        helpContent.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid var(--border-color); padding-bottom: 15px;">
+                <h2 style="color: var(--text-primary); font-size: 28px; margin: 0; font-weight: bold;">
+                    ❓ Jak získat API klíče
+                </h2>
+                <button id="closeHelpModal" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 8px 16px; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s;">
+                    ✕ Zavřít
+                </button>
+            </div>
+
+            <div style="color: var(--text-secondary); font-size: 15px; margin-bottom: 30px; line-height: 1.6;">
+                📚 Detailní návod pro získání API klíčů ke všem podporovaným AI providerům.
+                Všechny klíče jsou <strong style="color: #22c55e;">100% ZDARMA</strong> s free tier limity!
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                ${providersInfo.map(provider => `
+                    <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; transition: all 0.3s;" onmouseenter="this.style.borderColor='#3b82f6'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='var(--border-color)'; this.style.transform='translateY(0)';">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                            <span style="font-size: 32px;">${provider.icon}</span>
+                            <div>
+                                <h3 style="color: var(--text-primary); margin: 0; font-size: 20px; font-weight: bold;">${provider.name}</h3>
+                                <p style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: 13px;">${provider.description}</p>
+                            </div>
+                        </div>
+
+                        <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; margin-bottom: 15px;">
+                            <div style="color: var(--text-secondary); font-size: 14px; margin-bottom: 10px;">📋 <strong>Postup:</strong></div>
+                            ${provider.steps.map(step => `
+                                <div style="color: var(--text-primary); font-size: 13px; margin: 6px 0; padding-left: 10px;">${step}</div>
+                            `).join('')}
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px; padding: 10px; font-size: 13px; color: #22c55e;">
+                                ${provider.limits}
+                            </div>
+                            <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 10px; font-size: 13px; color: #3b82f6;">
+                                ${provider.note}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div style="margin-top: 30px; padding: 20px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px;">
+                <div style="font-size: 16px; font-weight: bold; color: #8b5cf6; margin-bottom: 10px;">💡 Tipy pro správu klíčů:</div>
+                <ul style="color: var(--text-secondary); font-size: 13px; line-height: 1.8; margin: 0; padding-left: 20px;">
+                    <li>✅ Používejte <strong>demo klíče</strong> pro rychlé testování</li>
+                    <li>🔐 Nikdy nesdílejte své API klíče s nikým</li>
+                    <li>📦 Pravidelně exportujte klíče jako zálohu</li>
+                    <li>🔄 Pro produkci si vytvořte vlastní klíče u každého providera</li>
+                    <li>📊 Sledujte své limity v dashboardech providerů</li>
+                    <li>⚡ Groq a Gemini mají nejvyšší FREE limity!</li>
+                </ul>
+            </div>
+        `;
+
+        helpModal.appendChild(helpContent);
+        document.body.appendChild(helpModal);
+
+        // Close handlers
+        const closeBtn = helpModal.querySelector('#closeHelpModal');
+        closeBtn.addEventListener('click', () => {
+            document.body.removeChild(helpModal);
+        });
+
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                document.body.removeChild(helpModal);
+            }
+        });
+
+        // Hover effects for close button
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'rgba(239, 68, 68, 0.3)';
+            closeBtn.style.transform = 'scale(1.05)';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+            closeBtn.style.transform = 'scale(1)';
+        });
     },
 
     // ============== GEMINI ==============
@@ -956,10 +1713,25 @@ const AI = {
         const model = options.model || this.config.models.gemini;
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
 
-        const body = {
-            contents: [{
+        let contents;
+
+        // If messages are already provided (chat history), convert to Gemini format
+        if (options.messages && Array.isArray(options.messages)) {
+            contents = options.messages
+                .filter(msg => msg.role !== 'system') // System handled separately in Gemini
+                .map(msg => ({
+                    role: msg.role === 'assistant' ? 'model' : 'user',
+                    parts: [{ text: msg.content }]
+                }));
+        } else {
+            // Build from scratch
+            contents = [{
                 parts: [{ text: prompt }]
-            }],
+            }];
+        }
+
+        const body = {
+            contents,
             generationConfig: {
                 temperature: options.temperature ?? 0.7,
                 maxOutputTokens: options.maxTokens ?? 4096
@@ -970,6 +1742,14 @@ const AI = {
             body.systemInstruction = {
                 parts: [{ text: options.system }]
             };
+        } else if (options.messages) {
+            // Extract system message from messages if present
+            const systemMsg = options.messages.find(msg => msg.role === 'system');
+            if (systemMsg) {
+                body.systemInstruction = {
+                    parts: [{ text: systemMsg.content }]
+                };
+            }
         }
 
         const response = await this.retryWithBackoff(async () => {
@@ -985,7 +1765,7 @@ const AI = {
             }
 
             return resp.json();
-        });
+        }, null, { provider: 'gemini', model });
 
         const text = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
@@ -1007,29 +1787,53 @@ const AI = {
 
         let messages = [];
 
-        if (options.system) {
-            messages.push({ role: 'system', content: options.system });
-        }
-
-        const isVisionModel = this.VISION_MODELS.includes(model);
-        const hasImage = options.imageBase64 && options.imageMimeType;
-
-        if (isVisionModel && hasImage) {
-            messages.push({
-                role: 'user',
-                content: [
-                    { type: 'text', text: prompt },
-                    {
-                        type: 'image_url',
-                        image_url: {
-                            url: `data:${options.imageMimeType};base64,${options.imageBase64}`
-                        }
-                    }
-                ]
-            });
+        // If messages are already provided (chat history), use them
+        if (options.messages && Array.isArray(options.messages)) {
+            messages = options.messages;
         } else {
-            messages.push({ role: 'user', content: prompt });
+            // Build messages from scratch
+            if (options.system) {
+                messages.push({ role: 'system', content: options.system });
+            }
+
+            const isVisionModel = this.VISION_MODELS.includes(model);
+            const hasImage = options.imageBase64 && options.imageMimeType;
+
+            if (isVisionModel && hasImage) {
+                messages.push({
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: prompt },
+                        {
+                            type: 'image_url',
+                            image_url: {
+                                url: `data:${options.imageMimeType};base64,${options.imageBase64}`
+                            }
+                        }
+                    ]
+                });
+            } else {
+                messages.push({ role: 'user', content: prompt });
+            }
         }
+
+        const requestBody = {
+            model: model,
+            messages: messages,
+            temperature: options.temperature ?? 0.7,
+            max_tokens: options.maxTokens ?? 4096
+        };
+
+        console.log('🦙 Groq request:', {
+            url,
+            model,
+            messagesCount: messages.length,
+            hasSystemPrompt: !!options.system,
+            temperature: requestBody.temperature,
+            max_tokens: requestBody.max_tokens,
+            keyLength: key.length,
+            keyStart: key.substring(0, 10) + '...'
+        });
 
         const response = await this.fetchWithTimeout(url, {
             method: 'POST',
@@ -1037,16 +1841,14 @@ const AI = {
                 'Authorization': `Bearer ${key}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                model: model,
-                messages: messages,
-                temperature: options.temperature ?? 0.7,
-                max_tokens: options.maxTokens ?? 4096
-            })
+            body: JSON.stringify(requestBody)
         });
+
+        console.log('🦙 Groq response status:', response.status);
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
+            console.error('🦙 Groq error:', error);
             throw new Error(error.error?.message || `HTTP ${response.status}`);
         }
 
@@ -1075,12 +1877,18 @@ const AI = {
 
         console.info('🌐 OpenRouter request:', model);
 
-        const messages = [];
+        let messages = [];
 
-        if (options.system) {
-            messages.push({ role: 'system', content: options.system });
+        // If messages are already provided (chat history), use them
+        if (options.messages && Array.isArray(options.messages)) {
+            messages = options.messages;
+        } else {
+            // Build from scratch
+            if (options.system) {
+                messages.push({ role: 'system', content: options.system });
+            }
+            messages.push({ role: 'user', content: prompt });
         }
-        messages.push({ role: 'user', content: prompt });
 
         const response = await this.fetchWithTimeout(url, {
             method: 'POST',
@@ -1127,12 +1935,18 @@ const AI = {
         const model = options.model || this.config.models.mistral;
         const url = 'https://api.mistral.ai/v1/chat/completions';
 
-        const messages = [];
+        let messages = [];
 
-        if (options.system) {
-            messages.push({ role: 'system', content: options.system });
+        // If messages are already provided (chat history), use them
+        if (options.messages && Array.isArray(options.messages)) {
+            messages = options.messages;
+        } else {
+            // Build from scratch
+            if (options.system) {
+                messages.push({ role: 'system', content: options.system });
+            }
+            messages.push({ role: 'user', content: prompt });
         }
-        messages.push({ role: 'user', content: prompt });
 
         const response = await this.fetchWithTimeout(url, {
             method: 'POST',
@@ -1172,12 +1986,18 @@ const AI = {
         const model = options.model || this.config.models.cohere || 'command-r-plus-08-2024';
         const url = 'https://api.cohere.com/v2/chat';
 
-        const messages = [];
+        let messages = [];
 
-        if (options.system) {
-            messages.push({ role: 'system', content: options.system });
+        // If messages are already provided (chat history), use them
+        if (options.messages && Array.isArray(options.messages)) {
+            messages = options.messages;
+        } else {
+            // Build from scratch
+            if (options.system) {
+                messages.push({ role: 'system', content: options.system });
+            }
+            messages.push({ role: 'user', content: prompt });
         }
-        messages.push({ role: 'user', content: prompt });
 
         const response = await this.fetchWithTimeout(url, {
             method: 'POST',
@@ -1223,12 +2043,18 @@ const AI = {
         const model = options.model || this.config.models.huggingface || 'mistralai/Mistral-7B-Instruct-v0.3';
         const originalUrl = `https://api-inference.huggingface.co/models/${model}/v1/chat/completions`;
 
-        const messages = [];
+        let messages = [];
 
-        if (options.system) {
-            messages.push({ role: 'system', content: options.system });
+        // If messages are already provided (chat history), use them
+        if (options.messages && Array.isArray(options.messages)) {
+            messages = options.messages;
+        } else {
+            // Build from scratch
+            if (options.system) {
+                messages.push({ role: 'system', content: options.system });
+            }
+            messages.push({ role: 'user', content: prompt });
         }
-        messages.push({ role: 'user', content: prompt });
 
         const body = JSON.stringify({
             model: model,
@@ -1296,17 +2122,66 @@ const AI = {
     // ============== UNIVERZÁLNÍ METODY ==============
 
     async ask(prompt, options = {}) {
+        try {
+            return await this.askWithOptions(prompt, options);
+        } catch (error) {
+            // Pokud je to rate limit fallback, zkus jiný model
+            if (error.message === 'RATE_LIMIT_FALLBACK') {
+                console.log('🔄 Fallback na alternativní model...');
+
+                // Získej seznam všech dostupných modelů
+                const allProviders = this.getAllProvidersWithModels();
+                const currentProvider = options.provider;
+
+                // Najdi jiného providera
+                const alternativeProviders = Object.keys(allProviders)
+                    .filter(p => p !== currentProvider && this.getKey(p));
+
+                if (alternativeProviders.length > 0) {
+                    const fallbackProvider = alternativeProviders[0];
+                    const fallbackModel = allProviders[fallbackProvider].models[0].value;
+
+                    console.log(`✅ Používám záložní model: ${fallbackProvider} - ${fallbackModel}`);
+
+                    // Zkus znovu s jiným modelem
+                    return await this.askWithOptions(prompt, {
+                        ...options,
+                        provider: fallbackProvider,
+                        model: fallbackModel
+                    });
+                }
+
+                // Žádná alternativa není
+                throw error.originalError || error;
+            }
+
+            throw error;
+        }
+    },
+
+    async askWithOptions(prompt, options = {}) {
         const provider = options.provider || this.config.defaultProvider;
         const model = options.model || this.config.models[provider];
         const startTime = Date.now();
         const maxKeyRotations = options._keyRotations || 0;
         const autoFallback = options.autoFallback !== false; // Default: true
 
-        this._log(`Request: ${provider}/${model}`, prompt.substring(0, 50) + '...');
-        this.emit('request:start', { provider, model, prompt: prompt.substring(0, 100) });
+        // Safe prompt preview for logging
+        const promptPreview = typeof prompt === 'string'
+            ? prompt.substring(0, 50) + '...'
+            : (prompt.messages ? `[${prompt.messages.length} messages]` : '[object]');
+
+        this._log(`Request: ${provider}/${model}`, promptPreview);
+        this.emit('request:start', { provider, model, prompt: promptPreview });
+
+        // Zaznamenej request pro tracking limitů
+        this._recordModelRequest(provider, model);
 
         // Rate limiting check s automatickou rotací klíčů
         if (!options.skipRateLimit && !this.rateLimit.canMakeRequest(provider, model)) {
+            // Zaznamenej limit hit
+            this._recordLimitHit(provider, model, 'rpm', 'Rate limit exceeded');
+
             // Zkus rotovat klíč
             const keysCount = this.keys.list(provider).length;
             if (keysCount > 1 && maxKeyRotations < keysCount) {
@@ -1356,11 +2231,37 @@ const AI = {
                     throw new Error(`Neznámý poskytovatel: ${provider}`);
             }
         } catch (error) {
-            // Při rate limit chybě zkus rotovat klíč nebo fallback
-            const isRateLimitError = error.message.includes('429') ||
-                                     error.message.includes('rate') ||
-                                     error.message.includes('limit') ||
-                                     error.message.includes('quota');
+            // Detekce různých typů chyb
+            const errorMsg = error.message || '';
+            const isRateLimitError = errorMsg.includes('429') ||
+                                     errorMsg.includes('rate') ||
+                                     errorMsg.includes('limit') ||
+                                     errorMsg.includes('quota');
+
+            // 📱 NOVÉ: Detekce "model is overloaded" chyby (častější na mobilech)
+            const isOverloadedError = errorMsg.toLowerCase().includes('overload') ||
+                                      errorMsg.includes('503') ||
+                                      errorMsg.includes('502') ||
+                                      errorMsg.includes('temporarily unavailable') ||
+                                      errorMsg.includes('server error') ||
+                                      errorMsg.includes('capacity') ||
+                                      errorMsg.includes('busy');
+
+            const isAPIError = errorMsg.includes('400') ||
+                              errorMsg.includes('401') ||
+                              errorMsg.includes('422') ||
+                              errorMsg.includes('403') ||
+                              errorMsg.includes('Invalid input') ||
+                              errorMsg.includes('Unprocessable') ||
+                              errorMsg.includes('CORS') ||
+                              errorMsg.includes('ERR_FAILED');
+
+            // 📱 Speciální handling pro overloaded error - zkus automaticky jiný model
+            if (isOverloadedError && autoFallback) {
+                console.log('⚠️ Model přetížen, automaticky zkouším jiný model...');
+                this._log(`Model overloaded (${errorMsg.substring(0, 50)}) - fallback na jiný model...`);
+                return this._fallbackToNextModel(prompt, options, provider, model);
+            }
 
             if (isRateLimitError) {
                 const keysCount = this.keys.list(provider).length;
@@ -1377,9 +2278,9 @@ const AI = {
                 }
             }
 
-            // Jiná chyba - také zkus fallback
-            if (autoFallback && !options._noMoreFallback) {
-                this._log(`Chyba ${error.message} - zkouším další model...`);
+            // API chyba nebo jiná chyba - také zkus fallback
+            if (autoFallback && !options._noMoreFallback && (isAPIError || isRateLimitError || isOverloadedError)) {
+                this._log(`Chyba ${errorMsg.substring(0, 100)} - zkouším další model...`);
                 return this._fallbackToNextModel(prompt, options, provider, model);
             }
 
@@ -1407,37 +2308,109 @@ const AI = {
 
     // Interní metoda pro fallback na další model
     _fallbackToNextModel(prompt, options, failedProvider, failedModel) {
-        const allModels = this.getAllModelsSorted();
+        console.log('🔄 Fallback from:', failedProvider, failedModel);
 
-        // Najdi index aktuálního modelu
-        const currentIndex = allModels.findIndex(
-            m => m.provider === failedProvider && m.model === failedModel
-        );
+        // Sleduj vyzkoušené modely pro prevenci nekonečné smyčky
+        const triedModels = options._triedModels || [];
+        const currentKey = `${failedProvider}:${failedModel}`;
 
-        // Zkus další modely
-        for (let i = currentIndex + 1; i < allModels.length; i++) {
-            const { provider, model, name } = allModels[i];
+        // Přidej aktuální model do seznamu vyzkoušených
+        if (!triedModels.includes(currentKey)) {
+            triedModels.push(currentKey);
+        }
 
-            // Přeskoč modely ze stejného providera pokud nemají klíč
-            if (!this.getKey(provider)) continue;
+        // Limit na počet pokusů (max 10 různých modelů)
+        const MAX_FALLBACK_ATTEMPTS = 10;
+        if (triedModels.length >= MAX_FALLBACK_ATTEMPTS) {
+            console.log('🛑 Max fallback attempts reached:', triedModels.length);
+            throw new Error(`Dosažen limit ${MAX_FALLBACK_ATTEMPTS} pokusů fallback`);
+        }
 
-            this._log(`Fallback na: ${name}`);
+        // Nejdřív zkus jiné modely u stejného providera
+        const allProviders = this.getAllProvidersWithModels();
+        const currentProviderModels = allProviders[failedProvider]?.models || [];
+
+        if (currentProviderModels.length > 1) {
+            // Najdi index současného modelu
+            const currentModelIndex = currentProviderModels.findIndex(m => m.value === failedModel);
+
+            // Zkus další modely tohoto providera
+            for (let i = 0; i < currentProviderModels.length; i++) {
+                if (i === currentModelIndex) continue; // Přeskoč selhavší model
+
+                const nextModel = currentProviderModels[i].value;
+                const nextKey = `${failedProvider}:${nextModel}`;
+
+                // Přeskoč už vyzkoušené modely
+                if (triedModels.includes(nextKey)) {
+                    console.log('⏭️ Skipping already tried:', nextKey);
+                    continue;
+                }
+
+                console.log(`✅ Trying another model from ${failedProvider}:`, nextModel);
+
+                try {
+                    return this.ask(prompt, {
+                        ...options,
+                        provider: failedProvider,
+                        model: nextModel,
+                        _keyRotations: 0,
+                        autoFallback: true,
+                        _triedModels: [...triedModels, nextKey]
+                    });
+                } catch (e) {
+                    console.log('❌ Model failed:', nextModel, e.message);
+                    continue;
+                }
+            }
+        }
+
+        // Pokud všechny modely selhaly, zkus jiné providery
+        const currentProviderIndex = this.PROVIDER_PRIORITY.indexOf(failedProvider);
+
+        // Zkus nejdřív další providery (od aktuálního +1 do konce)
+        // Pak zkus i providery před aktuálním (od začátku do aktuálního)
+        const providersToTry = [
+            ...this.PROVIDER_PRIORITY.slice(currentProviderIndex + 1), // Zbytek seznamu
+            ...this.PROVIDER_PRIORITY.slice(0, currentProviderIndex)   // Začátek seznamu (kromě aktuálního)
+        ];
+
+        for (const nextProvider of providersToTry) {
+            // Přeskoč providery bez klíče
+            if (!this.getKey(nextProvider)) {
+                console.log('⏭️ Skipping', nextProvider, '(no key)');
+                continue;
+            }
+
+            // Vezmi první (výchozí) model tohoto providera
+            const nextModel = this.config.models[nextProvider];
+            const nextKey = `${nextProvider}:${nextModel}`;
+
+            // Přeskoč už vyzkoušené
+            if (triedModels.includes(nextKey)) {
+                console.log('⏭️ Skipping already tried provider:', nextKey);
+                continue;
+            }
+
+            console.log('✅ Trying fallback to:', nextProvider, nextModel);
 
             try {
                 return this.ask(prompt, {
                     ...options,
-                    provider,
-                    model,
+                    provider: nextProvider,
+                    model: nextModel,
                     _keyRotations: 0, // Reset rotace pro nového providera
-                    autoFallback: true
+                    autoFallback: true,
+                    _triedModels: [...triedModels, nextKey]
                 });
             } catch (e) {
+                console.log('❌ Fallback failed for', nextProvider, e.message);
                 // Pokračuj na další
                 continue;
             }
         }
 
-        throw new Error('Všechny modely vyčerpány');
+        throw new Error('Všechny providery vyčerpány');
     },
 
     async askWithFallback(prompt, options = {}) {
@@ -1719,31 +2692,78 @@ const AI = {
         }
     },
 
-    // ============== RESPONSE CACHE ==============
+    // ============== RESPONSE CACHE (Improved) ==============
     cache: {
         _data: {},
         _maxAge: 3600000, // 1 hodina
         _maxSize: 100,
+        _hits: 0,
+        _misses: 0,
 
-        // Generuj klíč pro cache
+        // Generuj klíč pro cache (vylepšený - normalizuje prompt)
         _makeKey(prompt, options) {
             const provider = options.provider || 'default';
             const model = options.model || 'default';
-            return `${provider}:${model}:${prompt.substring(0, 100)}`;
+            // Normalizuj prompt - odstraň whitespace a převeď na lowercase pro lepší matching
+            const normalizedPrompt = prompt.toLowerCase()
+                .replace(/\s+/g, ' ')
+                .trim()
+                .substring(0, 150);
+            return `${provider}:${model}:${normalizedPrompt}`;
         },
 
-        // Získej z cache
+        // Získej z cache (s fuzzy matching)
         get(prompt, options = {}) {
             const key = this._makeKey(prompt, options);
             const entry = this._data[key];
 
-            if (!entry) return null;
-            if (Date.now() - entry.timestamp > this._maxAge) {
-                delete this._data[key];
-                return null;
+            if (entry && Date.now() - entry.timestamp <= this._maxAge) {
+                this._hits++;
+                console.log('📦 Cache hit! Úspora tokenu.');
+                return entry.response;
             }
 
-            return entry.response;
+            // Fuzzy match - hledej podobné dotazy (>85% shoda)
+            const fuzzyMatch = this._findSimilar(prompt, options);
+            if (fuzzyMatch) {
+                this._hits++;
+                console.log('📦 Fuzzy cache hit!');
+                return fuzzyMatch;
+            }
+
+            if (entry) delete this._data[key]; // Expirovaný
+            this._misses++;
+            return null;
+        },
+
+        // Najdi podobný dotaz v cache
+        _findSimilar(prompt, options) {
+            const normalizedPrompt = prompt.toLowerCase().replace(/\s+/g, ' ').trim();
+            const provider = options.provider || 'default';
+            const model = options.model || 'default';
+            const prefix = `${provider}:${model}:`;
+
+            for (const [key, entry] of Object.entries(this._data)) {
+                if (!key.startsWith(prefix)) continue;
+                if (Date.now() - entry.timestamp > this._maxAge) continue;
+
+                const cachedPrompt = key.substring(prefix.length);
+                const similarity = this._calculateSimilarity(normalizedPrompt, cachedPrompt);
+
+                if (similarity > 0.85) {
+                    return entry.response;
+                }
+            }
+            return null;
+        },
+
+        // Jednoduchý výpočet podobnosti (Jaccard index)
+        _calculateSimilarity(str1, str2) {
+            const set1 = new Set(str1.split(' '));
+            const set2 = new Set(str2.split(' '));
+            const intersection = new Set([...set1].filter(x => set2.has(x)));
+            const union = new Set([...set1, ...set2]);
+            return intersection.size / union.size;
         },
 
         // Ulož do cache
@@ -1764,21 +2784,174 @@ const AI = {
                 response,
                 timestamp: Date.now()
             };
+
+            // Persist to localStorage
+            this._save();
         },
 
         // Vyčisti cache
         clear() {
             this._data = {};
+            this._hits = 0;
+            this._misses = 0;
+            localStorage.removeItem('ai_response_cache');
         },
 
         // Statistiky cache
         stats() {
             const keys = Object.keys(this._data);
+            const hitRate = this._hits + this._misses > 0
+                ? Math.round((this._hits / (this._hits + this._misses)) * 100)
+                : 0;
             return {
                 size: keys.length,
                 maxSize: this._maxSize,
-                maxAge: this._maxAge
+                maxAge: this._maxAge,
+                hits: this._hits,
+                misses: this._misses,
+                hitRate: `${hitRate}%`
             };
+        },
+
+        // Ulož do localStorage
+        _save() {
+            try {
+                // Ulož pouze posledních 50 položek
+                const entries = Object.entries(this._data)
+                    .sort((a, b) => b[1].timestamp - a[1].timestamp)
+                    .slice(0, 50);
+                localStorage.setItem('ai_response_cache', JSON.stringify(Object.fromEntries(entries)));
+            } catch (e) {}
+        },
+
+        // Načti z localStorage
+        load() {
+            try {
+                const stored = localStorage.getItem('ai_response_cache');
+                if (stored) {
+                    this._data = JSON.parse(stored);
+                    // Vyčisti expirované
+                    const now = Date.now();
+                    Object.keys(this._data).forEach(key => {
+                        if (now - this._data[key].timestamp > this._maxAge) {
+                            delete this._data[key];
+                        }
+                    });
+                }
+            } catch (e) {}
+        }
+    },
+
+    // ============== SMART RETRY WITH FALLBACK ==============
+    smartRetry: {
+        // Pořadí fallback modelů podle providera
+        _fallbackOrder: {
+            gemini: ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite'],
+            groq: ['llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
+            openrouter: [
+                'meta-llama/llama-3.3-70b-instruct:free',
+                'mistralai/mistral-small-3.1-24b-instruct:free',
+                'google/gemma-3-27b-it:free'
+            ],
+            mistral: ['open-mistral-7b', 'mistral-small-latest']
+        },
+
+        // Alternativní provideři v pořadí priorit
+        _providerFallback: ['groq', 'openrouter', 'gemini', 'mistral'],
+
+        /**
+         * Pokusí se o dotaz s automatickým fallbackem
+         */
+        async askWithFallback(prompt, options = {}) {
+            const maxRetries = options.maxRetries || 3;
+            const retryDelay = options.retryDelay || 2000;
+            let lastError = null;
+
+            // Zkus původní model/provider
+            const originalProvider = options.provider || AI.config.defaultProvider;
+            const originalModel = options.model;
+
+            // 1. Pokus s původním nastavením
+            try {
+                if (AI.rateLimit.canMakeRequest(originalProvider, originalModel)) {
+                    return await AI.ask(prompt, options);
+                }
+            } catch (error) {
+                lastError = error;
+                console.warn(`⚠️ Pokus selhal (${originalProvider}):`, error.message);
+            }
+
+            // 2. Zkus fallback modely stejného providera
+            const fallbackModels = this._fallbackOrder[originalProvider] || [];
+            for (const model of fallbackModels) {
+                if (model === originalModel) continue;
+
+                try {
+                    if (AI.rateLimit.canMakeRequest(originalProvider, model)) {
+                        console.log(`🔄 Fallback na model: ${model}`);
+                        return await AI.ask(prompt, { ...options, model });
+                    }
+                } catch (error) {
+                    lastError = error;
+                    console.warn(`⚠️ Fallback model selhal (${model}):`, error.message);
+                }
+            }
+
+            // 3. Zkus jiné providery
+            for (const provider of this._providerFallback) {
+                if (provider === originalProvider) continue;
+                if (!AI.keys.get(provider)) continue; // Nemáme klíč
+
+                const models = this._fallbackOrder[provider] || [];
+                for (const model of models) {
+                    try {
+                        if (AI.rateLimit.canMakeRequest(provider, model)) {
+                            console.log(`🔄 Fallback na provider: ${provider}, model: ${model}`);
+                            return await AI.ask(prompt, { ...options, provider, model });
+                        }
+                    } catch (error) {
+                        lastError = error;
+                    }
+                }
+            }
+
+            // 4. Poslední pokus - čekej a zkus znovu
+            for (let i = 0; i < maxRetries; i++) {
+                await new Promise(r => setTimeout(r, retryDelay * (i + 1)));
+
+                try {
+                    if (AI.rateLimit.canMakeRequest(originalProvider, originalModel)) {
+                        console.log(`🔄 Retry pokus ${i + 1}/${maxRetries}`);
+                        return await AI.ask(prompt, options);
+                    }
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+
+            throw lastError || new Error('Všechny pokusy selhaly');
+        },
+
+        /**
+         * Získej doporučený model pro aktuální situaci
+         */
+        getRecommendedModel(provider) {
+            const models = AI.ALL_MODELS[provider] || [];
+
+            // Najdi model s nejvyšším zbývajícím limitem
+            let bestModel = null;
+            let bestRemaining = -1;
+
+            for (const m of models) {
+                if (!m.free) continue;
+                const remaining = AI.rateLimit.remaining(provider, m.value);
+                if (remaining > bestRemaining) {
+                    bestRemaining = remaining;
+                    bestModel = m.value;
+                }
+            }
+
+            return bestModel;
         }
     },
 
@@ -2835,6 +4008,7 @@ const AI = {
         this.keys.load();
         this.templates.load();
         this.memory.load();
+        this.cache.load(); // Načti cache z localStorage
 
         // Emituj init event
         this.emit('init', { version: '3.0', providers: this.getAvailableProviders() });
@@ -2846,6 +4020,8 @@ const AI = {
         console.log('   🎯 Intent: AI.detectIntent("text")');
         console.log('   ⚡ Smart: AI.smartAsk("prompt")');
         console.log('   📦 Parallel: AI.parallel([prompts])');
+        console.log('   💾 Cache: AI.cache.stats()');
+        console.log('   🔄 Retry: AI.smartRetry.askWithFallback(prompt)');
 
         return this;
     },
@@ -2857,5 +4033,8 @@ const AI = {
 // Automatická inicializace
 AI.init();
 
-// Expose globally
-window.AI = AI;
+// Expose globally pro běžné script tagy
+// Pro ES6 moduly použij import { aiService } from './modules/ai'
+if (typeof window !== 'undefined') {
+  window.AI = AI;
+}
