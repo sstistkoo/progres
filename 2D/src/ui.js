@@ -161,11 +161,16 @@ window.setMode = function (m) {
       btnAiSelect.style.color = "#fff";
 
       // Schovat všechny panely - NE otevírat AI automaticky
-      document.getElementById("toolsDrawing").style.display = "none";
-      document.getElementById("toolsEdit").style.display = "none";
-      document.getElementById("toolsCoords").style.display = "none";
-      document.getElementById("toolsOther").style.display = "none";
-      document.getElementById("toolsAi").style.display = "none";
+      const toolsDrawing = document.getElementById("toolsDrawing");
+      const toolsEdit = document.getElementById("toolsEdit");
+      const toolsCoords = document.getElementById("toolsCoords");
+      const toolsOther = document.getElementById("toolsOther");
+      const toolsAi = document.getElementById("toolsAi");
+      if (toolsDrawing) toolsDrawing.style.display = "none";
+      if (toolsEdit) toolsEdit.style.display = "none";
+      if (toolsCoords) toolsCoords.style.display = "none";
+      if (toolsOther) toolsOther.style.display = "none";
+      if (toolsAi) toolsAi.style.display = "none";
     } else {
       btnAiSelect.style.background = "#333";
       btnAiSelect.style.borderColor = "#444";
@@ -178,11 +183,16 @@ window.setMode = function (m) {
 
       if (drawingModes.includes(m) || editModes.includes(m)) {
         // Zavřít všechny panely při výběru nástroje pro kreslení/editaci
-        document.getElementById("toolsDrawing").style.display = "none";
-        document.getElementById("toolsEdit").style.display = "none";
-        document.getElementById("toolsCoords").style.display = "none";
-        document.getElementById("toolsOther").style.display = "none";
-        document.getElementById("toolsAi").style.display = "none";
+        const toolsDrawing = document.getElementById("toolsDrawing");
+        const toolsEdit = document.getElementById("toolsEdit");
+        const toolsCoords = document.getElementById("toolsCoords");
+        const toolsOther = document.getElementById("toolsOther");
+        const toolsAi = document.getElementById("toolsAi");
+        if (toolsDrawing) toolsDrawing.style.display = "none";
+        if (toolsEdit) toolsEdit.style.display = "none";
+        if (toolsCoords) toolsCoords.style.display = "none";
+        if (toolsOther) toolsOther.style.display = "none";
+        if (toolsAi) toolsAi.style.display = "none";
 
         // Odznačit tlačítka kategorií
         document.querySelectorAll(".toolbar .tool-btn").forEach((btn) => {
