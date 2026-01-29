@@ -612,7 +612,7 @@ function onCanvasTouchStart(e) {
     const worldPt = window.screenToWorld ? window.screenToWorld(screenX, screenY) : { x: 0, y: 0 };
     const snapped = window.snapPoint ? window.snapPoint(worldPt.x, worldPt.y) : worldPt;
 
-    // Pro kreslicí módy provedeme akci (ale ne pro line/circle pokud čekáme na precision)
+    // Pro kreslicí módy provedeme akci (ale ne pro line/circle/select pokud čekáme na precision)
     if (window.mode === "point") {
       // Pro bod - počkáme na touchEnd kvůli precision mode
       // handlePointMode(snapped.x, snapped.y);
@@ -626,8 +626,9 @@ function onCanvasTouchStart(e) {
       // handleCircleMode(snapped.x, snapped.y);
       // touchActionStarted = true;
     } else if (window.mode === "select") {
-      handleSelectMode(snapped.x, snapped.y, false);
-      touchActionStarted = true;
+      // Pro výběr - počkáme na touchEnd kvůli precision mode (křížek s offsetem)
+      // handleSelectMode(snapped.x, snapped.y, false);
+      // touchActionStarted = true;
     }
 
     if (window.draw) window.draw();
@@ -890,6 +891,11 @@ function onCanvasTouchEnd(e) {
     }
     else if (window.mode === "circle" && !touchActionStarted) {
       handleCircleMode(snapped.x, snapped.y);
+      touchActionStarted = true;
+    }
+    else if (window.mode === "select" && !touchActionStarted) {
+      // Pro výběr - použijeme precision mode souřadnice (s offsetem od prstu)
+      handleSelectMode(snapped.x, snapped.y, false);
       touchActionStarted = true;
     }
   }

@@ -273,18 +273,22 @@ function draw() {
             ? worldToScreen((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2)
             : worldToScreen(s.cx, s.cy);
 
+          // Detekce mobilního zařízení pro větší písmo
+          const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+          const fontSize = isMobile ? 28 : 16;
+          const textSize = isMobile ? 36 : 20;
+          const labelOffset = isMobile ? 45 : 30;
+
           // Pozadí (černé)
           ctx.fillStyle = "#000000";
-          ctx.font = "bold 16px Arial";
+          ctx.font = `bold ${fontSize}px Arial`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          const textWidth = 20;
-          const textHeight = 20;
-          ctx.fillRect(labelPos.x - textWidth / 2, labelPos.y - 30 - textHeight / 2, textWidth, textHeight);
+          ctx.fillRect(labelPos.x - textSize / 2, labelPos.y - labelOffset - textSize / 2, textSize, textSize);
 
           // Text (žlutý)
           ctx.fillStyle = "#ffff00";
-          ctx.fillText(item.label, labelPos.x, labelPos.y - 30);
+          ctx.fillText(item.label, labelPos.x, labelPos.y - labelOffset);
         }
       } else if (item.category === "point") {
         const p = worldToScreen(item.x, item.y);
@@ -297,18 +301,22 @@ function draw() {
 
         // Popisek s písmenem
         if (item.label) {
+          // Detekce mobilního zařízení pro větší písmo
+          const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+          const fontSize = isMobile ? 28 : 16;
+          const textSize = isMobile ? 36 : 20;
+          const labelOffset = isMobile ? 45 : 30;
+
           // Pozadí (černé)
           ctx.fillStyle = "#000000";
-          ctx.font = "bold 16px Arial";
+          ctx.font = `bold ${fontSize}px Arial`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          const textWidth = 20;
-          const textHeight = 20;
-          ctx.fillRect(p.x - textWidth / 2, p.y - 30 - textHeight / 2, textWidth, textHeight);
+          ctx.fillRect(p.x - textSize / 2, p.y - labelOffset - textSize / 2, textSize, textSize);
 
           // Text (žlutý)
           ctx.fillStyle = "#ffff00";
-          ctx.fillText(item.label, p.x, p.y - 30);
+          ctx.fillText(item.label, p.x, p.y - labelOffset);
         }
       }
 
