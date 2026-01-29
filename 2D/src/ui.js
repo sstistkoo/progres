@@ -171,9 +171,8 @@ window.setMode = function (m) {
       btnAiSelect.style.borderColor = "#444";
       btnAiSelect.style.color = "#ccc";
 
-      // OPRAVA: Při výběru nástroje pro kreslení zavřít panel, aby uživatel mohl kreslit na plátno
-      // Panely se již neotevírají automaticky - uživatel je může otevřít tlačítkem v toolbaru
-      // Pouze schováme všechny panely při aktivaci kreslícího/editačního režimu
+      // OPRAVA: Při výběru nástroje pro kreslení/editaci zavřít panel, aby uživatel mohl kreslit na plátno
+      // Panely se zavírají pouze při aktivaci kreslícího/editačního nástroje, NE při pan/select
       const drawingModes = ["line", "circle", "arc", "point", "rectangle", "tangent", "perpendicular", "parallel", "circumcircle"];
       const editModes = ["trim", "extend", "offset", "mirror", "erase", "measure", "dimension", "align", "rotate"];
 
@@ -193,6 +192,7 @@ window.setMode = function (m) {
         });
         window.currentCategory = null;
       }
+      // Poznámka: Pro režimy pan, ai atd. panely NEZAVÍRÁME - to řeší showToolCategory
     }
   }
 
@@ -277,7 +277,10 @@ window.showToolCategory = function (category) {
   if (category === "ai") {
     // Pokud je AI minimalizované, znovu ho otevři
     if (window.aiMinimized) {
-      if (menuEl) menuEl.style.display = "flex";
+      if (menuEl) {
+        menuEl.classList.remove("d-none");
+        menuEl.style.display = "flex";
+      }
       if (btnEl) btnEl.classList.add("active");
       window.currentCategory = category;
       window.aiMinimized = false;
@@ -316,6 +319,7 @@ window.showToolCategory = function (category) {
 
     // Otevři AI
     if (menuEl) {
+      menuEl.classList.remove("d-none");
       menuEl.style.display = "flex";
       if (btnEl) btnEl.classList.add("active");
       window.currentCategory = category;
@@ -359,6 +363,8 @@ window.showToolCategory = function (category) {
   }
 
   if (menuEl) {
+    // Odstranit d-none třídu (má !important), pak nastavit display
+    menuEl.classList.remove("d-none");
     menuEl.style.display = "flex";
     if (btnEl) btnEl.classList.add("active");
     window.currentCategory = category;
