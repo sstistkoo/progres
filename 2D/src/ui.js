@@ -171,19 +171,27 @@ window.setMode = function (m) {
       btnAiSelect.style.borderColor = "#444";
       btnAiSelect.style.color = "#ccc";
 
-      // Zobrazit patřičný panel pro režim
-      if (m === "line" || m === "circle" || m === "arc" || m === "point" || m === "rectangle" || m === "trim" || m === "extend" || m === "tangent" || m === "perpendicular" || m === "parallel" || m === "offset" || m === "mirror" || m === "erase" || m === "measure") {
-        document.getElementById("toolsDrawing").style.display = "block";
+      // OPRAVA: Při výběru nástroje pro kreslení zavřít panel, aby uživatel mohl kreslit na plátno
+      // Panely se již neotevírají automaticky - uživatel je může otevřít tlačítkem v toolbaru
+      // Pouze schováme všechny panely při aktivaci kreslícího/editačního režimu
+      const drawingModes = ["line", "circle", "arc", "point", "rectangle", "tangent", "perpendicular", "parallel", "circumcircle"];
+      const editModes = ["trim", "extend", "offset", "mirror", "erase", "measure", "dimension", "align", "rotate"];
+
+      if (drawingModes.includes(m) || editModes.includes(m)) {
+        // Zavřít všechny panely při výběru nástroje pro kreslení/editaci
+        document.getElementById("toolsDrawing").style.display = "none";
         document.getElementById("toolsEdit").style.display = "none";
         document.getElementById("toolsCoords").style.display = "none";
         document.getElementById("toolsOther").style.display = "none";
         document.getElementById("toolsAi").style.display = "none";
-      } else if (m === "dimension") {
-        document.getElementById("toolsDrawing").style.display = "none";
-        document.getElementById("toolsEdit").style.display = "block";
-        document.getElementById("toolsCoords").style.display = "none";
-        document.getElementById("toolsOther").style.display = "none";
-        document.getElementById("toolsAi").style.display = "none";
+
+        // Odznačit tlačítka kategorií
+        document.querySelectorAll(".toolbar .tool-btn").forEach((btn) => {
+          if (btn.id && btn.id.startsWith("btnCat")) {
+            btn.classList.remove("active");
+          }
+        });
+        window.currentCategory = null;
       }
     }
   }
