@@ -262,6 +262,9 @@ Ctrl+/ - Nápověda
   alert(helpText);
 }
 
+// Export showHelp to window
+window.showHelp = showHelp;
+
 function handleWindowResize() {
   const canvas = document.getElementById("canvas");
   if (!canvas) return;

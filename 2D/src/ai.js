@@ -24,11 +24,19 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Enable dragging of AI panel
+// Prevent duplicate event listeners
+let aiDraggingEnabled = false;
+
 window.enableAIDragging = function () {
+  // Zabránit duplicitním event listenerům
+  if (aiDraggingEnabled) return;
+
   const toolsAi = document.getElementById('toolsAi');
   const panel = document.getElementById('aiPanel');
   const header = document.getElementById('aiHeaderRow');
   if (!panel || !header || !toolsAi) return;
+
+  aiDraggingEnabled = true;
 
   // Detekce mobilního zařízení
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;

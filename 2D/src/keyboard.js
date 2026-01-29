@@ -205,10 +205,14 @@ window.handleGlobalKeyDown = function(e) {
   if (window.matchesShortcut(e, config.edit.delete) || window.matchesShortcut(e, config.edit.deleteAlt)) {
     if (window.selectedItems && window.selectedItems.length > 0) {
       window.selectedItems.forEach((item) => {
-        const idx = window.shapes.indexOf(item);
-        if (idx >= 0) window.shapes.splice(idx, 1);
-        const pidx = window.points.indexOf(item);
-        if (pidx >= 0) window.points.splice(pidx, 1);
+        if (window.shapes) {
+          const idx = window.shapes.indexOf(item);
+          if (idx >= 0) window.shapes.splice(idx, 1);
+        }
+        if (window.points) {
+          const pidx = window.points.indexOf(item);
+          if (pidx >= 0) window.points.splice(pidx, 1);
+        }
       });
       window.selectedItems.length = 0;
       if (window.updateSnapPoints) window.updateSnapPoints();
