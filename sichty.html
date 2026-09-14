@@ -604,6 +604,9 @@
             <button class="action-btn" onclick="showWageCalculator()">
                 <i class="fas fa-calculator"></i> Mzdová kalkulačka
             </button>
+            <button class="action-btn" onclick="showBackupModal()">
+                <i class="fas fa-database"></i> Záloha dat
+            </button>
         </div>
 
         <div class="stats-panel">
@@ -635,6 +638,34 @@
         </div>
 
         <div id="notification" class="notification"></div>
+
+        <!-- Modální okno pro zálohu / obnovu dat -->
+        <div id="backupModal" class="modal">
+            <div class="modal-content" style="max-width: 400px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2>Záloha dat</h2>
+                    <button class="action-btn secondary" onclick="closeBackupModal()" style="padding: 5px 10px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <p style="font-size: 0.9em; margin-bottom: 15px;">
+                    Zálohuje a obnoví přesčasy, vícestrojovou obsluhu, klouzavé směny a nastavení mzdové
+                    kalkulačky pro obě firmy. Data jsou uložená jen v tomto prohlížeči - bez zálohy o ně
+                    přijdeš při vymazání dat prohlížeče nebo na jiném zařízení.
+                </p>
+                <button class="action-btn" onclick="exportBackup()" style="width: 100%; margin-bottom: 20px;">
+                    <i class="fas fa-download"></i> Stáhnout zálohu (JSON)
+                </button>
+                <hr style="margin: 0 0 15px; border: none; border-top: 1px solid var(--border-color);">
+                <div class="input-field" style="margin-bottom: 15px;">
+                    <label>Obnovit ze zálohy:</label>
+                    <input type="file" id="backupFileInput" accept="application/json,.json" style="width: 100%;">
+                </div>
+                <button class="action-btn" onclick="importBackup()" style="width: 100%;">
+                    <i class="fas fa-upload"></i> Obnovit ze souboru
+                </button>
+            </div>
+        </div>
 
         <!-- Přidání modálního okna pro mzdovou kalkulačku -->
         <div id="wageCalculatorModal" class="modal">
@@ -2495,6 +2526,85 @@
                     refreshCalendar();
                     showNotification('Klouzavé směny byly vymazány');
                 });
+            }
+
+            // --- Záloha a obnova dat (vše, co aplikace ukládá do localStorage) ---
+            const BACKUP_KEYS = [
+                'overtimeDays', 'multiMachineDays', 'slidingShiftDays',
+                'calculatorSettings_firma1', 'calculatorSettings_firma2',
+                'taxSettings', 'employerProfile', 'currentShift'
+            ];
+
+            function showBackupModal() {
+                document.getElementById('backupModal').style.display = 'flex';
+            }
+
+            function closeBackupModal() {
+                document.getElementById('backupModal').style.display = 'none';
+                document.getElementById('backupFileInput').value = '';
+            }
+
+            function exportBackup() {
+                const data = {};
+                BACKUP_KEYS.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    if (value !== null) data[key] = value;
+                });
+
+                const backup = {
+                    app: 'progres-smeny',
+                    version: 1,
+                    exportedAt: new Date().toISOString(),
+                    data
+                };
+
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `zaloha-smeny-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showNotification('Záloha byla stažena');
+            }
+
+            function importBackup() {
+                const input = document.getElementById('backupFileInput');
+                const file = input.files[0];
+                if (!file) {
+                    showNotification('Nejdřív vyber soubor se zálohou');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    let backup;
+                    try {
+                        backup = JSON.parse(e.target.result);
+                        if (!backup || typeof backup !== 'object' || !backup.data || typeof backup.data !== 'object') {
+                            throw new Error('Soubor neobsahuje očekávaná data zálohy');
+                        }
+                    } catch (err) {
+                        showNotification('Soubor se zálohou se nepodařilo přečíst: ' + err.message);
+                        return;
+                    }
+
+                    showConfirm(
+                        'Opravdu chcete obnovit data ze zálohy? Přepíše to aktuální přesčasy, vícestrojovou ' +
+                        'obsluhu, klouzavé směny a nastavení mzdové kalkulačky pro obě firmy v tomto prohlížeči.',
+                        () => {
+                            BACKUP_KEYS.forEach(key => {
+                                if (backup.data[key] !== undefined) {
+                                    localStorage.setItem(key, backup.data[key]);
+                                }
+                            });
+                            closeBackupModal();
+                            showNotification('Data byla obnovena, stránka se znovu načte...');
+                            setTimeout(() => location.reload(), 1000);
+                        }
+                    );
+                };
+                reader.readAsText(file);
             }
 
             // Přidat event listenery pro ukládání změn
