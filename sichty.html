@@ -500,6 +500,23 @@
             color: var(--primary-color);
             font-weight: bold;
         }
+
+        .firma2-only.hidden {
+            display: none;
+        }
+
+        .multi-machine {
+            border-bottom: 3px solid #9c27b0 !important;
+        }
+
+        .multi-machine-badge {
+            position: absolute;
+            bottom: 2px;
+            left: 5px;
+            font-size: 0.75em;
+            color: #9c27b0;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -624,13 +641,24 @@
                     </button>
                 </div>
                 <div class="wage-calculator">
+                    <div class="input-field" style="margin-bottom: 15px; max-width: 300px;">
+                        <label>Zaměstnavatel</label>
+                        <select id="employerProfile">
+                            <option value="firma2">Firma 2 (aktuální)</option>
+                            <option value="firma1">Firma 1 (dřívější)</option>
+                        </select>
+                    </div>
                     <div class="input-group" style="display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                         <div class="input-field">
-                            <label>Základní hodinová mzda</label>
-                            <input type="number" id="baseWage" value="150" min="0" step="1">
+                            <label>Tarifní / hodinová mzda (Kč/hod)</label>
+                            <input type="number" id="baseWage" value="150" min="0" step="0.01">
+                        </div>
+                        <div class="input-field firma2-only">
+                            <label>Osobní ohodnocení (Kč/hod)</label>
+                            <input type="number" id="personalRating" value="5" min="0" step="0.01">
                         </div>
                         <div class="input-field">
-                            <label>Příplatek za noční (%)</label>
+                            <label id="nightBonusLabel">Příplatek za noční (%)</label>
                             <input type="number" id="nightBonus" value="20" min="0" step="1">
                         </div>
                         <div class="input-field">
@@ -640,6 +668,18 @@
                         <div class="input-field">
                             <label>Příplatek za svátek (%)</label>
                             <input type="number" id="holidayBonus" value="100" min="0" step="1">
+                        </div>
+                        <div class="input-field">
+                            <label>Příplatek za přesčas (%)</label>
+                            <input type="number" id="overtimeBonus" value="25" min="0" step="1">
+                        </div>
+                        <div class="input-field firma2-only">
+                            <label>Měsíční prémie (Kč)</label>
+                            <input type="number" id="monthlyBonus" value="2900" min="0" step="1">
+                        </div>
+                        <div class="input-field firma2-only">
+                            <label>Motivační bonus (Kč)</label>
+                            <input type="number" id="motivationBonus" value="3000" min="0" step="1">
                         </div>
                         <div class="input-field">
                             <label>Počet dětí</label>
@@ -660,10 +700,6 @@
                         <div class="input-field">
                             <label>Podepsané prohlášení k dani</label>
                             <input type="checkbox" id="hasTaxDeclaration" checked>
-                        </div>
-                        <div class="input-field">
-                            <label>Příplatek za přesčas (%)</label>
-                            <input type="number" id="overtimeBonus" value="25" min="0" step="1">
                         </div>
                     </div>
 
@@ -695,6 +731,10 @@
                                 <strong>Přesčasové noční:</strong>
                                 <span id="overtimeNCount">0</span>
                             </div>
+                            <div class="firma2-only">
+                                <strong>Vícestrojová obsluha:</strong>
+                                <span id="multiMachineCount">0</span> dní (<span id="multiMachineHoursSummary">0</span> h)
+                            </div>
                         </div>
                     </div>
 
@@ -722,7 +762,7 @@
                             <div style="flex: 1; min-width: 250px;">
                                 <strong>Noční (18:00-6:00):</strong>
                                 <ul style="margin: 5px 0; padding-left: 20px;">
-                                    <li>Noční příplatek: 7.5h (22:00-6:00)</li>
+                                    <li id="nightBonusWindowInfo">Noční příplatek: 7.5h (22:00-6:00)</li>
                                     <li>Přestávka: 0:00-0:30 (0.5h)</li>
                                     <li>Čistá pracovní doba: 11.5h</li>
                                 </ul>
@@ -751,6 +791,20 @@
                     <button class="action-btn" onclick="selectOvertimeType('N')">Noční</button>
                     <button class="action-btn secondary" onclick="removeOvertime()">Odznačit</button>
                 </div>
+
+                <div class="firma2-only">
+                    <hr style="margin: 15px 0; border: none; border-top: 1px solid var(--border-color);">
+                    <h3 style="margin-bottom: 10px; font-size: 1em;">Vícestrojová obsluha</h3>
+                    <div class="input-field" style="margin-bottom: 10px;">
+                        <label>Příplatek (20-50 %):</label>
+                        <input type="number" id="multiMachinePercent" value="30" min="20" max="50" step="5" style="width: 100%;">
+                    </div>
+                    <div id="multiMachineHoursPreview" style="font-size: 0.85em; margin-bottom: 10px; color: var(--text-color);"></div>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button class="action-btn" onclick="setMultiMachine()">Nastavit</button>
+                        <button class="action-btn secondary" onclick="removeMultiMachine()">Odznačit</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -764,6 +818,27 @@
                 'B': new Map(),
                 'C': new Map(),
                 'D': new Map()
+            };
+
+            // Vícestrojová obsluha - značeno po dnech stejně jako přesčasy, ukládá se jen procento
+            // (hodiny se vždy dopočítávají za běhu ze směny/přesčasu daného dne, aby se neodchýlily)
+            let multiMachineDays = {
+                'A': new Map(),
+                'B': new Map(),
+                'C': new Map(),
+                'D': new Map()
+            };
+
+            // Zaměstnavatelský profil mzdové kalkulačky - Firma 1 (dřívější) / Firma 2 (aktuální)
+            let employerProfile = 'firma2';
+            const EMPLOYER_DEFAULTS = {
+                firma1: {
+                    baseWage: 150, nightBonus: 20, weekendBonus: 25, holidayBonus: 100, overtimeBonus: 25
+                },
+                firma2: {
+                    baseWage: 181.20, personalRating: 5, nightBonus: 17, weekendBonus: 50, holidayBonus: 0,
+                    overtimeBonus: 50, monthlyBonus: 2900, motivationBonus: 3000
+                }
             };
 
             // Nové globální proměnné pro datum
@@ -936,8 +1011,11 @@
                 exportContent.push(
                     'MZDOVÝ PŘEHLED:',
                     '--------------',
+                    `Zaměstnavatel: ${employerProfile === 'firma2' ? 'Firma 2 (aktuální)' : 'Firma 1 (dřívější)'}`,
                     `Základní hodinová mzda: ${baseWage} Kč`,
-                    `Příplatek za noční: ${nightBonus}%`,
+                    employerProfile === 'firma2'
+                        ? `Příplatek za noční: ${nightBonus} Kč/hod (celá směna 18:00-6:00)`
+                        : `Příplatek za noční: ${nightBonus}%`,
                     `Příplatek za víkend: ${weekendBonus}%`,
                     `Příplatek za svátek: ${holidayBonus}%`,
                     ''
@@ -971,20 +1049,55 @@
                 window.URL.revokeObjectURL(url);
             }
 
-            // Pomocná funkce pro výpočet mezd pro export
-            function calculateWagesForExport() {
-                const baseWage = parseFloat(document.getElementById('baseWage').value);
-                const nightBonus = parseFloat(document.getElementById('nightBonus').value) / 100;
-                const weekendBonus = parseFloat(document.getElementById('weekendBonus').value) / 100;
-                const holidayBonus = parseFloat(document.getElementById('holidayBonus').value) / 100;
-                const overtimeBonus = parseFloat(document.getElementById('overtimeBonus').value) / 100;
+            // --- Sdílený mzdový výpočet (Firma 1 / Firma 2) ---
+            // Používá jak on-screen kalkulačka (calculateWages), tak textový export (calculateWagesForExport),
+            // aby se obě místa nemohla rozejít.
+
+            function toDateKey(date) {
+                return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            }
+
+            // Odpracované hodiny daného dne (naplánovaná směna + případný přesčas téhož data) -
+            // používá se k dopočtu příplatku za vícestrojovou obsluhu, aby nikdy neuvízl "zamrzlý" počet hodin.
+            function getWorkedHoursForDate(dateStr, monthShifts, overtimeEntries) {
                 const SHIFT_HOURS = 11.5;
-                const NIGHT_BONUS_HOURS = 7.5; // Noční příplatek pouze za hodiny 22:00-6:00 mínus přestávka
+                let hours = 0;
+                const dayShift = monthShifts.find(s => toDateKey(s.date) === dateStr);
+                if (dayShift && dayShift.shift !== '-') {
+                    hours += SHIFT_HOURS;
+                }
+                const otEntry = overtimeEntries.find(([d]) => d === dateStr);
+                if (otEntry) {
+                    hours += parseFloat(otEntry[1].hours) || 0;
+                }
+                return hours;
+            }
 
-                const shifts = generateShifts(currentYear, currentShift);
-                const monthShifts = shifts.filter(s => s.date.getMonth() === currentMonth);
+            // Načte aktuální hodnoty z formuláře kalkulačky + aktivního zaměstnavatelského profilu
+            function getWageSettings() {
+                const nightBonusRaw = parseFloat(document.getElementById('nightBonus').value) || 0;
+                return {
+                    profile: employerProfile,
+                    baseWage: parseFloat(document.getElementById('baseWage').value) || 0,
+                    nightBonus: nightBonusRaw / 100,
+                    nightBonusFlat: nightBonusRaw,
+                    weekendBonus: (parseFloat(document.getElementById('weekendBonus').value) || 0) / 100,
+                    holidayBonus: (parseFloat(document.getElementById('holidayBonus').value) || 0) / 100,
+                    overtimeBonus: (parseFloat(document.getElementById('overtimeBonus').value) || 0) / 100,
+                    personalRating: employerProfile === 'firma2' ? (parseFloat(document.getElementById('personalRating').value) || 0) : 0,
+                    monthlyBonus: employerProfile === 'firma2' ? (parseFloat(document.getElementById('monthlyBonus').value) || 0) : 0,
+                    motivationBonus: employerProfile === 'firma2' ? (parseFloat(document.getElementById('motivationBonus').value) || 0) : 0,
+                    childCount: parseInt(document.getElementById('childCount').value) || 0,
+                    disability: parseInt(document.getElementById('disability').value) || 0,
+                    isStudent: document.getElementById('isStudent').checked,
+                    hasTaxDeclaration: document.getElementById('hasTaxDeclaration').checked
+                };
+            }
 
-                // Výpočet základních hodin
+            function computeWageBreakdown(settings, monthShifts, overtimeEntries, multiMachineEntries, holidaysList) {
+                const SHIFT_HOURS = 11.5;
+                const NIGHT_BONUS_HOURS = 7.5; // Firma 1: noční příplatek pouze za hodiny 22:00-6:00 mínus přestávka
+
                 const regularShifts = monthShifts.filter(s => s.shift === 'R');
                 const nightShifts = monthShifts.filter(s => s.shift === 'N');
                 const weekendShifts = monthShifts.filter(s => {
@@ -992,13 +1105,9 @@
                     return (day === 0 || day === 6) && s.shift !== '-';
                 });
                 const holidayShifts = monthShifts.filter(s => {
-                    const dateStr = `${s.date.getFullYear()}-${String(s.date.getMonth() + 1).padStart(2, '0')}-${String(s.date.getDate()).padStart(2, '0')}`;
-                    return HOLIDAYS.some(h => h.date === dateStr) && s.shift !== '-';
+                    const dateStr = toDateKey(s.date);
+                    return holidaysList.some(h => h.date === dateStr) && s.shift !== '-';
                 });
-
-                // Výpočet přesčasových hodin
-                const overtimeEntries = Array.from(overtimeDays[currentShift].entries())
-                    .filter(([date]) => new Date(date).getMonth() === currentMonth && new Date(date).getFullYear() === currentYear);
 
                 const overtimeRHours = overtimeEntries
                     .filter(([_, data]) => data.type === 'R')
@@ -1010,22 +1119,15 @@
 
                 const weekendOvertimeHours = overtimeEntries
                     .filter(([date]) => {
-                        const shiftDate = new Date(date);
-                        const day = shiftDate.getDay();
+                        const day = new Date(date).getDay();
                         return day === 0 || day === 6;
                     })
                     .reduce((sum, [_, data]) => sum + parseFloat(data.hours), 0);
 
                 const holidayOvertimeHours = overtimeEntries
-                    .filter(([date]) => {
-                        // --- OPRAVA CHYBY ČASOVÉ ZÓNY ---
-                        // 'date' je již řetězec 'YYYY-MM-DD', není třeba jej převádět
-                        return HOLIDAYS.some(h => h.date === date);
-                        // --- KONEC OPRAVY ---
-                    })
+                    .filter(([date]) => holidaysList.some(h => h.date === date))
                     .reduce((sum, [_, data]) => sum + parseFloat(data.hours), 0);
 
-                // Výpočet celkových hodin
                 const normalHours = regularShifts.length * SHIFT_HOURS;
                 const nightHours = nightShifts.length * SHIFT_HOURS;
                 const weekendHours = weekendShifts.length * SHIFT_HOURS;
@@ -1035,28 +1137,43 @@
                 const totalHours = (regularShifts.length + nightShifts.length) * SHIFT_HOURS;
                 const totalHoursWithOvertime = totalHours + totalOvertimeHours;
 
-                // Výpočet mezd
+                const baseWage = settings.baseWage;
                 const normalWageWithOvertime = baseWage * totalHoursWithOvertime;
-                const nightWageWithOvertime = baseWage * nightBonus * (
-                    // Běžné noční směny - pouze hodiny s příplatkem
-                    nightShifts.length * NIGHT_BONUS_HOURS +
-                    // Přesčasové noční - také pouze hodiny s příplatkem
-                    overtimeNHours * (NIGHT_BONUS_HOURS / SHIFT_HOURS)
-                );
-                const weekendWageWithOvertime = baseWage * weekendBonus * (weekendHours + weekendOvertimeHours);
-                const holidayWageWithOvertime = baseWage * holidayBonus * (holidayHours + holidayOvertimeHours);
-                const overtimeBonusWage = baseWage * overtimeBonus * totalOvertimeHours;
+
+                let nightWageWithOvertime;
+                if (settings.profile === 'firma2') {
+                    // Firma 2: paušál 17 Kč/hod za CELOU noční směnu 18:00-6:00 (bez škálování na 7.5h okno)
+                    nightWageWithOvertime = settings.nightBonusFlat * (nightShifts.length * SHIFT_HOURS + overtimeNHours);
+                } else {
+                    nightWageWithOvertime = baseWage * settings.nightBonus * (
+                        // Běžné noční směny - pouze hodiny s příplatkem
+                        nightShifts.length * NIGHT_BONUS_HOURS +
+                        // Přesčasové noční - také pouze hodiny s příplatkem
+                        overtimeNHours * (NIGHT_BONUS_HOURS / SHIFT_HOURS)
+                    );
+                }
+
+                const weekendWageWithOvertime = baseWage * settings.weekendBonus * (weekendHours + weekendOvertimeHours);
+                const holidayWageWithOvertime = baseWage * settings.holidayBonus * (holidayHours + holidayOvertimeHours);
+                const overtimeBonusWage = baseWage * settings.overtimeBonus * totalOvertimeHours;
+
+                // Firma 2 - navíc oproti Firmě 1
+                const personalRatingWage = settings.personalRating * totalHoursWithOvertime;
+                const fixedBonusesWage = settings.monthlyBonus + settings.motivationBonus;
+
+                let multiMachineWage = 0;
+                let multiMachineHours = 0;
+                multiMachineEntries.forEach(([dateStr, data]) => {
+                    const hours = getWorkedHoursForDate(dateStr, monthShifts, overtimeEntries);
+                    multiMachineWage += baseWage * (data.percent / 100) * hours;
+                    multiMachineHours += hours;
+                });
 
                 const totalWage = normalWageWithOvertime + nightWageWithOvertime +
                                 weekendWageWithOvertime + holidayWageWithOvertime +
-                                overtimeBonusWage;
+                                overtimeBonusWage + personalRatingWage + fixedBonusesWage + multiMachineWage;
 
-                // Výpočet daní a odvodů (stejně jako v calculateWages)
-                const childCount = parseInt(document.getElementById('childCount').value) || 0;
-                const disability = parseInt(document.getElementById('disability').value) || 0;
-                const isStudent = document.getElementById('isStudent').checked;
-                const hasTaxDeclaration = document.getElementById('hasTaxDeclaration').checked;
-
+                // Výpočet daní a odvodů
                 const HEALTH_INSURANCE = 0.045;
                 const SOCIAL_INSURANCE = 0.065;
                 const TAX_RATE = 0.15;
@@ -1070,38 +1187,74 @@
                 const taxBase = Math.round(totalWage);
                 let tax = Math.round(taxBase * TAX_RATE);
 
-                let taxDiscount = hasTaxDeclaration ? TAX_DISCOUNT : 0;
-                if (disability > 0) taxDiscount += DISABILITY_DISCOUNT[disability - 1];
-                if (isStudent) taxDiscount += STUDENT_DISCOUNT;
+                let taxDiscount = settings.hasTaxDeclaration ? TAX_DISCOUNT : 0;
+                if (settings.disability > 0) taxDiscount += DISABILITY_DISCOUNT[settings.disability - 1];
+                if (settings.isStudent) taxDiscount += STUDENT_DISCOUNT;
                 tax = Math.max(0, tax - taxDiscount);
 
                 let childDiscount = 0;
-                for (let i = 0; i < childCount; i++) {
+                for (let i = 0; i < settings.childCount; i++) {
                     childDiscount += CHILD_DISCOUNT[Math.min(i, 2)];
                 }
                 tax = Math.max(0, tax - childDiscount);
 
                 const netWage = totalWage - healthInsurance - socialInsurance - tax;
 
-                return [
+                return {
+                    totalHoursWithOvertime, totalOvertimeHours,
+                    weekendHours, weekendOvertimeHours, holidayHours, holidayOvertimeHours,
+                    overtimeNHours,
+                    normalWageWithOvertime, nightWageWithOvertime, weekendWageWithOvertime,
+                    holidayWageWithOvertime, overtimeBonusWage,
+                    personalRatingWage, fixedBonusesWage, multiMachineWage, multiMachineHours,
+                    totalWage, healthInsurance, socialInsurance, tax, netWage
+                };
+            }
+
+            // Pomocná funkce pro výpočet mezd pro export
+            function calculateWagesForExport() {
+                const settings = getWageSettings();
+                const shifts = generateShifts(currentYear, currentShift);
+                const monthShifts = shifts.filter(s => s.date.getMonth() === currentMonth);
+                const overtimeEntries = Array.from(overtimeDays[currentShift].entries())
+                    .filter(([date]) => new Date(date).getMonth() === currentMonth && new Date(date).getFullYear() === currentYear);
+                const multiMachineEntries = Array.from(multiMachineDays[currentShift].entries())
+                    .filter(([date]) => new Date(date).getMonth() === currentMonth && new Date(date).getFullYear() === currentYear);
+
+                const w = computeWageBreakdown(settings, monthShifts, overtimeEntries, multiMachineEntries, HOLIDAYS);
+
+                const lines = [
                     'VÝSLEDNÝ VÝPOČET MZDY:',
                     '---------------------',
-                    `Celkem odpracováno: ${totalHoursWithOvertime.toFixed(1)} hodin`,
-                    `Základní mzda: ${normalWageWithOvertime.toLocaleString()} Kč`,
-                    `Příplatek za noční: ${nightWageWithOvertime.toLocaleString()} Kč`,
-                    `Příplatek za víkendy: ${weekendWageWithOvertime.toLocaleString()} Kč`,
-                    `Příplatek za svátky: ${holidayWageWithOvertime.toLocaleString()} Kč`,
-                    `Příplatek za přesčasy: ${overtimeBonusWage.toLocaleString()} Kč`,
+                    `Celkem odpracováno: ${w.totalHoursWithOvertime.toFixed(1)} hodin`,
+                    `Základní mzda: ${w.normalWageWithOvertime.toLocaleString()} Kč`,
+                    `Příplatek za noční: ${w.nightWageWithOvertime.toLocaleString()} Kč`,
+                    `Příplatek za víkendy: ${w.weekendWageWithOvertime.toLocaleString()} Kč`,
+                    `Příplatek za svátky: ${w.holidayWageWithOvertime.toLocaleString()} Kč`,
+                    `Příplatek za přesčasy: ${w.overtimeBonusWage.toLocaleString()} Kč`
+                ];
+
+                if (settings.profile === 'firma2') {
+                    lines.push(
+                        `Osobní ohodnocení: ${w.personalRatingWage.toLocaleString()} Kč`,
+                        `Měsíční prémie + motivační bonus: ${w.fixedBonusesWage.toLocaleString()} Kč`,
+                        `Příplatek za vícestrojovou obsluhu (${w.multiMachineHours.toFixed(1)} hod): ${w.multiMachineWage.toLocaleString()} Kč`
+                    );
+                }
+
+                lines.push(
                     '',
-                    `HRUBÁ MZDA CELKEM: ${totalWage.toLocaleString()} Kč`,
-                    `ČISTÁ MZDA: ${netWage.toLocaleString()} Kč`,
+                    `HRUBÁ MZDA CELKEM: ${w.totalWage.toLocaleString()} Kč`,
+                    `ČISTÁ MZDA: ${w.netWage.toLocaleString()} Kč`,
                     '',
                     'ODVODY:',
                     '--------',
-                    `Zdravotní pojištění: ${healthInsurance.toLocaleString()} Kč`,
-                    `Sociální pojištění: ${socialInsurance.toLocaleString()} Kč`,
-                    `Daň z příjmu: ${tax.toLocaleString()} Kč`
-                ];
+                    `Zdravotní pojištění: ${w.healthInsurance.toLocaleString()} Kč`,
+                    `Sociální pojištění: ${w.socialInsurance.toLocaleString()} Kč`,
+                    `Daň z příjmu: ${w.tax.toLocaleString()} Kč`
+                );
+
+                return lines;
             }
 
             // Funkce pro správu notifikací
@@ -1446,6 +1599,17 @@
                         dayDiv.appendChild(hoursDiv);
                     }
 
+                    // Vyznačit dny s vícestrojovou obsluhou
+                    if (multiMachineDays[currentShift].has(dateStr)) {
+                        const multiMachineData = multiMachineDays[currentShift].get(dateStr);
+                        dayDiv.classList.add('multi-machine');
+
+                        const badgeDiv = document.createElement('div');
+                        badgeDiv.className = 'multi-machine-badge';
+                        badgeDiv.textContent = `V${multiMachineData.percent}%`;
+                        dayDiv.appendChild(badgeDiv);
+                    }
+
                     daysDiv.appendChild(dayDiv);
                 }
 
@@ -1592,41 +1756,123 @@
 
             // Přidat nové funkce pro ukládání nastavení kalkulačky
             function saveCalculatorSettings() {
-                const settings = {
+                const profileSettings = {
                     baseWage: document.getElementById('baseWage').value,
                     nightBonus: document.getElementById('nightBonus').value,
                     weekendBonus: document.getElementById('weekendBonus').value,
                     holidayBonus: document.getElementById('holidayBonus').value,
+                    overtimeBonus: document.getElementById('overtimeBonus').value
+                };
+                if (employerProfile === 'firma2') {
+                    profileSettings.personalRating = document.getElementById('personalRating').value;
+                    profileSettings.monthlyBonus = document.getElementById('monthlyBonus').value;
+                    profileSettings.motivationBonus = document.getElementById('motivationBonus').value;
+                }
+                localStorage.setItem(`calculatorSettings_${employerProfile}`, JSON.stringify(profileSettings));
+
+                const taxSettings = {
                     childCount: document.getElementById('childCount').value,
                     disability: document.getElementById('disability').value,
                     isStudent: document.getElementById('isStudent').checked,
-                    hasTaxDeclaration: document.getElementById('hasTaxDeclaration').checked,
-                    overtimeBonus: document.getElementById('overtimeBonus').value
+                    hasTaxDeclaration: document.getElementById('hasTaxDeclaration').checked
                 };
-                localStorage.setItem('calculatorSettings', JSON.stringify(settings));
+                localStorage.setItem('taxSettings', JSON.stringify(taxSettings));
             }
 
-            function loadCalculatorSettings() {
-                const savedSettings = localStorage.getItem('calculatorSettings');
-                if (savedSettings) {
-                    const settings = JSON.parse(savedSettings);
-                    document.getElementById('baseWage').value = settings.baseWage;
-                    document.getElementById('nightBonus').value = settings.nightBonus;
-                    document.getElementById('weekendBonus').value = settings.weekendBonus;
-                    document.getElementById('holidayBonus').value = settings.holidayBonus;
+            function loadTaxSettings() {
+                const saved = localStorage.getItem('taxSettings');
+                if (saved) {
+                    const settings = JSON.parse(saved);
                     document.getElementById('childCount').value = settings.childCount;
                     document.getElementById('disability').value = settings.disability;
                     document.getElementById('isStudent').checked = settings.isStudent;
                     document.getElementById('hasTaxDeclaration').checked = settings.hasTaxDeclaration;
-                    document.getElementById('overtimeBonus').value = settings.overtimeBonus;
+                }
+            }
+
+            // Jednorázová migrace ze staré, jednotné položky localStorage['calculatorSettings']
+            // (před zavedením přepínače Firma 1 / Firma 2), aby uživatel nepřišel o dřív uložené hodnoty.
+            function migrateLegacyCalculatorSettings() {
+                if (localStorage.getItem('calculatorSettings_firma1')) return; // migrace už proběhla
+                const legacy = localStorage.getItem('calculatorSettings');
+                if (!legacy) return;
+                try {
+                    const settings = JSON.parse(legacy);
+                    localStorage.setItem('calculatorSettings_firma1', JSON.stringify({
+                        baseWage: settings.baseWage,
+                        nightBonus: settings.nightBonus,
+                        weekendBonus: settings.weekendBonus,
+                        holidayBonus: settings.holidayBonus,
+                        overtimeBonus: settings.overtimeBonus
+                    }));
+                    localStorage.setItem('taxSettings', JSON.stringify({
+                        childCount: settings.childCount,
+                        disability: settings.disability,
+                        isStudent: settings.isStudent,
+                        hasTaxDeclaration: settings.hasTaxDeclaration
+                    }));
+                } catch (e) {
+                    console.warn('Chyba při migraci starého nastavení kalkulačky:', e);
+                }
+            }
+
+            // Přepne aktivní zaměstnavatelský profil - přepíše VŠECHNA sdílená pole
+            // (uložená hodnota, nebo výchozí, nikdy nenechá staré pole netknuté)
+            function applyEmployerProfile(profile) {
+                employerProfile = profile;
+                document.getElementById('employerProfile').value = profile;
+
+                const defaults = EMPLOYER_DEFAULTS[profile];
+                let saved = null;
+                try {
+                    saved = JSON.parse(localStorage.getItem(`calculatorSettings_${profile}`) || 'null');
+                } catch (e) {
+                    saved = null;
+                }
+                const settings = Object.assign({}, defaults, saved || {});
+
+                document.getElementById('baseWage').value = settings.baseWage;
+                document.getElementById('nightBonus').value = settings.nightBonus;
+                document.getElementById('weekendBonus').value = settings.weekendBonus;
+                document.getElementById('holidayBonus').value = settings.holidayBonus;
+                document.getElementById('overtimeBonus').value = settings.overtimeBonus;
+
+                document.querySelectorAll('.firma2-only').forEach(el => {
+                    el.classList.toggle('hidden', profile !== 'firma2');
+                });
+
+                if (profile === 'firma2') {
+                    document.getElementById('personalRating').value = settings.personalRating;
+                    document.getElementById('monthlyBonus').value = settings.monthlyBonus;
+                    document.getElementById('motivationBonus').value = settings.motivationBonus;
+                }
+
+                updateNightBonusUI();
+                localStorage.setItem('employerProfile', profile);
+            }
+
+            function updateNightBonusUI() {
+                const label = document.getElementById('nightBonusLabel');
+                const info = document.getElementById('nightBonusWindowInfo');
+                if (employerProfile === 'firma2') {
+                    label.textContent = 'Příplatek za noční (Kč/hod)';
+                    info.textContent = 'Noční příplatek: celá směna 18:00-6:00, paušál Kč/hod';
+                } else {
+                    label.textContent = 'Příplatek za noční (%)';
+                    info.textContent = 'Noční příplatek: 7.5h (22:00-6:00)';
                 }
             }
 
             // Upravit funkci initCalendar
             function initCalendar() {
                 loadOvertimeData();
-                loadCalculatorSettings(); // Přidat načtení nastavení
-                
+                loadMultiMachineData();
+
+                migrateLegacyCalculatorSettings();
+                loadTaxSettings();
+                const savedProfile = localStorage.getItem('employerProfile');
+                applyEmployerProfile(savedProfile === 'firma1' ? 'firma1' : 'firma2');
+
                 // --- PŘIDANÝ KÓD PRO NAČTENÍ SMĚNY ---
                 const savedShift = localStorage.getItem('currentShift');
                 if (savedShift && ['A', 'B', 'C', 'D'].includes(savedShift)) {
@@ -1758,6 +2004,14 @@
                 document.getElementById('overtimeRCount').textContent = overtimeR;
                 document.getElementById('overtimeNCount').textContent = overtimeN;
 
+                // Přehled dní s vícestrojovou obsluhou
+                const multiMachineEntries = Array.from(multiMachineDays[currentShift].entries())
+                    .filter(([date]) => new Date(date).getMonth() === currentMonth && new Date(date).getFullYear() === currentYear);
+                const multiMachineHoursTotal = multiMachineEntries
+                    .reduce((sum, [dateStr]) => sum + getWorkedHoursForDate(dateStr, shifts, overtimeEntries), 0);
+                document.getElementById('multiMachineCount').textContent = multiMachineEntries.length;
+                document.getElementById('multiMachineHoursSummary').textContent = multiMachineHoursTotal.toFixed(1);
+
                 document.getElementById('wageCalculatorModal').style.display = 'flex';
 
                 // Automaticky spustit výpočet při otevření
@@ -1768,162 +2022,83 @@
                 document.getElementById('wageCalculatorModal').style.display = 'none';
             }
 
-            // Upravit funkci calculateWages() - změnit výpočet příplatků
             function calculateWages() {
-                // Základní hodnoty
-                const baseWage = parseFloat(document.getElementById('baseWage').value);
-                const nightBonus = parseFloat(document.getElementById('nightBonus').value) / 100;
-                const weekendBonus = parseFloat(document.getElementById('weekendBonus').value) / 100;
-                const holidayBonus = parseFloat(document.getElementById('holidayBonus').value) / 100;
-                const overtimeBonus = parseFloat(document.getElementById('overtimeBonus').value) / 100;
-                const SHIFT_HOURS = 11.5;
-                const NIGHT_BONUS_HOURS = 7.5; // Noční příplatek pouze za hodiny 22:00-6:00 mínus přestávka
-
-                // Získání směn pro aktuální měsíc
+                const settings = getWageSettings();
                 const shifts = generateShifts(currentYear, currentShift);
                 const monthShifts = shifts.filter(s => s.date.getMonth() === currentMonth);
-
-                // Výpočet základních hodin
-                const regularShifts = monthShifts.filter(s => s.shift === 'R');
-                const nightShifts = monthShifts.filter(s => s.shift === 'N');
-                const weekendShifts = monthShifts.filter(s => {
-                    const day = s.date.getDay();
-                    return (day === 0 || day === 6) && s.shift !== '-';
-                });
-                const holidayShifts = monthShifts.filter(s => {
-                    const dateStr = `${s.date.getFullYear()}-${String(s.date.getMonth() + 1).padStart(2, '0')}-${String(s.date.getDate()).padStart(2, '0')}`;
-                    return HOLIDAYS.some(h => h.date === dateStr) && s.shift !== '-';
-                });
-
-                // Výpočet přesčasových hodin
                 const overtimeEntries = Array.from(overtimeDays[currentShift].entries())
                     .filter(([date]) => new Date(date).getMonth() === currentMonth && new Date(date).getFullYear() === currentYear);
+                const multiMachineEntries = Array.from(multiMachineDays[currentShift].entries())
+                    .filter(([date]) => new Date(date).getMonth() === currentMonth && new Date(date).getFullYear() === currentYear);
 
-                const overtimeRHours = overtimeEntries
-                    .filter(([_, data]) => data.type === 'R')
-                    .reduce((sum, [_, data]) => sum + parseFloat(data.hours), 0);
+                const w = computeWageBreakdown(settings, monthShifts, overtimeEntries, multiMachineEntries, HOLIDAYS);
 
-                const overtimeNHours = overtimeEntries
-                    .filter(([_, data]) => data.type === 'N')
-                    .reduce((sum, [_, data]) => sum + parseFloat(data.hours), 0);
+                const SHIFT_HOURS = 11.5;
+                const NIGHT_BONUS_HOURS = 7.5;
+                const nightShiftsCount = monthShifts.filter(s => s.shift === 'N').length;
 
-                const weekendOvertimeHours = overtimeEntries
-                    .filter(([date]) => {
-                        const shiftDate = new Date(date);
-                        const day = shiftDate.getDay();
-                        return day === 0 || day === 6; // Explicitně kontrolujeme sobotu i neděli
-                    })
-                    .reduce((sum, [_, data]) => sum + parseFloat(data.hours), 0);
-
-                const holidayOvertimeHours = overtimeEntries
-                    .filter(([date]) => {
-                        // --- OPRAVA CHYBY ČASOVÉ ZÓNY ---
-                        // 'date' je již řetězec 'YYYY-MM-DD', není třeba jej převádět
-                        return HOLIDAYS.some(h => h.date === date);
-                        // --- KONEC OPRAVY ---
-                    })
-                    .reduce((sum, [_, data]) => sum + parseFloat(data.hours), 0);
-
-                // Výpočet celkových hodin
-                const normalHours = regularShifts.length * SHIFT_HOURS;
-                const nightHours = nightShifts.length * SHIFT_HOURS;
-                const weekendHours = weekendShifts.length * SHIFT_HOURS;
-                const holidayHours = holidayShifts.length * SHIFT_HOURS;
-
-                // Oprava - použití overtimeNHours místo overtimeN
-                const totalOvertimeHours = overtimeRHours + overtimeNHours;
-                const totalHours = (regularShifts.length + nightShifts.length) * SHIFT_HOURS;
-                const totalHoursWithOvertime = totalHours + totalOvertimeHours;
-
-                // Výpočet mezd
-                const normalWageWithOvertime = baseWage * totalHoursWithOvertime;
-                const nightWageWithOvertime = baseWage * nightBonus * (
-                    // Běžné noční směny - pouze hodiny s příplatkem
-                    nightShifts.length * NIGHT_BONUS_HOURS +
-                    // Přesčasové noční - také pouze hodiny s příplatkem
-                    overtimeNHours * (NIGHT_BONUS_HOURS / SHIFT_HOURS)
-                );
-                const weekendWageWithOvertime = baseWage * weekendBonus * (weekendHours + weekendOvertimeHours);
-                const holidayWageWithOvertime = baseWage * holidayBonus * (holidayHours + holidayOvertimeHours);
-                const overtimeBonusWage = baseWage * overtimeBonus * totalOvertimeHours;
-
-                const totalWage = normalWageWithOvertime + nightWageWithOvertime +
-                                weekendWageWithOvertime + holidayWageWithOvertime +
-                                overtimeBonusWage;
-
-                // Výpočet daní a odvodů
-                const childCount = parseInt(document.getElementById('childCount').value) || 0;
-                const disability = parseInt(document.getElementById('disability').value) || 0;
-                const isStudent = document.getElementById('isStudent').checked;
-                const hasTaxDeclaration = document.getElementById('hasTaxDeclaration').checked;
-
-                const HEALTH_INSURANCE = 0.045;
-                const SOCIAL_INSURANCE = 0.065;
-                const TAX_RATE = 0.15;
-                const TAX_DISCOUNT = 2570;
-                const CHILD_DISCOUNT = [1267, 1860, 2320];
-                const DISABILITY_DISCOUNT = [210, 420];
-                const STUDENT_DISCOUNT = 335;
-
-                const healthInsurance = Math.round(totalWage * HEALTH_INSURANCE);
-                const socialInsurance = Math.round(totalWage * SOCIAL_INSURANCE);
-                const taxBase = Math.round(totalWage);
-                let tax = Math.round(taxBase * TAX_RATE);
-
-                let taxDiscount = hasTaxDeclaration ? TAX_DISCOUNT : 0;
-                if (disability > 0) taxDiscount += DISABILITY_DISCOUNT[disability - 1];
-                if (isStudent) taxDiscount += STUDENT_DISCOUNT;
-                tax = Math.max(0, tax - taxDiscount);
-
-                let childDiscount = 0;
-                for (let i = 0; i < childCount; i++) {
-                    childDiscount += CHILD_DISCOUNT[Math.min(i, 2)];
-                }
-                tax = Math.max(0, tax - childDiscount);
-
-                const netWage = totalWage - healthInsurance - socialInsurance - tax;
-
-                // Aktualizace výsledků
-                const nightWageDisplay = `
+                const nightWageDisplay = settings.profile === 'firma2' ? `
                     <div class="wage-result-item">
-                        <strong>Příplatek za noční (${(nightShifts.length * NIGHT_BONUS_HOURS).toFixed(1)} hod):</strong>
-                        <span>${nightWageWithOvertime.toLocaleString()} Kč</span>
-                        ${overtimeNHours > 0 ? `<small>(včetně ${(overtimeNHours * (NIGHT_BONUS_HOURS / SHIFT_HOURS)).toFixed(1)} hod přesčas)</small>` : ''}
+                        <strong>Příplatek za noční (${(nightShiftsCount * SHIFT_HOURS + w.overtimeNHours).toFixed(1)} hod, 18:00-6:00):</strong>
+                        <span>${w.nightWageWithOvertime.toLocaleString()} Kč</span>
+                        ${w.overtimeNHours > 0 ? `<small>(včetně ${w.overtimeNHours.toFixed(1)} hod přesčas)</small>` : ''}
+                    </div>
+                ` : `
+                    <div class="wage-result-item">
+                        <strong>Příplatek za noční (${(nightShiftsCount * NIGHT_BONUS_HOURS).toFixed(1)} hod):</strong>
+                        <span>${w.nightWageWithOvertime.toLocaleString()} Kč</span>
+                        ${w.overtimeNHours > 0 ? `<small>(včetně ${(w.overtimeNHours * (NIGHT_BONUS_HOURS / SHIFT_HOURS)).toFixed(1)} hod přesčas)</small>` : ''}
                     </div>
                 `;
+
+                const firma2ExtrasDisplay = settings.profile === 'firma2' ? `
+                    <div class="wage-result-item">
+                        <strong>Osobní ohodnocení (${w.totalHoursWithOvertime.toFixed(1)} hod):</strong>
+                        <span>${w.personalRatingWage.toLocaleString()} Kč</span>
+                    </div>
+                    <div class="wage-result-item">
+                        <strong>Měsíční prémie + motivační bonus:</strong>
+                        <span>${w.fixedBonusesWage.toLocaleString()} Kč</span>
+                    </div>
+                    <div class="wage-result-item">
+                        <strong>Vícestrojová obsluha (${w.multiMachineHours.toFixed(1)} hod):</strong>
+                        <span>${w.multiMachineWage.toLocaleString()} Kč</span>
+                    </div>
+                ` : '';
 
                 document.getElementById('wageResults').innerHTML = `
                     <div class="wage-result-item">
                         <strong>Odpracované hodiny:</strong>
-                        <span>${totalHoursWithOvertime.toFixed(1)} hod</span>
-                        <small>(${Math.floor(totalHoursWithOvertime)} hod ${Math.round((totalHoursWithOvertime % 1) * 60)} min)</small>
+                        <span>${w.totalHoursWithOvertime.toFixed(1)} hod</span>
+                        <small>(${Math.floor(w.totalHoursWithOvertime)} hod ${Math.round((w.totalHoursWithOvertime % 1) * 60)} min)</small>
                     </div>
                     <div class="wage-result-item">
-                        <strong>Základní mzda (${totalHoursWithOvertime.toFixed(1)} hod):</strong>
-                        <span>${normalWageWithOvertime.toLocaleString()} Kč</span>
+                        <strong>Základní mzda (${w.totalHoursWithOvertime.toFixed(1)} hod):</strong>
+                        <span>${w.normalWageWithOvertime.toLocaleString()} Kč</span>
                     </div>
                     ${nightWageDisplay}
                     <div class="wage-result-item">
-                        <strong>Příplatek za víkendy So+Ne (${(weekendHours + weekendOvertimeHours).toFixed(1)} hod):</strong>
-                        <span>${weekendWageWithOvertime.toLocaleString()} Kč</span>
-                        ${weekendOvertimeHours > 0 ? `<small>(včetně ${weekendOvertimeHours.toFixed(1)} hod přesčas)</small>` : ''}
+                        <strong>Příplatek za víkendy So+Ne (${(w.weekendHours + w.weekendOvertimeHours).toFixed(1)} hod):</strong>
+                        <span>${w.weekendWageWithOvertime.toLocaleString()} Kč</span>
+                        ${w.weekendOvertimeHours > 0 ? `<small>(včetně ${w.weekendOvertimeHours.toFixed(1)} hod přesčas)</small>` : ''}
                     </div>
                     <div class="wage-result-item">
-                        <strong>Příplatek za svátky (${(holidayHours + holidayOvertimeHours).toFixed(1)} hod):</strong>
-                        <span>${holidayWageWithOvertime.toLocaleString()} Kč</span>
-                        ${holidayOvertimeHours > 0 ? `<small>(včetně ${holidayOvertimeHours.toFixed(1)} hod přesčas)</small>` : ''}
+                        <strong>Příplatek za svátky (${(w.holidayHours + w.holidayOvertimeHours).toFixed(1)} hod):</strong>
+                        <span>${w.holidayWageWithOvertime.toLocaleString()} Kč</span>
+                        ${w.holidayOvertimeHours > 0 ? `<small>(včetně ${w.holidayOvertimeHours.toFixed(1)} hod přesčas)</small>` : ''}
                     </div>
                     <div class="wage-result-item">
-                        <strong>Příplatek za přesčas (${totalOvertimeHours.toFixed(1)} hod):</strong>
-                        <span>${overtimeBonusWage.toLocaleString()} Kč</span>
+                        <strong>Příplatek za přesčas (${w.totalOvertimeHours.toFixed(1)} hod):</strong>
+                        <span>${w.overtimeBonusWage.toLocaleString()} Kč</span>
                     </div>
+                    ${firma2ExtrasDisplay}
                     <div class="wage-result-item" style="font-weight: bold; font-size: 1.2em; border-top: 1px solid var(--border-color); margin-top: 10px; padding-top: 10px;">
                         <strong>Celková hrubá mzda:</strong>
-                        <span>${totalWage.toLocaleString()} Kč</span>
+                        <span>${w.totalWage.toLocaleString()} Kč</span>
                     </div>
                     <div class="wage-result-item" style="font-weight: bold; font-size: 1.2em; border-top: 1px solid var(--border-color); margin-top: 10px; padding-top: 10px;">
                         <strong>Čistá mzda:</strong>
-                        <span>${netWage.toLocaleString()} Kč</span>
+                        <span>${w.netWage.toLocaleString()} Kč</span>
                     </div>
                 `;
             }
@@ -1981,6 +2156,48 @@
                 }
             }
 
+            // Ukládání/načítání dní s vícestrojovou obsluhou - zrcadlí overtimeDays výše
+            function saveMultiMachineData() {
+                const dataToSave = {};
+                for (let shift in multiMachineDays) {
+                    dataToSave[shift] = Array.from(multiMachineDays[shift]);
+                }
+                localStorage.setItem('multiMachineDays', JSON.stringify(dataToSave));
+            }
+
+            function loadMultiMachineData() {
+                try {
+                    const saved = localStorage.getItem('multiMachineDays');
+                    if (saved) {
+                        const data = JSON.parse(saved);
+                        multiMachineDays = {
+                            'A': new Map(),
+                            'B': new Map(),
+                            'C': new Map(),
+                            'D': new Map()
+                        };
+                        if (!data || typeof data !== 'object') return;
+                        for (let shift in data) {
+                            if (multiMachineDays.hasOwnProperty(shift) && Array.isArray(data[shift])) {
+                                try {
+                                    multiMachineDays[shift] = new Map(data[shift]);
+                                } catch (e) {
+                                    multiMachineDays[shift] = new Map();
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Chyba při načítání dat vícestrojové obsluhy:', e);
+                    multiMachineDays = {
+                        'A': new Map(),
+                        'B': new Map(),
+                        'C': new Map(),
+                        'D': new Map()
+                    };
+                }
+            }
+
             // Přidat nové funkce pro modální okno přesčasů
             let selectedDate = null; // Přidat novou proměnou pro vybraný datum
 
@@ -1995,6 +2212,17 @@
                 } else {
                     document.getElementById('overtimeHours').value = "11.5";
                 }
+
+                if (multiMachineDays[currentShift].has(dateStr)) {
+                    document.getElementById('multiMachinePercent').value = multiMachineDays[currentShift].get(dateStr).percent;
+                } else {
+                    document.getElementById('multiMachinePercent').value = "30";
+                }
+                const shifts = generateShifts(currentYear, currentShift);
+                const overtimeEntriesAll = Array.from(overtimeDays[currentShift].entries());
+                const workedHours = getWorkedHoursForDate(dateStr, shifts, overtimeEntriesAll);
+                document.getElementById('multiMachineHoursPreview').textContent = `Odpracováno tento den: ${workedHours.toFixed(1)} h`;
+
                 document.getElementById('overtimeTypeModal').style.display = 'flex';
             }
 
@@ -2037,6 +2265,28 @@
                 closeOvertimeTypeModal();
             }
 
+            // Nastaví/odznačí vícestrojovou obsluhu pro vybraný den - zrcadlí selectOvertimeType/removeOvertime
+            function setMultiMachine() {
+                if (selectedDate) {
+                    const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+                    const percent = parseFloat(document.getElementById('multiMachinePercent').value) || 0;
+                    multiMachineDays[currentShift].set(dateStr, { percent });
+                    saveMultiMachineData();
+                    refreshCalendar();
+                }
+                closeOvertimeTypeModal();
+            }
+
+            function removeMultiMachine() {
+                if (selectedDate) {
+                    const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+                    multiMachineDays[currentShift].delete(dateStr);
+                    saveMultiMachineData();
+                    refreshCalendar();
+                }
+                closeOvertimeTypeModal();
+            }
+
             function refreshCalendar() {
                 const yearShifts = generateShifts(currentYear, currentShift);
                 createCalendar(yearShifts, currentMonth);
@@ -2072,13 +2322,21 @@
                 const calculatorInputs = [
                     'baseWage', 'nightBonus', 'weekendBonus', 'holidayBonus',
                     'childCount', 'disability', 'isStudent', 'hasTaxDeclaration',
-                    'overtimeBonus'
+                    'overtimeBonus', 'personalRating', 'monthlyBonus', 'motivationBonus'
                 ];
 
                 calculatorInputs.forEach(id => {
                     const element = document.getElementById(id);
                     if (element) {
                         element.addEventListener('change', saveCalculatorSettings);
+                    }
+                });
+
+                // Přepínač zaměstnavatele - přepne profil a přepočítá mzdu
+                document.getElementById('employerProfile').addEventListener('change', function() {
+                    applyEmployerProfile(this.value);
+                    if (document.getElementById('wageCalculatorModal').style.display === 'flex') {
+                        calculateWages();
                     }
                 });
 
