@@ -309,6 +309,13 @@
             justify-content: center;
         }
 
+        /* Potvrzovací dialog se může otevřít i nad jiným už otevřeným modálem
+           (např. mazání vícestrojové obsluhy uvnitř mzdové kalkulačky, obnova zálohy) -
+           bez vyššího z-indexu by ho ten druhý modál (pozdější v DOM) překryl a skryl. */
+        #confirmModal {
+            z-index: 1001;
+        }
+
         .modal-content {
             background: var(--card-background);
             padding: 20px;
@@ -368,7 +375,9 @@
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             display: none;
-            z-index: 1000;
+            /* Nad modály i nad potvrzovacím dialogem - notifikace může přijít, i když je
+               otevřený jiný modál (např. po smazání vícestrojové obsluhy v kalkulačce) */
+            z-index: 1002;
             animation: slideIn 0.3s ease-out;
         }
 
