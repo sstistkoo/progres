@@ -739,10 +739,12 @@
                             <div class="firma2-only">
                                 <strong>Vícestrojová obsluha:</strong>
                                 <span id="multiMachineCount">0</span> dní (<span id="multiMachineHoursSummary">0</span> h)
+                                <button class="action-btn secondary" onclick="clearMultiMachine()" style="padding: 2px 8px; font-size: 0.8em; margin-left: 5px;">Vymazat</button>
                             </div>
                             <div>
                                 <strong>Klouzavé směny:</strong>
                                 <span id="slidingShiftCount">0</span> dní (<span id="slidingShiftHoursSummary">0</span> h)
+                                <button class="action-btn secondary" onclick="clearSlidingShifts()" style="padding: 2px 8px; font-size: 0.8em; margin-left: 5px;">Vymazat</button>
                             </div>
                         </div>
                     </div>
@@ -1479,6 +1481,20 @@
                     .filter(([_, data]) => data.type === 'N')
                     .reduce((sum, [_, data]) => sum + parseFloat(data.hours), 0);
 
+                // Vícestrojová obsluha a klouzavé směny (stejný rok/měsíc filtr jako přesčasy výše)
+                const inPeriod = ([date]) => {
+                    const d = new Date(date);
+                    if (d.getFullYear() !== currentYear) return false;
+                    if (month === undefined) return true; // Roční pohled
+                    return d.getMonth() === month; // Měsíční pohled
+                };
+                const multiMachineEntries = Array.from(multiMachineDays[currentShift].entries()).filter(inPeriod);
+                const multiMachineHoursTotal = multiMachineEntries
+                    .reduce((sum, [dateStr]) => sum + getWorkedHoursForDate(dateStr, shifts, overtimeEntries), 0);
+                const slidingShiftEntries = Array.from(slidingShiftDays[currentShift].entries()).filter(inPeriod);
+                const slidingShiftHoursTotal = slidingShiftEntries
+                    .reduce((sum, [dateStr]) => sum + getWorkedHoursForDate(dateStr, shifts, overtimeEntries), 0);
+
                 // Aktualizace statistik
                 stats.innerHTML = `
                     <div class="stat-item">
@@ -1502,6 +1518,16 @@
                         <h3>Celkem přesčasů</h3>
                         <p>${overtimeEntries.length}</p>
                         <small>Hodiny: ${totalOvertimeHours.toFixed(1)}h (R: ${totalOvertimeRHours.toFixed(1)}h, N: ${totalOvertimeNHours.toFixed(1)}h)</small>
+                    </div>
+                    <div class="stat-item">
+                        <h3>Vícestrojová obsluha</h3>
+                        <p>${multiMachineEntries.length} dní</p>
+                        <small>Hodiny: ${multiMachineHoursTotal.toFixed(1)}h</small>
+                    </div>
+                    <div class="stat-item">
+                        <h3>Klouzavé směny</h3>
+                        <p>${slidingShiftEntries.length} dní</p>
+                        <small>Hodiny: ${slidingShiftHoursTotal.toFixed(1)}h</small>
                     </div>
                 `;
             }
@@ -1792,6 +1818,13 @@
                             dayClass += ` shift-${shiftDay.shift}`;
                         }
 
+                        if (multiMachineDays[currentShift].has(holidayDate)) {
+                            dayClass += ' multi-machine';
+                        }
+                        if (slidingShiftDays[currentShift].has(holidayDate)) {
+                            dayClass += ' sliding-shift';
+                        }
+
                         daysRow += `<td class="${dayClass}">${day}</td>`;
                         shiftsRow += `<td class="${dayClass}">${shiftText}</td>`;
                     }
@@ -1859,6 +1892,7 @@
                         isStudent: settings.isStudent,
                         hasTaxDeclaration: settings.hasTaxDeclaration
                     }));
+                    showNotification('Dřívější nastavení kalkulačky bylo přeneseno pod Firmu 1.');
                 } catch (e) {
                     console.warn('Chyba při migraci starého nastavení kalkulačky:', e);
                 }
@@ -2376,7 +2410,9 @@
             function setMultiMachine() {
                 if (selectedDate) {
                     const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-                    const percent = parseFloat(document.getElementById('multiMachinePercent').value) || 0;
+                    const rawPercent = parseFloat(document.getElementById('multiMachinePercent').value) || 0;
+                    const percent = Math.min(50, Math.max(20, rawPercent));
+                    document.getElementById('multiMachinePercent').value = percent;
                     multiMachineDays[currentShift].set(dateStr, { percent });
                     saveMultiMachineData();
                     refreshCalendar();
@@ -2439,6 +2475,25 @@
                     saveOvertimeData();
                     refreshCalendar();
                     showNotification('Přesčasy byly vymazány');
+                });
+            }
+
+            // Hromadné vymazání vícestrojové obsluhy / klouzavých směn - zrcadlí clearOvertimes
+            function clearMultiMachine() {
+                showConfirm('Opravdu chcete vymazat všechny dny s vícestrojovou obsluhou pro směnu ' + currentShift + '?', () => {
+                    multiMachineDays[currentShift].clear();
+                    saveMultiMachineData();
+                    refreshCalendar();
+                    showNotification('Vícestrojová obsluha byla vymazána');
+                });
+            }
+
+            function clearSlidingShifts() {
+                showConfirm('Opravdu chcete vymazat všechny klouzavé směny pro směnu ' + currentShift + '?', () => {
+                    slidingShiftDays[currentShift].clear();
+                    saveSlidingShiftData();
+                    refreshCalendar();
+                    showNotification('Klouzavé směny byly vymazány');
                 });
             }
 
