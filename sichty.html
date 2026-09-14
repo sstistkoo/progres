@@ -604,6 +604,9 @@
             <button class="action-btn" onclick="showWageCalculator()">
                 <i class="fas fa-calculator"></i> Mzdová kalkulačka
             </button>
+            <button class="action-btn" onclick="showYearlyWageSummary()">
+                <i class="fas fa-chart-line"></i> Roční mzdy
+            </button>
             <button class="action-btn" onclick="showBackupModal()">
                 <i class="fas fa-database"></i> Záloha dat
             </button>
@@ -664,6 +667,25 @@
                 <button class="action-btn" onclick="importBackup()" style="width: 100%;">
                     <i class="fas fa-upload"></i> Obnovit ze souboru
                 </button>
+            </div>
+        </div>
+
+        <!-- Modální okno pro roční přehled mezd -->
+        <div id="yearlyWageModal" class="modal">
+            <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2>Roční přehled mezd - <span id="yearlyWageYear"></span> (směna <span id="yearlyWageShift"></span>)</h2>
+                    <button class="action-btn secondary" onclick="closeYearlyWageSummary()" style="padding: 5px 10px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <p style="font-size: 0.85em; margin-bottom: 15px; color: var(--text-color);">
+                    Počítáno s aktuálním nastavením mzdové kalkulačky (<span id="yearlyWageProfileName"></span>)
+                    pro všech 12 měsíců roku.
+                </p>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;" id="yearlyWageTable"></table>
+                </div>
             </div>
         </div>
 
@@ -2605,6 +2627,88 @@
                     );
                 };
                 reader.readAsText(file);
+            }
+
+            // --- Roční přehled mezd ---
+            // Sečte 12 samostatně spočítaných měsíců (ne jeden "velký měsíc") - daně a odvody se
+            // v ČR počítají po měsících, takže jen sečtení už hotových měsíčních výpočtů dá správný
+            // roční součet; přepočet najednou za celý rok by nesprávně uplatnil měsíční slevy na dani jen jednou.
+            function computeYearlyWageSummary(year, shift, settings) {
+                const yearShifts = generateShifts(year, shift);
+                const holidaysForYear = getHolidays(year);
+                const rows = [];
+                const totals = { totalHoursWithOvertime: 0, totalWage: 0, netWage: 0 };
+
+                for (let month = 0; month < 12; month++) {
+                    const monthShifts = yearShifts.filter(s => s.date.getMonth() === month);
+                    const inMonth = ([date]) => {
+                        const d = new Date(date);
+                        return d.getFullYear() === year && d.getMonth() === month;
+                    };
+                    const overtimeEntries = Array.from(overtimeDays[shift].entries()).filter(inMonth);
+                    const multiMachineEntries = Array.from(multiMachineDays[shift].entries()).filter(inMonth);
+                    const slidingShiftEntries = Array.from(slidingShiftDays[shift].entries()).filter(inMonth);
+
+                    const w = computeWageBreakdown(settings, monthShifts, overtimeEntries, multiMachineEntries, slidingShiftEntries, holidaysForYear);
+                    rows.push({ month, w });
+                    totals.totalHoursWithOvertime += w.totalHoursWithOvertime;
+                    totals.totalWage += w.totalWage;
+                    totals.netWage += w.netWage;
+                }
+
+                return { rows, totals };
+            }
+
+            function showYearlyWageSummary() {
+                const settings = getWageSettings();
+                const { rows, totals } = computeYearlyWageSummary(currentYear, currentShift, settings);
+
+                const monthNames = [
+                    'Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
+                    'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'
+                ];
+
+                document.getElementById('yearlyWageYear').textContent = currentYear;
+                document.getElementById('yearlyWageShift').textContent = currentShift;
+                document.getElementById('yearlyWageProfileName').textContent = settings.profile === 'firma2' ? 'Firma 2' : 'Firma 1';
+
+                let rowsHtml = '';
+                rows.forEach(({ month, w }) => {
+                    rowsHtml += `
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 6px;">${monthNames[month]}</td>
+                            <td style="padding: 6px; text-align: right;">${w.totalHoursWithOvertime.toFixed(1)}</td>
+                            <td style="padding: 6px; text-align: right;">${w.totalWage.toLocaleString()} Kč</td>
+                            <td style="padding: 6px; text-align: right;">${w.netWage.toLocaleString()} Kč</td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('yearlyWageTable').innerHTML = `
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border-color); text-align: left;">
+                            <th style="padding: 6px;">Měsíc</th>
+                            <th style="padding: 6px; text-align: right;">Hodiny</th>
+                            <th style="padding: 6px; text-align: right;">Hrubá mzda</th>
+                            <th style="padding: 6px; text-align: right;">Čistá mzda</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                    <tfoot>
+                        <tr style="font-weight: bold; border-top: 2px solid var(--border-color);">
+                            <td style="padding: 6px;">Celkem za rok</td>
+                            <td style="padding: 6px; text-align: right;">${totals.totalHoursWithOvertime.toFixed(1)}</td>
+                            <td style="padding: 6px; text-align: right;">${totals.totalWage.toLocaleString()} Kč</td>
+                            <td style="padding: 6px; text-align: right;">${totals.netWage.toLocaleString()} Kč</td>
+                        </tr>
+                    </tfoot>
+                `;
+
+                document.getElementById('yearlyWageModal').style.display = 'flex';
+            }
+
+            function closeYearlyWageSummary() {
+                document.getElementById('yearlyWageModal').style.display = 'none';
             }
 
             // Přidat event listenery pro ukládání změn
