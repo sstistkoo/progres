@@ -689,9 +689,10 @@
                     </button>
                 </div>
                 <p style="font-size: 0.9em; margin-bottom: 15px;">
-                    Zálohuje a obnoví přesčasy, vícestrojovou obsluhu, klouzavé směny a nastavení mzdové
-                    kalkulačky pro obě firmy. Data jsou uložená jen v tomto prohlížeči - bez zálohy o ně
-                    přijdeš při vymazání dat prohlížeče nebo na jiném zařízení.
+                    Zálohuje a obnoví přesčasy, vícestrojovou obsluhu, klouzavé směny, přehozené směny,
+                    poznámky u dnů a nastavení mzdové kalkulačky pro obě firmy. Data jsou uložená jen
+                    v tomto prohlížeči - bez zálohy o ně přijdeš při vymazání dat prohlížeče nebo na
+                    jiném zařízení.
                 </p>
                 <button class="action-btn" onclick="exportBackup()" style="width: 100%; margin-bottom: 20px;">
                     <i class="fas fa-download"></i> Stáhnout zálohu (JSON)
@@ -1468,9 +1469,28 @@
                     delete notes[dateStr];
                 }
 
+                saveNotesData();
                 closeNoteModal();
                 const yearShifts = generateShifts(currentYear, currentShift);
                 createCalendar(yearShifts, currentMonth);
+            }
+
+            // Ukládání/načítání poznámek - notes je obyčejný objekt (ne Map), stačí přímo JSON
+            function saveNotesData() {
+                localStorage.setItem('notes', JSON.stringify(notes));
+            }
+
+            function loadNotesData() {
+                try {
+                    const saved = localStorage.getItem('notes');
+                    if (saved) {
+                        const data = JSON.parse(saved);
+                        notes = (data && typeof data === 'object') ? data : {};
+                    }
+                } catch (e) {
+                    console.error('Chyba při načítání poznámek:', e);
+                    notes = {};
+                }
             }
 
             /**
@@ -2080,6 +2100,7 @@
                 loadMultiMachineData();
                 loadSlidingShiftData();
                 loadShiftOverrides();
+                loadNotesData();
 
                 migrateLegacyCalculatorSettings();
                 loadTaxSettings();
@@ -2156,9 +2177,7 @@
 
             // Event listener pro klávesnici (šipky) byl ODSTRANĚN
 
-            // Poznámky a nastavení budou existovat pouze v paměti během běhu aplikace
             window.addEventListener('beforeunload', function() {
-                // Zde by mohla být implementace alternativního způsobu ukládání dat
                 console.log('Aplikace se ukončuje');
             });
 
@@ -2700,7 +2719,7 @@
 
             // --- Záloha a obnova dat (vše, co aplikace ukládá do localStorage) ---
             const BACKUP_KEYS = [
-                'overtimeDays', 'multiMachineDays', 'slidingShiftDays', 'shiftOverrides',
+                'overtimeDays', 'multiMachineDays', 'slidingShiftDays', 'shiftOverrides', 'notes',
                 'calculatorSettings_firma1', 'calculatorSettings_firma2',
                 'taxSettings', 'employerProfile', 'currentShift'
             ];
@@ -2761,7 +2780,8 @@
 
                     showConfirm(
                         'Opravdu chcete obnovit data ze zálohy? Přepíše to aktuální přesčasy, vícestrojovou ' +
-                        'obsluhu, klouzavé směny a nastavení mzdové kalkulačky pro obě firmy v tomto prohlížeči.',
+                        'obsluhu, klouzavé směny, přehozené směny, poznámky u dnů a nastavení mzdové ' +
+                        'kalkulačky pro obě firmy v tomto prohlížeči.',
                         () => {
                             BACKUP_KEYS.forEach(key => {
                                 if (backup.data[key] !== undefined) {
