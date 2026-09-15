@@ -533,6 +533,10 @@
             outline-offset: -3px;
         }
 
+        .shift-override {
+            border-top: 4px solid #009688 !important;
+        }
+
         @media (max-width: 600px) {
             /* Pole mzdové kalkulačky po dvou vedle sebe, ať to na mobilu nezabírá tolik místa */
             .input-group {
@@ -872,13 +876,15 @@
 
         <!-- Přidat nové modální okno pro výběr typu přesčasu před koncem body -->
         <div id="overtimeTypeModal" class="modal">
-            <div class="modal-content" style="max-width: 300px;">
+            <div class="modal-content" style="max-width: 300px; max-height: 90vh; overflow-y: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h2>Vyberte typ přesčasu</h2>
+                    <h2>Nastavení dne</h2>
                     <button class="action-btn secondary" onclick="closeOvertimeTypeModal()" style="padding: 5px 10px;">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
+
+                <h3 style="margin-bottom: 10px; font-size: 1em;">Přesčas</h3>
                 <div class="input-field" style="margin-bottom: 15px;">
                     <label>Počet hodin:</label>
                     <input type="number" id="overtimeHours" value="11.5" min="0" step="0.5" style="width: 100%;">
@@ -914,6 +920,19 @@
                     <button class="action-btn" onclick="setSlidingShift()">Označit</button>
                     <button class="action-btn secondary" onclick="removeSlidingShift()">Odznačit</button>
                 </div>
+
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid var(--border-color);">
+                <h3 style="margin-bottom: 5px; font-size: 1em;">Změnit směnu</h3>
+                <p style="font-size: 0.8em; margin: 0 0 10px; color: var(--text-color);">
+                    Přehodí naplánovanou směnu tohoto dne, např. při výměně s kolegou.
+                </p>
+                <div id="shiftOverrideStatus" style="font-size: 0.85em; margin-bottom: 10px; color: var(--text-color);"></div>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button class="action-btn" onclick="setShiftOverride('R')">Ranní</button>
+                    <button class="action-btn" onclick="setShiftOverride('N')">Noční</button>
+                    <button class="action-btn" onclick="setShiftOverride('-')">Volno</button>
+                    <button class="action-btn secondary" onclick="removeShiftOverride()">Zpět na rozvrh</button>
+                </div>
             </div>
         </div>
 
@@ -943,6 +962,16 @@
             // odpracovaných hodin, ty už pokrývá běžná směna). Na rozdíl od ad-hoc přesčasu
             // (selectOvertimeType) tady nevadí, že ten den už je naplánovaná R/N směna.
             let slidingShiftDays = {
+                'A': new Map(),
+                'B': new Map(),
+                'C': new Map(),
+                'D': new Map()
+            };
+
+            // Ruční přehození směny (výměna s kolegou apod.) - přepíše, co by pro daný den
+            // jinak vypočítal rotační cyklus. Hodnota 'R'/'N'/'-' se aplikuje přímo v generateShifts,
+            // takže se automaticky promítne úplně všude (kalendář, statistiky, mzda, roční přehled).
+            let shiftOverrides = {
                 'A': new Map(),
                 'B': new Map(),
                 'C': new Map(),
@@ -1479,6 +1508,12 @@
                     else if (dayInCycle < 9) shift = 'N';
                     else shift = '-';
 
+                    // Ruční přehození směny (výměna s kolegou) má přednost před vypočítaným rozvrhem
+                    const overrideMap = shiftOverrides[shiftType];
+                    if (overrideMap && overrideMap.has(toDateKey(currentDate))) {
+                        shift = overrideMap.get(toDateKey(currentDate));
+                    }
+
                     shifts.push({
                         date: new Date(currentDate),
                         shift: shift
@@ -1770,6 +1805,11 @@
                         dayDiv.classList.add('sliding-shift');
                     }
 
+                    // Vyznačit ručně přehozené směny
+                    if (shiftOverrides[currentShift].has(dateStr)) {
+                        dayDiv.classList.add('shift-override');
+                    }
+
                     daysDiv.appendChild(dayDiv);
                 }
 
@@ -1910,6 +1950,9 @@
                         if (slidingShiftDays[currentShift].has(holidayDate)) {
                             dayClass += ' sliding-shift';
                         }
+                        if (shiftOverrides[currentShift].has(holidayDate)) {
+                            dayClass += ' shift-override';
+                        }
 
                         daysRow += `<td class="${dayClass}">${day}</td>`;
                         shiftsRow += `<td class="${dayClass}">${shiftText}</td>`;
@@ -2036,6 +2079,7 @@
                 loadOvertimeData();
                 loadMultiMachineData();
                 loadSlidingShiftData();
+                loadShiftOverrides();
 
                 migrateLegacyCalculatorSettings();
                 loadTaxSettings();
@@ -2420,6 +2464,48 @@
                 }
             }
 
+            // Ukládání/načítání ručně přehozených směn - zrcadlí slidingShiftDays výše
+            function saveShiftOverrides() {
+                const dataToSave = {};
+                for (let shift in shiftOverrides) {
+                    dataToSave[shift] = Array.from(shiftOverrides[shift]);
+                }
+                localStorage.setItem('shiftOverrides', JSON.stringify(dataToSave));
+            }
+
+            function loadShiftOverrides() {
+                try {
+                    const saved = localStorage.getItem('shiftOverrides');
+                    if (saved) {
+                        const data = JSON.parse(saved);
+                        shiftOverrides = {
+                            'A': new Map(),
+                            'B': new Map(),
+                            'C': new Map(),
+                            'D': new Map()
+                        };
+                        if (!data || typeof data !== 'object') return;
+                        for (let shift in data) {
+                            if (shiftOverrides.hasOwnProperty(shift) && Array.isArray(data[shift])) {
+                                try {
+                                    shiftOverrides[shift] = new Map(data[shift]);
+                                } catch (e) {
+                                    shiftOverrides[shift] = new Map();
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Chyba při načítání přehozených směn:', e);
+                    shiftOverrides = {
+                        'A': new Map(),
+                        'B': new Map(),
+                        'C': new Map(),
+                        'D': new Map()
+                    };
+                }
+            }
+
             // Přidat nové funkce pro modální okno přesčasů
             let selectedDate = null; // Přidat novou proměnou pro vybraný datum
 
@@ -2449,6 +2535,13 @@
                 document.getElementById('slidingShiftStatus').textContent = isSliding
                     ? `Označeno jako klouzavá směna (${workedHours.toFixed(1)} h s příplatkem za přesčas)`
                     : `Zatím neoznačeno (${workedHours.toFixed(1)} h by dostalo příplatek za přesčas)`;
+
+                const shiftLabel = (s) => s === 'R' ? 'Ranní' : s === 'N' ? 'Noční' : 'Volno';
+                const effectiveShift = shifts.find(s => toDateKey(s.date) === dateStr);
+                const isOverridden = shiftOverrides[currentShift].has(dateStr);
+                document.getElementById('shiftOverrideStatus').textContent = effectiveShift
+                    ? `Aktuální směna: ${shiftLabel(effectiveShift.shift)}${isOverridden ? ' (ručně změněno)' : ' (dle rozvrhu)'}`
+                    : '';
 
                 document.getElementById('overtimeTypeModal').style.display = 'flex';
             }
@@ -2538,6 +2631,28 @@
                 closeOvertimeTypeModal();
             }
 
+            // Ruční přehození směny (výměna s kolegou) - přepíše, co by pro daný den dal rotační cyklus.
+            // type je 'R' (ranní), 'N' (noční) nebo '-' (volno).
+            function setShiftOverride(type) {
+                if (selectedDate) {
+                    const dateStr = toDateKey(selectedDate);
+                    shiftOverrides[currentShift].set(dateStr, type);
+                    saveShiftOverrides();
+                    refreshCalendar();
+                }
+                closeOvertimeTypeModal();
+            }
+
+            function removeShiftOverride() {
+                if (selectedDate) {
+                    const dateStr = toDateKey(selectedDate);
+                    shiftOverrides[currentShift].delete(dateStr);
+                    saveShiftOverrides();
+                    refreshCalendar();
+                }
+                closeOvertimeTypeModal();
+            }
+
             function refreshCalendar() {
                 const yearShifts = generateShifts(currentYear, currentShift);
                 createCalendar(yearShifts, currentMonth);
@@ -2585,7 +2700,7 @@
 
             // --- Záloha a obnova dat (vše, co aplikace ukládá do localStorage) ---
             const BACKUP_KEYS = [
-                'overtimeDays', 'multiMachineDays', 'slidingShiftDays',
+                'overtimeDays', 'multiMachineDays', 'slidingShiftDays', 'shiftOverrides',
                 'calculatorSettings_firma1', 'calculatorSettings_firma2',
                 'taxSettings', 'employerProfile', 'currentShift'
             ];
