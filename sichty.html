@@ -343,6 +343,7 @@
 
         .action-btn.secondary {
             background-color: var(--border-color);
+            color: var(--text-color);
         }
 
         @media print {
@@ -530,6 +531,29 @@
         .sliding-shift {
             outline: 3px solid #ff9800;
             outline-offset: -3px;
+        }
+
+        @media (max-width: 600px) {
+            /* Pole mzdové kalkulačky po dvou vedle sebe, ať to na mobilu nezabírá tolik místa */
+            .input-group {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 10px !important;
+            }
+
+            .input-group .input-field label {
+                font-size: 0.85em;
+            }
+        }
+
+        .collapsible-summary {
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.17em;
+            margin: 0;
+        }
+
+        .collapsible-summary::-webkit-details-marker {
+            color: var(--primary-color);
         }
     </style>
 </head>
@@ -770,10 +794,10 @@
                         </div>
                     </div>
 
-                    <div class="shift-summary" style="margin-top: 20px; padding: 15px; background: var(--background-color); border-radius: 4px;">
-                        <h3>Přehled směn v měsíci</h3>
+                    <details class="shift-summary" style="margin-top: 20px; padding: 15px; background: var(--background-color); border-radius: 4px;">
+                        <summary class="collapsible-summary">Přehled směn v měsíci</summary>
                         <!-- Odstraněno duplicitní rozložení směny -->
-                        <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                        <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 15px;">
                             <div>
                                 <strong>Ranní směny:</strong>
                                 <span id="morningShiftCount">0</span>
@@ -809,7 +833,7 @@
                                 <button class="action-btn secondary" onclick="clearSlidingShifts()" style="padding: 2px 8px; font-size: 0.8em; margin-left: 5px;">Vymazat</button>
                             </div>
                         </div>
-                    </div>
+                    </details>
 
                     <div class="results" style="margin-top: 20px; padding: 15px; background: var(--background-color); border-radius: 4px;">
                         <h3>Výsledky výpočtu</h3>
