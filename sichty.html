@@ -885,21 +885,22 @@
                     </button>
                 </div>
 
-                <h3 style="margin-bottom: 10px; font-size: 1em;">Přesčas</h3>
-                <div class="input-field" style="margin-bottom: 15px;">
-                    <label>Počet hodin:</label>
-                    <input type="number" id="overtimeHours" value="11.5" min="0" step="0.5" style="width: 100%;">
-                </div>
-                <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button class="action-btn" onclick="selectOvertimeType('R')">Ranní</button>
-                    <button class="action-btn" onclick="selectOvertimeType('N')">Noční</button>
-                    <button class="action-btn secondary" onclick="removeOvertime()">Odznačit</button>
-                </div>
+                <details id="overtimeSection" open style="margin-bottom: 10px;">
+                    <summary class="collapsible-summary">Přesčas</summary>
+                    <div class="input-field" style="margin: 10px 0 15px;">
+                        <label>Počet hodin:</label>
+                        <input type="number" id="overtimeHours" value="11.5" min="0" step="0.5" style="width: 100%;">
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button class="action-btn" onclick="selectOvertimeType('R')">Ranní</button>
+                        <button class="action-btn" onclick="selectOvertimeType('N')">Noční</button>
+                        <button class="action-btn secondary" onclick="removeOvertime()">Odznačit</button>
+                    </div>
+                </details>
 
-                <div class="firma2-only">
-                    <hr style="margin: 15px 0; border: none; border-top: 1px solid var(--border-color);">
-                    <h3 style="margin-bottom: 10px; font-size: 1em;">Vícestrojová obsluha</h3>
-                    <div class="input-field" style="margin-bottom: 10px;">
+                <details id="multiMachineSection" class="firma2-only" style="margin-bottom: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                    <summary class="collapsible-summary">Vícestrojová obsluha</summary>
+                    <div class="input-field" style="margin: 10px 0 10px;">
                         <label>Příplatek (20-50 %):</label>
                         <input type="number" id="multiMachinePercent" value="30" min="20" max="50" step="5" style="width: 100%;">
                     </div>
@@ -908,32 +909,34 @@
                         <button class="action-btn" onclick="setMultiMachine()">Nastavit</button>
                         <button class="action-btn secondary" onclick="removeMultiMachine()">Odznačit</button>
                     </div>
-                </div>
+                </details>
 
-                <hr style="margin: 15px 0; border: none; border-top: 1px solid var(--border-color);">
-                <h3 style="margin-bottom: 5px; font-size: 1em;">Klouzavá směna</h3>
-                <p style="font-size: 0.8em; margin: 0 0 10px; color: var(--text-color);">
-                    Den navíc k běžné směně - platí se za něj příplatek za přesčas, i když je ten den
-                    už naplánovaná směna.
-                </p>
-                <div id="slidingShiftStatus" style="font-size: 0.85em; margin-bottom: 10px; color: var(--text-color);"></div>
-                <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button class="action-btn" onclick="setSlidingShift()">Označit</button>
-                    <button class="action-btn secondary" onclick="removeSlidingShift()">Odznačit</button>
-                </div>
+                <details id="slidingShiftSection" style="margin-bottom: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                    <summary class="collapsible-summary">Klouzavá směna</summary>
+                    <p style="font-size: 0.8em; margin: 10px 0;">
+                        Den navíc k běžné směně - platí se za něj příplatek za přesčas, i když je ten den
+                        už naplánovaná směna.
+                    </p>
+                    <div id="slidingShiftStatus" style="font-size: 0.85em; margin-bottom: 10px; color: var(--text-color);"></div>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button class="action-btn" onclick="setSlidingShift()">Označit</button>
+                        <button class="action-btn secondary" onclick="removeSlidingShift()">Odznačit</button>
+                    </div>
+                </details>
 
-                <hr style="margin: 15px 0; border: none; border-top: 1px solid var(--border-color);">
-                <h3 style="margin-bottom: 5px; font-size: 1em;">Změnit směnu</h3>
-                <p style="font-size: 0.8em; margin: 0 0 10px; color: var(--text-color);">
-                    Přehodí naplánovanou směnu tohoto dne, např. při výměně s kolegou.
-                </p>
-                <div id="shiftOverrideStatus" style="font-size: 0.85em; margin-bottom: 10px; color: var(--text-color);"></div>
-                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                    <button class="action-btn" onclick="setShiftOverride('R')">Ranní</button>
-                    <button class="action-btn" onclick="setShiftOverride('N')">Noční</button>
-                    <button class="action-btn" onclick="setShiftOverride('-')">Volno</button>
-                    <button class="action-btn secondary" onclick="removeShiftOverride()">Zpět na rozvrh</button>
-                </div>
+                <details id="shiftOverrideSection" style="border-top: 1px solid var(--border-color); padding-top: 10px;">
+                    <summary class="collapsible-summary">Změnit směnu</summary>
+                    <p style="font-size: 0.8em; margin: 10px 0;">
+                        Přehodí naplánovanou směnu tohoto dne, např. při výměně s kolegou.
+                    </p>
+                    <div id="shiftOverrideStatus" style="font-size: 0.85em; margin-bottom: 10px; color: var(--text-color);"></div>
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                        <button class="action-btn" onclick="setShiftOverride('R')">Ranní</button>
+                        <button class="action-btn" onclick="setShiftOverride('N')">Noční</button>
+                        <button class="action-btn" onclick="setShiftOverride('-')">Volno</button>
+                        <button class="action-btn secondary" onclick="removeShiftOverride()">Zpět na rozvrh</button>
+                    </div>
+                </details>
             </div>
         </div>
 
@@ -2561,6 +2564,13 @@
                 document.getElementById('shiftOverrideStatus').textContent = effectiveShift
                     ? `Aktuální směna: ${shiftLabel(effectiveShift.shift)}${isOverridden ? ' (ručně změněno)' : ' (dle rozvrhu)'}`
                     : '';
+
+                // Sbalovací sekce - "Přesčas" je vždy rozbalený (nejčastější akce), ostatní se
+                // rozbalí samy jen když už pro ten den něco obsahují, ať nezůstane skryté nastavení.
+                document.getElementById('overtimeSection').open = true;
+                document.getElementById('multiMachineSection').open = multiMachineDays[currentShift].has(dateStr);
+                document.getElementById('slidingShiftSection').open = isSliding;
+                document.getElementById('shiftOverrideSection').open = isOverridden;
 
                 document.getElementById('overtimeTypeModal').style.display = 'flex';
             }
