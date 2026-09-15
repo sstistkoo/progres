@@ -435,8 +435,15 @@
             background-color: var(--weekend-color);
         }
 
+        /* Jen na řádek s čísly dne (ne na řádek se směnou) - čtvereček zůstane vidět
+           i když svátek/směna později přebijí background-color */
+        .year-table .weekend-square {
+            outline: 2px solid #3f51b5;
+            outline-offset: -2px;
+        }
+
         .year-table .holiday {
-            background-color: var(--holiday-color);
+            background-color: var(--holiday-color) !important;
         }
 
         .year-table .current-day {
@@ -541,6 +548,13 @@
         .sliding-shift {
             outline: 3px solid #ff9800;
             outline-offset: -3px;
+        }
+
+        .sliding-shift-label {
+            font-size: 0.65em;
+            color: #ff9800;
+            font-weight: bold;
+            line-height: 1.1;
         }
 
         .shift-override {
@@ -699,7 +713,7 @@
                     </button>
                 </div>
                 <p style="font-size: 0.9em; margin-bottom: 15px;">
-                    Zálohuje a obnoví přesčasy, vícestrojovou obsluhu, klouzavé směny, přehozené směny,
+                    Zálohuje a obnoví přesčasy, vícestrojovou obsluhu, klouzáky, přehozené směny,
                     poznámky u dnů a nastavení mzdové kalkulačky pro obě firmy. Data jsou uložená jen
                     v tomto prohlížeči - bez zálohy o ně přijdeš při vymazání dat prohlížeče nebo na
                     jiném zařízení.
@@ -843,7 +857,7 @@
                                 <button class="action-btn secondary" onclick="clearMultiMachine()" style="padding: 2px 8px; font-size: 0.8em; margin-left: 5px;">Vymazat</button>
                             </div>
                             <div>
-                                <strong>Klouzavé směny:</strong>
+                                <strong>Klouzáky:</strong>
                                 <span id="slidingShiftCount">0</span> dní (<span id="slidingShiftHoursSummary">0</span> h)
                                 <button class="action-btn secondary" onclick="clearSlidingShifts()" style="padding: 2px 8px; font-size: 0.8em; margin-left: 5px;">Vymazat</button>
                             </div>
@@ -912,7 +926,7 @@
                     <summary class="collapsible-summary">Vícestrojová obsluha</summary>
                     <div class="input-field" style="margin: 10px 0 10px;">
                         <label>Příplatek (20-50 %):</label>
-                        <input type="number" id="multiMachinePercent" value="30" min="20" max="50" step="5" style="width: 100%;">
+                        <input type="number" id="multiMachinePercent" value="50" min="20" max="50" step="5" style="width: 100%;">
                     </div>
                     <div id="multiMachineHoursPreview" style="font-size: 0.85em; margin-bottom: 10px; color: var(--text-color);"></div>
                     <div style="display: flex; gap: 10px; justify-content: center;">
@@ -922,7 +936,7 @@
                 </details>
 
                 <details id="slidingShiftSection" style="margin-bottom: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
-                    <summary class="collapsible-summary">Klouzavá směna</summary>
+                    <summary class="collapsible-summary">Klouzák</summary>
                     <p style="font-size: 0.8em; margin: 10px 0;">
                         Den navíc k běžné směně - platí se za něj příplatek za přesčas, i když je ten den
                         už naplánovaná směna.
@@ -1405,7 +1419,7 @@
                     `Příplatek za noční: ${w.nightWageWithOvertime.toLocaleString()} Kč`,
                     `Příplatek za víkendy: ${w.weekendWageWithOvertime.toLocaleString()} Kč`,
                     `Příplatek za svátky: ${w.holidayWageWithOvertime.toLocaleString()} Kč`,
-                    `Příplatek za přesčasy: ${w.overtimeBonusWage.toLocaleString()} Kč${w.slidingShiftHours > 0 ? ` (z toho ${w.slidingShiftHours.toFixed(1)} hod klouzavá směna)` : ''}`
+                    `Příplatek za přesčasy: ${w.overtimeBonusWage.toLocaleString()} Kč${w.slidingShiftHours > 0 ? ` (z toho ${w.slidingShiftHours.toFixed(1)} hod klouzák)` : ''}`
                 ];
 
                 if (settings.profile === 'firma2') {
@@ -1679,7 +1693,7 @@
                         <small>Hodiny: ${multiMachineHoursTotal.toFixed(1)}h</small>
                     </div>
                     <div class="stat-item">
-                        <h3>Klouzavé směny</h3>
+                        <h3>Klouzáky</h3>
                         <p>${slidingShiftEntries.length} dní</p>
                         <small>Hodiny: ${slidingShiftHoursTotal.toFixed(1)}h</small>
                     </div>
@@ -1833,9 +1847,13 @@
                         dayDiv.appendChild(badgeDiv);
                     }
 
-                    // Vyznačit klouzavé směny
+                    // Vyznačit klouzáky - text přímo v buňce, ať je vidět i bez otevírání dne
                     if (slidingShiftDays[currentShift].has(dateStr)) {
                         dayDiv.classList.add('sliding-shift');
+                        const slidingLabel = document.createElement('div');
+                        slidingLabel.className = 'sliding-shift-label';
+                        slidingLabel.textContent = 'Klouzák';
+                        dayDiv.appendChild(slidingLabel);
                     }
 
                     // Vyznačit ručně přehozené směny
@@ -1950,15 +1968,17 @@
 
                     for (let day = 1; day <= daysInMonth; day++) {
                         const currentDate = new Date(currentYear, month, day);
+                        const isWeekendDay = currentDate.getDay() === 0 || currentDate.getDay() === 6;
                         let dayClass = '';
-                        if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
+                        if (isWeekendDay) {
                             dayClass = 'weekend';
                         }
 
                         const holidayDate = `${currentYear}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         const holidayInfo = HOLIDAYS.find(h => h.date === holidayDate);
                         if (holidayInfo) {
-                            dayClass = 'holiday';
+                            // Doplnit, ne přepsat - jinak by svátek o víkendu smazal třídu 'weekend'
+                            dayClass += ' holiday';
                         }
 
                         if (currentDate.toDateString() === today.toDateString()) {
@@ -1987,7 +2007,8 @@
                             dayClass += ' shift-override';
                         }
 
-                        daysRow += `<td class="${dayClass}">${day}</td>`;
+                        const daysRowClass = dayClass + (isWeekendDay ? ' weekend-square' : '');
+                        daysRow += `<td class="${daysRowClass}">${day}</td>`;
                         shiftsRow += `<td class="${dayClass}">${shiftText}</td>`;
                     }
 
@@ -2345,7 +2366,7 @@
                     <div class="wage-result-item">
                         <strong>Příplatek za přesčas (${(w.totalOvertimeHours + w.slidingShiftHours).toFixed(1)} hod):</strong>
                         <span>${w.overtimeBonusWage.toLocaleString()} Kč</span>
-                        ${w.slidingShiftHours > 0 ? `<small>(z toho ${w.slidingShiftHours.toFixed(1)} hod klouzavá směna)</small>` : ''}
+                        ${w.slidingShiftHours > 0 ? `<small>(z toho ${w.slidingShiftHours.toFixed(1)} hod klouzák)</small>` : ''}
                     </div>
                     ${firma2ExtrasDisplay}
                     <div class="wage-result-item" style="font-weight: bold; font-size: 1.2em; border-top: 1px solid var(--border-color); margin-top: 10px; padding-top: 10px;">
@@ -2556,7 +2577,7 @@
                 if (multiMachineDays[currentShift].has(dateStr)) {
                     document.getElementById('multiMachinePercent').value = multiMachineDays[currentShift].get(dateStr).percent;
                 } else {
-                    document.getElementById('multiMachinePercent').value = "30";
+                    document.getElementById('multiMachinePercent').value = "50";
                 }
                 const shifts = generateShifts(currentYear, currentShift);
                 const overtimeEntriesAll = Array.from(overtimeDays[currentShift].entries());
@@ -2565,7 +2586,7 @@
 
                 const isSliding = slidingShiftDays[currentShift].has(dateStr);
                 document.getElementById('slidingShiftStatus').textContent = isSliding
-                    ? `Označeno jako klouzavá směna (${workedHours.toFixed(1)} h s příplatkem za přesčas)`
+                    ? `Označeno jako klouzák (${workedHours.toFixed(1)} h s příplatkem za přesčas)`
                     : `Zatím neoznačeno (${workedHours.toFixed(1)} h by dostalo příplatek za přesčas)`;
 
                 const shiftLabel = (s) => s === 'R' ? 'Ranní' : s === 'N' ? 'Noční' : 'Volno';
@@ -2729,11 +2750,11 @@
             }
 
             function clearSlidingShifts() {
-                showConfirm('Opravdu chcete vymazat všechny klouzavé směny pro směnu ' + currentShift + '?', () => {
+                showConfirm('Opravdu chcete vymazat všechny klouzáky pro směnu ' + currentShift + '?', () => {
                     slidingShiftDays[currentShift].clear();
                     saveSlidingShiftData();
                     refreshCalendar();
-                    showNotification('Klouzavé směny byly vymazány');
+                    showNotification('Klouzáky byly vymazány');
                 });
             }
 
@@ -2800,7 +2821,7 @@
 
                     showConfirm(
                         'Opravdu chcete obnovit data ze zálohy? Přepíše to aktuální přesčasy, vícestrojovou ' +
-                        'obsluhu, klouzavé směny, přehozené směny, poznámky u dnů a nastavení mzdové ' +
+                        'obsluhu, klouzáky, přehozené směny, poznámky u dnů a nastavení mzdové ' +
                         'kalkulačky pro obě firmy v tomto prohlížeči.',
                         () => {
                             BACKUP_KEYS.forEach(key => {
