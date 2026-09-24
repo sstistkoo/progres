@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sichty-cache-v4';
+const CACHE_NAME = 'sichty-cache-v5';
 const CACHE_FILES = [
     'sichty.html',
     'sichty-manifest.json',
@@ -20,7 +20,8 @@ const LOCAL_URLS = new Set(CACHE_FILES.map((f) => new URL(f, self.registration.s
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) =>
-            cache.addAll(CACHE_FILES).then(() =>
+            // cache: 'reload' - vzít soubory ze serveru, ne případně starou kopii z HTTP cache prohlížeče
+            cache.addAll(CACHE_FILES.map((f) => new Request(f, { cache: 'reload' }))).then(() =>
                 // CDN je jen bonus - když zrovna nejde, instalace kvůli tomu nesmí selhat
                 cache.addAll(CDN_FILES).catch(() => {})
             )

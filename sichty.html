@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Směny">
     <style>
         :root {
@@ -225,6 +225,7 @@
             box-sizing: border-box;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
             transition: filter 0.15s;
         }
 
@@ -568,8 +569,14 @@
         }
 
         @media print {
-            .controls, .top-controls, .action-buttons, .current-day {
+            .controls, .top-controls, .action-buttons, .notification {
                 display: none;
+            }
+
+            /* Dnešní den tisknout jako běžný (dřív se schovával celý a posunul ostatní dny o jedno místo) */
+            .current-day, .current-week {
+                border: 1px solid var(--border-color);
+                box-shadow: none;
             }
 
             .main-content {
@@ -1926,15 +1933,17 @@
                 const insuranceBase = totalWage - sickPay;
                 const healthInsurance = Math.ceil(insuranceBase * HEALTH_INSURANCE);
                 const socialInsurance = Math.ceil(insuranceBase * SOCIAL_INSURANCE);
-                const taxBase = Math.round(totalWage);
+                // Základ zálohy na daň: do 100 Kč na koruny nahoru, jinak na celé stokoruny nahoru (§38h ZDP)
+                const taxBase = totalWage > 100 ? Math.ceil(totalWage / 100) * 100 : Math.ceil(totalWage);
                 let tax = Math.round(taxBase * TAX_RATE);
 
                 let taxDiscount = settings.hasTaxDeclaration ? TAX_DISCOUNT : 0;
-                if (settings.disability > 0) taxDiscount += DISABILITY_DISCOUNT[settings.disability - 1];
+                // Slevy (poplatník, invalidita, děti) jde uplatnit jen s podepsaným prohlášením
+                if (settings.hasTaxDeclaration && settings.disability > 0) taxDiscount += DISABILITY_DISCOUNT[settings.disability - 1];
                 tax = Math.max(0, tax - taxDiscount);
 
                 let childDiscount = 0;
-                for (let i = 0; i < settings.childCount; i++) {
+                for (let i = 0; settings.hasTaxDeclaration && i < settings.childCount; i++) {
                     childDiscount += CHILD_DISCOUNT[Math.min(i, 2)];
                 }
 
@@ -2032,11 +2041,14 @@
             }
 
             // Funkce pro správu notifikací
+            let notificationTimer = null;
+
             function showNotification(message) {
                 const notification = document.getElementById('notification');
                 notification.textContent = message;
                 notification.style.display = 'block';
-                setTimeout(() => {
+                clearTimeout(notificationTimer);
+                notificationTimer = setTimeout(() => {
                     notification.style.display = 'none';
                 }, 3000);
             }
@@ -2639,7 +2651,7 @@
 
                     let monthRow = `<tr><td class="month-name" rowspan="2">${months[month]}</td>`;
                     let daysRow = '';
-                    let shiftsRow = '';
+                    let shiftsRow = '<tr>';
 
                     for (let day = 1; day <= daysInMonth; day++) {
                         const currentDate = new Date(currentYear, month, day);
@@ -3773,6 +3785,7 @@
                 // Přepínač zaměstnavatele - přepne profil a přepočítá mzdu
                 document.getElementById('employerProfile').addEventListener('change', function() {
                     applyEmployerProfile(this.value);
+                    renderCurrentView();
                     if (document.getElementById('wageCalculatorModal').style.display === 'flex') {
                         calculateWages();
                     }
