@@ -1649,9 +1649,12 @@
                 overtimeDays[shiftType].forEach(entry => {
                     if (entry.nv) earned += parseFloat(entry.hours) || 0;
                 });
+                // Náhradní volno ubírá jen za směny podle rozvrhu (na volný den ho brát netřeba)
                 let taken = 0;
-                shiftOverrides[shiftType].forEach(value => {
-                    if (value === 'NV') taken += 11.5;
+                shiftOverrides[shiftType].forEach((value, key) => {
+                    if (value !== 'NV') return;
+                    const [y, m, d] = key.split('-').map(Number);
+                    if (isWorkShift(getRotationShift(new Date(y, m - 1, d), shiftType))) taken += 11.5;
                 });
                 return { earned, taken, remaining: earned - taken };
             }
@@ -1688,7 +1691,7 @@
 
             // Zůstatek dovolené pro rok a směnu - počítá dny změněné na "Dovolená"
             function getVacationBalance(year, shiftType, settings = vacationSettings) {
-                const days = generateShifts(year, shiftType).filter(s => s.shift === 'D').length;
+                const days = generateShifts(year, shiftType).filter(s => s.shift === 'D' && isWorkShift(s.scheduled)).length;
                 const used = settings.unit === 'days' ? days : days * VACATION_DAY_HOURS;
                 const total = settings.entitlement + (parseFloat(settings.carryOver[year]) || 0);
                 return { unit: settings.unit, days, used, total, remaining: total - used };
@@ -1819,7 +1822,8 @@
                     const dateStr = toDateKey(s.date);
                     return holidaysList.some(h => h.date === dateStr) && isWorkShift(s.shift);
                 });
-                const vacationDays = monthShifts.filter(s => s.shift === 'D').length;
+                // Dovolená se čerpá (a platí) jen za směny podle rozvrhu - na volný den nic neubírá
+                const vacationDays = monthShifts.filter(s => s.shift === 'D' && isWorkShift(s.scheduled)).length;
                 const sickDays = monthShifts.filter(s => s.shift === 'NEM');
 
                 const overtimeRHours = overtimeEntries
@@ -2114,37 +2118,44 @@
             /**
              * Dynamicky generuje směny pro celý zadaný rok
              */
-            function generateShifts(year, shiftType) {
-                const shifts = [];
-                const startDate = new Date(year, 0, 1);
-                const endDate = new Date(year, 11, 31);
-                
+            // Směna daného dne čistě podle rotace (bez ručních změn)
+            function getRotationShift(date, shiftType) {
                 const cycleLength = 12;
                 const msPerDay = 1000 * 60 * 60 * 24;
+                const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                const diffInDays = Math.round((day - SHIFT_CYCLE_REFERENCE_DATE_A) / msPerDay);
 
-                let currentDate = new Date(startDate);
+                // Vypočet dne v cyklu pro směnu A
+                const dayInCycleA = (((diffInDays % cycleLength) + cycleLength) + SHIFT_CYCLE_A_OFFSET) % cycleLength;
+
+                let dayInCycle;
+                switch(shiftType) {
+                    case 'A': dayInCycle = dayInCycleA; break;
+                    case 'B': dayInCycle = (dayInCycleA + 9) % cycleLength; break; // posun o -3 dny (resp. +9)
+                    case 'C': dayInCycle = (dayInCycleA + 3) % cycleLength; break; // posun o -9 dnů (resp. +3)
+                    case 'D': dayInCycle = (dayInCycleA + 6) % cycleLength; break; // posun o -6 dnů (resp. +6)
+                }
+
+                // Cyklus: 0,1,2 = R; 3,4,5 = -; 6,7,8 = N; 9,10,11 = -
+                if (dayInCycle < 3) return 'R';
+                if (dayInCycle < 6) return '-';
+                if (dayInCycle < 9) return 'N';
+                return '-';
+            }
+
+            // Skutečná směna dne - ruční změna má přednost před rotací
+            function getEffectiveShift(date, shiftType) {
+                const override = shiftOverrides[shiftType].get(toDateKey(date));
+                return override !== undefined ? override : getRotationShift(date, shiftType);
+            }
+
+            function generateShifts(year, shiftType) {
+                const shifts = [];
+                const endDate = new Date(year, 11, 31);
+                let currentDate = new Date(year, 0, 1);
 
                 while (currentDate <= endDate) {
-                    const diffInMs = currentDate - SHIFT_CYCLE_REFERENCE_DATE_A;
-                    const diffInDays = Math.round(diffInMs / msPerDay);
-                    
-                    // Vypočet dne v cyklu pro směnu A
-                    const dayInCycleA = (((diffInDays % cycleLength) + cycleLength) + SHIFT_CYCLE_A_OFFSET) % cycleLength;
-                    
-                    let dayInCycle;
-                    switch(shiftType) {
-                        case 'A': dayInCycle = dayInCycleA; break;
-                        case 'B': dayInCycle = (dayInCycleA + 9) % cycleLength; break; // posun o -3 dny (resp. +9)
-                        case 'C': dayInCycle = (dayInCycleA + 3) % cycleLength; break; // posun o -9 dnů (resp. +3) - ZMĚNĚNO
-                        case 'D': dayInCycle = (dayInCycleA + 6) % cycleLength; break; // posun o -6 dnů (resp. +6) - ZMĚNĚNO
-                    }
-
-                    // Cyklus: 0,1,2 = R; 3,4,5 = -; 6,7,8 = N; 9,10,11 = -
-                    let shift = '';
-                    if (dayInCycle < 3) shift = 'R';
-                    else if (dayInCycle < 6) shift = '-';
-                    else if (dayInCycle < 9) shift = 'N';
-                    else shift = '-';
+                    let shift = getRotationShift(currentDate, shiftType);
 
                     // Ruční přehození směny (výměna s kolegou) má přednost před vypočítaným rozvrhem
                     const scheduled = shift; // směna podle rotace, před ruční změnou
@@ -2256,10 +2267,10 @@
                 const slidingShiftHoursTotal = slidingShiftEntries
                     .reduce((sum, [dateStr]) => sum + getSlidingShiftHoursForDate(dateStr, shifts), 0);
 
-                const vacationCount = filteredShifts.filter(s => s.shift === 'D').length;
+                const vacationCount = filteredShifts.filter(s => s.shift === 'D' && isWorkShift(s.scheduled)).length;
                 const sickCount = filteredShifts.filter(s => s.shift === 'NEM').length;
                 const sickPaidCount = filteredShifts.filter(s => s.shift === 'NEM' && s.sickDay <= SICK_PAY_DAYS && isWorkShift(s.scheduled)).length;
-                const nvCount = filteredShifts.filter(s => s.shift === 'NV').length;
+                const nvCount = filteredShifts.filter(s => s.shift === 'NV' && isWorkShift(s.scheduled)).length;
                 const nvBalance = getCompensatoryBalance(currentShift);
                 const vacationBalance = getVacationBalance(currentYear, currentShift);
 
@@ -2936,8 +2947,8 @@
                 document.getElementById('nightShiftCount').textContent = nightShifts;
                 document.getElementById('weekendShiftCount').textContent = weekendShifts;
                 document.getElementById('holidayShiftCount').textContent = holidayShifts;
-                document.getElementById('vacationDayCount').textContent = monthShifts.filter(s => s.shift === 'D').length;
-                document.getElementById('nvDayCount').textContent = monthShifts.filter(s => s.shift === 'NV').length;
+                document.getElementById('vacationDayCount').textContent = monthShifts.filter(s => s.shift === 'D' && isWorkShift(s.scheduled)).length;
+                document.getElementById('nvDayCount').textContent = monthShifts.filter(s => s.shift === 'NV' && isWorkShift(s.scheduled)).length;
                 document.getElementById('sickDayCount').textContent = monthShifts.filter(s => s.shift === 'NEM').length;
 
                 // Add overtime shifts to summary
@@ -3380,11 +3391,22 @@
                     return;
                 }
 
-                // U dne se směnou musí být přesčas mimo ni (směna už je zaplacená)
-                if (isWorkShift(selectedDayShift)) {
-                    const [shiftStart, shiftEnd] = SHIFT_WINDOWS[selectedDayShift];
-                    if (overlapMinutes([start, end], shiftStart, shiftEnd) > 0) {
-                        showNotification(`Přesčas se překrývá se směnou (${minutesToTime(shiftStart)}–${minutesToTime(shiftEnd)}). Zadej čas před nebo po směně.`);
+                // Přesčas musí být mimo směny (ty už jsou zaplacené) - kontroluje se i předchozí den
+                // (noční končí v 6:00 tohoto dne) a následující den (ranní začíná v 6:00 dalšího dne)
+                const neighbourDays = [
+                    { offset: -1, label: 'předchozího dne' },
+                    { offset: 0, label: 'tohoto dne' },
+                    { offset: 1, label: 'následujícího dne' }
+                ];
+                for (const { offset, label } of neighbourDays) {
+                    const day = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + offset);
+                    const dayShift = offset === 0 ? selectedDayShift : getEffectiveShift(day, currentShift);
+                    if (!isWorkShift(dayShift)) continue;
+                    const [shiftStart, shiftEnd] = SHIFT_WINDOWS[dayShift].map(m => m + offset * 1440);
+                    // overlapMinutes opakuje okno každý den - tady jde o jednu konkrétní směnu
+                    const overlap = Math.min(end, shiftEnd) - Math.max(start, shiftStart);
+                    if (overlap > 0) {
+                        showNotification(`Přesčas se překrývá s ${dayShift === 'R' ? 'ranní' : 'noční'} směnou ${label} (${minutesToTime(shiftStart)}–${minutesToTime(shiftEnd)}). Uprav čas.`);
                         return;
                     }
                 }
@@ -3469,10 +3491,15 @@
             }
 
             // Ruční přehození směny (výměna s kolegou) - přepíše, co by pro daný den dal rotační cyklus.
-            // type je 'R' (ranní), 'N' (noční) nebo '-' (volno).
+            // type je 'R' (ranní), 'N' (noční), '-' (volno), 'D' (dovolená) nebo 'NV' (náhradní volno).
             function setShiftOverride(type) {
                 if (selectedDate) {
                     const dateStr = toDateKey(selectedDate);
+                    // Dovolená / náhradní volno se berou jen za směnu podle rozvrhu
+                    if ((type === 'D' || type === 'NV') && !isWorkShift(getRotationShift(selectedDate, currentShift))) {
+                        showNotification(`Tento den nemáš podle rozvrhu směnu - ${type === 'D' ? 'dovolená' : 'náhradní volno'} se tu nečerpá.`);
+                        return;
+                    }
                     shiftOverrides[currentShift].set(dateStr, type);
                     saveShiftOverrides();
                     refreshCalendar();
