@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Progres směny - Vylepšená verze</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous">
 
     <!-- PWA - umožňuje přidat stránku na plochu jako aplikaci a fungovat offline -->
     <link rel="manifest" href="sichty-manifest.json">
@@ -814,10 +814,6 @@
                             </select>
                         </div>
                         <div class="input-field">
-                            <label>Student</label>
-                            <input type="checkbox" id="isStudent">
-                        </div>
-                        <div class="input-field">
                             <label>Podepsané prohlášení k dani</label>
                             <input type="checkbox" id="hasTaxDeclaration" checked>
                         </div>
@@ -1250,6 +1246,12 @@
                 return hours;
             }
 
+            // Hodiny klouzáku - jen běžná směna daného dne, BEZ přesčasu (ten už příplatek
+            // za přesčas dostává sám, jinak by se za stejné hodiny platil dvakrát)
+            function getSlidingShiftHoursForDate(dateStr, monthShifts) {
+                return getWorkedHoursForDate(dateStr, monthShifts, []);
+            }
+
             // Načte aktuální hodnoty z formuláře kalkulačky + aktivního zaměstnavatelského profilu
             function getWageSettings() {
                 const nightBonusRaw = parseFloat(document.getElementById('nightBonus').value) || 0;
@@ -1266,7 +1268,6 @@
                     motivationBonus: employerProfile === 'firma2' ? (parseFloat(document.getElementById('motivationBonus').value) || 0) : 0,
                     childCount: parseInt(document.getElementById('childCount').value) || 0,
                     disability: parseInt(document.getElementById('disability').value) || 0,
-                    isStudent: document.getElementById('isStudent').checked,
                     hasTaxDeclaration: document.getElementById('hasTaxDeclaration').checked
                 };
             }
@@ -1338,7 +1339,7 @@
                 // směna), jen se za ně navíc platí příplatek za přesčas stejnou sazbou jako ad-hoc přesčas.
                 let slidingShiftHours = 0;
                 slidingShiftEntries.forEach(([dateStr]) => {
-                    slidingShiftHours += getWorkedHoursForDate(dateStr, monthShifts, overtimeEntries);
+                    slidingShiftHours += getSlidingShiftHoursForDate(dateStr, monthShifts);
                 });
 
                 const overtimeBonusWage = baseWage * settings.overtimeBonus * (totalOvertimeHours + slidingShiftHours);
@@ -1361,30 +1362,44 @@
 
                 // Výpočet daní a odvodů
                 const HEALTH_INSURANCE = 0.045;
-                const SOCIAL_INSURANCE = 0.065;
+                const SOCIAL_INSURANCE = 0.071; // od 2024: 6,5 % důchodové + 0,6 % nemocenské
                 const TAX_RATE = 0.15;
                 const TAX_DISCOUNT = 2570;
                 const CHILD_DISCOUNT = [1267, 1860, 2320];
                 const DISABILITY_DISCOUNT = [210, 420];
-                const STUDENT_DISCOUNT = 335;
+                // Sleva na studenta byla od 2024 zrušena.
+                const MIN_WAGE = 22400; // minimální mzda 2026 - podmínka nároku na daňový bonus
+                const MIN_TAX_BONUS = 50; // měsíční bonus se vyplácí jen od 50 Kč
 
-                const healthInsurance = Math.round(totalWage * HEALTH_INSURANCE);
-                const socialInsurance = Math.round(totalWage * SOCIAL_INSURANCE);
+                // Pojistné se zaokrouhluje na celé koruny nahoru
+                const healthInsurance = Math.ceil(totalWage * HEALTH_INSURANCE);
+                const socialInsurance = Math.ceil(totalWage * SOCIAL_INSURANCE);
                 const taxBase = Math.round(totalWage);
                 let tax = Math.round(taxBase * TAX_RATE);
 
                 let taxDiscount = settings.hasTaxDeclaration ? TAX_DISCOUNT : 0;
                 if (settings.disability > 0) taxDiscount += DISABILITY_DISCOUNT[settings.disability - 1];
-                if (settings.isStudent) taxDiscount += STUDENT_DISCOUNT;
                 tax = Math.max(0, tax - taxDiscount);
 
                 let childDiscount = 0;
                 for (let i = 0; i < settings.childCount; i++) {
                     childDiscount += CHILD_DISCOUNT[Math.min(i, 2)];
                 }
-                tax = Math.max(0, tax - childDiscount);
 
-                const netWage = totalWage - healthInsurance - socialInsurance - tax;
+                // Sleva na děti může jít pod nulu - rozdíl se vyplácí jako daňový bonus
+                // (jen s podepsaným prohlášením a příjmem aspoň poloviny minimální mzdy)
+                let taxBonus = 0;
+                const taxAfterChildren = tax - childDiscount;
+                if (taxAfterChildren >= 0) {
+                    tax = taxAfterChildren;
+                } else {
+                    tax = 0;
+                    if (settings.hasTaxDeclaration && totalWage >= MIN_WAGE / 2 && -taxAfterChildren >= MIN_TAX_BONUS) {
+                        taxBonus = -taxAfterChildren;
+                    }
+                }
+
+                const netWage = totalWage - healthInsurance - socialInsurance - tax + taxBonus;
 
                 return {
                     totalHoursWithOvertime, totalOvertimeHours,
@@ -1393,7 +1408,7 @@
                     normalWageWithOvertime, nightWageWithOvertime, weekendWageWithOvertime,
                     holidayWageWithOvertime, overtimeBonusWage,
                     personalRatingWage, fixedBonusesWage, multiMachineWage, multiMachineHours,
-                    totalWage, healthInsurance, socialInsurance, tax, netWage
+                    totalWage, healthInsurance, socialInsurance, tax, taxBonus, netWage
                 };
             }
 
@@ -1441,6 +1456,9 @@
                     `Sociální pojištění: ${w.socialInsurance.toLocaleString()} Kč`,
                     `Daň z příjmu: ${w.tax.toLocaleString()} Kč`
                 );
+                if (w.taxBonus > 0) {
+                    lines.push(`Daňový bonus na děti: +${w.taxBonus.toLocaleString()} Kč`);
+                }
 
                 return lines;
             }
@@ -1498,8 +1516,7 @@
 
                 saveNotesData();
                 closeNoteModal();
-                const yearShifts = generateShifts(currentYear, currentShift);
-                createCalendar(yearShifts, currentMonth);
+                renderCurrentView();
             }
 
             // Ukládání/načítání poznámek - notes je obyčejný objekt (ne Map), stačí přímo JSON
@@ -1661,7 +1678,7 @@
                     .reduce((sum, [dateStr]) => sum + getWorkedHoursForDate(dateStr, shifts, overtimeEntries), 0);
                 const slidingShiftEntries = Array.from(slidingShiftDays[currentShift].entries()).filter(inPeriod);
                 const slidingShiftHoursTotal = slidingShiftEntries
-                    .reduce((sum, [dateStr]) => sum + getWorkedHoursForDate(dateStr, shifts, overtimeEntries), 0);
+                    .reduce((sum, [dateStr]) => sum + getSlidingShiftHoursForDate(dateStr, shifts), 0);
 
                 // Aktualizace statistik
                 stats.innerHTML = `
@@ -1873,9 +1890,9 @@
 
             // Funkce previousYear, nextYear, previousMonth, nextMonth byly ODSTRANĚNY
 
-            function changeYear() {
-                currentYear = parseInt(document.getElementById('yearSelect').value);
-                HOLIDAYS = getHolidays(currentYear); // Aktualizace svátků pro nový rok
+            // Překreslí to, co je právě vidět (měsíční kalendář, nebo celoroční výpis),
+            // aby se statistiky nikdy nemíchaly mezi měsícem a rokem
+            function renderCurrentView() {
                 const yearShifts = generateShifts(currentYear, currentShift);
                 if (yearView) {
                     createYearView();
@@ -1885,50 +1902,45 @@
                 }
             }
 
-            function changeMonth() {
-                currentMonth = parseInt(document.getElementById('monthSelect').value);
-                const yearShifts = generateShifts(currentYear, currentShift);
-                createCalendar(yearShifts, currentMonth);
+            function changeYear() {
+                currentYear = parseInt(document.getElementById('yearSelect').value);
+                HOLIDAYS = getHolidays(currentYear); // Aktualizace svátků pro nový rok
+                renderCurrentView();
             }
 
-            // --- PŘIDANÉ FUNKCE PRO NAVIGACI MĚSÍCŮ ---
-            function previousMonth() {
-                if (currentMonth === 0) {
-                    currentMonth = 11;
-                    currentYear--;
-                    // Check against yearSelect options
-                    const minYear = parseInt(document.getElementById('yearSelect').options[0].value);
-                    if (currentYear < minYear) currentYear = minYear;
-                    document.getElementById('yearSelect').value = currentYear;
-                } else {
-                    currentMonth--;
-                }
+            function changeMonth() {
+                currentMonth = parseInt(document.getElementById('monthSelect').value);
+                renderCurrentView();
+            }
+
+            // Posun o delta měsíců; na okraji rozsahu roků ve výběru se nic nestane
+            // (dřív se rok zastavil, ale měsíc přeskočil na opačný konec téhož roku)
+            function shiftMonth(delta) {
+                const yearSelect = document.getElementById('yearSelect');
+                const minYear = parseInt(yearSelect.options[0].value);
+                const maxYear = parseInt(yearSelect.options[yearSelect.options.length - 1].value);
+
+                const target = new Date(currentYear, currentMonth + delta, 1);
+                const targetYear = target.getFullYear();
+                if (targetYear < minYear || targetYear > maxYear) return;
+
+                const yearChanged = targetYear !== currentYear;
+                currentYear = targetYear;
+                currentMonth = target.getMonth();
+                yearSelect.value = currentYear;
                 document.getElementById('monthSelect').value = currentMonth;
-                
-                // Refresh calendar
-                HOLIDAYS = getHolidays(currentYear); // Aktualizace svátků při změně roku
-                const yearShifts = generateShifts(currentYear, currentShift);
-                createCalendar(yearShifts, currentMonth);
+                if (yearChanged) {
+                    HOLIDAYS = getHolidays(currentYear); // Aktualizace svátků při změně roku
+                }
+                renderCurrentView();
+            }
+
+            function previousMonth() {
+                shiftMonth(-1);
             }
 
             function nextMonth() {
-                if (currentMonth === 11) {
-                    currentMonth = 0;
-                    currentYear++;
-                    // Check against yearSelect options
-                    const yearSelect = document.getElementById('yearSelect');
-                    const maxYear = parseInt(yearSelect.options[yearSelect.options.length - 1].value);
-                    if (currentYear > maxYear) currentYear = maxYear;
-                    document.getElementById('yearSelect').value = currentYear;
-                } else {
-                    currentMonth++;
-                }
-                document.getElementById('monthSelect').value = currentMonth;
-
-                // Refresh calendar
-                HOLIDAYS = getHolidays(currentYear); // Aktualizace svátků při změně roku
-                const yearShifts = generateShifts(currentYear, currentShift);
-                createCalendar(yearShifts, currentMonth);
+                shiftMonth(1);
             }
             // --- KONEC PŘIDANÝCH FUNKCÍ ---
 
@@ -1938,13 +1950,7 @@
                 document.getElementById('calendar').style.display = yearView ? 'none' : 'flex';
                 document.getElementById('yearView').style.display = yearView ? 'flex' : 'none';
                 document.getElementById('viewToggleText').textContent = yearView ? 'Měsíční výpis' : 'Celoroční výpis';
-                const yearShifts = generateShifts(currentYear, currentShift);
-                if (yearView) {
-                    createYearView();
-                    updateStats(yearShifts);
-                } else {
-                    createCalendar(yearShifts, currentMonth);
-                }
+                renderCurrentView();
             }
 
             function createYearView() {
@@ -2037,20 +2043,21 @@
                 const taxSettings = {
                     childCount: document.getElementById('childCount').value,
                     disability: document.getElementById('disability').value,
-                    isStudent: document.getElementById('isStudent').checked,
                     hasTaxDeclaration: document.getElementById('hasTaxDeclaration').checked
                 };
                 localStorage.setItem('taxSettings', JSON.stringify(taxSettings));
             }
 
             function loadTaxSettings() {
-                const saved = localStorage.getItem('taxSettings');
-                if (saved) {
-                    const settings = JSON.parse(saved);
-                    document.getElementById('childCount').value = settings.childCount;
-                    document.getElementById('disability').value = settings.disability;
-                    document.getElementById('isStudent').checked = settings.isStudent;
-                    document.getElementById('hasTaxDeclaration').checked = settings.hasTaxDeclaration;
+                // try/catch - poškozená hodnota (např. ze špatné zálohy) nesmí shodit celé spuštění aplikace
+                try {
+                    const settings = JSON.parse(localStorage.getItem('taxSettings') || 'null');
+                    if (!settings || typeof settings !== 'object') return;
+                    if (settings.childCount !== undefined) document.getElementById('childCount').value = settings.childCount;
+                    if (settings.disability !== undefined) document.getElementById('disability').value = settings.disability;
+                    if (settings.hasTaxDeclaration !== undefined) document.getElementById('hasTaxDeclaration').checked = settings.hasTaxDeclaration;
+                } catch (e) {
+                    console.warn('Chyba při načítání daňového nastavení:', e);
                 }
             }
 
@@ -2072,7 +2079,6 @@
                     localStorage.setItem('taxSettings', JSON.stringify({
                         childCount: settings.childCount,
                         disability: settings.disability,
-                        isStudent: settings.isStudent,
                         hasTaxDeclaration: settings.hasTaxDeclaration
                     }));
                     showNotification('Dřívější nastavení kalkulačky bylo přeneseno pod Firmu 1.');
@@ -2165,7 +2171,8 @@
                 // Naplnění volby roku
                 const yearSelect = document.getElementById('yearSelect');
                 const startYear = 2024;
-                const endYear = 2030;
+                // Vždy aspoň 2 roky dopředu, ať aktuální rok nikdy nevypadne z výběru
+                const endYear = Math.max(2030, currentYear + 2);
                 for (let y = startYear; y <= endYear; y++) {
                     const option = document.createElement('option');
                     option.value = y;
@@ -2199,13 +2206,7 @@
                     this.classList.add('active');
                     currentShift = this.dataset.shift;
                     localStorage.setItem('currentShift', currentShift); // <-- ULOŽENÍ SMĚNY
-                    const yearShifts = generateShifts(currentYear, currentShift);
-                    if (yearView) {
-                        createYearView();
-                        updateStats(yearShifts);
-                    } else {
-                        createCalendar(yearShifts, currentMonth);
-                    }
+                    renderCurrentView();
                 });
             });
 
@@ -2216,15 +2217,7 @@
             });
 
             // Automatická aktualizace kalendáře každou minutu
-            setInterval(() => {
-                const yearShifts = generateShifts(currentYear, currentShift);
-                if (yearView) {
-                    createYearView();
-                    updateStats(yearShifts);
-                } else {
-                    createCalendar(yearShifts, currentMonth);
-                }
-            }, 60000);
+            setInterval(renderCurrentView, 60000);
 
             // Spuštění kalendáře
             initCalendar();
@@ -2282,7 +2275,7 @@
                 const slidingShiftEntries = Array.from(slidingShiftDays[currentShift].entries())
                     .filter(([date]) => new Date(date).getMonth() === currentMonth && new Date(date).getFullYear() === currentYear);
                 const slidingShiftHoursTotal = slidingShiftEntries
-                    .reduce((sum, [dateStr]) => sum + getWorkedHoursForDate(dateStr, shifts, overtimeEntries), 0);
+                    .reduce((sum, [dateStr]) => sum + getSlidingShiftHoursForDate(dateStr, shifts), 0);
                 document.getElementById('slidingShiftCount').textContent = slidingShiftEntries.length;
                 document.getElementById('slidingShiftHoursSummary').textContent = slidingShiftHoursTotal.toFixed(1);
 
@@ -2373,6 +2366,12 @@
                         <strong>Celková hrubá mzda:</strong>
                         <span>${w.totalWage.toLocaleString()} Kč</span>
                     </div>
+                    ${w.taxBonus > 0 ? `
+                    <div class="wage-result-item">
+                        <strong>Daňový bonus na děti:</strong>
+                        <span>+${w.taxBonus.toLocaleString()} Kč</span>
+                    </div>
+                    ` : ''}
                     <div class="wage-result-item" style="font-weight: bold; font-size: 1.2em; border-top: 1px solid var(--border-color); margin-top: 10px; padding-top: 10px;">
                         <strong>Čistá mzda:</strong>
                         <span>${w.netWage.toLocaleString()} Kč</span>
@@ -2413,7 +2412,10 @@
                         for (let shift in data) {
                             if (overtimeDays.hasOwnProperty(shift) && Array.isArray(data[shift])) {
                                 try {
-                                    overtimeDays[shift] = new Map(data[shift]);
+                                    // Vynechat záznamy s neplatnými hodinami (např. dřív uložené NaN -> null),
+                                    // jinak by celá mzda za měsíc vyšla NaN
+                                    overtimeDays[shift] = new Map(data[shift].filter(([, v]) =>
+                                        v && parseFloat(v.hours) > 0));
                                 } catch (e) {
                                     console.warn(`Chyba při načítání dat pro směnu ${shift}:`, e);
                                     overtimeDays[shift] = new Map();
@@ -2585,9 +2587,10 @@
                 document.getElementById('multiMachineHoursPreview').textContent = `Odpracováno tento den: ${workedHours.toFixed(1)} h`;
 
                 const isSliding = slidingShiftDays[currentShift].has(dateStr);
+                const slidingHours = getSlidingShiftHoursForDate(dateStr, shifts);
                 document.getElementById('slidingShiftStatus').textContent = isSliding
-                    ? `Označeno jako klouzák (${workedHours.toFixed(1)} h s příplatkem za přesčas)`
-                    : `Zatím neoznačeno (${workedHours.toFixed(1)} h by dostalo příplatek za přesčas)`;
+                    ? `Označeno jako klouzák (${slidingHours.toFixed(1)} h s příplatkem za přesčas)`
+                    : `Zatím neoznačeno (${slidingHours.toFixed(1)} h by dostalo příplatek za přesčas)`;
 
                 const shiftLabel = (s) => s === 'R' ? 'Ranní' : s === 'N' ? 'Noční' : 'Volno';
                 const effectiveShift = shifts.find(s => toDateKey(s.date) === dateStr);
@@ -2625,6 +2628,10 @@
                     }
 
                     const hours = parseFloat(document.getElementById('overtimeHours').value);
+                    if (!(hours > 0 && hours <= 24)) {
+                        showNotification('Zadej počet hodin přesčasu (víc než 0, nejvýš 24).');
+                        return;
+                    }
                     overtimeDays[currentShift].set(dateStr, { type, hours });
 
                     saveOvertimeData();
@@ -2714,8 +2721,7 @@
             }
 
             function refreshCalendar() {
-                const yearShifts = generateShifts(currentYear, currentShift);
-                createCalendar(yearShifts, currentMonth);
+                renderCurrentView();
 
                 if (document.getElementById('wageCalculatorModal').style.display === 'flex') {
                     // Aktualizovat i přehled v kalkulačce
@@ -2825,7 +2831,8 @@
                         'kalkulačky pro obě firmy v tomto prohlížeči.',
                         () => {
                             BACKUP_KEYS.forEach(key => {
-                                if (backup.data[key] !== undefined) {
+                                // localStorage drží jen texty - cokoliv jiného by se uložilo jako "[object Object]"
+                                if (typeof backup.data[key] === 'string') {
                                     localStorage.setItem(key, backup.data[key]);
                                 }
                             });
@@ -2922,13 +2929,10 @@
 
             // Přidat event listenery pro ukládání změn
             document.addEventListener('DOMContentLoaded', function() {
-                document.querySelector('[onclick="showWageCalculator()"]')
-                    .addEventListener('click', showWageCalculator);
-
                 // Přidat event listenery pro všechny inputy kalkulačky
                 const calculatorInputs = [
                     'baseWage', 'nightBonus', 'weekendBonus', 'holidayBonus',
-                    'childCount', 'disability', 'isStudent', 'hasTaxDeclaration',
+                    'childCount', 'disability', 'hasTaxDeclaration',
                     'overtimeBonus', 'personalRating', 'monthlyBonus', 'motivationBonus'
                 ];
 
