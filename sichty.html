@@ -505,6 +505,10 @@
             text-align: center;
         }
 
+        .stat-item small {
+            display: block;
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -844,6 +848,7 @@
                 <div class="settings-menu" id="settingsMenu">
                     <button onclick="closeSettingsMenu(); exportCalendar()"><i class="fas fa-download"></i> Export měsíce</button>
                     <button onclick="closeSettingsMenu(); window.print()"><i class="fas fa-print"></i> Tisk</button>
+                    <button onclick="closeSettingsMenu(); showVacationModal()"><i class="fas fa-umbrella-beach"></i> Dovolená</button>
                     <button onclick="closeSettingsMenu(); showBackupModal()"><i class="fas fa-database"></i> Záloha dat</button>
                     <button class="danger" onclick="closeSettingsMenu(); clearOvertimes()"><i class="fas fa-trash"></i> Vymazat přesčasy</button>
                 </div>
@@ -900,7 +905,7 @@
                 </div>
                 <p style="font-size: 0.9em; margin-bottom: 15px;">
                     Zálohuje a obnoví přesčasy, vícestrojovou obsluhu, klouzáky, přehozené směny,
-                    poznámky u dnů a nastavení mzdové kalkulačky pro obě firmy. Data jsou uložená jen
+                    poznámky u dnů, nastavení dovolené a mzdové kalkulačky pro obě firmy. Data jsou uložená jen
                     v tomto prohlížeči - bez zálohy o ně přijdeš při vymazání dat prohlížeče nebo na
                     jiném zařízení.
                 </p>
@@ -915,6 +920,38 @@
                 <button class="action-btn" onclick="importBackup()" style="width: 100%;">
                     <i class="fas fa-upload"></i> Obnovit ze souboru
                 </button>
+            </div>
+        </div>
+
+        <!-- Nastavení dovolené - roční nárok a jednotka (hodiny / dny) -->
+        <div id="vacationModal" class="modal">
+            <div class="modal-content" style="max-width: 360px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <h2 style="margin: 0;">Dovolená</h2>
+                    <button class="action-btn secondary" onclick="closeVacationModal()" style="padding: 5px 10px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <p class="hint">
+                    Rok <span id="vacationModalYear"></span>, směna <span id="vacationModalShift"></span>.
+                    Den dovolené (změna směny na „Dovolená“) = 11,5 h.
+                </p>
+                <div class="input-field" style="margin-bottom: 10px;">
+                    <label>Vést dovolenou v</label>
+                    <select id="vacationUnit" style="width: 100%; padding: 6px;">
+                        <option value="hours">hodinách</option>
+                        <option value="days">dnech (směnách)</option>
+                    </select>
+                </div>
+                <div class="time-row">
+                    <label>Roční nárok (<span class="vacation-unit-label">h</span>)<input type="number" id="vacationEntitlement" min="0" step="0.5"></label>
+                    <label>Převod z loňska (<span class="vacation-unit-label">h</span>)<input type="number" id="vacationCarryOver" step="0.5"></label>
+                </div>
+                <div id="vacationSummary" style="font-size: 0.9em; margin: 10px 0 15px;"></div>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button class="action-btn" onclick="saveVacationSettings()">Uložit</button>
+                    <button class="action-btn secondary" onclick="closeVacationModal()">Zavřít</button>
+                </div>
             </div>
         </div>
 
@@ -1172,6 +1209,7 @@
                     </p>
                     <div id="shiftOverrideStatus" style="font-size: 0.85em; margin-bottom: 10px;"></div>
                     <div id="nvBalanceInfo" class="hint"></div>
+                    <div id="vacationBalanceInfo" class="hint"></div>
                     <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
                         <button class="action-btn" onclick="setShiftOverride('R')">Ranní</button>
                         <button class="action-btn" onclick="setShiftOverride('N')">Noční</button>
@@ -1546,6 +1584,112 @@
                     if (value === 'NV') taken += 11.5;
                 });
                 return { earned, taken, remaining: earned - taken };
+            }
+
+            // --- Dovolená: roční nárok a zůstatek ---
+            // Vede se v hodinách (u 12h směn obvyklé) nebo ve dnech; nárok je stejný každý rok,
+            // převod z loňska se zadává zvlášť pro každý rok.
+            const VACATION_DAY_HOURS = 11.5;
+            let vacationSettings = { unit: 'hours', entitlement: 187.5, carryOver: {} };
+
+            function loadVacationSettings() {
+                try {
+                    const data = JSON.parse(localStorage.getItem('vacationSettings') || 'null');
+                    if (!data || typeof data !== 'object') return;
+                    const entitlement = parseFloat(data.entitlement);
+                    vacationSettings = {
+                        unit: data.unit === 'days' ? 'days' : 'hours',
+                        entitlement: entitlement >= 0 ? entitlement : 187.5,
+                        carryOver: (data.carryOver && typeof data.carryOver === 'object') ? data.carryOver : {}
+                    };
+                } catch (e) {
+                    console.warn('Chyba při načítání nastavení dovolené:', e);
+                }
+            }
+
+            function saveVacationSettingsData() {
+                localStorage.setItem('vacationSettings', JSON.stringify(vacationSettings));
+            }
+
+            function formatVacationAmount(value, unit) {
+                const rounded = Math.round(value * 10) / 10;
+                return unit === 'days' ? `${rounded} dní` : `${rounded} h`;
+            }
+
+            // Zůstatek dovolené pro rok a směnu - počítá dny změněné na "Dovolená"
+            function getVacationBalance(year, shiftType, settings = vacationSettings) {
+                const days = generateShifts(year, shiftType).filter(s => s.shift === 'D').length;
+                const used = settings.unit === 'days' ? days : days * VACATION_DAY_HOURS;
+                const total = settings.entitlement + (parseFloat(settings.carryOver[year]) || 0);
+                return { unit: settings.unit, days, used, total, remaining: total - used };
+            }
+
+            function describeVacationBalance(balance) {
+                return `Dovolená ${currentYear}: vybráno ${formatVacationAmount(balance.used, balance.unit)} ` +
+                    `z ${formatVacationAmount(balance.total, balance.unit)}, zbývá ${formatVacationAmount(balance.remaining, balance.unit)}.`;
+            }
+
+            // Hodnoty z formuláře okna Dovolená (ještě neuložené) - pro živý náhled
+            function readVacationForm() {
+                const carryOver = Object.assign({}, vacationSettings.carryOver);
+                const carry = parseFloat(document.getElementById('vacationCarryOver').value);
+                if (carry) {
+                    carryOver[currentYear] = carry;
+                } else {
+                    delete carryOver[currentYear];
+                }
+                return {
+                    unit: document.getElementById('vacationUnit').value,
+                    entitlement: Math.max(0, parseFloat(document.getElementById('vacationEntitlement').value) || 0),
+                    carryOver
+                };
+            }
+
+            function updateVacationSummary() {
+                const form = readVacationForm();
+                document.querySelectorAll('.vacation-unit-label').forEach(el => {
+                    el.textContent = form.unit === 'days' ? 'dny' : 'h';
+                });
+                const balance = getVacationBalance(currentYear, currentShift, form);
+                document.getElementById('vacationSummary').innerHTML =
+                    `Vybráno: <strong>${formatVacationAmount(balance.used, balance.unit)}</strong>${balance.unit === 'hours' ? ` (${balance.days} dní)` : ''}<br>` +
+                    `Zbývá: <strong style="color: ${balance.remaining < 0 ? '#d32f2f' : 'inherit'};">${formatVacationAmount(balance.remaining, balance.unit)}</strong> ` +
+                    `z ${formatVacationAmount(balance.total, balance.unit)}`;
+            }
+
+            // Přepnutí jednotky přepočítá zadané hodnoty (1 den = 11,5 h), ať se nárok nezmění
+            function onVacationUnitChange() {
+                const toDays = document.getElementById('vacationUnit').value === 'days';
+                ['vacationEntitlement', 'vacationCarryOver'].forEach(id => {
+                    const input = document.getElementById(id);
+                    const value = parseFloat(input.value);
+                    if (!value) return;
+                    const converted = toDays ? value / VACATION_DAY_HOURS : value * VACATION_DAY_HOURS;
+                    input.value = Math.round(converted * 2) / 2; // na půlky
+                });
+                updateVacationSummary();
+            }
+
+            function showVacationModal() {
+                document.getElementById('vacationModalYear').textContent = currentYear;
+                document.getElementById('vacationModalShift').textContent = currentShift;
+                document.getElementById('vacationUnit').value = vacationSettings.unit;
+                document.getElementById('vacationEntitlement').value = vacationSettings.entitlement;
+                document.getElementById('vacationCarryOver').value = vacationSettings.carryOver[currentYear] || '';
+                updateVacationSummary();
+                document.getElementById('vacationModal').style.display = 'flex';
+            }
+
+            function closeVacationModal() {
+                document.getElementById('vacationModal').style.display = 'none';
+            }
+
+            function saveVacationSettings() {
+                vacationSettings = readVacationForm();
+                saveVacationSettingsData();
+                closeVacationModal();
+                renderCurrentView();
+                showNotification('Nastavení dovolené uloženo');
             }
 
             // Odpracované hodiny daného dne (naplánovaná směna + případný přesčas téhož data) -
@@ -2021,6 +2165,7 @@
                 const vacationCount = filteredShifts.filter(s => s.shift === 'D').length;
                 const nvCount = filteredShifts.filter(s => s.shift === 'NV').length;
                 const nvBalance = getCompensatoryBalance(currentShift);
+                const vacationBalance = getVacationBalance(currentYear, currentShift);
 
                 // Aktualizace statistik
                 stats.innerHTML = `
@@ -2060,6 +2205,7 @@
                         <h3>Dovolená</h3>
                         <p>${vacationCount} dní</p>
                         <small>Hodiny: ${(vacationCount * SHIFT_HOURS).toFixed(1)}h</small>
+                        <small>Za rok ${currentYear} zbývá ${formatVacationAmount(vacationBalance.remaining, vacationBalance.unit)} z ${formatVacationAmount(vacationBalance.total, vacationBalance.unit)}</small>
                     </div>
                     <div class="stat-item">
                         <h3>Náhradní volno</h3>
@@ -2544,6 +2690,7 @@
                 loadSlidingShiftData();
                 loadShiftOverrides();
                 loadNotesData();
+                loadVacationSettings();
 
                 migrateLegacyCalculatorSettings();
                 loadTaxSettings();
@@ -3037,6 +3184,8 @@
                 const balance = getCompensatoryBalance(currentShift);
                 document.getElementById('nvBalanceInfo').textContent =
                     `Náhradní volno: napracováno ${balance.earned.toFixed(1)} h, vybráno ${balance.taken.toFixed(1)} h, zbývá ${balance.remaining.toFixed(1)} h (1 den = 11,5 h).`;
+                document.getElementById('vacationBalanceInfo').textContent =
+                    describeVacationBalance(getVacationBalance(date.getFullYear(), currentShift));
 
                 // Všechny sekce se otevírají sbalené
                 ['noteSection', 'overtimeSection', 'multiMachineSection', 'slidingShiftSection', 'shiftOverrideSection']
@@ -3091,9 +3240,11 @@
                     return;
                 }
 
-                // Typ (ranní/noční) podle toho, kam padá většina času - pro statistiky a export
+                // Typ (ranní/noční) pro statistiky a export: přesčas přes půlnoc je vždy noční,
+                // jinak podle toho, kam padá většina času. Celý přesčas patří ke dni, kdy začal.
+                const crossesMidnight = Math.floor(start / 1440) !== Math.floor((end - 1) / 1440);
                 const dayMinutes = overlapMinutes([start, end], 360, 1080);
-                const type = dayMinutes * 2 >= end - start ? 'R' : 'N';
+                const type = crossesMidnight ? 'N' : (dayMinutes * 2 >= end - start ? 'R' : 'N');
                 const nv = document.getElementById('overtimeCompensatory').checked;
 
                 overtimeDays[currentShift].set(dateStr, { type, hours, from, to, start, end, nv });
@@ -3170,6 +3321,12 @@
                     shiftOverrides[currentShift].set(dateStr, type);
                     saveShiftOverrides();
                     refreshCalendar();
+                    if (type === 'D') {
+                        const vacation = getVacationBalance(selectedDate.getFullYear(), currentShift);
+                        if (vacation.remaining < 0) {
+                            showNotification(`Pozor: dovolená je přečerpaná o ${formatVacationAmount(-vacation.remaining, vacation.unit)}.`);
+                        }
+                    }
                     if (type === 'NV') {
                         const balance = getCompensatoryBalance(currentShift);
                         if (balance.remaining < 0) {
@@ -3247,7 +3404,7 @@
             const BACKUP_KEYS = [
                 'overtimeDays', 'multiMachineDays', 'slidingShiftDays', 'shiftOverrides', 'notes',
                 'calculatorSettings_firma1', 'calculatorSettings_firma2',
-                'taxSettings', 'employerProfile', 'currentShift'
+                'taxSettings', 'employerProfile', 'currentShift', 'vacationSettings'
             ];
 
             function showBackupModal() {
@@ -3433,6 +3590,12 @@
                 // Přesčas - při změně času od/do se dopočítají hodiny
                 ['overtimeFrom', 'overtimeTo'].forEach(id => {
                     document.getElementById(id).addEventListener('change', updateOvertimeHoursFromTimes);
+                });
+
+                // Okno Dovolená - přepínač jednotky a živý náhled zůstatku
+                document.getElementById('vacationUnit').addEventListener('change', onVacationUnitChange);
+                ['vacationEntitlement', 'vacationCarryOver'].forEach(id => {
+                    document.getElementById(id).addEventListener('input', updateVacationSummary);
                 });
 
                 // Menu Nastavení se zavře kliknutím kamkoliv mimo něj
