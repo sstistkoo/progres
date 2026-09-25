@@ -816,6 +816,23 @@
             }
         }
 
+        /* Poznámka -> Google Kalendář */
+        .calendar-export {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--border-color);
+        }
+
+        .calendar-export input[type="time"] {
+            padding: 5px;
+            font-size: 1em;
+        }
+
         .collapsible-summary {
             cursor: pointer;
             font-weight: bold;
@@ -1232,6 +1249,15 @@
                         <button class="action-btn" onclick="saveDayNote()">Uložit</button>
                         <button class="action-btn secondary" onclick="deleteDayNote()">Smazat</button>
                     </div>
+                    <div class="calendar-export">
+                        <label>Připomenout v
+                            <input type="time" id="noteReminderTime" value="08:00" oninput="updateNoteReminderHint()">
+                        </label>
+                        <button class="action-btn" onclick="addNoteToGoogleCalendar()">
+                            <i class="fas fa-calendar-plus"></i> Do Google Kalendáře
+                        </button>
+                    </div>
+                    <p class="hint" id="noteReminderHint"></p>
                 </details>
 
                 <details id="overtimeSection" style="margin-bottom: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
@@ -2156,6 +2182,55 @@
             function deleteDayNote() {
                 document.getElementById('dayNoteText').value = '';
                 saveDayNote();
+            }
+
+            // Poznámka do Google Kalendáře - bez API a přihlašování: otevře se formulář nové události
+            // s předvyplněným textem a časem, stačí dát Uložit. Událost má čas (ne celodenní), takže
+            // na ni Google upozorní podle výchozího upozornění kalendáře (obvykle 30 min předem);
+            // jiné upozornění jde nastavit přímo ve formuláři před uložením.
+            const NOTE_REMINDER_TIME_KEY = 'noteReminderTime';
+
+            function addNoteToGoogleCalendar() {
+                if (!selectedDate) return;
+                const text = document.getElementById('dayNoteText').value.trim();
+                if (!text) {
+                    showNotification('Nejdřív napiš poznámku.');
+                    return;
+                }
+                const time = document.getElementById('noteReminderTime').value || '08:00';
+                try { localStorage.setItem(NOTE_REMINDER_TIME_KEY, time); } catch (e) {}
+
+                // Poznámku rovnou uložit i tady, ať se neztratí, když se okno Googlu otevře přes aplikaci
+                notes[noteKey(selectedDate)] = text;
+                saveNotesData();
+                refreshCalendar();
+
+                const [h, m] = time.split(':').map(Number);
+                const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), h, m);
+                const end = new Date(start.getTime() + 30 * 60 * 1000);
+                const pad = (n) => String(n).padStart(2, '0');
+                // Místní čas bez 'Z' + ctz - Google ho vezme jako pražský čas (i přes letní/zimní čas)
+                const fmt = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+                const firstLine = text.split('\n')[0];
+                const title = firstLine.length > 60 ? firstLine.slice(0, 57) + '...' : firstLine;
+                const params = new URLSearchParams({
+                    action: 'TEMPLATE',
+                    text: title,
+                    dates: `${fmt(start)}/${fmt(end)}`,
+                    ctz: 'Europe/Prague',
+                    details: `${text}\n\n(Poznámka ze Směnového kalendáře)`
+                });
+                window.open(`https://calendar.google.com/calendar/render?${params}`, '_blank');
+            }
+
+            function updateNoteReminderHint() {
+                if (!selectedDate) return;
+                const time = document.getElementById('noteReminderTime').value || '08:00';
+                const [h, m] = time.split(':').map(Number);
+                const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), h, m);
+                document.getElementById('noteReminderHint').textContent = start > new Date()
+                    ? 'Otevře se Google Kalendář s předvyplněnou událostí - stačí Uložit. Upozornění přijde podle nastavení kalendáře (obvykle 30 min předem), změnit ho jde přímo ve formuláři.'
+                    : 'Tento čas už je v minulosti - událost se uloží, ale upozornění už nepřijde.';
             }
 
             // Ukládání/načítání poznámek - notes je obyčejný objekt (ne Map), stačí přímo JSON
@@ -3391,6 +3466,11 @@
 
                 // Poznámka
                 document.getElementById('dayNoteText').value = notes[noteKey(date)] || '';
+                try {
+                    const savedTime = localStorage.getItem(NOTE_REMINDER_TIME_KEY);
+                    if (savedTime) document.getElementById('noteReminderTime').value = savedTime;
+                } catch (e) {}
+                updateNoteReminderHint();
 
                 // Přesčas
                 const ot = overtimeDays[currentShift].get(dateStr);
