@@ -518,6 +518,47 @@
             display: block;
         }
 
+        /* Statistiky s nulou (nic tam není) - schované v rozbalovací záložce, ať nezabírají místo */
+        .stats-more {
+            grid-column: 1 / -1;
+        }
+
+        .stats-more summary {
+            cursor: pointer;
+            padding: 8px 10px;
+            border-radius: 4px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-size: 0.9em;
+            opacity: 0.85;
+        }
+
+        .stats-more .stats-grid {
+            margin-top: 10px;
+        }
+
+        @media (max-width: 600px) {
+            /* Mobil: dva sloupce - Ranní a Noční vedle sebe, ostatní přes celou šířku */
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                /* Poloviční položky se doplní do dvojic, i když mezi nimi je široká (např. Dovolená) */
+                grid-auto-flow: row dense;
+            }
+
+            .stat-item {
+                grid-column: 1 / -1;
+            }
+
+            .stat-item.half {
+                grid-column: auto;
+            }
+
+            .stat-item.half h3 {
+                font-size: 1em;
+            }
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -619,11 +660,13 @@
             }
         }
 
+        /* Tabulka je na mobilu širší než displej - posouvá se do strany uvnitř tohoto bloku.
+           (Dřív flex s 'justify-content: center' - přetékající tabulka se centrovala a začátek
+           měsíce utekl doleva mimo obrazovku, kam už se nedalo doscrollovat.) */
         .year-view {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            justify-content: center;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 6px;
         }
 
         .year-table {
@@ -691,6 +734,22 @@
 
             .month-name {
                 font-size: 1.2em;
+            }
+
+            /* Název měsíce zůstane při posouvání do strany vidět */
+            .year-table .month-name {
+                position: sticky;
+                left: 0;
+                z-index: 1;
+            }
+
+            /* Mezera za posledním dnem, ať 31. není nalepený na okraji displeje. Padding je na
+               vnitřním obalu - padding samotného scrollovacího bloku Safari na konci ignoruje. */
+            .year-view-inner {
+                display: inline-block;
+                min-width: 100%;
+                box-sizing: border-box;
+                padding-right: 16px;
             }
         }
 
@@ -878,7 +937,9 @@
         <!-- Legenda a výpis podrobností k dnům měsíce (svátky, poznámky, přesčasy, ...) -->
         <div class="month-details" id="monthDetails"></div>
         <div class="year-view" id="yearView" style="display: none;">
-            <table class="year-table" id="yearTable"></table>
+            <div class="year-view-inner">
+                <table class="year-table" id="yearTable"></table>
+            </div>
         </div>
 
         <div class="action-buttons" style="justify-content: center; margin-top: 20px; margin-bottom: 20px;">
@@ -2274,56 +2335,98 @@
                 const nvBalance = getCompensatoryBalance(currentShift);
                 const vacationBalance = getVacationBalance(currentYear, currentShift);
 
-                // Aktualizace statistik
+                // Aktualizace statistik - Ranní a Noční jsou vždy vidět (na mobilu vedle sebe).
+                // Ostatní se ukážou jen když v nich něco je; ty s nulou jdou do rozbalovací záložky.
+                const weekendShiftCount = weekendMorningShiftsCount + weekendNightShiftsCount;
+                const weekendOvertimeCount = saturdayOvertimes.length + sundayOvertimes.length;
+                const optionalItems = [
+                    {
+                        used: weekendShiftCount > 0 || weekendOvertimeCount > 0,
+                        html: `
+                            <h3>Víkendové směny (So+Ne)</h3>
+                            <p>${weekendShiftCount} (+ ${weekendOvertimeCount} přesčas)</p>
+                            <small>Hodiny: ${(weekendShiftCount * SHIFT_HOURS).toFixed(1)}h</small>
+                            <small>Přesčasy So: ${saturdayOvertimes.length} (${(saturdayRHours + saturdayNHours).toFixed(1)}h)</small>
+                            <small>Přesčasy Ne: ${sundayOvertimes.length} (${(sundayRHours + sundayNHours).toFixed(1)}h)</small>`
+                    },
+                    {
+                        used: overtimeEntries.length > 0,
+                        html: `
+                            <h3>Celkem přesčasů</h3>
+                            <p>${overtimeEntries.length}</p>
+                            <small>Hodiny: ${totalOvertimeHours.toFixed(1)}h (R: ${totalOvertimeRHours.toFixed(1)}h, N: ${totalOvertimeNHours.toFixed(1)}h)</small>`
+                    },
+                    {
+                        used: multiMachineEntries.length > 0,
+                        half: true, // krátká položka - na mobilu po dvou vedle sebe
+                        html: `
+                            <h3>Vícestrojová obsluha</h3>
+                            <p>${multiMachineEntries.length} dní</p>
+                            <small>Hodiny: ${multiMachineHoursTotal.toFixed(1)}h</small>`
+                    },
+                    {
+                        used: slidingShiftEntries.length > 0,
+                        half: true, // krátká položka - na mobilu po dvou vedle sebe
+                        html: `
+                            <h3>Klouzáky</h3>
+                            <p>${slidingShiftEntries.length} dní</p>
+                            <small>Hodiny: ${slidingShiftHoursTotal.toFixed(1)}h</small>`
+                    },
+                    {
+                        used: vacationCount > 0,
+                        html: `
+                            <h3>Dovolená</h3>
+                            <p>${vacationCount} dní</p>
+                            <small>Hodiny: ${(vacationCount * SHIFT_HOURS).toFixed(1)}h</small>
+                            <small>Za rok ${currentYear} zbývá ${formatVacationAmount(vacationBalance.remaining, vacationBalance.unit)} z ${formatVacationAmount(vacationBalance.total, vacationBalance.unit)}</small>`
+                    },
+                    {
+                        used: sickCount > 0,
+                        half: true, // krátká položka - na mobilu po dvou vedle sebe
+                        html: `
+                            <h3>Nemoc</h3>
+                            <p>${sickCount} dní</p>
+                            <small>Placených směn (náhrada mzdy): ${sickPaidCount}</small>`
+                    },
+                    {
+                        // Zůstatek náhradního volna je celkový - i bez vybraného dne ho je dobré vidět
+                        used: nvCount > 0 || Math.abs(nvBalance.remaining) >= 0.05,
+                        html: `
+                            <h3>Náhradní volno</h3>
+                            <p>${nvCount} dní vybráno</p>
+                            <small>Celkem napracováno ${nvBalance.earned.toFixed(1)}h, vybráno ${nvBalance.taken.toFixed(1)}h, zbývá ${nvBalance.remaining.toFixed(1)}h</small>`
+                    }
+                ];
+                // Krátké položky jdou na mobilu po dvou vedle sebe; když by jedna zbyla bez páru,
+                // roztáhne se přes celou šířku, ať vedle ní nezůstane prázdné místo.
+                const renderItems = (items) => {
+                    const halves = items.filter(item => item.half);
+                    const lonelyHalf = halves.length % 2 === 1 ? halves[halves.length - 1] : null;
+                    return items
+                        .map(item => `<div class="stat-item${item.half && item !== lonelyHalf ? ' half' : ''}">${item.html}</div>`)
+                        .join('');
+                };
+                const emptyItems = optionalItems.filter(item => !item.used);
+                // Zapamatovat rozbalení - statistiky se překreslují při každé změně měsíce
+                const moreOpen = stats.querySelector('.stats-more')?.open ?? false;
+
                 stats.innerHTML = `
-                    <div class="stat-item">
+                    <div class="stat-item half">
                         <h3>Ranní směny</h3>
                         <p>${regularMorningShiftsCount} (+ ${totalOvertimeRCount} přesčas)</p>
                         <small>Hodiny: ${(regularMorningShiftsCount * SHIFT_HOURS).toFixed(1)}h (+ ${totalOvertimeRHours.toFixed(1)}h)</small>
                     </div>
-                    <div class="stat-item">
+                    <div class="stat-item half">
                         <h3>Noční směny</h3>
                         <p>${regularNightShiftsCount} (+ ${totalOvertimeNCount} přesčas)</p>
                         <small>Hodiny: ${(regularNightShiftsCount * SHIFT_HOURS).toFixed(1)}h (+ ${totalOvertimeNHours.toFixed(1)}h)</small>
                     </div>
-                    <div class="stat-item">
-                        <h3>Víkendové směny (So+Ne)</h3>
-                        <p>${weekendMorningShiftsCount + weekendNightShiftsCount} (+ ${saturdayOvertimes.length + sundayOvertimes.length} přesčas)</p>
-                        <small>Hodiny: ${((weekendMorningShiftsCount + weekendNightShiftsCount) * SHIFT_HOURS).toFixed(1)}h</small>
-                        <small>Přesčasy So: ${saturdayOvertimes.length} (${(saturdayRHours + saturdayNHours).toFixed(1)}h)</small>
-                        <small>Přesčasy Ne: ${sundayOvertimes.length} (${(sundayRHours + sundayNHours).toFixed(1)}h)</small>
-                    </div>
-                    <div class="stat-item">
-                        <h3>Celkem přesčasů</h3>
-                        <p>${overtimeEntries.length}</p>
-                        <small>Hodiny: ${totalOvertimeHours.toFixed(1)}h (R: ${totalOvertimeRHours.toFixed(1)}h, N: ${totalOvertimeNHours.toFixed(1)}h)</small>
-                    </div>
-                    <div class="stat-item">
-                        <h3>Vícestrojová obsluha</h3>
-                        <p>${multiMachineEntries.length} dní</p>
-                        <small>Hodiny: ${multiMachineHoursTotal.toFixed(1)}h</small>
-                    </div>
-                    <div class="stat-item">
-                        <h3>Klouzáky</h3>
-                        <p>${slidingShiftEntries.length} dní</p>
-                        <small>Hodiny: ${slidingShiftHoursTotal.toFixed(1)}h</small>
-                    </div>
-                    <div class="stat-item">
-                        <h3>Dovolená</h3>
-                        <p>${vacationCount} dní</p>
-                        <small>Hodiny: ${(vacationCount * SHIFT_HOURS).toFixed(1)}h</small>
-                        <small>Za rok ${currentYear} zbývá ${formatVacationAmount(vacationBalance.remaining, vacationBalance.unit)} z ${formatVacationAmount(vacationBalance.total, vacationBalance.unit)}</small>
-                    </div>
-                    <div class="stat-item">
-                        <h3>Nemoc</h3>
-                        <p>${sickCount} dní</p>
-                        <small>Placených směn (náhrada mzdy): ${sickPaidCount}</small>
-                    </div>
-                    <div class="stat-item">
-                        <h3>Náhradní volno</h3>
-                        <p>${nvCount} dní vybráno</p>
-                        <small>Celkem napracováno ${nvBalance.earned.toFixed(1)}h, vybráno ${nvBalance.taken.toFixed(1)}h, zbývá ${nvBalance.remaining.toFixed(1)}h</small>
-                    </div>
+                    ${renderItems(optionalItems.filter(item => item.used))}
+                    ${emptyItems.length > 0 ? `
+                        <details class="stats-more"${moreOpen ? ' open' : ''}>
+                            <summary>Bez záznamu (${emptyItems.length})</summary>
+                            <div class="stats-grid">${renderItems(emptyItems)}</div>
+                        </details>` : ''}
                 `;
             }
 
@@ -2639,7 +2742,7 @@
             function toggleYearView() {
                 yearView = !yearView;
                 document.getElementById('calendar').style.display = yearView ? 'none' : 'flex';
-                document.getElementById('yearView').style.display = yearView ? 'flex' : 'none';
+                document.getElementById('yearView').style.display = yearView ? 'block' : 'none';
                 document.getElementById('monthDetails').style.display = yearView ? 'none' : 'block';
                 document.getElementById('viewToggleText').textContent = yearView ? 'Měsíční výpis' : 'Celoroční výpis';
                 renderCurrentView();
