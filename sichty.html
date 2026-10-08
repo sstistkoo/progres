@@ -1103,7 +1103,7 @@
                         </div>
                         <div class="input-field">
                             <label>Příplatek za víkend (%)</label>
-                            <input type="number" id="weekendBonus" value="25" min="0" step="1" readonly>
+                            <input type="number" id="weekendBonus" value="25" min="0" step="1">
                         </div>
                         <div class="input-field">
                             <label>Příplatek za svátek (%)</label>
@@ -1138,7 +1138,7 @@
                             <input type="checkbox" id="hasTaxDeclaration" checked>
                         </div>
                         <div class="input-field">
-                            <label>Průměrný výdělek - dovolená a nemoc (Kč/hod)</label>
+                            <label>Průměrný výdělek - dovolená, nemoc, svátek (Kč/hod)</label>
                             <input type="number" id="vacationRate" min="0" step="0.01" placeholder="z výplatnice">
                         </div>
                     </div>
@@ -1398,7 +1398,8 @@
                     baseWage: 150, nightBonus: 20, weekendBonus: 25, holidayBonus: 100, overtimeBonus: 25
                 },
                 firma2: {
-                    baseWage: 181.20, personalRating: 5, nightBonus: 17, weekendBonus: 50, holidayBonus: 0,
+                    // Podle výplatnice 9/2026: víkend 60 % tarifu, svátek 100 % průměrného výdělku
+                    baseWage: 181.20, personalRating: 5, nightBonus: 17, weekendBonus: 60, holidayBonus: 100,
                     overtimeBonus: 50, monthlyBonus: 2900, motivationBonus: 3000
                 }
             };
@@ -1961,7 +1962,16 @@
                 const nightBonusHours = (settings.profile === 'firma2' ? SHIFT_HOURS : NIGHT_BONUS_HOURS) * nightShifts.length + overtimeNightBonusHours;
 
                 const weekendWageWithOvertime = baseWage * settings.weekendBonus * (weekendHours + weekendOvertimeHours);
-                const holidayWageWithOvertime = baseWage * settings.holidayBonus * (holidayHours + holidayOvertimeHours);
+
+                // Průměrný výdělek (zadaný z výplatnice), jinak odhad ze základu + osobního ohodnocení.
+                // Platí se jím dovolená, nemoc a u Firmy 2 i příplatek za svátek.
+                const vacationRate = settings.vacationRate > 0 ? settings.vacationRate : baseWage + settings.personalRating;
+                // Firma 2: příplatek za svátek je % průměrného výdělku (§116 ZP), Firma 1 % z tarifu
+                const holidayRate = settings.profile === 'firma2' ? vacationRate : baseWage;
+                const holidayWageWithOvertime = holidayRate * settings.holidayBonus * (holidayHours + holidayOvertimeHours);
+                // Firma 2: směna ve svátek je navíc nad měsíční fond (svátek ho snižuje), takže se platí
+                // i příplatek za přesčas (výplatnice 9/2026: 161 h odpracováno + 11,5 h přesčas za 28. 9.)
+                const holidayShiftOvertimeHours = settings.profile === 'firma2' ? holidayHours : 0;
 
                 // Klouzavá směna ("klouzák") - den s už naplánovanou běžnou směnou, ale počítaný
                 // jako den navíc: hodiny se NEPŘIČÍTAJÍ do odpracovaných hodin (ty už dala běžná
@@ -1978,10 +1988,9 @@
                     .reduce((sum, [, data]) => sum + (parseFloat(data.hours) || 0), 0);
                 const bonusOvertimeHours = totalOvertimeHours - compensatoryOvertimeHours;
 
-                const overtimeBonusWage = baseWage * settings.overtimeBonus * (bonusOvertimeHours + slidingShiftHours);
+                const overtimeBonusWage = baseWage * settings.overtimeBonus * (bonusOvertimeHours + slidingShiftHours + holidayShiftOvertimeHours);
 
-                // Dovolená - náhrada mzdy průměrným výdělkem (zadaným), jinak základ + osobní ohodnocení
-                const vacationRate = settings.vacationRate > 0 ? settings.vacationRate : baseWage + settings.personalRating;
+                // Dovolená - náhrada mzdy průměrným výdělkem (vacationRate výše)
                 const vacationHours = vacationDays * SHIFT_HOURS;
                 const vacationWage = vacationRate * vacationHours;
 
@@ -2056,7 +2065,7 @@
                 return {
                     totalHoursWithOvertime, totalOvertimeHours,
                     weekendHours, weekendOvertimeHours, holidayHours, holidayOvertimeHours,
-                    overtimeNHours, slidingShiftHours, nightBonusHours, overtimeNightBonusHours,
+                    overtimeNHours, slidingShiftHours, holidayShiftOvertimeHours, holidayRate, nightBonusHours, overtimeNightBonusHours,
                     bonusOvertimeHours, compensatoryOvertimeHours,
                     vacationDays, vacationHours, vacationRate, vacationWage,
                     sickDayCount: sickDays.length, sickPaidShiftCount: sickPaidShifts.length, sickHours,
@@ -2090,7 +2099,7 @@
                     `Příplatek za noční: ${w.nightWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč`,
                     `Příplatek za víkendy: ${w.weekendWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč`,
                     `Příplatek za svátky: ${w.holidayWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč`,
-                    `Příplatek za přesčasy: ${w.overtimeBonusWage.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč${w.slidingShiftHours > 0 ? ` (z toho ${w.slidingShiftHours.toFixed(1)} hod klouzák)` : ''}`
+                    `Příplatek za přesčasy: ${w.overtimeBonusWage.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč${w.slidingShiftHours > 0 ? ` (z toho ${w.slidingShiftHours.toFixed(1)} hod klouzák)` : ''}${w.holidayShiftOvertimeHours > 0 ? ` (z toho ${w.holidayShiftOvertimeHours.toFixed(1)} hod směna ve svátek)` : ''}`
                 ];
                 if (w.compensatoryOvertimeHours > 0) {
                     lines.push(`Přesčas na náhradní volno (bez příplatku): ${w.compensatoryOvertimeHours.toFixed(1)} hod`);
@@ -2908,6 +2917,7 @@
                     profileSettings.personalRating = document.getElementById('personalRating').value;
                     profileSettings.monthlyBonus = document.getElementById('monthlyBonus').value;
                     profileSettings.motivationBonus = document.getElementById('motivationBonus').value;
+                    profileSettings.payslipFix202609 = true; // viz applyEmployerProfile
                 }
                 localStorage.setItem(`calculatorSettings_${employerProfile}`, JSON.stringify(profileSettings));
 
@@ -2970,6 +2980,14 @@
                     saved = JSON.parse(localStorage.getItem(`calculatorSettings_${profile}`) || 'null');
                 } catch (e) {
                     saved = null;
+                }
+                // Firma 2 - oprava podle výplatnice 9/2026: víkend byl zamčený na 50 % (správně 60 %)
+                // a svátek 0 % (správně 100 % průměru). Uložené staré výchozí hodnoty jednorázově přepsat.
+                if (profile === 'firma2' && saved && !saved.payslipFix202609) {
+                    if (Number(saved.weekendBonus) === 50) saved.weekendBonus = defaults.weekendBonus;
+                    if (Number(saved.holidayBonus) === 0) saved.holidayBonus = defaults.holidayBonus;
+                    saved.payslipFix202609 = true;
+                    localStorage.setItem(`calculatorSettings_${profile}`, JSON.stringify(saved));
                 }
                 const settings = Object.assign({}, defaults, saved || {});
 
@@ -3238,11 +3256,13 @@
                         <strong>Příplatek za svátky (${(w.holidayHours + w.holidayOvertimeHours).toFixed(1)} hod):</strong>
                         <span>${w.holidayWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč</span>
                         ${w.holidayOvertimeHours > 0 ? `<small>(včetně ${w.holidayOvertimeHours.toFixed(1)} hod přesčas)</small>` : ''}
+                        ${settings.profile === 'firma2' && w.holidayWageWithOvertime > 0 ? `<small>(${(settings.holidayBonus * 100).toFixed(0)} % průměrného výdělku ${w.holidayRate.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč/hod${settings.vacationRate > 0 ? '' : ' - odhad, zadej průměr z výplatnice'})</small>` : ''}
                     </div>
                     <div class="wage-result-item">
-                        <strong>Příplatek za přesčas (${(w.bonusOvertimeHours + w.slidingShiftHours).toFixed(1)} hod):</strong>
+                        <strong>Příplatek za přesčas (${(w.bonusOvertimeHours + w.slidingShiftHours + w.holidayShiftOvertimeHours).toFixed(1)} hod):</strong>
                         <span>${w.overtimeBonusWage.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč</span>
                         ${w.slidingShiftHours > 0 ? `<small>(z toho ${w.slidingShiftHours.toFixed(1)} hod klouzák)</small>` : ''}
+                        ${w.holidayShiftOvertimeHours > 0 ? `<small>(z toho ${w.holidayShiftOvertimeHours.toFixed(1)} hod směna ve svátek - nad měsíční fond)</small>` : ''}
                         ${w.compensatoryOvertimeHours > 0 ? `<small>(${w.compensatoryOvertimeHours.toFixed(1)} hod přesčasu jde na náhradní volno - bez příplatku)</small>` : ''}
                     </div>
                     ${vacationDisplay}
