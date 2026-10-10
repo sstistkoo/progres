@@ -4831,6 +4831,29 @@
                 }
             }
 
+            // Překreslení formulářů (editor rozvrhu, okno Firmy) po změně políčka: změna se spustí už při
+            // opuštění políčka, tj. při stisku prstu na jiném prvku. Kdyby se obsah hned překreslil, prvek
+            // pod prstem zanikne a klepnutí se ztratí. Proto se při držení prstu překreslí až po puštění.
+            let pointerIsDown = false;
+            let pendingRedraws = new Set();
+
+            document.addEventListener('pointerdown', () => { pointerIsDown = true; }, true);
+            ['pointerup', 'pointercancel'].forEach(type => {
+                document.addEventListener(type, () => {
+                    pointerIsDown = false;
+                    if (pendingRedraws.size === 0) return;
+                    const jobs = Array.from(pendingRedraws);
+                    pendingRedraws = new Set();
+                    // až po doručení klepnutí (click přichází po pointerup)
+                    setTimeout(() => jobs.forEach(job => job()), 0);
+                }, true);
+            });
+
+            function safeRedraw(job) {
+                if (pointerIsDown) pendingRedraws.add(job);
+                else job();
+            }
+
             // --- Správa firem ---
             function newFirmId() {
                 let id;
@@ -5274,7 +5297,7 @@
                 const scrollTop = body.scrollTop;
                 body.innerHTML = '';
                 const draft = scheduleDraft;
-                const rerender = () => renderScheduleEditor();
+                const rerender = () => safeRedraw(renderScheduleEditor);
                 const section = (title) => {
                     const h = document.createElement('h3');
                     h.textContent = title;
@@ -5650,11 +5673,11 @@
                     const setRules = (patch) => {
                         updateFirm(firm.id, { rules: patch, from: rulesFrom || null });
                         if (firm.id === employerProfile) afterFirmChange();
-                        renderFirmsList();
+                        safeRedraw(renderFirmsList);
                     };
                     details.appendChild(makeFirmField('Změna pravidel platí od data (prázdné = upravit stávající)', makeDateInput(rulesFrom, v => {
                         firmRulesFrom[firm.id] = v;
-                        renderFirmsList();
+                        safeRedraw(renderFirmsList);
                     })));
                     if (firm.wage.length > 1) {
                         const versions = document.createElement('div');
