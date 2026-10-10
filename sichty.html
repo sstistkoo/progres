@@ -27,6 +27,13 @@
             --current-day-color: #e3f2fd;
             --shift-r-bg: #e8f5e9;
             --shift-n-bg: #ffebee;
+            --shift-o-bg: #fff8e1;
+            --shift-c1-bg: #e1f5fe;
+            --shift-c2-bg: #f3e5f5;
+            --shift-c3-bg: #e0f2f1;
+            --shift-c4-bg: #fbe9e7;
+            --shift-c5-bg: #f1f8e9;
+            --shift-c6-bg: #ede7f6;
             --shift-d-bg: #b3e5fc;
             --shift-nv-bg: #e0e0e0;
             --shift-nem-bg: #d1c4e9;
@@ -173,6 +180,16 @@
             padding: 10px;
             margin-bottom: 10px;
         }
+
+        .sched-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .sched-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+        .sched-row select { flex: 1 1 auto; min-width: 0; }
+        .sched-row input[type=number] { width: 64px; text-align: center; }
+        .sched-step { padding: 8px 12px; min-width: 40px; }
+        .sched-preview { overflow-x: auto; margin-top: 8px; }
+        .sched-preview table { border-collapse: collapse; font-size: 0.7em; }
+        .sched-preview th, .sched-preview td { border: 1px solid var(--border-color); padding: 3px 4px; text-align: center; min-width: 30px; white-space: nowrap; }
+        .sched-preview .week-start { border-left: 3px solid var(--primary-color); }
 
         .firm-row .input-field {
             margin-bottom: 8px;
@@ -353,6 +370,14 @@
             background-color: var(--shift-n-bg);
             color: var(--text-color);
         }
+
+        .shift-O { background-color: var(--shift-o-bg); color: var(--text-color); }
+        .shift-C1 { background-color: var(--shift-c1-bg); color: var(--text-color); }
+        .shift-C2 { background-color: var(--shift-c2-bg); color: var(--text-color); }
+        .shift-C3 { background-color: var(--shift-c3-bg); color: var(--text-color); }
+        .shift-C4 { background-color: var(--shift-c4-bg); color: var(--text-color); }
+        .shift-C5 { background-color: var(--shift-c5-bg); color: var(--text-color); }
+        .shift-C6 { background-color: var(--shift-c6-bg); color: var(--text-color); }
 
         .shift-D {
             background-color: var(--shift-d-bg);
@@ -741,6 +766,14 @@
             border: 2px solid var(--primary-color);
             font-weight: bold;
         }
+
+        .year-table .shift-O { background-color: var(--shift-o-bg); color: var(--text-color); }
+        .year-table .shift-C1 { background-color: var(--shift-c1-bg); color: var(--text-color); }
+        .year-table .shift-C2 { background-color: var(--shift-c2-bg); color: var(--text-color); }
+        .year-table .shift-C3 { background-color: var(--shift-c3-bg); color: var(--text-color); }
+        .year-table .shift-C4 { background-color: var(--shift-c4-bg); color: var(--text-color); }
+        .year-table .shift-C5 { background-color: var(--shift-c5-bg); color: var(--text-color); }
+        .year-table .shift-C6 { background-color: var(--shift-c6-bg); color: var(--text-color); }
 
         .year-table .shift-R {
             background-color: var(--shift-r-bg);
@@ -1276,6 +1309,23 @@
             </div>
         </div>
 
+        <!-- Editor rozvrhu směn (kolotoče) firmy -->
+        <div id="scheduleModal" class="modal">
+            <div class="modal-content" style="max-width: 560px; max-height: 92vh; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h2>Rozvrh směn</h2>
+                    <button class="action-btn secondary" onclick="closeScheduleEditor()" style="padding: 5px 10px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="scheduleBody" style="overflow-y: auto; flex: 1 1 auto; padding-right: 4px;"></div>
+                <div style="display: flex; gap: 10px; margin-top: 12px;">
+                    <button class="action-btn" onclick="saveScheduleEditor()" style="flex: 1;">Uložit rozvrh</button>
+                    <button class="action-btn secondary" onclick="closeScheduleEditor()" style="flex: 1;">Zrušit</button>
+                </div>
+            </div>
+        </div>
+
         <div id="backupModal" class="modal">
             <div class="modal-content" style="max-width: 400px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -1757,10 +1807,108 @@
                 return rules.nightFrom.replace(/^0/, '') + '-' + rules.nightTo.replace(/^0/, '');
             }
 
-            // Minuty od půlnoci z "HH:MM"
-            function timeToMinutes(text) {
-                const [h, m] = text.split(':').map(Number);
-                return h * 60 + m;
+            // --- Typy směn firmy ---
+            // Kód směny v cyklu ('R', 'O', 'N', vlastní 'C1'...) určuje typ s časy a placenými hodinami.
+            // Kódy '-', 'D' (dovolená), 'NV' (náhradní volno), 'NEM' (nemoc) nejsou práce.
+            const NON_WORK_CODES = ['-', 'D', 'NV', 'NEM'];
+            const BUILTIN_TYPES = {
+                R: { label: 'Ranní', short: 'R', from: '06:00', to: '18:00', breakFrom: '12:00', breakMin: 30, paidHours: 11.5 },
+                O: { label: 'Odpolední', short: 'O', from: '14:00', to: '22:00', breakFrom: '18:00', breakMin: 30, paidHours: 7.5 },
+                N: { label: 'Noční', short: 'N', from: '18:00', to: '06:00', breakFrom: '00:00', breakMin: 30, paidHours: 11.5 }
+            };
+
+            // Typ směny podle kódu; s datem se bere verze rozvrhu platná v ten den
+            function getShiftType(code, date) {
+                if (!code || NON_WORK_CODES.includes(code)) return null;
+                const firm = firms ? getActiveFirm() : null;
+                if (firm) {
+                    if (date) {
+                        const version = getScheduleVersion(firm, date);
+                        if (version.types[code]) return version.types[code];
+                    }
+                    for (let i = firm.schedule.length - 1; i >= 0; i--) {
+                        if (firm.schedule[i].types[code]) return firm.schedule[i].types[code];
+                    }
+                }
+                return BUILTIN_TYPES[code] || null;
+            }
+
+            // Interval směny v minutách od půlnoci dne začátku (konec po půlnoci > 1440)
+            function typeInterval(type) {
+                const start = timeToMinutes(type.from);
+                let end = timeToMinutes(type.to);
+                if (end <= start) end += 1440;
+                return [start, end];
+            }
+
+            function shiftWindow(code, date) {
+                const type = getShiftType(code, date);
+                return type ? typeInterval(type) : null;
+            }
+
+            // Noční = přechází přes půlnoc
+            function shiftKind(code, date) {
+                const interval = shiftWindow(code, date);
+                if (!interval) return null;
+                return interval[1] > 1440 ? 'night' : 'day';
+            }
+
+            function shiftPaidHours(code, date) {
+                const type = getShiftType(code, date);
+                return type ? type.paidHours : 0;
+            }
+
+            function sumPaidHours(list) {
+                return list.reduce((sum, s) => sum + shiftPaidHours(s.shift, s.date), 0);
+            }
+
+            // Placené hodiny směny v nočním okně pravidel (okno minus přestávka)
+            function typeNightHours(type, rules) {
+                const window = nightWindowMinutes(rules);
+                const interval = typeInterval(type);
+                let minutes = overlapMinutes(interval, window.start, window.end);
+                if (type.breakMin > 0 && type.breakFrom) {
+                    let breakStart = timeToMinutes(type.breakFrom);
+                    if (breakStart < interval[0]) breakStart += 1440;
+                    minutes -= overlapMinutes([breakStart, breakStart + type.breakMin], window.start, window.end);
+                }
+                return Math.max(0, minutes) / 60;
+            }
+
+            function sumNightHours(list, rules) {
+                return list.reduce((sum, s) => {
+                    const type = getShiftType(s.shift, s.date);
+                    return type ? sum + typeNightHours(type, rules) : sum;
+                }, 0);
+            }
+
+            // Kolik placených hodin má běžný pracovní den firmy (první pracovní směna cyklu)
+            function typicalDayHours() {
+                const version = getActiveFirm().schedule[getActiveFirm().schedule.length - 1];
+                const code = version.cycle.find(c => getShiftType(c));
+                return code ? shiftPaidHours(code) : 11.5;
+            }
+
+            function shiftLabel(code, date) {
+                const type = getShiftType(code, date);
+                if (type) return type.label;
+                return SHIFT_LABELS[code] || code;
+            }
+
+            function shiftShort(code, date) {
+                const type = getShiftType(code, date);
+                if (type) return type.short;
+                return SHIFT_SHORT[code] || code;
+            }
+
+            // Svátky podle roku (vyrovnávací paměť) - pro firmy, kde se ve svátek nepracuje
+            const holidayKeysCache = {};
+            function isHolidayDate(date) {
+                const year = date.getFullYear();
+                if (!holidayKeysCache[year]) {
+                    holidayKeysCache[year] = new Set(getHolidays(year).map(h => h.date));
+                }
+                return holidayKeysCache[year].has(toDateKey(date));
             }
 
             // Noční okno pravidel: začátek a konec v minutách od půlnoci dne začátku (konec je až další den)
@@ -1807,7 +1955,8 @@
                         from: version.from,
                         types: (version.types && typeof version.types === 'object') ? version.types : {},
                         cycle: version.cycle.slice(),
-                        groups
+                        groups,
+                        holidayOff: version.holidayOff === true
                     });
                 }
                 // Nejstarší verze (bez data) první, ostatní podle data
@@ -2091,9 +2240,9 @@
                     // Formátování řádku s informacemi o dni
                     let dayInfo = `${dateStr} (${dayStr})`;
                     if (isWorkShift(shift.shift)) {
-                        dayInfo += ` - ${SHIFT_LABELS[shift.shift]} směna`;
+                        dayInfo += ` - ${shiftLabel(shift.shift, shift.date)} směna`;
                     } else if (shift.shift !== '-') {
-                        dayInfo += ` - ${SHIFT_LABELS[shift.shift]}`;
+                        dayInfo += ` - ${shiftLabel(shift.shift, shift.date)}`;
                     }
                     if (isHoliday) {
                         dayInfo += ` - Svátek: ${isHoliday.name}`;
@@ -2229,13 +2378,11 @@
             }
 
             function isWorkShift(shift) {
-                return shift === 'R' || shift === 'N';
+                return !!getShiftType(shift);
             }
 
             // --- Časy přesčasu ---
             // Časy se počítají v minutách od půlnoci daného dne; noční směna běží 18:00-30:00 (= 6:00 dalšího dne)
-            const SHIFT_WINDOWS = { R: [360, 1080], N: [1080, 1800] };
-
             function timeToMinutes(time) {
                 const [h, m] = time.split(':').map(Number);
                 return h * 60 + m;
@@ -2248,9 +2395,9 @@
 
             // Interval přesčasu [start, end] v minutách. U noční směny jsou ranní časy (před polednem)
             // až po jejím konci, tedy další den ráno.
-            function getOvertimeInterval(from, to, dayShift) {
+            function getOvertimeInterval(from, to, dayShift, date) {
                 let start = timeToMinutes(from);
-                if (dayShift === 'N' && start < 720) start += 1440;
+                if (shiftKind(dayShift, date) === 'night' && start < 720) start += 1440;
                 let end = timeToMinutes(to) + (start >= 1440 ? 1440 : 0);
                 while (end <= start) end += 1440;
                 return [start, end];
@@ -2271,6 +2418,14 @@
             function paidHoursFromMinutes(minutes) {
                 const hours = minutes / 60;
                 return hours > 6 ? hours - 0.5 : hours;
+            }
+
+            // Např. "ranní směnou (6:00–18:00)"
+            function describeShiftWindow(code, date) {
+                const type = getShiftType(code, date);
+                if (!type) return 'směnou';
+                const fmt = (s) => s.replace(/^0/, '');
+                return `${type.label.toLowerCase()} směnou (${fmt(type.from)}–${fmt(type.to)})`;
             }
 
             // Hodiny přesčasu v nočním okně (22:00-6:00 pro Firmu 1, 18:00-6:00 pro Firmu 2).
@@ -2316,7 +2471,8 @@
                 shiftOverrides[shiftType].forEach((value, key) => {
                     if (value !== 'NV') return;
                     const [y, m, d] = key.split('-').map(Number);
-                    if (isWorkShift(getRotationShift(new Date(y, m - 1, d), shiftType))) taken += 11.5;
+                    const day = new Date(y, m - 1, d);
+                    taken += shiftPaidHours(getRotationShift(day, shiftType), day);
                 });
                 return { earned, taken, remaining: earned - taken };
             }
@@ -2324,7 +2480,6 @@
             // --- Dovolená: roční nárok a zůstatek ---
             // Vede se v hodinách (u 12h směn obvyklé) nebo ve dnech; nárok je stejný každý rok,
             // převod z loňska se zadává zvlášť pro každý rok.
-            const VACATION_DAY_HOURS = 11.5;
             let vacationSettings = { unit: 'hours', entitlement: 187.5, carryOver: {} };
 
             function loadVacationSettings() {
@@ -2353,8 +2508,9 @@
 
             // Zůstatek dovolené pro rok a směnu - počítá dny změněné na "Dovolená"
             function getVacationBalance(year, shiftType, settings = vacationSettings) {
-                const days = generateShifts(year, shiftType).filter(s => s.shift === 'D' && isWorkShift(s.scheduled)).length;
-                const used = settings.unit === 'days' ? days : days * VACATION_DAY_HOURS;
+                const vacationShifts = generateShifts(year, shiftType).filter(s => s.shift === 'D' && isWorkShift(s.scheduled));
+                const days = vacationShifts.length;
+                const used = settings.unit === 'days' ? days : vacationShifts.reduce((sum, s) => sum + shiftPaidHours(s.scheduled, s.date), 0);
                 const total = settings.entitlement + (parseFloat(settings.carryOver[year]) || 0);
                 return { unit: settings.unit, days, used, total, remaining: total - used };
             }
@@ -2399,7 +2555,7 @@
                     const input = document.getElementById(id);
                     const value = parseFloat(input.value);
                     if (!value) return;
-                    const converted = toDays ? value / VACATION_DAY_HOURS : value * VACATION_DAY_HOURS;
+                    const converted = toDays ? value / typicalDayHours() : value * typicalDayHours();
                     input.value = Math.round(converted * 2) / 2; // na půlky
                 });
                 updateVacationSummary();
@@ -2430,11 +2586,10 @@
             // Odpracované hodiny daného dne (naplánovaná směna + případný přesčas téhož data) -
             // používá se k dopočtu příplatku za vícestrojovou obsluhu, aby nikdy neuvízl "zamrzlý" počet hodin.
             function getWorkedHoursForDate(dateStr, monthShifts, overtimeEntries) {
-                const SHIFT_HOURS = 11.5;
                 let hours = 0;
                 const dayShift = monthShifts.find(s => toDateKey(s.date) === dateStr);
                 if (dayShift && isWorkShift(dayShift.shift)) {
-                    hours += SHIFT_HOURS;
+                    hours += shiftPaidHours(dayShift.shift, dayShift.date);
                 }
                 const otEntry = overtimeEntries.find(([d]) => d === dateStr);
                 if (otEntry) {
@@ -2472,15 +2627,14 @@
             }
 
             function computeWageBreakdown(settings, monthShifts, overtimeEntries, multiMachineEntries, slidingShiftEntries, holidaysList) {
-                const SHIFT_HOURS = 11.5;
                 // Pravidla firmy (noční okno, základ příplatku za svátek, vícestroj…) pro měsíc výpočtu
                 const rules = settings.rules || getWageRules(settings.profile, monthShifts.length ? monthShifts[0].date : new Date());
                 const nightWindow = nightWindowMinutes(rules);
-                // Placené hodiny jedné noční směny v nočním okně (22-6: 7,5 h, 18-6: 11,5 h)
-                const NIGHT_BONUS_HOURS = paidHoursFromMinutes(nightWindow.end - nightWindow.start);
+                // Placené hodiny směn v nočním okně (Progres 22-6: 7,5 h na noční, Bona 18-6: 11,5 h)
+                const nightShiftHours = sumNightHours(monthShifts, rules);
 
-                const regularShifts = monthShifts.filter(s => s.shift === 'R');
-                const nightShifts = monthShifts.filter(s => s.shift === 'N');
+                const regularShifts = monthShifts.filter(s => shiftKind(s.shift, s.date) === 'day');
+                const nightShifts = monthShifts.filter(s => shiftKind(s.shift, s.date) === 'night');
                 const weekendShifts = monthShifts.filter(s => {
                     const day = s.date.getDay();
                     return (day === 0 || day === 6) && isWorkShift(s.shift);
@@ -2490,7 +2644,8 @@
                     return holidaysList.some(h => h.date === dateStr) && isWorkShift(s.shift);
                 });
                 // Dovolená se čerpá (a platí) jen za směny podle rozvrhu - na volný den nic neubírá
-                const vacationDays = monthShifts.filter(s => s.shift === 'D' && isWorkShift(s.scheduled)).length;
+                const vacationShifts = monthShifts.filter(s => s.shift === 'D' && isWorkShift(s.scheduled));
+                const vacationDays = vacationShifts.length;
                 const sickDays = monthShifts.filter(s => s.shift === 'NEM');
 
                 const overtimeRHours = overtimeEntries
@@ -2512,13 +2667,11 @@
                     .filter(([date]) => holidaysList.some(h => h.date === date))
                     .reduce((sum, [_, data]) => sum + parseFloat(data.hours), 0);
 
-                const normalHours = regularShifts.length * SHIFT_HOURS;
-                const nightHours = nightShifts.length * SHIFT_HOURS;
-                const weekendHours = weekendShifts.length * SHIFT_HOURS;
-                const holidayHours = holidayShifts.length * SHIFT_HOURS;
+                const weekendHours = sumPaidHours(weekendShifts);
+                const holidayHours = sumPaidHours(holidayShifts);
 
                 const totalOvertimeHours = overtimeRHours + overtimeNHours;
-                const totalHours = (regularShifts.length + nightShifts.length) * SHIFT_HOURS;
+                const totalHours = sumPaidHours(regularShifts) + sumPaidHours(nightShifts);
                 const totalHoursWithOvertime = totalHours + totalOvertimeHours;
 
                 const baseWage = settings.baseWage;
@@ -2530,14 +2683,14 @@
                 overtimeNightBonusHours = overtimeEntries.reduce((sum, [, data]) => sum + getOvertimeNightHours(data, nightWindow.start, nightWindow.end), 0);
                 if (rules.nightMode === 'flat') {
                     // Paušál Kč/hod za hodiny v nočním okně (Bona: celá noční doba 18:00-6:00)
-                    nightWageWithOvertime = settings.nightBonusFlat * (nightShifts.length * NIGHT_BONUS_HOURS + overtimeNightBonusHours);
+                    nightWageWithOvertime = settings.nightBonusFlat * (nightShiftHours + overtimeNightBonusHours);
                 } else {
                     // Příplatek v % z tarifu jen za hodiny v nočním okně (Progres: 22:00-6:00)
                     nightWageWithOvertime = baseWage * settings.nightBonus * (
-                        nightShifts.length * NIGHT_BONUS_HOURS + overtimeNightBonusHours
+                        nightShiftHours + overtimeNightBonusHours
                     );
                 }
-                const nightBonusHours = NIGHT_BONUS_HOURS * nightShifts.length + overtimeNightBonusHours;
+                const nightBonusHours = nightShiftHours + overtimeNightBonusHours;
 
                 const weekendWageWithOvertime = baseWage * settings.weekendBonus * (weekendHours + weekendOvertimeHours);
 
@@ -2569,12 +2722,12 @@
                 const overtimeBonusWage = baseWage * settings.overtimeBonus * (bonusOvertimeHours + slidingShiftHours + holidayShiftOvertimeHours);
 
                 // Dovolená - náhrada mzdy průměrným výdělkem (vacationRate výše)
-                const vacationHours = vacationDays * SHIFT_HOURS;
+                const vacationHours = vacationShifts.reduce((sum, s) => sum + shiftPaidHours(s.scheduled, s.date), 0);
                 const vacationWage = vacationRate * vacationHours;
 
                 // Nemoc - náhrada mzdy jen za směny, které by podle rozvrhu byly, v prvních 14 dnech
                 const sickPaidShifts = sickDays.filter(s => s.sickDay <= SICK_PAY_DAYS && isWorkShift(s.scheduled));
-                const sickHours = sickPaidShifts.length * SHIFT_HOURS;
+                const sickHours = sickPaidShifts.reduce((sum, s) => sum + shiftPaidHours(s.scheduled, s.date), 0);
                 const sickHourlyRate = SICK_PAY_RATE * reduceAverageHourlyEarnings(vacationRate);
                 const sickPay = sickHours * sickHourlyRate;
                 const sickBenefitDays = sickDays.filter(s => s.sickDay > SICK_PAY_DAYS).length;
@@ -3772,7 +3925,11 @@
             // Směna daného dne čistě podle rotace (bez ručních změn)
             // Rozvrh bere z aktivní firmy: verze platná pro den + cyklus a první den cyklu skupiny
             function getRotationShift(date, shiftType) {
-                return getCycleShift(getScheduleVersion(getActiveFirm(), date), shiftType, date);
+                const version = getScheduleVersion(getActiveFirm(), date);
+                const shift = getCycleShift(version, shiftType, date);
+                // Firma, kde se ve svátek nepracuje (např. pondělí-pátek): směna ve svátek odpadá
+                if (version.holidayOff && shift !== '-' && isHolidayDate(date)) return '-';
+                return shift;
             }
 
             // Skutečná směna dne - ruční změna má přednost před rotací
@@ -3810,7 +3967,6 @@
 
 
             function updateStats(shifts, month) {
-                const SHIFT_HOURS = 11.5; // Definujeme délku směny
                 const stats = document.getElementById('stats');
                 let filteredShifts;
 
@@ -3821,8 +3977,8 @@
                 }
 
                 // Základní směny
-                const morningShifts = filteredShifts.filter(s => s.shift === 'R');
-                const nightShifts = filteredShifts.filter(s => s.shift === 'N');
+                const morningShifts = filteredShifts.filter(s => shiftKind(s.shift, s.date) === 'day');
+                const nightShifts = filteredShifts.filter(s => shiftKind(s.shift, s.date) === 'night');
 
                 // Víkendové směny rozdělené na ranní a noční
                 const weekendMorningShifts = morningShifts.filter(s => {
@@ -3916,7 +4072,7 @@
                         html: `
                             <h3>Víkendové směny (So+Ne)</h3>
                             <p>${weekendShiftCount} (+ ${weekendOvertimeCount} přesčas)</p>
-                            <small>Hodiny: ${(weekendShiftCount * SHIFT_HOURS).toFixed(1)}h</small>
+                            <small>Hodiny: ${(sumPaidHours(weekendMorningShifts) + sumPaidHours(weekendNightShifts)).toFixed(1)}h</small>
                             <small>Přesčasy So: ${saturdayOvertimes.length} (${(saturdayRHours + saturdayNHours).toFixed(1)}h)</small>
                             <small>Přesčasy Ne: ${sundayOvertimes.length} (${(sundayRHours + sundayNHours).toFixed(1)}h)</small>`
                     },
@@ -3948,7 +4104,7 @@
                         html: `
                             <h3>Dovolená</h3>
                             <p>${vacationCount} dní</p>
-                            <small>Hodiny: ${(vacationCount * SHIFT_HOURS).toFixed(1)}h</small>
+                            <small>Hodiny: ${filteredShifts.filter(s => s.shift === 'D' && isWorkShift(s.scheduled)).reduce((sum, s) => sum + shiftPaidHours(s.scheduled, s.date), 0).toFixed(1)}h</small>
                             <small>Za rok ${currentYear} zbývá ${formatVacationAmount(vacationBalance.remaining, vacationBalance.unit)} z ${formatVacationAmount(vacationBalance.total, vacationBalance.unit)}</small>`
                     },
                     {
@@ -3985,12 +4141,12 @@
                     <div class="stat-item half">
                         <h3>Ranní směny</h3>
                         <p>${regularMorningShiftsCount} (+ ${totalOvertimeRCount} přesčas)</p>
-                        <small>Hodiny: ${(regularMorningShiftsCount * SHIFT_HOURS).toFixed(1)}h (+ ${totalOvertimeRHours.toFixed(1)}h)</small>
+                        <small>Hodiny: ${(sumPaidHours(morningShifts) - sumPaidHours(weekendMorningShifts)).toFixed(1)}h (+ ${totalOvertimeRHours.toFixed(1)}h)</small>
                     </div>
                     <div class="stat-item half">
                         <h3>Noční směny</h3>
                         <p>${regularNightShiftsCount} (+ ${totalOvertimeNCount} přesčas)</p>
-                        <small>Hodiny: ${(regularNightShiftsCount * SHIFT_HOURS).toFixed(1)}h (+ ${totalOvertimeNHours.toFixed(1)}h)</small>
+                        <small>Hodiny: ${(sumPaidHours(nightShifts) - sumPaidHours(weekendNightShifts)).toFixed(1)}h (+ ${totalOvertimeNHours.toFixed(1)}h)</small>
                     </div>
                     ${renderItems(optionalItems.filter(item => item.used))}
                     ${emptyItems.length > 0 ? `
@@ -4013,7 +4169,7 @@
                     const sickDay = getSickDayNumber(date, currentShift);
                     markers.push({ kind: 'sick', sickDay, text: `Nemoc – ${sickDay}. den` });
                 } else if (shiftOverrides[currentShift].has(dateStr)) {
-                    markers.push({ kind: 'override', text: `Směna změněna: ${SHIFT_LABELS[shiftValue] || shiftValue}` });
+                    markers.push({ kind: 'override', text: `Směna změněna: ${shiftLabel(shiftValue, selectedDate || undefined)}` });
                 }
                 const ot = overtimeDays[currentShift].get(dateStr);
                 if (ot) {
@@ -4106,7 +4262,7 @@
                         dayDiv.classList.add(`shift-${shiftValue}`);
                         const shiftSpan = document.createElement('div');
                         shiftSpan.className = 'day-shift';
-                        shiftSpan.textContent = SHIFT_SHORT[shiftValue] || shiftValue;
+                        shiftSpan.textContent = shiftShort(shiftValue, shiftDay.date);
                         dayDiv.appendChild(shiftSpan);
                     }
 
@@ -4369,7 +4525,7 @@
 
                         let shiftText = '';
                         if (shiftDay && shiftDay.shift !== '-') {
-                            shiftText = SHIFT_SHORT[shiftDay.shift] || shiftDay.shift;
+                            shiftText = shiftShort(shiftDay.shift, shiftDay.date);
                             dayClass += ` shift-${shiftDay.shift}`;
                         }
 
@@ -4645,6 +4801,509 @@
                 return true;
             }
 
+            // --- Editor rozvrhu (kolotoče) firmy ---
+            // Návrh (draft) = { preset, blocks: [{ code, days }], types, groups: [{ id, name, start }],
+            //                   from: '' | 'RRRR-MM-DD', holidayOff, previewStart }
+            // Z bloků se složí cyklus (pořadí směn dne po dni), skupiny mají datum 1. dne cyklu.
+            const SCHEDULE_CODE_CHOICES = ['R', 'O', 'N', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6'];
+            const SCHEDULE_PRESETS = [
+                { id: 'week12', label: '12h týdenní', hint: 'týden ranní, týden noční, týden volno' },
+                { id: 'days12', label: '12h po dnech', hint: '2 ranní, 2 noční, 4 volna' },
+                { id: 'std8', label: '8h třísměnný', hint: '3 ranní, 3 odpolední, 3 noční, 3 volna' },
+                { id: 'monfri', label: 'Pondělí–pátek', hint: 'pracovní týden, ve svátek volno' },
+                { id: 'custom', label: 'Vlastní', hint: 'sestavit z bloků' }
+            ];
+            const MAX_CYCLE_DAYS = 120;
+            const MAX_GROUPS = 8;
+
+            // Výchozí typ pro kód směny (vlastní kódy C1... dostanou obecný osmihodinový typ)
+            function defaultTypeForCode(code) {
+                if (BUILTIN_TYPES[code]) return Object.assign({}, BUILTIN_TYPES[code]);
+                const n = code.replace(/\D/g, '') || '1';
+                return { label: 'Vlastní ' + n, short: code, from: '08:00', to: '16:00', breakFrom: '12:00', breakMin: 30, paidHours: 7.5 };
+            }
+
+            // Placené hodiny = délka směny minus přestávka
+            function computePaidHours(type) {
+                const [start, end] = typeInterval(type);
+                return Math.max(0, (end - start - (Number(type.breakMin) || 0)) / 60);
+            }
+
+            // Cyklus (pole kódů po dnech) -> bloky stejných kódů za sebou
+            function cycleToBlocks(cycle) {
+                const blocks = [];
+                cycle.forEach(code => {
+                    const last = blocks[blocks.length - 1];
+                    if (last && last.code === code) last.days++;
+                    else blocks.push({ code, days: 1 });
+                });
+                return blocks;
+            }
+
+            function expandBlocks(blocks) {
+                const cycle = [];
+                blocks.forEach(b => { for (let i = 0; i < b.days; i++) cycle.push(b.code); });
+                return cycle;
+            }
+
+            function addDaysToKey(key, days) {
+                const [y, m, d] = key.split('-').map(Number);
+                return toDateKey(new Date(y, m - 1, d + days));
+            }
+
+            // Skupiny A, B, C... s rovnoměrně rozloženým začátkem cyklu; existující skupiny si zachovají svůj začátek
+            function buildGroups(count, cycleLength, baseKey, existing) {
+                const groups = [];
+                for (let i = 0; i < count; i++) {
+                    const id = String.fromCharCode(65 + i);
+                    const old = (existing || []).find(g => g.id === id);
+                    groups.push(old ? { id, name: old.name, start: old.start }
+                        : { id, name: id, start: addDaysToKey(baseKey, i * Math.floor(cycleLength / count)) });
+                }
+                return groups;
+            }
+
+            function mondayOnOrBefore(date) {
+                const diff = (date.getDay() + 6) % 7;
+                return toDateKey(new Date(date.getFullYear(), date.getMonth(), date.getDate() - diff));
+            }
+
+            // Návrh podle předvolby; základ (první den cyklu skupiny A) je dnes, u pondělí-pátek poslední pondělí
+            function presetDraft(id, today) {
+                const todayKey = toDateKey(today);
+                const draft = { preset: id, from: '', holidayOff: false, previewStart: todayKey, types: {}, blocks: [], groups: [] };
+                let groupCount = 4;
+                let base = todayKey;
+                if (id === 'week12') {
+                    draft.blocks = [{ code: 'R', days: 7 }, { code: 'N', days: 7 }, { code: '-', days: 7 }];
+                    groupCount = 3;
+                    base = mondayOnOrBefore(today);
+                } else if (id === 'days12') {
+                    draft.blocks = [{ code: 'R', days: 2 }, { code: 'N', days: 2 }, { code: '-', days: 4 }];
+                } else if (id === 'std8') {
+                    draft.blocks = [{ code: 'R', days: 3 }, { code: 'O', days: 3 }, { code: 'N', days: 3 }, { code: '-', days: 3 }];
+                    draft.types.R = { label: 'Ranní', short: 'R', from: '06:00', to: '14:00', breakFrom: '10:00', breakMin: 30, paidHours: 7.5 };
+                    draft.types.O = { label: 'Odpolední', short: 'O', from: '14:00', to: '22:00', breakFrom: '18:00', breakMin: 30, paidHours: 7.5 };
+                    draft.types.N = { label: 'Noční', short: 'N', from: '22:00', to: '06:00', breakFrom: '02:00', breakMin: 30, paidHours: 7.5 };
+                } else if (id === 'monfri') {
+                    draft.blocks = [{ code: 'R', days: 5 }, { code: '-', days: 2 }];
+                    draft.types.R = { label: 'Pracovní den', short: 'P', from: '07:00', to: '15:00', breakFrom: '11:00', breakMin: 30, paidHours: 7.5 };
+                    draft.holidayOff = true;
+                    groupCount = 1;
+                    base = mondayOnOrBefore(today);
+                } else {
+                    draft.blocks = [{ code: 'R', days: 3 }, { code: '-', days: 3 }, { code: 'N', days: 3 }, { code: '-', days: 3 }];
+                }
+                ensureDraftTypes(draft);
+                draft.groups = buildGroups(groupCount, expandBlocks(draft.blocks).length, base, []);
+                return draft;
+            }
+
+            // Návrh z existující verze rozvrhu firmy
+            function draftFromVersion(version, today) {
+                const draft = {
+                    preset: 'custom', from: '', holidayOff: version.holidayOff === true,
+                    previewStart: toDateKey(today),
+                    types: JSON.parse(JSON.stringify(version.types || {})),
+                    blocks: cycleToBlocks(version.cycle),
+                    groups: version.groups.map(g => ({ id: g.id, name: g.name, start: g.start }))
+                };
+                ensureDraftTypes(draft);
+                return draft;
+            }
+
+            // Každý použitý kód (kromě volna) musí mít typ s časy
+            function ensureDraftTypes(draft) {
+                draft.blocks.forEach(b => {
+                    if (b.code !== '-' && !draft.types[b.code]) draft.types[b.code] = defaultTypeForCode(b.code);
+                });
+            }
+
+            // Zkontroluje návrh; vrací seznam chyb česky (prázdný = v pořádku)
+            function validateDraft(draft) {
+                const errors = [];
+                const cycle = expandBlocks(draft.blocks);
+                if (cycle.length === 0) errors.push('Cyklus je prázdný, přidej aspoň jeden blok.');
+                if (cycle.length > MAX_CYCLE_DAYS) errors.push('Cyklus je delší než ' + MAX_CYCLE_DAYS + ' dní.');
+                if (cycle.length > 0 && !cycle.some(c => c !== '-')) errors.push('Cyklus nemá žádný pracovní den.');
+                draft.blocks.forEach(b => {
+                    if (!(Number.isInteger(b.days) && b.days >= 1)) errors.push('Blok musí mít aspoň 1 den.');
+                });
+                if (draft.groups.length === 0) errors.push('Přidej aspoň jednu skupinu.');
+                const names = new Set();
+                draft.groups.forEach(g => {
+                    if (!isDateKey(g.start)) errors.push('Skupina ' + g.name + ': chybí datum prvního dne cyklu.');
+                    if (!g.name.trim()) errors.push('Skupina ' + g.id + ' nemá název.');
+                    if (names.has(g.id)) errors.push('Skupina ' + g.id + ' je dvakrát.');
+                    names.add(g.id);
+                });
+                if (draft.from !== '' && !isDateKey(draft.from)) errors.push('Datum "platí od" není platné.');
+                new Set(cycle.filter(c => c !== '-')).forEach(code => {
+                    const type = draft.types[code];
+                    if (!type) { errors.push('Chybí časy pro směnu ' + code + '.'); return; }
+                    if (!/^\d{2}:\d{2}$/.test(type.from) || !/^\d{2}:\d{2}$/.test(type.to)) errors.push('Směna ' + type.label + ': chybí čas od–do.');
+                    else if (type.from === type.to) errors.push('Směna ' + type.label + ': začátek a konec jsou stejné.');
+                    if (!(type.paidHours > 0 && type.paidHours <= 24)) errors.push('Směna ' + type.label + ': placené hodiny musí být 0–24.');
+                    if (!type.label.trim()) errors.push('Směna ' + code + ' nemá název.');
+                });
+                return errors;
+            }
+
+            // Verze rozvrhu z návrhu (jen použité typy)
+            function versionFromDraft(draft) {
+                const cycle = expandBlocks(draft.blocks);
+                const types = {};
+                new Set(cycle.filter(c => c !== '-')).forEach(code => {
+                    const t = draft.types[code];
+                    types[code] = {
+                        label: t.label.trim(), short: (t.short || code).trim() || code,
+                        from: t.from, to: t.to, breakFrom: t.breakFrom || '', breakMin: Number(t.breakMin) || 0,
+                        paidHours: Number(t.paidHours)
+                    };
+                });
+                return {
+                    from: draft.from === '' ? null : draft.from,
+                    types, cycle,
+                    groups: draft.groups.map(g => ({ id: g.id, name: g.name.trim(), start: g.start })),
+                    holidayOff: draft.holidayOff === true
+                };
+            }
+
+            // Vloží verzi do rozvrhu: bez data nahradí vše, s datem platí od něj (stejné datum se přepíše)
+            function insertScheduleVersion(schedule, version) {
+                if (version.from === null) return [version];
+                const list = schedule.filter(v => v.from !== version.from);
+                list.push(version);
+                list.sort((a, b) => {
+                    const ka = a.from === null ? '' : a.from;
+                    const kb = b.from === null ? '' : b.from;
+                    return ka < kb ? -1 : (ka > kb ? 1 : 0);
+                });
+                return list;
+            }
+
+            // Který den cyklu (1..délka) má skupina v daný den
+            function cycleDayNumber(group, cycleLength, date) {
+                const diff = dateToDayNumber(date) - dateKeyToDayNumber(group.start);
+                return ((diff % cycleLength) + cycleLength) % cycleLength + 1;
+            }
+
+            // Náhled: řádky skupin s kódy směn po dnech podle rozvrhu (vč. přechodu mezi verzemi)
+            function previewScheduleRows(schedule, startKey, days) {
+                const fake = { schedule };
+                const ids = [];
+                schedule.forEach(v => v.groups.forEach(g => { if (!ids.includes(g.id)) ids.push(g.id); }));
+                const [y, m, d] = startKey.split('-').map(Number);
+                const dates = [];
+                for (let i = 0; i < days; i++) dates.push(new Date(y, m - 1, d + i));
+                return {
+                    dates,
+                    rows: ids.map(id => {
+                        let name = id;
+                        for (const v of schedule) {
+                            const g = v.groups.find(x => x.id === id);
+                            if (g) { name = g.name; break; }
+                        }
+                        const cells = dates.map(date => {
+                            const version = getScheduleVersion(fake, date);
+                            let code = getCycleShift(version, id, date);
+                            if (version.holidayOff && code !== '-' && isHolidayDate(date)) code = '-';
+                            const type = version.types[code] || BUILTIN_TYPES[code];
+                            return { code, short: code === '-' ? '' : (type ? type.short : code) };
+                        });
+                        return { id, name, cells };
+                    })
+                };
+            }
+
+            let scheduleDraft = null;
+            let scheduleFirmId = null;
+
+            function openScheduleEditor(firmId) {
+                const firm = getFirm(firmId);
+                if (!firm) return;
+                scheduleFirmId = firmId;
+                scheduleDraft = draftFromVersion(firm.schedule[firm.schedule.length - 1], new Date());
+                renderScheduleEditor();
+                document.getElementById('scheduleModal').style.display = 'flex';
+            }
+
+            function closeScheduleEditor() {
+                document.getElementById('scheduleModal').style.display = 'none';
+                scheduleDraft = null;
+            }
+
+            function makeButton(text, onClick, className) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = className || 'action-btn secondary';
+                btn.textContent = text;
+                btn.addEventListener('click', onClick);
+                return btn;
+            }
+
+            function makeNumberInput(value, min, max, onChange) {
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.min = String(min);
+                input.max = String(max);
+                input.step = '1';
+                input.inputMode = 'numeric';
+                input.value = String(value);
+                input.addEventListener('change', () => {
+                    const n = parseInt(input.value, 10);
+                    onChange(Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : min);
+                });
+                return input;
+            }
+
+            function makeDateInput(value, onChange) {
+                const input = document.createElement('input');
+                input.type = 'date';
+                input.value = value;
+                input.addEventListener('change', () => onChange(input.value));
+                return input;
+            }
+
+            function codeLabel(draft, code) {
+                if (code === '-') return 'Volno';
+                const type = draft.types[code];
+                return type ? type.label : code;
+            }
+
+            // Znovu vykreslí celý editor podle návrhu
+            function renderScheduleEditor() {
+                const body = document.getElementById('scheduleBody');
+                const scrollTop = body.scrollTop;
+                body.innerHTML = '';
+                const draft = scheduleDraft;
+                const rerender = () => renderScheduleEditor();
+                const section = (title) => {
+                    const h = document.createElement('h3');
+                    h.textContent = title;
+                    h.style.margin = '14px 0 6px';
+                    body.appendChild(h);
+                };
+
+                // Předvolby
+                section('Typ rozvrhu');
+                const chips = document.createElement('div');
+                chips.className = 'sched-chips';
+                SCHEDULE_PRESETS.forEach(p => {
+                    const chip = makeButton(p.label, () => {
+                        if (p.id === 'custom') {
+                            draft.preset = 'custom';
+                        } else {
+                            const keep = { from: draft.from, previewStart: draft.previewStart };
+                            scheduleDraft = presetDraft(p.id, new Date());
+                            scheduleDraft.from = keep.from;
+                        }
+                        rerender();
+                    }, 'action-btn' + (draft.preset === p.id ? '' : ' secondary'));
+                    chips.appendChild(chip);
+                });
+                body.appendChild(chips);
+                const presetInfo = SCHEDULE_PRESETS.find(p => p.id === draft.preset);
+                const hint = document.createElement('div');
+                hint.className = 'hint';
+                hint.textContent = presetInfo ? presetInfo.hint : 'Upravený rozvrh';
+                body.appendChild(hint);
+
+                // Bloky cyklu
+                section('Cyklus');
+                draft.blocks.forEach((block, index) => {
+                    const row = document.createElement('div');
+                    row.className = 'sched-row';
+                    const options = [['-', 'Volno']].concat(SCHEDULE_CODE_CHOICES.map(c => [c, codeLabel(draft, c)]));
+                    row.appendChild(makeSelect(options, block.code, value => {
+                        block.code = value;
+                        draft.preset = 'custom';
+                        ensureDraftTypes(draft);
+                        rerender();
+                    }));
+                    row.appendChild(makeButton('−', () => { if (block.days > 1) { block.days--; draft.preset = 'custom'; rerender(); } }, 'action-btn secondary sched-step'));
+                    row.appendChild(makeNumberInput(block.days, 1, MAX_CYCLE_DAYS, value => { block.days = value; draft.preset = 'custom'; rerender(); }));
+                    row.appendChild(makeButton('+', () => { block.days++; draft.preset = 'custom'; rerender(); }, 'action-btn secondary sched-step'));
+                    row.appendChild(makeButton('✕', () => { draft.blocks.splice(index, 1); draft.preset = 'custom'; rerender(); }, 'action-btn secondary sched-step'));
+                    body.appendChild(row);
+                });
+                body.appendChild(makeButton('+ Přidat blok', () => {
+                    draft.blocks.push({ code: '-', days: 1 });
+                    draft.preset = 'custom';
+                    rerender();
+                }));
+                const length = expandBlocks(draft.blocks).length;
+                const lengthInfo = document.createElement('div');
+                lengthInfo.className = 'hint';
+                lengthInfo.textContent = 'Délka cyklu: ' + length + ' dní';
+                body.appendChild(lengthInfo);
+
+                // Typy směn (jen použité)
+                const usedCodes = [];
+                draft.blocks.forEach(b => { if (b.code !== '-' && !usedCodes.includes(b.code)) usedCodes.push(b.code); });
+                if (usedCodes.length) section('Časy směn');
+                usedCodes.forEach(code => {
+                    const type = draft.types[code];
+                    const box = document.createElement('div');
+                    box.className = 'firm-row';
+                    box.appendChild(makeFirmField('Název (' + code + ')', makeTextInput(type.label, 24, v => { type.label = v; draft.preset = 'custom'; rerender(); })));
+                    box.appendChild(makeFirmField('Zkratka v kalendáři', makeTextInput(type.short, 3, v => { type.short = v; rerender(); })));
+                    const retime = () => { type.paidHours = Math.round(computePaidHours(type) * 100) / 100; draft.preset = 'custom'; rerender(); };
+                    box.appendChild(makeFirmField('Od', makeTimeInput(type.from, v => { type.from = v; retime(); })));
+                    box.appendChild(makeFirmField('Do', makeTimeInput(type.to, v => { type.to = v; retime(); })));
+                    box.appendChild(makeFirmField('Přestávka od', makeTimeInput(type.breakFrom || '12:00', v => { type.breakFrom = v; draft.preset = 'custom'; rerender(); })));
+                    box.appendChild(makeFirmField('Přestávka (min)', makeNumberInput(type.breakMin, 0, 240, v => { type.breakMin = v; retime(); })));
+                    const paid = document.createElement('input');
+                    paid.type = 'number';
+                    paid.step = '0.25';
+                    paid.inputMode = 'decimal';
+                    paid.value = String(type.paidHours);
+                    paid.addEventListener('change', () => { const n = parseFloat(paid.value); if (n > 0 && n <= 24) type.paidHours = n; rerender(); });
+                    box.appendChild(makeFirmField('Placené hodiny', paid));
+                    body.appendChild(box);
+                });
+
+                // Skupiny
+                section('Skupiny');
+                const countRow = document.createElement('div');
+                countRow.className = 'sched-row';
+                const countLabel = document.createElement('span');
+                countLabel.textContent = 'Počet skupin: ' + draft.groups.length;
+                countRow.appendChild(countLabel);
+                const setCount = (n) => {
+                    const base = draft.groups.length ? draft.groups[0].start : toDateKey(new Date());
+                    draft.groups = buildGroups(n, Math.max(1, length), base, draft.groups);
+                    draft.preset = 'custom';
+                    rerender();
+                };
+                countRow.appendChild(makeButton('−', () => { if (draft.groups.length > 1) setCount(draft.groups.length - 1); }, 'action-btn secondary sched-step'));
+                countRow.appendChild(makeButton('+', () => { if (draft.groups.length < MAX_GROUPS) setCount(draft.groups.length + 1); }, 'action-btn secondary sched-step'));
+                body.appendChild(countRow);
+                const today = new Date();
+                draft.groups.forEach(group => {
+                    const box = document.createElement('div');
+                    box.className = 'firm-row';
+                    box.appendChild(makeFirmField('Název skupiny', makeTextInput(group.name, 12, v => { group.name = v; rerender(); })));
+                    box.appendChild(makeFirmField('První den cyklu připadá na', makeDateInput(group.start, v => { if (v) { group.start = v; draft.preset = 'custom'; rerender(); } })));
+                    if (length > 0 && isDateKey(group.start)) {
+                        const options = [];
+                        const cycle = expandBlocks(draft.blocks);
+                        for (let i = 1; i <= length; i++) options.push([String(i), i + '. den – ' + (cycle[i - 1] === '-' ? 'volno' : codeLabel(draft, cycle[i - 1]))]);
+                        const current = cycleDayNumber(group, length, today);
+                        box.appendChild(makeFirmField('Nebo: dnes má skupina', makeSelect(options, String(current), v => {
+                            group.start = addDaysToKey(toDateKey(today), -(parseInt(v, 10) - 1));
+                            draft.preset = 'custom';
+                            rerender();
+                        })));
+                    }
+                    body.appendChild(box);
+                });
+
+                // Platnost
+                section('Platnost');
+                body.appendChild(makeFirmField('Platí od data (prázdné = od začátku)', makeDateInput(draft.from, v => {
+                    draft.from = v;
+                    if (v) draft.previewStart = addDaysToKey(v, -7);
+                    rerender();
+                })));
+                const validityHint = document.createElement('div');
+                validityHint.className = 'hint';
+                validityHint.textContent = draft.from
+                    ? 'Starší měsíce zůstanou podle původního rozvrhu, nový platí od zadaného dne.'
+                    : 'Pozor: nový rozvrh přepíše i minulé měsíce (změní se rozpis a mzdy zpětně).';
+                body.appendChild(validityHint);
+                body.appendChild(makeCheck('Ve svátek se nepracuje (směna odpadá)', draft.holidayOff, v => { draft.holidayOff = v; rerender(); }));
+
+                // Náhled
+                section('Náhled');
+                body.appendChild(makeFirmField('Náhled od', makeDateInput(draft.previewStart, v => { if (v) { draft.previewStart = v; rerender(); } })));
+                const errors = validateDraft(draft);
+                if (errors.length === 0) {
+                    const firm = getFirm(scheduleFirmId);
+                    const preview = previewScheduleRows(insertScheduleVersion(firm.schedule, versionFromDraft(draft)), draft.previewStart, 28);
+                    const wrap = document.createElement('div');
+                    wrap.className = 'sched-preview';
+                    const table = document.createElement('table');
+                    const head = document.createElement('tr');
+                    head.appendChild(document.createElement('th'));
+                    const dayNames = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
+                    preview.dates.forEach(date => {
+                        const th = document.createElement('th');
+                        th.textContent = dayNames[date.getDay()] + ' ' + date.getDate() + '.' + (date.getMonth() + 1) + '.';
+                        if (date.getDay() === 1) th.className = 'week-start';
+                        head.appendChild(th);
+                    });
+                    table.appendChild(head);
+                    preview.rows.forEach(row => {
+                        const tr = document.createElement('tr');
+                        const name = document.createElement('th');
+                        name.textContent = row.name;
+                        tr.appendChild(name);
+                        row.cells.forEach((cell, i) => {
+                            const td = document.createElement('td');
+                            if (cell.code !== '-') td.className = 'shift-' + cell.code;
+                            if (preview.dates[i].getDay() === 1) td.className += ' week-start';
+                            td.textContent = cell.short;
+                            tr.appendChild(td);
+                        });
+                        table.appendChild(tr);
+                    });
+                    wrap.appendChild(table);
+                    body.appendChild(wrap);
+                } else {
+                    const err = document.createElement('div');
+                    err.className = 'hint';
+                    err.style.color = '#c62828';
+                    err.textContent = errors.join(' ');
+                    body.appendChild(err);
+                }
+                body.scrollTop = scrollTop;
+            }
+
+            // Uloží rozvrh z editoru do firmy
+            function saveScheduleEditor() {
+                const draft = scheduleDraft;
+                const firm = getFirm(scheduleFirmId);
+                if (!draft || !firm) return;
+                const errors = validateDraft(draft);
+                if (errors.length) {
+                    showNotification(errors[0]);
+                    return;
+                }
+                const version = versionFromDraft(draft);
+                const removed = [];
+                if (version.from === null) {
+                    firm.schedule.forEach(v => v.groups.forEach(g => {
+                        if (!version.groups.some(x => x.id === g.id) && !removed.includes(g.id)) removed.push(g.id);
+                    }));
+                }
+                const apply = () => {
+                    applyScheduleVersion(firm.id, version);
+                    closeScheduleEditor();
+                    showNotification('Rozvrh uložen.');
+                };
+                if (removed.length) {
+                    showConfirm('Skupiny ' + removed.join(', ') + ' se odeberou a jejich přesčasy a ruční změny směn se při další úpravě ztratí. Pokračovat?', apply);
+                } else {
+                    apply();
+                }
+            }
+
+            // Zapíše verzi rozvrhu do firmy a obnoví aplikaci, je-li firma aktivní
+            function applyScheduleVersion(firmId, version) {
+                const firm = getFirm(firmId);
+                const fresh = sanitizeFirm(Object.assign({}, firm, { schedule: insertScheduleVersion(firm.schedule, version) }));
+                if (!fresh) return false;
+                firm.schedule = fresh.schedule;
+                saveFirms();
+                if (firm.id === employerProfile) {
+                    loadFirmData();
+                    renderGroupButtons();
+                    renderCurrentView();
+                }
+                return true;
+            }
+
             function showFirmsModal() {
                 renderFirmsList();
                 document.getElementById('firmsModal').style.display = 'flex';
@@ -4744,6 +5403,13 @@
                         updateFirm(firm.id, { note: value });
                         renderEmployerSelect();
                     })));
+
+                    const schedBtn = document.createElement('button');
+                    schedBtn.className = 'action-btn';
+                    schedBtn.style.cssText = 'width: 100%; margin-bottom: 8px;';
+                    schedBtn.textContent = 'Rozvrh směn (kolotoč)';
+                    schedBtn.addEventListener('click', () => openScheduleEditor(firm.id));
+                    row.appendChild(schedBtn);
 
                     const details = document.createElement('details');
                     const summary = document.createElement('summary');
@@ -4915,8 +5581,8 @@
                 const monthShifts = shifts.filter(s => s.date.getMonth() === currentMonth);
 
                 // Počítání směn
-                const morningShifts = monthShifts.filter(s => s.shift === 'R').length;
-                const nightShifts = monthShifts.filter(s => s.shift === 'N').length;
+                const morningShifts = monthShifts.filter(s => shiftKind(s.shift, s.date) === 'day').length;
+                const nightShifts = monthShifts.filter(s => shiftKind(s.shift, s.date) === 'night').length;
                 const weekendShifts = monthShifts.filter(s => {
                     const day = s.date.getDay();
                     return (day === 0 || day === 6) && isWorkShift(s.shift);
@@ -5231,7 +5897,7 @@
                 const holidayInfo = getHolidays(date.getFullYear()).find(h => h.date === dateStr);
                 document.getElementById('daySettingsTitle').textContent =
                     `${date.getDate()}. ${date.getMonth() + 1}. ${date.getFullYear()} (${dayNames[date.getDay()]}) – ` +
-                    `${SHIFT_LABELS[selectedDayShift]}${holidayInfo ? ', svátek: ' + holidayInfo.name : ''}`;
+                    `${shiftLabel(selectedDayShift, selectedDate)}${holidayInfo ? ', svátek: ' + holidayInfo.name : ''}`;
 
                 // Poznámka
                 document.getElementById('dayNoteText').value = notes[noteKey(date)] || '';
@@ -5246,7 +5912,7 @@
                 const ot = overtimeDays[currentShift].get(dateStr);
                 const hasShift = isWorkShift(selectedDayShift);
                 document.getElementById('overtimeShiftInfo').textContent = hasShift
-                    ? `Den s ${selectedDayShift === 'R' ? 'ranní směnou (6:00–18:00)' : 'noční směnou (18:00–6:00)'} – přesčas se zadává mimo směnu, tedy před jejím začátkem nebo po jejím konci.`
+                    ? `Den s ${describeShiftWindow(selectedDayShift, selectedDate)} – přesčas se zadává mimo směnu, tedy před jejím začátkem nebo po jejím konci.`
                     : 'Den bez směny – vyber ranní nebo noční, případně uprav čas od–do.';
                 document.getElementById('overtimePresets').style.display = hasShift ? 'none' : 'flex';
 
@@ -5260,7 +5926,7 @@
                     document.getElementById('overtimeHours').value = ot.hours;
                 } else if (hasShift) {
                     // Nejčastější případ: zůstává se 2 h po konci směny
-                    const shiftEnd = SHIFT_WINDOWS[selectedDayShift][1];
+                    const shiftEnd = shiftWindow(selectedDayShift, selectedDate)[1];
                     document.getElementById('overtimeFrom').value = minutesToTime(shiftEnd);
                     document.getElementById('overtimeTo').value = minutesToTime(shiftEnd + 120);
                     updateOvertimeHoursFromTimes();
@@ -5289,7 +5955,7 @@
                 // Změna směny
                 const isOverridden = shiftOverrides[currentShift].has(dateStr);
                 document.getElementById('shiftOverrideStatus').textContent =
-                    `Aktuálně: ${SHIFT_LABELS[selectedDayShift]}${isOverridden ? ' (ručně změněno)' : ' (dle rozvrhu)'}`;
+                    `Aktuálně: ${shiftLabel(selectedDayShift, selectedDate)}${isOverridden ? ' (ručně změněno)' : ' (dle rozvrhu)'}`;
                 const balance = getCompensatoryBalance(currentShift);
                 document.getElementById('nvBalanceInfo').textContent =
                     `Náhradní volno: napracováno ${balance.earned.toFixed(1)} h, vybráno ${balance.taken.toFixed(1)} h, zbývá ${balance.remaining.toFixed(1)} h (1 den = 11,5 h).`;
@@ -5324,7 +5990,7 @@
                 const from = document.getElementById('overtimeFrom').value;
                 const to = document.getElementById('overtimeTo').value;
                 if (!from || !to) return;
-                const [start, end] = getOvertimeInterval(from, to, selectedDayShift);
+                const [start, end] = getOvertimeInterval(from, to, selectedDayShift, selectedDate);
                 document.getElementById('overtimeHours').value = Math.round(paidHoursFromMinutes(end - start) * 100) / 100;
             }
 
@@ -5338,7 +6004,7 @@
                     return;
                 }
 
-                const [start, end] = getOvertimeInterval(from, to, selectedDayShift);
+                const [start, end] = getOvertimeInterval(from, to, selectedDayShift, selectedDate);
                 if (end - start > 24 * 60) {
                     showNotification('Přesčas nemůže být delší než 24 hodin.');
                     return;
@@ -5355,11 +6021,11 @@
                     const day = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + offset);
                     const dayShift = offset === 0 ? selectedDayShift : getEffectiveShift(day, currentShift);
                     if (!isWorkShift(dayShift)) continue;
-                    const [shiftStart, shiftEnd] = SHIFT_WINDOWS[dayShift].map(m => m + offset * 1440);
+                    const [shiftStart, shiftEnd] = shiftWindow(dayShift, day).map(m => m + offset * 1440);
                     // overlapMinutes opakuje okno každý den - tady jde o jednu konkrétní směnu
                     const overlap = Math.min(end, shiftEnd) - Math.max(start, shiftStart);
                     if (overlap > 0) {
-                        showNotification(`Přesčas se překrývá s ${dayShift === 'R' ? 'ranní' : 'noční'} směnou ${label} (${minutesToTime(shiftStart)}–${minutesToTime(shiftEnd)}). Uprav čas.`);
+                        showNotification(`Přesčas se překrývá s ${shiftLabel(dayShift, day).toLowerCase()} směnou ${label} (${minutesToTime(shiftStart)}–${minutesToTime(shiftEnd)}). Uprav čas.`);
                         return;
                     }
                 }
