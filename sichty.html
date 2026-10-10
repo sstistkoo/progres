@@ -494,6 +494,23 @@
             display: block;
         }
 
+        .settings-firm {
+            padding: 10px 14px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .settings-firm label {
+            display: block;
+            font-size: 0.8em;
+            margin-bottom: 4px;
+            color: var(--text-color);
+        }
+
+        .settings-firm select {
+            width: 100%;
+            min-width: 200px;
+        }
+
         .settings-menu button {
             display: flex;
             align-items: center;
@@ -1031,7 +1048,6 @@
     <div class="top-controls">
         <!-- ODSTRANĚNO: Tlačítko pro přepínání motivu -->
         <!-- Volba směny PŘESUNUTA SEM -->
-        <select id="topFirmSelect" class="top-firm-select" aria-label="Firma"></select>
         <div class="shift-select" id="shiftSelect"></div>
     </div>
 
@@ -1086,6 +1102,10 @@
                     <i class="fas fa-cog"></i>
                 </button>
                 <div class="settings-menu" id="settingsMenu">
+                    <div class="settings-firm">
+                        <label for="topFirmSelect"><i class="fas fa-building"></i> Firma</label>
+                        <select id="topFirmSelect" class="top-firm-select" aria-label="Firma"></select>
+                    </div>
                     <button onclick="closeSettingsMenu(); exportCalendar()"><i class="fas fa-download"></i> Export měsíce</button>
                     <button onclick="closeSettingsMenu(); window.print()"><i class="fas fa-print"></i> Tisk</button>
                     <button onclick="closeSettingsMenu(); showFirmsModal()"><i class="fas fa-building"></i> Firmy</button>
@@ -6645,7 +6665,10 @@
                 // Přepínač zaměstnavatele - přepne profil a přepočítá mzdu
                 // (nahoře i v kalkulačce; firma může mít vlastní data a skupiny)
                 document.getElementById('employerProfile').addEventListener('change', function() { switchFirm(this.value); });
-                document.getElementById('topFirmSelect').addEventListener('change', function() { switchFirm(this.value); });
+                document.getElementById('topFirmSelect').addEventListener('change', function() {
+                    switchFirm(this.value);
+                    closeSettingsMenu();
+                });
 
                 // Přesčas - při změně času od/do se dopočítají hodiny
                 ['overtimeFrom', 'overtimeTo'].forEach(id => {
