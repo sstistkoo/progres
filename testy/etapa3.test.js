@@ -198,3 +198,33 @@ test('přesčas na odpolední směně: okno a typ podle směny', () => {
     // noční 22-6: ranní čas po konci směny patří na další den
     assert.deepEqual(app.json(`getOvertimeInterval('06:00', '08:00', 'N', new Date(2026, 9, 16))`), [1800, 1920]);
 });
+
+test('uložené firmy: neplatné kódy směn firmu vyřadí, neplatné typy se opraví na výchozí', () => {
+    const app = createApp();
+    const firm = (cycle, types) => ({ id: 'f_a', name: 'A', note: '', dataKey: 'f_a',
+        schedule: [{ from: null, types, cycle, groups: [{ id: 'A', name: 'A', start: '2025-01-01' }] }] });
+    assert.equal(app.run(`sanitizeFirm(${JSON.stringify(firm(['R', 'x y', '-'], {}))})`), null);
+    assert.equal(app.run(`sanitizeFirm(${JSON.stringify(firm(['R', '<b>'], {}))})`), null);
+    const fixed = app.json(`sanitizeFirm(${JSON.stringify(firm(['R', '-'], {
+        R: { label: '', short: 'dlouhá zkratka', from: '99:99', to: '99:99', breakMin: -5, paidHours: 99 },
+        D: { label: 'dovolená jako typ' },
+        'x y': { label: 'špatný kód' }
+    }))})`);
+    assert.deepEqual(Object.keys(fixed.schedule[0].types), ['R']);
+    assert.deepEqual(fixed.schedule[0].types.R, { label: 'Ranní', short: 'dlo', from: '06:00', to: '18:00', breakFrom: '12:00', breakMin: 30, paidHours: 11.5 });
+});
+
+test('okno dne nabízí typy směn firmy a předvolba přesčasu bere časy z typu', () => {
+    const app = createApp();
+    setupFirm(app, 'std8');
+    assert.deepEqual(app.json('getFirmWorkCodes()'), ['R', 'O', 'N']);
+    app.run(`selectedDate = new Date(2026, 9, 10)`);
+    app.run(`presetOvertime('O')`);
+    assert.equal(app.run(`document.getElementById('overtimeFrom').value`), '14:00');
+    assert.equal(app.run(`document.getElementById('overtimeTo').value`), '22:00');
+    assert.equal(app.run('dayShiftsWord(true)'), 'Denní');
+    // původní firmy dál říkají "ranní"
+    app.run(`switchFirm('firma2')`);
+    assert.equal(app.run('dayShiftsWord(true)'), 'Ranní');
+    assert.deepEqual(app.json('getFirmWorkCodes()'), ['R', 'N']);
+});
