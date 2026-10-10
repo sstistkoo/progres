@@ -228,3 +228,34 @@ test('okno dne nabízí typy směn firmy a předvolba přesčasu bere časy z ty
     assert.equal(app.run('dayShiftsWord(true)'), 'Ranní');
     assert.deepEqual(app.json('getFirmWorkCodes()'), ['R', 'N']);
 });
+
+test('12h kolotoč: počet dnů střídání, ranní/noční nebo jedna směna a den začátku cyklu', () => {
+    const app = createApp();
+    const run = (patch) => {
+        const draft = app.json(`(() => { const d = presetDraft('simple12', new Date(2026, 9, 10)); Object.assign(d.simple, ${JSON.stringify(patch)}); applySimple(d); return d; })()`);
+        assert.deepEqual(app.json(`validateDraft(${JSON.stringify(draft)})`), [], JSON.stringify(patch));
+        const id = app.run(`createFirm('K', null).id`);
+        app.run(`applyScheduleVersion('${id}', versionFromDraft(${JSON.stringify(draft)})); switchFirm('${id}')`);
+        return { draft, id };
+    };
+    // výchozí 2 + 2 + 4 volna, začátek zvolený 14. 10. 2026
+    run({ start: '2026-10-14' });
+    assert.equal(dayCodes(app, 'A', 2026, 10, 14, 8), 'RRNN----');
+    // před začátkem cyklu se vzor opakuje zpátky
+    assert.equal(dayCodes(app, 'A', 2026, 10, 6, 8), 'RRNN----');
+    // 3 dny střídání, 3 volna, začíná ranní
+    run({ days: 3, off: 3, start: '2026-10-14' });
+    assert.equal(dayCodes(app, 'A', 2026, 10, 14, 12), 'RRRNNN---RRR');
+    // začíná noční: NNN---RRR
+    run({ days: 3, off: 3, first: 'N', start: '2026-10-14' });
+    assert.equal(dayCodes(app, 'A', 2026, 10, 14, 9), 'NNN---RRR');
+    // jen ranní, 2 dny práce a 5 volna
+    run({ days: 2, off: 5, mode: 'R', start: '2026-10-14' });
+    assert.equal(dayCodes(app, 'A', 2026, 10, 14, 7), 'RR-----');
+    // jen noční
+    run({ days: 4, off: 4, mode: 'N', start: '2026-10-14' });
+    assert.equal(dayCodes(app, 'A', 2026, 10, 14, 8), 'NNNN----');
+    // další skupiny rovnoměrně posunuté, délka cyklu 8 a 4 skupiny -> po 2 dnech
+    const { draft } = run({ days: 2, off: 4, start: '2026-10-14' });
+    assert.deepEqual(draft.groups.map(g => g.start), ['2026-10-14', '2026-10-16', '2026-10-18', '2026-10-20']);
+});
