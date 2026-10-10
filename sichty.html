@@ -63,7 +63,7 @@
             justify-content: center; /* Změněno na center pro zarovnání doprostřed */
             align-items: center;
             flex-wrap: wrap; /* Přidáno pro lepší mobilní zobrazení */
-            gap: 20px; /* Přidáno pro lepší mezery mezi prvky */
+            gap: 8px 12px; /* řádková a sloupcová mezera mezi prvky */
         }
 
         /* ODSTRANĚNO: .theme-toggle a .theme-toggle:hover */
@@ -165,12 +165,12 @@
         }
 
         .top-firm-select {
-            padding: 8px 10px;
+            padding: 6px 10px;
             border-radius: 6px;
             border: 1px solid var(--border-color);
             background: var(--card-background);
             color: var(--text-color);
-            font-size: 0.95em;
+            font-size: 0.9em;
             max-width: 100%;
         }
 
@@ -675,7 +675,7 @@
             }
 
             .main-content {
-                margin-top: 0;
+                margin-top: 0 !important;
             }
 
             body {
@@ -4741,6 +4741,23 @@
                 return id;
             }
 
+            // Horní lišta je pevná a její výška se mění (přepínač firmy, počet tlačítek skupin,
+            // zalomení řádků) - obsah pod ní se posune podle skutečné výšky, aby ji nic nezakrývalo
+            function fitTopControls() {
+                const bar = document.querySelector('.top-controls');
+                const main = document.querySelector('.main-content');
+                if (!bar || !main || !bar.offsetHeight) return;
+                main.style.marginTop = (bar.offsetHeight + 8) + 'px';
+            }
+
+            window.addEventListener('resize', fitTopControls);
+            window.addEventListener('load', () => {
+                fitTopControls();
+                if (typeof ResizeObserver === 'function') {
+                    new ResizeObserver(fitTopControls).observe(document.querySelector('.top-controls'));
+                }
+            });
+
             // Tlačítka skupin nahoře podle rozvrhu aktivní firmy
             function renderGroupButtons() {
                 const box = document.getElementById('shiftSelect');
@@ -4758,6 +4775,7 @@
                     });
                     box.appendChild(btn);
                 });
+                fitTopControls();
             }
 
             // Přepne aktivní firmu: kalendář, skupiny, data i mzdy jsou pak vždy jen její
