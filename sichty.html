@@ -1198,8 +1198,8 @@
                     <div class="input-field" style="margin-bottom: 15px; max-width: 300px;">
                         <label>Zaměstnavatel</label>
                         <select id="employerProfile">
-                            <option value="firma2">Firma 2 (aktuální)</option>
-                            <option value="firma1">Firma 1 (dřívější)</option>
+                            <option value="firma2">Bona (aktuální)</option>
+                            <option value="firma1">Progres (dřívější)</option>
                         </select>
                     </div>
                     <div class="input-group" style="display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
@@ -1505,7 +1505,8 @@
                 'D': new Map()
             };
 
-            // Zaměstnavatelský profil mzdové kalkulačky - Firma 1 (dřívější) / Firma 2 (aktuální)
+            // Zaměstnavatelský profil mzdové kalkulačky - firma1 = Progres (dřívější), firma2 = Bona (aktuální).
+            // V ostatních komentářích níže se dřívější názvy "Firma 1" / "Firma 2" týkají právě těchto dvou.
             let employerProfile = 'firma2';
             const EMPLOYER_DEFAULTS = {
                 firma1: {
@@ -1689,7 +1690,7 @@
                 exportContent.push(
                     'MZDOVÝ PŘEHLED:',
                     '--------------',
-                    `Zaměstnavatel: ${employerProfile === 'firma2' ? 'Firma 2 (aktuální)' : 'Firma 1 (dřívější)'}`,
+                    `Zaměstnavatel: ${employerProfile === 'firma2' ? 'Bona (aktuální)' : 'Progres (dřívější)'}`,
                     `Základní hodinová mzda: ${baseWage} Kč`,
                     employerProfile === 'firma2'
                         ? `Příplatek za noční: ${nightBonus} Kč/hod (celá směna 18:00-6:00)`
@@ -3421,7 +3422,7 @@
                         disability: settings.disability,
                         hasTaxDeclaration: settings.hasTaxDeclaration
                     }));
-                    showNotification('Dřívější nastavení kalkulačky bylo přeneseno pod Firmu 1.');
+                    showNotification('Dřívější nastavení kalkulačky bylo přeneseno pod Progres.');
                 } catch (e) {
                     console.warn('Chyba při migraci starého nastavení kalkulačky:', e);
                 }
@@ -4414,7 +4415,7 @@
 
                 document.getElementById('yearlyWageYear').textContent = currentYear;
                 document.getElementById('yearlyWageShift').textContent = currentShift;
-                document.getElementById('yearlyWageProfileName').textContent = settings.profile === 'firma2' ? 'Firma 2' : 'Firma 1';
+                document.getElementById('yearlyWageProfileName').textContent = settings.profile === 'firma2' ? 'Bona' : 'Progres';
 
                 let rowsHtml = '';
                 rows.forEach(({ month, w }) => {
