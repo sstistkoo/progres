@@ -833,6 +833,65 @@
             font-size: 1em;
         }
 
+        /* Import z Google Kalendáře */
+        .gcal-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .gcal-field {
+            margin-bottom: 10px;
+        }
+
+        .gcal-dates {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: space-between;
+        }
+
+        .gcal-dates input[type="date"] {
+            padding: 5px;
+            font-size: 1em;
+        }
+
+        .gcal-list {
+            max-height: 40vh;
+            overflow-y: auto;
+            margin: 8px 0;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .gcal-item {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+
+        .gcal-item:last-child {
+            border-bottom: none;
+        }
+
+        .gcal-item .gcal-when {
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .gcal-item .gcal-dup {
+            display: block;
+            font-size: 0.85em;
+            opacity: 0.7;
+        }
+
         .collapsible-summary {
             cursor: pointer;
             font-weight: bold;
@@ -945,6 +1004,7 @@
                     <button onclick="closeSettingsMenu(); window.print()"><i class="fas fa-print"></i> Tisk</button>
                     <button onclick="closeSettingsMenu(); showVacationModal()"><i class="fas fa-umbrella-beach"></i> Dovolená</button>
                     <button onclick="closeSettingsMenu(); showBackupModal()"><i class="fas fa-database"></i> Záloha dat</button>
+                    <button onclick="closeSettingsMenu(); showGcalImportModal()"><i class="fas fa-calendar-check"></i> Import z Google Kalendáře</button>
                     <button class="danger" onclick="closeSettingsMenu(); clearOvertimes()"><i class="fas fa-trash"></i> Vymazat přesčasy</button>
                 </div>
             </div>
@@ -990,6 +1050,60 @@
         </div>
 
         <div id="notification" class="notification"></div>
+
+        <!-- Modální okno: import událostí z Google Kalendáře do poznámek ke dnům -->
+        <div id="gcalImportModal" class="modal">
+            <div class="modal-content" style="max-width: 420px; max-height: 90vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h2 style="margin: 0;">Import z Google Kalendáře</h2>
+                    <button class="action-btn secondary" onclick="closeGcalImportModal()" style="padding: 5px 10px;" aria-label="Zavřít">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <p class="hint">
+                    Vybrané události se přidají na konec poznámky u příslušného dne. Aplikace má do kalendáře
+                    jen přístup pro čtení - nic v něm nemění ani nemaže.
+                </p>
+
+                <div id="gcalSignInRow" class="gcal-row">
+                    <button class="action-btn" onclick="gcalSignIn()">
+                        <i class="fab fa-google"></i> Přihlásit se přes Google
+                    </button>
+                </div>
+
+                <div id="gcalControls" style="display: none;">
+                    <div class="input-field gcal-field">
+                        <label for="gcalCalendarSelect">Kalendář</label>
+                        <select id="gcalCalendarSelect" style="width: 100%;"></select>
+                    </div>
+                    <div class="gcal-dates">
+                        <label>Od <input type="date" id="gcalFrom"></label>
+                        <label>Do <input type="date" id="gcalTo"></label>
+                    </div>
+                    <div class="gcal-row">
+                        <button class="action-btn" onclick="gcalLoadEvents()">
+                            <i class="fas fa-download"></i> Načíst události
+                        </button>
+                        <button class="action-btn secondary" onclick="gcalSignOut()">Odpojit</button>
+                    </div>
+                </div>
+
+                <div id="gcalStatus" class="hint" style="margin-top: 10px;"></div>
+
+                <div id="gcalResults" style="display: none;">
+                    <div class="gcal-row" style="justify-content: space-between;">
+                        <button class="action-btn secondary" onclick="gcalSelectAll(true)" style="padding: 4px 10px;">Vybrat vše</button>
+                        <button class="action-btn secondary" onclick="gcalSelectAll(false)" style="padding: 4px 10px;">Zrušit výběr</button>
+                    </div>
+                    <div id="gcalEventList" class="gcal-list"></div>
+                    <div class="gcal-row">
+                        <button class="action-btn" id="gcalImportBtn" onclick="gcalImportSelected()">
+                            <i class="fas fa-file-import"></i> Importovat vybrané
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Modální okno pro zálohu / obnovu dat -->
         <div id="backupModal" class="modal">
@@ -2240,6 +2354,351 @@
                 document.getElementById('noteReminderHint').textContent = start > new Date()
                     ? 'Otevře se Google Kalendář s předvyplněnou událostí - stačí Uložit. Upozornění přijde podle nastavení kalendáře (obvykle 30 min předem), změnit ho jde přímo ve formuláři.'
                     : 'Tento čas už je v minulosti - událost se uloží, ale upozornění už nepřijde.';
+            }
+
+            // --- Import událostí z Google Kalendáře (jen čtení) ---
+            // Přihlášení přes Google Identity Services, přístupový token žije jen v paměti stránky
+            // (asi hodinu, pak se Google zeptá znovu). Vybrané události se přidají na konec poznámky
+            // příslušného dne (notes / noteKey). Do kalendáře se nic nezapisuje.
+            const GCAL_CLIENT_ID = '647682341653-4nnbgvnr5lorajsbtghpkpflvm16e6mv.apps.googleusercontent.com';
+            const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+            const GCAL_CALENDAR_KEY = 'gcalImportCalendar';
+            const GCAL_MAX_SPAN_DAYS = 62;   // delší celodenní událost se do poznámek rozkopíruje nejvýše na tolik dnů
+            const GCAL_MAX_PAGES = 10;       // 10 x 250 událostí, víc se najednou nenačítá
+
+            let gcalToken = null;
+            let gcalTokenExpires = 0;
+            let gcalTokenClient = null;
+            let gcalPending = null;          // { resolve, reject } rozdělané přihlášení
+            let gcalScriptPromise = null;
+            let gcalItems = [];              // načtené události: { id, title, time, days, line }
+
+            const gcalPad = (n) => String(n).padStart(2, '0');
+
+            function gcalDateInput(date) {
+                return `${date.getFullYear()}-${gcalPad(date.getMonth() + 1)}-${gcalPad(date.getDate())}`;
+            }
+
+            // 'RRRR-MM-DD' -> místní půlnoc toho dne (bez posunu časovým pásmem)
+            function gcalParseDate(text) {
+                const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text || '');
+                return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+            }
+
+            function gcalSetStatus(text) {
+                document.getElementById('gcalStatus').textContent = text || '';
+            }
+
+            // Skript Googlu se stahuje až při otevření importu, ne při každém spuštění aplikace
+            function gcalLoadScript() {
+                if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+                if (!gcalScriptPromise) {
+                    gcalScriptPromise = new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://accounts.google.com/gsi/client';
+                        script.async = true;
+                        script.onload = () => resolve();
+                        script.onerror = () => {
+                            gcalScriptPromise = null;
+                            script.remove();
+                            reject(new Error('Přihlášení Google se nepodařilo načíst - jsi online?'));
+                        };
+                        document.head.appendChild(script);
+                    });
+                }
+                return gcalScriptPromise;
+            }
+
+            function gcalRequestToken() {
+                return gcalLoadScript().then(() => new Promise((resolve, reject) => {
+                    if (!gcalTokenClient) {
+                        gcalTokenClient = google.accounts.oauth2.initTokenClient({
+                            client_id: GCAL_CLIENT_ID,
+                            scope: GCAL_SCOPE,
+                            callback: (resp) => {
+                                const pending = gcalPending;
+                                gcalPending = null;
+                                if (!pending) return;
+                                if (resp.error || !resp.access_token) {
+                                    pending.reject(new Error('Přihlášení se nepodařilo' + (resp.error ? ' (' + resp.error + ')' : '')));
+                                    return;
+                                }
+                                gcalToken = resp.access_token;
+                                gcalTokenExpires = Date.now() + ((Number(resp.expires_in) || 3600) - 60) * 1000;
+                                pending.resolve(gcalToken);
+                            },
+                            error_callback: (err) => {
+                                const pending = gcalPending;
+                                gcalPending = null;
+                                if (!pending) return;
+                                pending.reject(new Error(err && err.type === 'popup_closed'
+                                    ? 'Přihlášení bylo zrušeno.'
+                                    : 'Přihlášení se nepodařilo (okno Googlu se nemuselo otevřít).'));
+                            }
+                        });
+                    }
+                    gcalPending = { resolve, reject };
+                    gcalTokenClient.requestAccessToken({ prompt: '' });
+                }));
+            }
+
+            function gcalEnsureToken() {
+                if (gcalToken && Date.now() < gcalTokenExpires) return Promise.resolve(gcalToken);
+                return gcalRequestToken();
+            }
+
+            async function gcalApi(path, params) {
+                const url = 'https://www.googleapis.com/calendar/v3/' + path + '?' + new URLSearchParams(params);
+                const call = (token) => fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+                let res = await call(await gcalEnsureToken());
+                if (res.status === 401) {
+                    // token mezitím vypršel nebo byl odvolán - zkusit jednou znovu s novým
+                    gcalToken = null;
+                    res = await call(await gcalEnsureToken());
+                }
+                if (!res.ok) {
+                    const body = await res.json().catch(() => ({}));
+                    throw new Error('Google: ' + ((body.error && body.error.message) || ('chyba ' + res.status)));
+                }
+                return res.json();
+            }
+
+            function showGcalImportModal() {
+                document.getElementById('gcalImportModal').style.display = 'flex';
+                const from = document.getElementById('gcalFrom');
+                const to = document.getElementById('gcalTo');
+                if (!from.value || !to.value) {
+                    const today = new Date();
+                    from.value = gcalDateInput(today);
+                    to.value = gcalDateInput(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30));
+                }
+                gcalLoadScript().catch(() => {});
+                if (gcalToken && Date.now() < gcalTokenExpires) {
+                    gcalShowControls();
+                } else {
+                    gcalSetStatus('');
+                }
+            }
+
+            function closeGcalImportModal() {
+                document.getElementById('gcalImportModal').style.display = 'none';
+            }
+
+            function gcalSignIn() {
+                gcalSetStatus('Čekám na přihlášení v okně Googlu...');
+                gcalRequestToken()
+                    .then(() => gcalShowControls())
+                    .catch((err) => gcalSetStatus(err.message));
+            }
+
+            function gcalSignOut() {
+                if (gcalToken && window.google && google.accounts && google.accounts.oauth2) {
+                    google.accounts.oauth2.revoke(gcalToken, () => {});
+                }
+                gcalToken = null;
+                gcalTokenExpires = 0;
+                gcalItems = [];
+                document.getElementById('gcalSignInRow').style.display = '';
+                document.getElementById('gcalControls').style.display = 'none';
+                document.getElementById('gcalResults').style.display = 'none';
+                gcalSetStatus('Odpojeno od Google účtu.');
+            }
+
+            async function gcalShowControls() {
+                document.getElementById('gcalSignInRow').style.display = 'none';
+                document.getElementById('gcalControls').style.display = '';
+                const select = document.getElementById('gcalCalendarSelect');
+                if (select.options.length) {
+                    gcalSetStatus('');
+                    return;
+                }
+                gcalSetStatus('Načítám seznam kalendářů...');
+                try {
+                    const data = await gcalApi('users/me/calendarList', {
+                        minAccessRole: 'reader',
+                        maxResults: '250',
+                        fields: 'items(id,summary,primary)'
+                    });
+                    const calendars = (data.items || []).slice().sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+                    calendars.forEach((cal) => {
+                        const option = document.createElement('option');
+                        option.value = cal.id;
+                        option.textContent = cal.summary || cal.id;
+                        select.appendChild(option);
+                    });
+                    let last = null;
+                    try { last = localStorage.getItem(GCAL_CALENDAR_KEY); } catch (e) {}
+                    if (last && calendars.some((cal) => cal.id === last)) select.value = last;
+                    gcalSetStatus(calendars.length ? '' : 'V účtu není žádný kalendář ke čtení.');
+                } catch (err) {
+                    gcalSetStatus(err.message);
+                }
+            }
+
+            // Událost -> položka k importu. Řádek poznámky je "HH:MM Název" (celodenní jen "Název").
+            function gcalToItem(ev, fromD, toD) {
+                if (!ev || ev.status === 'cancelled' || !ev.start) return null;
+                const title = (ev.summary || '').trim() || '(bez názvu)';
+                let days = [];
+                let time = '';
+                if (ev.start.date) {
+                    // celodenní událost - Google dává konec jako první den PO události
+                    const start = gcalParseDate(ev.start.date);
+                    const end = ev.end && ev.end.date ? gcalParseDate(ev.end.date) : null;
+                    if (!start) return null;
+                    for (let i = 0; i < GCAL_MAX_SPAN_DAYS; i++) {
+                        const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+                        if (i > 0 && (!end || day >= end)) break;
+                        days.push(day);
+                    }
+                } else if (ev.start.dateTime) {
+                    const start = new Date(ev.start.dateTime);
+                    if (isNaN(start)) return null;
+                    days.push(new Date(start.getFullYear(), start.getMonth(), start.getDate()));
+                    time = gcalPad(start.getHours()) + ':' + gcalPad(start.getMinutes());
+                }
+                days = days.filter((day) => day >= fromD && day <= toD);
+                if (!days.length) return null;
+                return { id: ev.id, title, time, days, line: (time ? time + ' ' : '') + title };
+            }
+
+            function gcalNoteHasLine(day, line) {
+                const note = notes[noteKey(day)];
+                return !!note && note.split('\n').some((l) => l.trim() === line);
+            }
+
+            async function gcalLoadEvents() {
+                const calId = document.getElementById('gcalCalendarSelect').value;
+                const fromD = gcalParseDate(document.getElementById('gcalFrom').value);
+                const toD = gcalParseDate(document.getElementById('gcalTo').value);
+                if (!calId) {
+                    gcalSetStatus('Nejdřív vyber kalendář.');
+                    return;
+                }
+                if (!fromD || !toD || toD < fromD) {
+                    gcalSetStatus('Zkontroluj období - "Do" nesmí být dřív než "Od".');
+                    return;
+                }
+                if ((toD - fromD) / 86400000 > 366) {
+                    gcalSetStatus('Zvol období nejvýše na jeden rok.');
+                    return;
+                }
+                try { localStorage.setItem(GCAL_CALENDAR_KEY, calId); } catch (e) {}
+
+                gcalSetStatus('Načítám události...');
+                document.getElementById('gcalResults').style.display = 'none';
+                const timeMax = new Date(toD.getFullYear(), toD.getMonth(), toD.getDate() + 1);
+                const events = [];
+                let truncated = false;
+                try {
+                    let pageToken = '';
+                    for (let page = 0; page < GCAL_MAX_PAGES; page++) {
+                        const params = {
+                            singleEvents: 'true',      // opakované události rozepsat na jednotlivé výskyty
+                            orderBy: 'startTime',
+                            timeMin: fromD.toISOString(),
+                            timeMax: timeMax.toISOString(),
+                            maxResults: '250',
+                            fields: 'nextPageToken,items(id,status,summary,start,end)'
+                        };
+                        if (pageToken) params.pageToken = pageToken;
+                        const data = await gcalApi('calendars/' + encodeURIComponent(calId) + '/events', params);
+                        (data.items || []).forEach((ev) => events.push(ev));
+                        pageToken = data.nextPageToken || '';
+                        if (!pageToken) break;
+                        if (page === GCAL_MAX_PAGES - 1) truncated = true;
+                    }
+                } catch (err) {
+                    gcalSetStatus(err.message);
+                    return;
+                }
+
+                gcalItems = events.map((ev) => gcalToItem(ev, fromD, toD)).filter(Boolean);
+                gcalRenderList(truncated ? 'Načteno prvních ' + (GCAL_MAX_PAGES * 250) + ' událostí - zkrať období.' : '');
+            }
+
+            function gcalRenderList(extraNote) {
+                const list = document.getElementById('gcalEventList');
+                list.textContent = '';
+                const results = document.getElementById('gcalResults');
+                if (!gcalItems.length) {
+                    results.style.display = 'none';
+                    gcalSetStatus('V tomto období nejsou žádné události.');
+                    return;
+                }
+                const fmt = (d) => d.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+                gcalItems.forEach((item, idx) => {
+                    const dup = item.days.every((day) => gcalNoteHasLine(day, item.line));
+                    const label = document.createElement('label');
+                    label.className = 'gcal-item';
+
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.dataset.idx = String(idx);
+                    cb.checked = !dup;
+                    label.appendChild(cb);
+
+                    const text = document.createElement('span');
+                    const when = document.createElement('span');
+                    when.className = 'gcal-when';
+                    const first = item.days[0];
+                    const last = item.days[item.days.length - 1];
+                    when.textContent = (item.days.length > 1 ? fmt(first) + ' - ' + fmt(last) : fmt(first))
+                        + (item.time ? ' ' + item.time : '');
+                    text.appendChild(when);
+                    text.appendChild(document.createTextNode(' ' + item.title));
+                    if (dup) {
+                        const note = document.createElement('span');
+                        note.className = 'gcal-dup';
+                        note.textContent = 'už je v poznámce';
+                        text.appendChild(note);
+                    }
+                    label.appendChild(text);
+                    list.appendChild(label);
+                });
+                results.style.display = '';
+                const count = gcalItems.length;
+                const word = count === 1 ? 'událost' : (count < 5 ? 'události' : 'událostí');
+                gcalSetStatus('Nalezeno ' + count + ' ' + word + '.' + (extraNote ? ' ' + extraNote : ''));
+            }
+
+            function gcalSelectAll(checked) {
+                document.querySelectorAll('#gcalEventList input[type="checkbox"]').forEach((cb) => {
+                    cb.checked = checked;
+                });
+            }
+
+            function gcalImportSelected() {
+                let added = 0;
+                let skipped = 0;
+                document.querySelectorAll('#gcalEventList input[type="checkbox"]').forEach((cb) => {
+                    if (!cb.checked) return;
+                    const item = gcalItems[Number(cb.dataset.idx)];
+                    if (!item) return;
+                    item.days.forEach((day) => {
+                        const key = noteKey(day);
+                        const current = notes[key] || '';
+                        // stejný řádek už v poznámce je - nepřidávat podruhé
+                        if (current.split('\n').some((l) => l.trim() === item.line)) {
+                            skipped++;
+                            return;
+                        }
+                        notes[key] = current ? current + '\n' + item.line : item.line;
+                        added++;
+                    });
+                });
+                if (!added && !skipped) {
+                    gcalSetStatus('Nic není vybráno.');
+                    return;
+                }
+                if (added) {
+                    saveNotesData();
+                    refreshCalendar();
+                }
+                gcalRenderList();
+                showNotification(added
+                    ? 'Do poznámek přidáno: ' + added + (skipped ? ' (už tam bylo: ' + skipped + ')' : '')
+                    : 'Vybrané události už v poznámkách jsou');
             }
 
             // Ukládání/načítání poznámek - notes je obyčejný objekt (ne Map), stačí přímo JSON
