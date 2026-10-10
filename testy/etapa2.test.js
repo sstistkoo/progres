@@ -13,10 +13,10 @@ test('Bona a Progres dostanou pravidla, která odpovídají dřívějším větv
     const rules = (id) => app.json(`getFirm('${id}').wage`);
     assert.deepEqual(rules('firma2'), [{ from: null, rules: {
         nightMode: 'flat', nightFrom: '18:00', nightTo: '06:00', holidayBase: 'average',
-        holidayShiftOvertime: true, multiMachine: true, extras: true } }]);
+        holidayShiftOvertime: true, multiMachine: true, extras: true, fixedSalary: false } }]);
     assert.deepEqual(rules('firma1'), [{ from: null, rules: {
         nightMode: 'percent', nightFrom: '22:00', nightTo: '06:00', holidayBase: 'base',
-        holidayShiftOvertime: false, multiMachine: false, extras: false } }]);
+        holidayShiftOvertime: false, multiMachine: false, extras: false, fixedSalary: false } }]);
 });
 
 test('záznam firem z etapy 1 (bez pravidel) se doplní podle id a nic se neztratí', () => {
