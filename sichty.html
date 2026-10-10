@@ -186,6 +186,15 @@
         .sched-row select { flex: 1 1 auto; min-width: 0; }
         .sched-row input[type=number] { width: 64px; text-align: center; }
         .sched-step { padding: 8px 12px; min-width: 40px; }
+        #scheduleBody .input-field, #firmsList .input-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+        #scheduleBody .input-field input:not([type=checkbox]), #scheduleBody .input-field select,
+        #firmsList .input-field input:not([type=checkbox]), #firmsList .input-field select { width: 100%; box-sizing: border-box; padding: 8px; }
+        .sched-cal { margin: 6px 0 10px; }
+        .sched-cal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .sched-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+        .sched-cal-dow { text-align: center; font-size: 0.75em; opacity: 0.7; }
+        .sched-cal-day { padding: 8px 0; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-background); color: var(--text-color); font-size: 0.9em; cursor: pointer; }
+        .sched-cal-day.selected { outline: 3px solid var(--primary-color); font-weight: bold; }
         .sched-preview { overflow-x: auto; margin-top: 8px; }
         .sched-preview table { border-collapse: collapse; font-size: 0.7em; }
         .sched-preview th, .sched-preview td { border: 1px solid var(--border-color); padding: 3px 4px; text-align: center; min-width: 30px; white-space: nowrap; }
@@ -4900,6 +4909,7 @@
             // Z bloků se složí cyklus (pořadí směn dne po dni), skupiny mají datum 1. dne cyklu.
             const SCHEDULE_CODE_CHOICES = ['R', 'O', 'N', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6'];
             const SCHEDULE_PRESETS = [
+                { id: 'simple12', label: '12h kolotoč', hint: 'zvolíš po kolika dnech se střídá, ranní/noční a den začátku' },
                 { id: 'week12', label: '12h týdenní', hint: 'týden ranní, týden noční, týden volno' },
                 { id: 'days12', label: '12h po dnech', hint: '2 ranní, 2 noční, 4 volna' },
                 { id: 'std8', label: '8h třísměnný', hint: '3 ranní, 3 odpolední, 3 noční, 3 volna' },
@@ -4961,6 +4971,32 @@
                 return toDateKey(new Date(date.getFullYear(), date.getMonth(), date.getDate() - diff));
             }
 
+            // --- Jednoduchý 12h kolotoč: počet dnů střídání, ranní/noční, den začátku cyklu ---
+            // simple = { days, off, mode: 'both' | 'R' | 'N', first: 'R' | 'N', start: 'RRRR-MM-DD', groups }
+            function repeatCode(code, count) {
+                return Array.from({ length: count }, () => code);
+            }
+
+            function simpleCycle(simple) {
+                const a = simple.days;
+                const b = simple.off;
+                if (simple.mode === 'both') {
+                    if (simple.first === 'N') return [...repeatCode('N', a), ...repeatCode('-', b), ...repeatCode('R', a)];
+                    return [...repeatCode('R', a), ...repeatCode('N', a), ...repeatCode('-', b)];
+                }
+                return [...repeatCode(simple.mode === 'N' ? 'N' : 'R', a), ...repeatCode('-', b)];
+            }
+
+            // Z parametrů složí bloky, typy a skupiny (začátek skupiny A = zvolený den, další rovnoměrně)
+            function applySimple(draft) {
+                const s = draft.simple;
+                const cycle = simpleCycle(s);
+                draft.blocks = cycleToBlocks(cycle);
+                ensureDraftTypes(draft);
+                draft.groups = buildGroups(s.groups, cycle.length, s.start, []);
+                draft.holidayOff = false;
+            }
+
             // Návrh podle předvolby; základ (první den cyklu skupiny A) je dnes, u pondělí-pátek poslední pondělí
             function presetDraft(id, today) {
                 const todayKey = toDateKey(today);
@@ -4978,6 +5014,10 @@
                     draft.types.R = { label: 'Ranní', short: 'R', from: '06:00', to: '14:00', breakFrom: '10:00', breakMin: 30, paidHours: 7.5 };
                     draft.types.O = { label: 'Odpolední', short: 'O', from: '14:00', to: '22:00', breakFrom: '18:00', breakMin: 30, paidHours: 7.5 };
                     draft.types.N = { label: 'Noční', short: 'N', from: '22:00', to: '06:00', breakFrom: '02:00', breakMin: 30, paidHours: 7.5 };
+                } else if (id === 'simple12') {
+                    draft.simple = { days: 2, off: 4, mode: 'both', first: 'R', start: todayKey, groups: 4 };
+                    applySimple(draft);
+                    return draft;
                 } else if (id === 'monfri') {
                     draft.blocks = [{ code: 'R', days: 5 }, { code: '-', days: 2 }];
                     draft.types.R = { label: 'Pracovní den', short: 'P', from: '07:00', to: '15:00', breakFrom: '11:00', breakMin: 30, paidHours: 7.5 };
@@ -5109,6 +5149,58 @@
                 };
             }
 
+            // Měsíční kalendář pro výběr dne začátku cyklu; dny jsou obarvené podle výsledného cyklu skupiny A
+            function makeMiniCalendar(draft, onPick) {
+                const s = draft.simple;
+                const cycle = simpleCycle(s);
+                if (!draft.calMonth) {
+                    const [y0, m0] = s.start.split('-').map(Number);
+                    draft.calMonth = { y: y0, m: m0 - 1 };
+                }
+                const { y, m } = draft.calMonth;
+                const monthNames = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
+                    'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
+                const wrap = document.createElement('div');
+                wrap.className = 'sched-cal';
+                const head = document.createElement('div');
+                head.className = 'sched-cal-head';
+                const shiftMonth = (delta) => {
+                    const d = new Date(y, m + delta, 1);
+                    draft.calMonth = { y: d.getFullYear(), m: d.getMonth() };
+                    renderScheduleEditor();
+                };
+                head.appendChild(makeButton('‹', () => shiftMonth(-1), 'action-btn secondary sched-step'));
+                const title = document.createElement('strong');
+                title.textContent = monthNames[m] + ' ' + y;
+                head.appendChild(title);
+                head.appendChild(makeButton('›', () => shiftMonth(1), 'action-btn secondary sched-step'));
+                wrap.appendChild(head);
+                const grid = document.createElement('div');
+                grid.className = 'sched-cal-grid';
+                ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'].forEach(name => {
+                    const h = document.createElement('div');
+                    h.className = 'sched-cal-dow';
+                    h.textContent = name;
+                    grid.appendChild(h);
+                });
+                const first = new Date(y, m, 1);
+                for (let i = 0; i < (first.getDay() + 6) % 7; i++) grid.appendChild(document.createElement('div'));
+                const daysInMonth = new Date(y, m + 1, 0).getDate();
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const date = new Date(y, m, day);
+                    const key = toDateKey(date);
+                    const code = cycle[cycleDayNumber({ start: s.start }, cycle.length, date) - 1];
+                    const cell = document.createElement('button');
+                    cell.type = 'button';
+                    cell.className = 'sched-cal-day' + (code !== '-' ? ' shift-' + code : '') + (key === s.start ? ' selected' : '');
+                    cell.textContent = String(day);
+                    cell.addEventListener('click', () => onPick(key));
+                    grid.appendChild(cell);
+                }
+                wrap.appendChild(grid);
+                return wrap;
+            }
+
             let scheduleDraft = null;
             let scheduleFirmId = null;
 
@@ -5202,6 +5294,31 @@
                 hint.textContent = presetInfo ? presetInfo.hint : 'Upravený rozvrh';
                 body.appendChild(hint);
 
+                // Nastavení jednoduchého kolotoče
+                if (draft.preset === 'simple12' && draft.simple) {
+                    const s = draft.simple;
+                    const change = (patch) => {
+                        Object.assign(s, patch);
+                        applySimple(draft);
+                        draft.previewStart = s.start;
+                        rerender();
+                    };
+                    section('Střídání');
+                    body.appendChild(makeFirmField('Střídání po kolika dnech', makeNumberInput(s.days, 1, 14, v => change({ days: v }))));
+                    body.appendChild(makeFirmField('Směny', makeSelect(
+                        [['both', 'Ranní a noční se střídají'], ['R', 'Jen ranní'], ['N', 'Jen noční']], s.mode, v => change({ mode: v }))));
+                    body.appendChild(makeFirmField('Dnů volna', makeNumberInput(s.off, 1, 21, v => change({ off: v }))));
+                    if (s.mode === 'both') {
+                        body.appendChild(makeFirmField('Cyklus začíná', makeSelect(
+                            [['R', 'ranní směnou'], ['N', 'noční směnou']], s.first, v => change({ first: v }))));
+                    }
+                    const calHint = document.createElement('div');
+                    calHint.className = 'hint';
+                    calHint.textContent = 'Klepni na den, kterým cyklus začíná (první den prvního bloku):';
+                    body.appendChild(calHint);
+                    body.appendChild(makeMiniCalendar(draft, v => change({ start: v })));
+                }
+
                 // Bloky cyklu
                 section('Cyklus');
                 draft.blocks.forEach((block, index) => {
@@ -5239,12 +5356,12 @@
                     const type = draft.types[code];
                     const box = document.createElement('div');
                     box.className = 'firm-row';
-                    box.appendChild(makeFirmField('Název (' + code + ')', makeTextInput(type.label, 24, v => { type.label = v; draft.preset = 'custom'; rerender(); })));
+                    box.appendChild(makeFirmField('Název (' + code + ')', makeTextInput(type.label, 24, v => { type.label = v; rerender(); })));
                     box.appendChild(makeFirmField('Zkratka v kalendáři', makeTextInput(type.short, 3, v => { type.short = v; rerender(); })));
-                    const retime = () => { type.paidHours = Math.round(computePaidHours(type) * 100) / 100; draft.preset = 'custom'; rerender(); };
+                    const retime = () => { type.paidHours = Math.round(computePaidHours(type) * 100) / 100; rerender(); };
                     box.appendChild(makeFirmField('Od', makeTimeInput(type.from, v => { type.from = v; retime(); })));
                     box.appendChild(makeFirmField('Do', makeTimeInput(type.to, v => { type.to = v; retime(); })));
-                    box.appendChild(makeFirmField('Přestávka od', makeTimeInput(type.breakFrom || '12:00', v => { type.breakFrom = v; draft.preset = 'custom'; rerender(); })));
+                    box.appendChild(makeFirmField('Přestávka od', makeTimeInput(type.breakFrom || '12:00', v => { type.breakFrom = v; rerender(); })));
                     box.appendChild(makeFirmField('Přestávka (min)', makeNumberInput(type.breakMin, 0, 240, v => { type.breakMin = v; retime(); })));
                     const paid = document.createElement('input');
                     paid.type = 'number';
@@ -5264,6 +5381,12 @@
                 countLabel.textContent = 'Počet skupin: ' + draft.groups.length;
                 countRow.appendChild(countLabel);
                 const setCount = (n) => {
+                    if (draft.preset === 'simple12') {
+                        draft.simple.groups = n;
+                        applySimple(draft);
+                        rerender();
+                        return;
+                    }
                     const base = draft.groups.length ? draft.groups[0].start : toDateKey(new Date());
                     draft.groups = buildGroups(n, Math.max(1, length), base, draft.groups);
                     draft.preset = 'custom';
