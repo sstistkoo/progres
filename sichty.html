@@ -294,6 +294,7 @@
         }
 
         .dot-note { background: #2196f3; }
+        .dot-yearly { background: #e91e63; }
         .dot-sliding { background: #ff9800; }
         .dot-multi { background: #9c27b0; }
         .dot-override { background: #009688; }
@@ -1206,6 +1207,18 @@
                     </div>
                 </div>
 
+                <div id="gcalMSyncBox" style="display: none;">
+                    <p class="hint">
+                        Každoroční události (např. narozeniny) můžeš zobrazit i v kalendáři aplikace - ukazují se
+                        pak každý rok bez přihlášení. Použij tlačítko s kalendářem u události, nebo všechny najednou.
+                    </p>
+                    <div class="gcal-row">
+                        <button class="action-btn" id="gcalMSyncAll" onclick="gcalMSyncAll()">
+                            <i class="fas fa-calendar-plus"></i> Zobrazit všechny každoroční v aplikaci
+                        </button>
+                    </div>
+                </div>
+
                 <div id="gcalMList" class="gcal-list" style="display: none;"></div>
             </div>
         </div>
@@ -1477,6 +1490,10 @@
                         </button>
                     </div>
                     <p class="hint" id="noteReminderHint"></p>
+                    <div id="yearlyDayBox" style="display: none; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border-color);">
+                        <div class="hint" style="margin: 0 0 6px;">Každoročně v tento den:</div>
+                        <div id="yearlyDayList"></div>
+                    </div>
                 </details>
 
                 <details id="overtimeSection" style="margin-bottom: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
@@ -1572,6 +1589,7 @@
             let currentShift = 'A';
             // ODSTRANĚNO: let darkMode = false;
             let notes = {};
+            let yearlyNotes = [];   // každoroční záznamy (viz "Celoroční záznamy v aplikaci")
             let yearView = false;
             let overtimeDays = {
                 'A': new Map(),
@@ -1821,6 +1839,9 @@
                     if (notes[dateStr]) {
                         exportContent.push(`${dateStr}: ${notes[dateStr]}`);
                     }
+                    yearlyRecordsFor(shift.date).forEach((record) => {
+                        exportContent.push(`${dateStr}: ${record.text} (každoročně)`);
+                    });
                 });
 
                 // Export do textového souboru
@@ -2848,6 +2869,102 @@
                     : 'Vybrané události už v poznámkách jsou');
             }
 
+            // --- Celoroční záznamy v aplikaci ---
+            // Kopie každoročních událostí z Google Kalendáře (např. narozeniny). Ukazují se v kalendáři
+            // každý rok i bez přihlášení. gid = id události v Googlu - podle něj se záznam při dalším
+            // převodu aktualizuje místo zdvojení.
+            function saveYearlyNotes() {
+                try {
+                    localStorage.setItem('yearlyNotes', JSON.stringify(yearlyNotes));
+                } catch (e) {
+                    console.error('Chyba při ukládání celoročních záznamů:', e);
+                }
+            }
+
+            function loadYearlyNotes() {
+                try {
+                    const data = JSON.parse(localStorage.getItem('yearlyNotes') || '[]');
+                    yearlyNotes = Array.isArray(data) ? data.filter((r) => r
+                        && Number.isInteger(r.day) && r.day >= 1 && r.day <= 31
+                        && Number.isInteger(r.month) && r.month >= 1 && r.month <= 12
+                        && typeof r.text === 'string' && r.text) : [];
+                } catch (e) {
+                    console.error('Chyba při načítání celoročních záznamů:', e);
+                    yearlyNotes = [];
+                }
+            }
+
+            // Záznamy, které padají na daný den. 29. 2. se v nepřestupném roce ukáže 28. 2.
+            function yearlyRecordsFor(date) {
+                const day = date.getDate();
+                const month = date.getMonth() + 1;
+                const leap = new Date(date.getFullYear(), 1, 29).getMonth() === 1;
+                return yearlyNotes.filter((r) => (r.day === day && r.month === month)
+                    || (!leap && r.day === 29 && r.month === 2 && month === 2 && day === 28));
+            }
+
+            // Přidá nebo aktualizuje záznam podle gid; vrací 'added' | 'updated' | 'same'. Neukládá.
+            function yearlyUpsert(rec) {
+                let found = yearlyNotes.find((r) => r.gid && r.gid === rec.gid);
+                if (found) {
+                    if (found.day === rec.day && found.month === rec.month && found.text === rec.text) return 'same';
+                    found.day = rec.day;
+                    found.month = rec.month;
+                    found.text = rec.text;
+                    return 'updated';
+                }
+                // stejný záznam už v aplikaci je (bez vazby na Google) - jen ho s událostí propojit
+                found = yearlyNotes.find((r) => !r.gid && r.day === rec.day && r.month === rec.month && r.text === rec.text);
+                if (found) {
+                    found.gid = rec.gid;
+                    return 'same';
+                }
+                yearlyNotes.push({
+                    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+                    gid: rec.gid,
+                    day: rec.day,
+                    month: rec.month,
+                    text: rec.text
+                });
+                return 'added';
+            }
+
+            // Seznam záznamů vybraného dne v Nastavení dne, s odebráním (v Google Kalendáři zůstanou)
+            function renderYearlyDayBox() {
+                const box = document.getElementById('yearlyDayBox');
+                const list = document.getElementById('yearlyDayList');
+                list.textContent = '';
+                const records = selectedDate ? yearlyRecordsFor(selectedDate) : [];
+                box.style.display = records.length ? '' : 'none';
+                records.forEach((record) => {
+                    const row = document.createElement('div');
+                    row.className = 'gcal-row';
+                    row.style.justifyContent = 'space-between';
+                    row.style.margin = '4px 0';
+
+                    const text = document.createElement('span');
+                    text.style.flex = '1';
+                    text.style.overflowWrap = 'anywhere';
+                    text.textContent = record.text;
+                    row.appendChild(text);
+
+                    const del = document.createElement('button');
+                    del.className = 'action-btn secondary gcal-btn';
+                    del.setAttribute('aria-label', 'Odebrat z aplikace');
+                    del.title = 'Odebrat z aplikace (v Google Kalendáři zůstane)';
+                    del.innerHTML = '<i class="fas fa-trash"></i>';
+                    del.addEventListener('click', () => {
+                        yearlyNotes = yearlyNotes.filter((r) => r.id !== record.id);
+                        saveYearlyNotes();
+                        refreshCalendar();
+                        renderYearlyDayBox();
+                        showNotification('Odebráno z aplikace (v Google Kalendáři zůstává)');
+                    });
+                    row.appendChild(del);
+                    list.appendChild(row);
+                });
+            }
+
             // --- Úprava událostí přímo v Google Kalendáři ---
             // Seznam ukazuje opakované události jednou (např. narozeniny "každý rok"), ne po výskytech.
             // Úprava = stáhnout celou událost, změnit jen název a/nebo čas a poslat zpátky (PUT), aby se
@@ -3035,6 +3152,7 @@
                 list.textContent = '';
                 const filter = (document.getElementById('gcalMFilter').value || '').trim().toLowerCase();
                 const shown = gcalMItems.filter((item) => !filter || item.title.toLowerCase().includes(filter));
+                document.getElementById('gcalMSyncBox').style.display = gcalMItems.some((item) => item.yearly) ? '' : 'none';
                 if (!gcalMItems.length) {
                     list.style.display = 'none';
                     gcalMSetStatus('V tomto období nejsou žádné události.');
@@ -3051,7 +3169,23 @@
                     when.textContent = gcalMWhenLabel(item);
                     text.appendChild(when);
                     text.appendChild(document.createTextNode(' ' + (item.title || '(bez názvu)')));
+                    if (item.yearly && yearlyNotes.some((r) => r.gid === item.id)) {
+                        const inApp = document.createElement('span');
+                        inApp.className = 'gcal-dup';
+                        inApp.textContent = 'zobrazuje se v aplikaci';
+                        text.appendChild(inApp);
+                    }
                     row.appendChild(text);
+
+                    if (item.yearly) {
+                        const sync = document.createElement('button');
+                        sync.className = 'action-btn secondary gcal-btn';
+                        sync.setAttribute('aria-label', 'Zobrazit v aplikaci každý rok');
+                        sync.title = 'Zobrazit v kalendáři aplikace každý rok';
+                        sync.innerHTML = '<i class="fas fa-calendar-plus"></i>';
+                        sync.addEventListener('click', () => gcalMSyncOne(item));
+                        row.appendChild(sync);
+                    }
 
                     const edit = document.createElement('button');
                     edit.className = 'action-btn gcal-btn';
@@ -3161,11 +3295,18 @@
                 saveBtn.disabled = true;
                 gcalMSetStatus('Ukládám do Google Kalendáře...');
                 const base = 'calendars/' + encodeURIComponent(calId) + '/events';
+                let localChanged = false;   // změnily se i celoroční záznamy v aplikaci
                 try {
                     if (!orig) {
                         const body = { summary: title, start: when.start, end: when.end };
-                        if (document.getElementById('gcalMYearly').checked) body.recurrence = ['RRULE:FREQ=YEARLY'];
-                        await gcalApi(base, null, { method: 'POST', body });
+                        const yearly = document.getElementById('gcalMYearly').checked;
+                        if (yearly) body.recurrence = ['RRULE:FREQ=YEARLY'];
+                        const created = await gcalApi(base, null, { method: 'POST', body });
+                        // Nová každoroční událost se rovnou zobrazí i v kalendáři aplikace
+                        if (yearly && created && created.id) {
+                            yearlyUpsert({ gid: created.id, day: date.getDate(), month: date.getMonth() + 1, text: title });
+                            localChanged = true;
+                        }
                     } else {
                         const titleChanged = title !== orig.title;
                         const whenChanged = allDay !== orig.allDay
@@ -3184,12 +3325,21 @@
                             full.end = when.end;
                         }
                         await gcalApi(base + '/' + encodeURIComponent(orig.id), null, { method: 'PUT', body: full });
+                        // Událost už je zobrazená v aplikaci - záznam se musí změnit s ní
+                        if (yearlyNotes.some((r) => r.gid === orig.id)) {
+                            yearlyUpsert({ gid: orig.id, day: date.getDate(), month: date.getMonth() + 1, text: title });
+                            localChanged = true;
+                        }
                     }
                 } catch (err) {
                     gcalMSetStatus(err.message);
                     return;
                 } finally {
                     saveBtn.disabled = false;
+                }
+                if (localChanged) {
+                    saveYearlyNotes();
+                    refreshCalendar();
                 }
                 gcalMCloseEditor();
                 showNotification('Uloženo v Google Kalendáři');
@@ -3212,10 +3362,52 @@
                             gcalMSetStatus(err.message);
                             return;
                         }
+                        // smazaná událost se přestane ukazovat i v kalendáři aplikace
+                        if (yearlyNotes.some((r) => r.gid === item.id)) {
+                            yearlyNotes = yearlyNotes.filter((r) => r.gid !== item.id);
+                            saveYearlyNotes();
+                            refreshCalendar();
+                        }
                         showNotification('Událost byla smazána');
                         await gcalMLoad();
                     }
                 );
+            }
+
+            // Každoroční událost -> záznam v kalendáři aplikace (den a měsíc podle začátku události)
+            function gcalMSyncOne(item) {
+                const status = yearlyUpsert({
+                    gid: item.id,
+                    day: item.start.getDate(),
+                    month: item.start.getMonth() + 1,
+                    text: item.title || '(bez názvu)'
+                });
+                saveYearlyNotes();
+                refreshCalendar();
+                gcalMRender();
+                showNotification(status === 'added' ? 'Zobrazí se v aplikaci každý rok'
+                    : (status === 'updated' ? 'Záznam v aplikaci byl aktualizován' : 'Už je v aplikaci'));
+            }
+
+            function gcalMSyncAll() {
+                let added = 0;
+                let updated = 0;
+                gcalMItems.filter((item) => item.yearly).forEach((item) => {
+                    const status = yearlyUpsert({
+                        gid: item.id,
+                        day: item.start.getDate(),
+                        month: item.start.getMonth() + 1,
+                        text: item.title || '(bez názvu)'
+                    });
+                    if (status === 'added') added++;
+                    else if (status === 'updated') updated++;
+                });
+                saveYearlyNotes();
+                refreshCalendar();
+                gcalMRender();
+                showNotification(added || updated
+                    ? 'V aplikaci přidáno: ' + added + (updated ? ', aktualizováno: ' + updated : '')
+                    : 'Všechny každoroční události už v aplikaci jsou');
             }
 
             // Ukládání/načítání poznámek - notes je obyčejný objekt (ne Map), stačí přímo JSON
@@ -3520,6 +3712,9 @@
                 if (note) {
                     markers.push({ kind: 'note', text: `Poznámka: ${note}` });
                 }
+                yearlyRecordsFor(date).forEach((record) => {
+                    markers.push({ kind: 'yearly', text: `Každoročně: ${record.text}` });
+                });
                 return markers;
             }
 
@@ -3668,6 +3863,7 @@
                     ['dot', 'holiday', 'Svátek (pruh nahoře)'],
                     ['dot', 'ot', 'Přesčas (+h v rohu)'],
                     ['dot', 'note', 'Poznámka'],
+                    ['dot', 'yearly', 'Každoročně'],
                     ['dot', 'sliding', 'Klouzák'],
                     ['dot', 'multi', 'Vícestroj'],
                     ['dot', 'override', 'Změna směny']
@@ -4007,6 +4203,7 @@
                 loadSlidingShiftData();
                 loadShiftOverrides();
                 loadNotesData();
+                loadYearlyNotes();
                 loadVacationSettings();
 
                 migrateLegacyCalculatorSettings();
@@ -4467,6 +4664,7 @@
                     if (savedTime) document.getElementById('noteReminderTime').value = savedTime;
                 } catch (e) {}
                 updateNoteReminderHint();
+                renderYearlyDayBox();
 
                 // Přesčas
                 const ot = overtimeDays[currentShift].get(dateStr);
@@ -4811,7 +5009,7 @@
 
             // --- Záloha a obnova dat (vše, co aplikace ukládá do localStorage) ---
             const BACKUP_KEYS = [
-                'overtimeDays', 'multiMachineDays', 'slidingShiftDays', 'shiftOverrides', 'notes',
+                'overtimeDays', 'multiMachineDays', 'slidingShiftDays', 'shiftOverrides', 'notes', 'yearlyNotes',
                 'calculatorSettings_firma1', 'calculatorSettings_firma2',
                 'taxSettings', 'employerProfile', 'currentShift', 'vacationSettings'
             ];
