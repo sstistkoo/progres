@@ -28,7 +28,16 @@ function makeElement(tag) {
         checked: false,
         className: '',
         id: '',
-        innerHTML: '',
+        _html: '',
+        // vymazání obsahu (innerHTML = '') zahodí i potomky, stejně jako v prohlížeči
+        get innerHTML() { return el._html; },
+        set innerHTML(value) {
+            el._html = value;
+            if (value === '') {
+                el.children.length = 0;
+                el.options.length = 0;
+            }
+        },
         textContent: '',
         open: false,
         disabled: false,
