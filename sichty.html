@@ -1502,7 +1502,7 @@
                     </button>
                 </div>
                 <p style="font-size: 0.85em; margin-bottom: 15px; color: var(--text-color);">
-                    Počítáno s aktuálním nastavením mzdové kalkulačky (<span id="yearlyWageProfileName"></span>)
+                    Počítáno se sazbami mzdové kalkulačky platnými v daném měsíci (<span id="yearlyWageProfileName"></span>)
                     pro všech 12 měsíců roku.
                 </p>
                 <div style="overflow-x: auto;">
@@ -1525,6 +1525,16 @@
                         <label>Zaměstnavatel</label>
                         <!-- Možnosti doplní skript z firem (renderEmployerSelect) -->
                         <select id="employerProfile"></select>
+                    </div>
+                    <div id="wageVersions" style="margin-bottom: 15px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                        <div class="hint" id="wageVersionsInfo"></div>
+                        <div id="wageVersionsList" style="display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0;"></div>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <label for="wageNewFrom" style="font-size: 0.9em;">Nové sazby od</label>
+                            <input type="month" id="wageNewFrom" style="max-width: 170px;">
+                            <button type="button" class="action-btn secondary" onclick="addWageVersion()">Přidat</button>
+                        </div>
+                        <div class="hint">Při změně sazby (např. zvýšení mzdy) přidej novou verzi od měsíce, kdy platí. Starší měsíce se pak nepřepočítají.</div>
                     </div>
                     <div class="input-group" style="display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                         <div class="input-field">
@@ -2404,6 +2414,7 @@
                 );
 
                 // Přidání výpočtu mzdy
+                syncWageFormToMonth();
                 const baseWage = parseFloat(document.getElementById('baseWage').value);
                 const nightBonus = parseFloat(document.getElementById('nightBonus').value);
                 const weekendBonus = parseFloat(document.getElementById('weekendBonus').value);
@@ -2724,26 +2735,35 @@
             }
 
             // Načte aktuální hodnoty z formuláře kalkulačky + aktivního zaměstnavatelského profilu
-            function getWageSettings() {
-                const nightBonusRaw = parseFloat(document.getElementById('nightBonus').value) || 0;
-                const activeRules = activeWageRules();
-                const extras = activeRules.extras;
+            // Bez parametrů: zobrazený měsíc (hodnoty z formuláře). S rokem a měsícem: sazby platné v tom měsíci
+            // (historie "platí od", viz wageVersions); daň a děti jsou společné.
+            function getWageSettings(year, month) {
+                const isShown = year === undefined || (year === currentYear && month === currentMonth);
+                if (isShown) syncWageFormToMonth();
+                const y = isShown ? currentYear : year;
+                const m = isShown ? currentMonth : month;
+                const rules = getWageRules(employerProfile, new Date(y, m, 1));
+                const extras = rules.extras;
+                const num = isShown
+                    ? (id) => parseFloat(document.getElementById(id).value) || 0
+                    : (() => { const v = wageValuesFor(employerProfile, ymKey(y, m)); return (id) => parseFloat(v[id]) || 0; })();
+                const nightBonusRaw = num('nightBonus');
                 return {
-                    ...(activeRules.fixedSalary ? { fixedSalary: parseFloat(document.getElementById('fixedSalary').value) || 0 } : {}),
+                    ...(rules.fixedSalary ? { fixedSalary: num('fixedSalary') } : {}),
                     profile: employerProfile,
-                    baseWage: parseFloat(document.getElementById('baseWage').value) || 0,
+                    baseWage: num('baseWage'),
                     nightBonus: nightBonusRaw / 100,
                     nightBonusFlat: nightBonusRaw,
-                    weekendBonus: (parseFloat(document.getElementById('weekendBonus').value) || 0) / 100,
-                    holidayBonus: (parseFloat(document.getElementById('holidayBonus').value) || 0) / 100,
-                    overtimeBonus: (parseFloat(document.getElementById('overtimeBonus').value) || 0) / 100,
-                    personalRating: extras ? (parseFloat(document.getElementById('personalRating').value) || 0) : 0,
-                    monthlyBonus: extras ? (parseFloat(document.getElementById('monthlyBonus').value) || 0) : 0,
-                    motivationBonus: extras ? (parseFloat(document.getElementById('motivationBonus').value) || 0) : 0,
+                    weekendBonus: num('weekendBonus') / 100,
+                    holidayBonus: num('holidayBonus') / 100,
+                    overtimeBonus: num('overtimeBonus') / 100,
+                    personalRating: extras ? num('personalRating') : 0,
+                    monthlyBonus: extras ? num('monthlyBonus') : 0,
+                    motivationBonus: extras ? num('motivationBonus') : 0,
                     childCount: parseInt(document.getElementById('childCount').value) || 0,
                     disability: parseInt(document.getElementById('disability').value) || 0,
                     hasTaxDeclaration: document.getElementById('hasTaxDeclaration').checked,
-                    vacationRate: parseFloat(document.getElementById('vacationRate').value) || 0
+                    vacationRate: num('vacationRate')
                 };
             }
 
@@ -4748,6 +4768,135 @@
                 }
             }
 
+            // --- Historie sazeb ("platí od") ---
+            // calculatorSettings_<id> = poslední verze sazeb (jako dřív) + from (od kdy platí) + history (starší verze).
+            // Pro měsíc platí poslední verze s from <= měsíc; bez from platí od začátku. Před první verzí platí první.
+            const WAGE_META_KEYS = ['from', 'history'];
+            let formWageVersionFrom = '';    // od kdy platí verze sazeb právě zobrazená ve formuláři
+
+            function ymKey(year, month) {
+                return `${year}-${String(month + 1).padStart(2, '0')}`;
+            }
+
+            function validWageFrom(value) {
+                return typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? value : '';
+            }
+
+            function stripWageMeta(obj) {
+                const values = {};
+                Object.keys(obj || {}).forEach(k => { if (!WAGE_META_KEYS.includes(k)) values[k] = obj[k]; });
+                return values;
+            }
+
+            // Verze sazeb firmy vzestupně podle from. withDefaults = doplnit výchozí hodnoty firmy.
+            function wageVersions(profile, withDefaults) {
+                let saved = null;
+                try {
+                    saved = JSON.parse(localStorage.getItem(`calculatorSettings_${profile}`) || 'null');
+                } catch (e) { saved = null; }
+                if (!saved || typeof saved !== 'object') saved = {};
+                const defaults = EMPLOYER_DEFAULTS[profile] || EMPLOYER_DEFAULTS.firma1;
+                const list = [];
+                (Array.isArray(saved.history) ? saved.history : []).forEach(h => {
+                    if (h && typeof h === 'object') list.push({ from: validWageFrom(h.from), values: stripWageMeta(h) });
+                });
+                list.push({ from: validWageFrom(saved.from), values: stripWageMeta(saved) });
+                list.sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
+                if (withDefaults !== false) {
+                    list.forEach(v => { v.values = Object.assign({}, defaults, v.values); });
+                }
+                return list;
+            }
+
+            function pickWageVersion(list, ym) {
+                let found = null;
+                list.forEach(v => { if (v.from <= ym) found = v; });
+                return found || list[0];
+            }
+
+            function wageValuesFor(profile, ym) {
+                return pickWageVersion(wageVersions(profile, true), ym).values;
+            }
+
+            function writeWageVersions(profile, list) {
+                list.sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
+                const last = list[list.length - 1];
+                const out = Object.assign({}, last.values);
+                if (last.from) out.from = last.from;
+                if (list.length > 1) {
+                    out.history = list.slice(0, -1).map(v => Object.assign({ from: v.from }, v.values));
+                }
+                localStorage.setItem(`calculatorSettings_${profile}`, JSON.stringify(out));
+            }
+
+            // Když se zobrazený měsíc posunul do jiné verze sazeb, načte formulář hodnoty té verze
+            function syncWageFormToMonth() {
+                const version = pickWageVersion(wageVersions(employerProfile, false), ymKey(currentYear, currentMonth));
+                if (version.from !== formWageVersionFrom) applyEmployerProfile(employerProfile);
+                else renderWageVersions();
+            }
+
+            function wageFromLabel(from) {
+                if (!from) return 'od začátku';
+                const [y, m] = from.split('-');
+                return `od ${parseInt(m)}/${y}`;
+            }
+
+            function renderWageVersions() {
+                const info = document.getElementById('wageVersionsInfo');
+                const list = document.getElementById('wageVersionsList');
+                if (!info || !list) return;
+                const versions = wageVersions(employerProfile, false);
+                const shown = pickWageVersion(versions, ymKey(currentYear, currentMonth));
+                const monthNames = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
+                info.textContent = `Zobrazené sazby platí pro ${monthNames[currentMonth]} ${currentYear} (${wageFromLabel(shown.from)}).`;
+                list.innerHTML = '';
+                versions.forEach(v => {
+                    const chip = document.createElement('span');
+                    chip.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:14px;border:1px solid var(--border-color);font-size:0.85em;'
+                        + (v === shown ? 'background:var(--primary-color);color:#fff;' : '');
+                    chip.textContent = wageFromLabel(v.from);
+                    if (versions.length > 1) {
+                        const del = document.createElement('button');
+                        del.type = 'button';
+                        del.textContent = '×';
+                        del.setAttribute('aria-label', 'Smazat verzi sazeb ' + wageFromLabel(v.from));
+                        del.style.cssText = 'background:none;border:none;color:inherit;font-size:1.1em;cursor:pointer;padding:0 2px;';
+                        del.onclick = () => removeWageVersion(v.from);
+                        chip.appendChild(del);
+                    }
+                    list.appendChild(chip);
+                });
+                const input = document.getElementById('wageNewFrom');
+                if (input && !input.value) input.value = ymKey(currentYear, currentMonth);
+            }
+
+            // Založí novou verzi sazeb od zvoleného měsíce (opíše hodnoty verze platné v tom měsíci)
+            function addWageVersion() {
+                const from = validWageFrom(document.getElementById('wageNewFrom').value);
+                if (!from) { showNotification('Zvol měsíc, od kterého nové sazby platí.'); return; }
+                saveCalculatorSettings();
+                const versions = wageVersions(employerProfile, false);
+                if (versions.some(v => v.from === from)) { showNotification('Pro tento měsíc už verze sazeb existuje.'); return; }
+                const base = pickWageVersion(versions, from);
+                versions.push({ from, values: Object.assign({}, base.values) });
+                writeWageVersions(employerProfile, versions);
+                applyEmployerProfile(employerProfile);
+                calculateWages();
+                showNotification(from <= ymKey(currentYear, currentMonth)
+                    ? `Nové sazby platí ${wageFromLabel(from)}. Uprav je ve formuláři.`
+                    : `Nové sazby platí ${wageFromLabel(from)}. Přepni kalendář na ten měsíc a uprav je.`);
+            }
+
+            function removeWageVersion(from) {
+                const versions = wageVersions(employerProfile, false);
+                if (versions.length < 2) return;
+                if (!confirm(`Smazat sazby ${wageFromLabel(from)}? Měsíce se přepočítají podle zbývajících verzí.`)) return;
+                writeWageVersions(employerProfile, versions.filter(v => v.from !== from));
+                applyEmployerProfile(employerProfile);
+                calculateWages();
+            }
+
             // Přidat nové funkce pro ukládání nastavení kalkulačky
             function saveCalculatorSettings() {
                 const profileSettings = {
@@ -4767,7 +4916,11 @@
                     profileSettings.motivationBonus = document.getElementById('motivationBonus').value;
                     profileSettings.payslipFix202609 = true; // viz applyEmployerProfile
                 }
-                localStorage.setItem(`calculatorSettings_${employerProfile}`, JSON.stringify(profileSettings));
+                // Hodnoty patří verzi sazeb, která platí pro zobrazený měsíc (jinak by přepsaly i jiná období)
+                const versions = wageVersions(employerProfile, false);
+                const target = versions.find(v => v.from === formWageVersionFrom) || pickWageVersion(versions, ymKey(currentYear, currentMonth));
+                target.values = profileSettings;
+                writeWageVersions(employerProfile, versions);
 
                 const taxSettings = {
                     childCount: document.getElementById('childCount').value,
@@ -4839,7 +4992,10 @@
                     saved.payslipFix202609 = true;
                     localStorage.setItem(`calculatorSettings_${profile}`, JSON.stringify(saved));
                 }
-                const settings = Object.assign({}, defaults, saved || {});
+                const versions = wageVersions(profile, true);
+                const shownVersion = pickWageVersion(versions, ymKey(currentYear, currentMonth));
+                formWageVersionFrom = shownVersion.from;
+                const settings = Object.assign({}, defaults, shownVersion.values);
 
                 document.getElementById('baseWage').value = settings.baseWage;
                 document.getElementById('nightBonus').value = settings.nightBonus;
@@ -4868,6 +5024,7 @@
                 }
 
                 updateNightBonusUI();
+                renderWageVersions();
                 localStorage.setItem('employerProfile', profile);
             }
 
@@ -6861,6 +7018,8 @@
                 const totals = { totalHoursWithOvertime: 0, totalWage: 0, netWage: 0 };
 
                 for (let month = 0; month < 12; month++) {
+                    // settings smí být funkce (měsíc => nastavení), aby se použily sazby platné v daném měsíci
+                    const monthSettings = typeof settings === 'function' ? settings(month) : settings;
                     const monthShifts = yearShifts.filter(s => s.date.getMonth() === month);
                     const inMonth = ([date]) => {
                         const d = new Date(date);
@@ -6870,7 +7029,7 @@
                     const multiMachineEntries = Array.from(multiMachineDays[shift].entries()).filter(inMonth);
                     const slidingShiftEntries = Array.from(slidingShiftDays[shift].entries()).filter(inMonth);
 
-                    const w = computeWageBreakdown(settings, monthShifts, overtimeEntries, multiMachineEntries, slidingShiftEntries, holidaysForYear);
+                    const w = computeWageBreakdown(monthSettings, monthShifts, overtimeEntries, multiMachineEntries, slidingShiftEntries, holidaysForYear);
                     rows.push({ month, w });
                     totals.totalHoursWithOvertime += w.totalHoursWithOvertime;
                     totals.totalWage += w.totalWage;
@@ -6882,7 +7041,7 @@
 
             function showYearlyWageSummary() {
                 const settings = getWageSettings();
-                const { rows, totals } = computeYearlyWageSummary(currentYear, currentShift, settings);
+                const { rows, totals } = computeYearlyWageSummary(currentYear, currentShift, (m) => getWageSettings(currentYear, m));
 
                 const monthNames = [
                     'Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
