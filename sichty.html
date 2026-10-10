@@ -193,7 +193,10 @@
         #firmsModal .modal-content { overflow-y: auto; padding-bottom: 80px; }
         #firmsModal, #scheduleModal { align-items: flex-start; padding-top: 12px; box-sizing: border-box; }
 
-                .sched-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .gcal-guide { padding-left: 20px; margin: 8px 0; font-size: 0.9em; line-height: 1.45; }
+        .gcal-guide li { margin-bottom: 8px; }
+        .gcal-guide code { font-size: 0.9em; word-break: break-all; }
+        .sched-chips { display: flex; flex-wrap: wrap; gap: 6px; }
         .sched-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
         .sched-row select { flex: 1 1 auto; min-width: 0; }
         .sched-row input[type=number] { width: 64px; text-align: center; }
@@ -1181,6 +1184,61 @@
         <div id="notification" class="notification"></div>
 
         <!-- Modální okno: import událostí z Google Kalendáře do poznámek ke dnům -->
+        <!-- Vlastní propojení s Google Kalendářem: Client ID a návod, jak ho získat -->
+        <div id="gcalSetupModal" class="modal" style="z-index: 1100; align-items: flex-start; padding-top: 12px; box-sizing: border-box;">
+            <div class="modal-content" style="max-width: 520px; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; padding-bottom: 60px; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h2 style="margin: 0;">Vlastní propojení s Google</h2>
+                    <button class="action-btn secondary" onclick="closeGcalSetupModal()" style="padding: 5px 10px;" aria-label="Zavřít">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <p class="hint">
+                    Aplikace se k tvému Google Kalendáři připojuje přes přihlášení Googlem. Potřebuje k tomu
+                    <strong>Client ID</strong> (je veřejné, není to heslo). Žádný API klíč ani tajný klíč se nepoužívá.
+                    Svoje Client ID si zdarma vyrobíš za asi 10 minut podle návodu níže.
+                </p>
+                <div class="input-field">
+                    <label for="gcalClientIdInput">Client ID</label>
+                    <input type="text" id="gcalClientIdInput" placeholder="1234567890-abc123.apps.googleusercontent.com" autocomplete="off" autocapitalize="off" spellcheck="false" style="width: 100%; box-sizing: border-box;">
+                </div>
+                <div id="gcalSetupStatus" class="hint"></div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 14px;">
+                    <button class="action-btn" onclick="gcalSaveClientId()">Uložit Client ID</button>
+                    <button class="action-btn secondary" onclick="gcalResetClientId()">Vrátit výchozí</button>
+                </div>
+
+                <details open>
+                    <summary class="collapsible-summary">Návod: jak získat vlastní Client ID</summary>
+                    <ol class="gcal-guide">
+                        <li>Otevři <strong>console.cloud.google.com</strong> a přihlas se Google účtem, jehož kalendář chceš používat.</li>
+                        <li>Nahoře vlevo klepni na výběr projektu a vytvoř <strong>Nový projekt</strong> (název třeba „Směnový kalendář“).</li>
+                        <li>Menu ☰ → <strong>API a služby → Knihovna</strong>. Vyhledej <strong>Google Calendar API</strong> a klepni na <strong>Povolit</strong>.</li>
+                        <li>Menu ☰ → <strong>API a služby → Obrazovka souhlasu OAuth</strong> (nově „Google Auth Platform“). Zvol typ <strong>Externí</strong>, vyplň název aplikace a svůj e‑mail.</li>
+                        <li>V části <strong>Přístup k datům (Scopes)</strong> přidej oprávnění <code>…/auth/calendar.events</code> a <code>…/auth/calendar.calendarlist.readonly</code>.</li>
+                        <li>V části <strong>Cílová skupina (Audience)</strong> nech stav „Testování“ a přidej svůj Gmail mezi <strong>Testovací uživatele</strong>. Pro osobní použití stačí, publikovat ani ověřovat aplikaci nemusíš.</li>
+                        <li><strong>API a služby → Přihlašovací údaje → Vytvořit přihlašovací údaje → ID klienta OAuth</strong>. Typ aplikace: <strong>Webová aplikace</strong>.</li>
+                        <li>U <strong>Oprávněné zdroje JavaScriptu</strong> přidej adresu, ze které tuto stránku otevíráš: <code id="gcalOriginText"></code> (bez lomítka na konci a bez cesty). „Oprávněné identifikátory URI přesměrování“ nech prázdné.</li>
+                        <li>Po vytvoření zkopíruj <strong>ID klienta</strong> (končí na <code>.apps.googleusercontent.com</code>), vlož ho do pole nahoře a klepni na <strong>Uložit Client ID</strong>.</li>
+                        <li>Vrať se do importu nebo úprav událostí a klepni na <strong>Přihlásit se přes Google</strong>. Google zobrazí upozornění „Aplikace není ověřena“: klepni na <strong>Rozšířené → Pokračovat</strong> (je to tvoje vlastní aplikace) a povol přístup ke kalendáři.</li>
+                    </ol>
+                    <p class="hint">
+                        Přihlášení platí asi hodinu, potom se Google zeptá znovu. Aplikace do kalendáře zapisuje jen to, co sám v okně
+                        „Události v Google Kalendáři“ upravíš, a k ničemu jinému v účtu nepřistupuje. Přístup můžeš kdykoli zrušit na
+                        myaccount.google.com → Zabezpečení → Aplikace třetích stran. Stránku je nutné otevírat přes https (ne ze souboru).
+                    </p>
+                </details>
+                <details>
+                    <summary class="collapsible-summary">Mám už Client ID od někoho jiného</summary>
+                    <p class="hint">
+                        Použít jde i výchozí propojení. Majitel projektu v něm ale musí tvůj Gmail přidat mezi testovací uživatele
+                        (Google Cloud → Obrazovka souhlasu OAuth → Cílová skupina → Testovací uživatelé; nejvýš 100 lidí). Bez toho Google
+                        přihlášení zablokuje. Doporučené je mít vlastní Client ID.
+                    </p>
+                </details>
+            </div>
+        </div>
+
         <div id="gcalImportModal" class="modal">
             <div class="modal-content" style="max-width: 420px; max-height: 90vh; overflow-y: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -1197,6 +1255,9 @@
                 <div id="gcalSignInRow" class="gcal-row">
                     <button class="action-btn" onclick="gcalSignIn()">
                         <i class="fab fa-google"></i> Přihlásit se přes Google
+                    </button>
+                    <button class="action-btn secondary" onclick="showGcalSetupModal()">
+                        <i class="fas fa-key"></i> Vlastní propojení a návod
                     </button>
                 </div>
 
@@ -1252,6 +1313,9 @@
                 <div id="gcalMSignInRow" class="gcal-row">
                     <button class="action-btn" onclick="gcalManageSignIn()">
                         <i class="fab fa-google"></i> Přihlásit se přes Google
+                    </button>
+                    <button class="action-btn secondary" onclick="showGcalSetupModal()">
+                        <i class="fas fa-key"></i> Vlastní propojení a návod
                     </button>
                 </div>
 
@@ -3049,7 +3113,23 @@
             // Přihlášení přes Google Identity Services, přístupový token žije jen v paměti stránky
             // (asi hodinu, pak se Google zeptá znovu). Vybrané události se přidají na konec poznámky
             // příslušného dne (notes / noteKey). Do kalendáře se nic nezapisuje.
-            const GCAL_CLIENT_ID = '647682341653-4nnbgvnr5lorajsbtghpkpflvm16e6mv.apps.googleusercontent.com';
+            // Výchozí propojení (původní autor aplikace). Každý uživatel si může zadat vlastní Client ID
+            // (okno "Vlastní propojení"), pak se používá jeho Google projekt a jeho nastavení.
+            const GCAL_DEFAULT_CLIENT_ID = '647682341653-4nnbgvnr5lorajsbtghpkpflvm16e6mv.apps.googleusercontent.com';
+            const GCAL_CLIENT_ID_KEY = 'gcalClientId';
+            const GCAL_CLIENT_ID_PATTERN = /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/i;
+
+            function gcalClientId() {
+                try {
+                    const custom = (localStorage.getItem(GCAL_CLIENT_ID_KEY) || '').trim();
+                    if (GCAL_CLIENT_ID_PATTERN.test(custom)) return custom;
+                } catch (e) {}
+                return GCAL_DEFAULT_CLIENT_ID;
+            }
+
+            function gcalUsesCustomClientId() {
+                return gcalClientId() !== GCAL_DEFAULT_CLIENT_ID;
+            }
             // Čtení i zápis událostí (import + úpravy) a seznam kalendářů; ke zbytku účtu se nepřistupuje
             const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly';
             const GCAL_TZ = 'Europe/Prague';
@@ -3061,6 +3141,7 @@
             let gcalToken = null;
             let gcalTokenExpires = 0;
             let gcalTokenClient = null;
+            let gcalTokenClientId = null;    // Client ID, pro které byl gcalTokenClient vytvořen
             let gcalPending = null;          // { resolve, reject } rozdělané přihlášení
             let gcalScriptPromise = null;
             let gcalItems = [];              // načtené události: { id, title, time, days, line }
@@ -3103,9 +3184,10 @@
 
             function gcalRequestToken() {
                 return gcalLoadScript().then(() => new Promise((resolve, reject) => {
-                    if (!gcalTokenClient) {
+                    if (!gcalTokenClient || gcalTokenClientId !== gcalClientId()) {
+                        gcalTokenClientId = gcalClientId();
                         gcalTokenClient = google.accounts.oauth2.initTokenClient({
-                            client_id: GCAL_CLIENT_ID,
+                            client_id: gcalTokenClientId,
                             scope: GCAL_SCOPE,
                             callback: (resp) => {
                                 const pending = gcalPending;
@@ -3215,6 +3297,52 @@
 
             function closeGcalImportModal() {
                 document.getElementById('gcalImportModal').style.display = 'none';
+            }
+
+            // --- Vlastní propojení: Client ID uživatele ---
+            function showGcalSetupModal() {
+                document.getElementById('gcalClientIdInput').value = gcalUsesCustomClientId() ? gcalClientId() : '';
+                document.getElementById('gcalOriginText').textContent = window.location.origin && window.location.origin !== 'null'
+                    ? window.location.origin : 'https://tvoje-adresa (stránku otevři přes https)';
+                document.getElementById('gcalSetupStatus').textContent = gcalUsesCustomClientId()
+                    ? 'Používá se tvoje vlastní Client ID.'
+                    : 'Používá se výchozí propojení autora aplikace.';
+                document.getElementById('gcalSetupModal').style.display = 'flex';
+            }
+
+            function closeGcalSetupModal() {
+                document.getElementById('gcalSetupModal').style.display = 'none';
+            }
+
+            // Po změně Client ID se starý přístupový token zahodí, přihlásit se jde znovu
+            function gcalAfterClientIdChange() {
+                if (gcalToken) gcalSignOut();
+                gcalTokenClient = null;
+                gcalTokenClientId = null;
+            }
+
+            function gcalSaveClientId() {
+                const value = document.getElementById('gcalClientIdInput').value.trim();
+                const status = document.getElementById('gcalSetupStatus');
+                if (!GCAL_CLIENT_ID_PATTERN.test(value)) {
+                    status.textContent = 'Client ID má tvar 1234567890-abc123.apps.googleusercontent.com. Zkontroluj, že je zkopírované celé.';
+                    return;
+                }
+                try { localStorage.setItem(GCAL_CLIENT_ID_KEY, value); } catch (e) {
+                    status.textContent = 'Uložení se nepodařilo (úložiště prohlížeče je zablokované).';
+                    return;
+                }
+                gcalAfterClientIdChange();
+                status.textContent = 'Uloženo. Teď se přihlas přes Google.';
+                showNotification('Client ID uloženo.');
+            }
+
+            function gcalResetClientId() {
+                try { localStorage.removeItem(GCAL_CLIENT_ID_KEY); } catch (e) {}
+                gcalAfterClientIdChange();
+                document.getElementById('gcalClientIdInput').value = '';
+                document.getElementById('gcalSetupStatus').textContent = 'Používá se výchozí propojení autora aplikace.';
+                showNotification('Vráceno výchozí propojení.');
             }
 
             function gcalSignIn() {
@@ -6599,7 +6727,7 @@
             const BACKUP_KEYS = [
                 'overtimeDays', 'multiMachineDays', 'slidingShiftDays', 'shiftOverrides', 'notes', 'yearlyNotes',
                 'calculatorSettings_firma1', 'calculatorSettings_firma2',
-                'taxSettings', 'employerProfile', 'currentShift', 'vacationSettings',
+                'taxSettings', 'employerProfile', 'currentShift', 'vacationSettings', 'gcalClientId',
                 FIRMS_KEY
             ];
 
