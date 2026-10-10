@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createApp } = require('./harness');
+const { storageFor } = require('./fixture-storage');
 
 const htmlPath = process.argv[2] || undefined;
 const GROUPS = ['A', 'B', 'C', 'D'];
@@ -120,30 +121,6 @@ overridesB.set(pickWork('B', 2026, 9, 4), 'D');
 range('2026-10-20', '2026-10-30').forEach((k) => overridesB.set(k, 'NEM'));
 fixture.shiftOverrides.B = Array.from(overridesB.entries());
 
-function storageFor(variant) {
-    const storage = {
-        overtimeDays: JSON.stringify(fixture.overtimeDays),
-        multiMachineDays: JSON.stringify(fixture.multiMachineDays),
-        slidingShiftDays: JSON.stringify(fixture.slidingShiftDays),
-        shiftOverrides: JSON.stringify(fixture.shiftOverrides)
-    };
-    if (variant === 'vychozi') {
-        storage.taxSettings = JSON.stringify({ childCount: '0', disability: '0', hasTaxDeclaration: true });
-    } else {
-        storage.taxSettings = JSON.stringify({ childCount: '2', disability: '1', hasTaxDeclaration: true });
-        storage.calculatorSettings_firma1 = JSON.stringify({
-            baseWage: '155.5', nightBonus: '22', weekendBonus: '30', holidayBonus: '100',
-            overtimeBonus: '25', vacationRate: '170'
-        });
-        storage.calculatorSettings_firma2 = JSON.stringify({
-            baseWage: '181.2', nightBonus: '17', weekendBonus: '60', holidayBonus: '100',
-            overtimeBonus: '50', vacationRate: '', personalRating: '5',
-            monthlyBonus: '2900', motivationBonus: '3000', payslipFix202609: true
-        });
-    }
-    return storage;
-}
-
 // --- mzdy ------------------------------------------------------------------------
 const WAGE_CASES = {
     vychozi: [
@@ -161,7 +138,7 @@ const wages = {};
 Object.keys(WAGE_CASES).forEach((variant) => {
     wages[variant] = {};
     ['firma1', 'firma2'].forEach((profile) => {
-        const app = boot(storageFor(variant));
+        const app = boot(storageFor(fixture, variant));
         app.run(`applyEmployerProfile('${profile}')`);
         const settings = app.json('getWageSettings()');
         // atrapa DOM nemá zaškrtnuté políčko z HTML - prohlášení k dani se bere z taxSettings

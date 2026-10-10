@@ -1234,7 +1234,7 @@
                 </div>
                 <p style="font-size: 0.9em; margin-bottom: 15px;">
                     Zálohuje a obnoví přesčasy, vícestrojovou obsluhu, klouzáky, přehozené směny,
-                    poznámky u dnů, nastavení dovolené a mzdové kalkulačky pro obě firmy. Data jsou uložená jen
+                    poznámky u dnů, nastavení dovolené, firmy a mzdové kalkulačky pro všechny firmy. Data jsou uložená jen
                     v tomto prohlížeči - bez zálohy o ně přijdeš při vymazání dat prohlížeče nebo na
                     jiném zařízení.
                 </p>
@@ -1315,10 +1315,8 @@
                 <div class="wage-calculator">
                     <div class="input-field" style="margin-bottom: 15px; max-width: 300px;">
                         <label>Zaměstnavatel</label>
-                        <select id="employerProfile">
-                            <option value="firma2">Bona (aktuální)</option>
-                            <option value="firma1">Progres (dřívější)</option>
-                        </select>
+                        <!-- Možnosti doplní skript z firem (renderEmployerSelect) -->
+                        <select id="employerProfile"></select>
                     </div>
                     <div class="input-group" style="display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                         <div class="input-field">
@@ -1587,49 +1585,235 @@
 
         <script>
             let currentShift = 'A';
+
+            // --- Firmy (zaměstnavatelé) ---
+            // Každá firma má vlastní rozvrh směn (kolotoč) a klíč dat. Rozvrh je vždy cyklus dní:
+            // pole kódů směn (např. R, R, R, -, -, -, N, N, N, -, -, -), jehož délka je délka cyklu,
+            // a skupiny (A, B, ...), z nichž každá má datum, kdy jí začíná první den cyklu.
+            // Rozvrh má verze "platí od": změna pravidel se uloží jako nová verze od data,
+            // starší měsíce se přitom nepřepočítají.
+            //
+            // Struktura (localStorage['firms'] = { version, firms: [...] }):
+            //   { id, name, note, dataKey,
+            //     schedule: [ { from: null | 'RRRR-MM-DD',
+            //                   types:  { R: { label, short, from, to, breakFrom, breakMin, paidHours }, ... },
+            //                   cycle:  [ 'R', 'R', 'R', '-', ... ],
+            //                   groups: [ { id: 'A', name: 'A', start: 'RRRR-MM-DD' }, ... ] } ] }
+            // dataKey: prázdný = původní klíče localStorage (Progres a Bona sdílejí stávající data),
+            // jinak se k názvům klíčů dat přidá "__" + dataKey (viz dataStorageKey).
+            const FIRM_MODEL_VERSION = 1;
+            const FIRMS_KEY = 'firms';
+            const DEFAULT_GROUP_IDS = ['A', 'B', 'C', 'D'];
+            let firms = null;
+
+            // Dnešní pevný rozvrh Progresu i Bony: 12 h směny, cyklus 3 ranní, 3 volna, 3 noční, 3 volna.
+            // První den cyklu skupiny A byl 4. 1. 2025 (R1); skupiny B, C, D mají cyklus posunutý
+            // o +9, +3, +6 dní, takže jim první den cyklu připadá na 7. 1., 13. 1. a 10. 1. 2025.
+            function legacyScheduleVersion() {
+                return {
+                    from: null,
+                    types: {
+                        R: { label: 'Ranní', short: 'R', from: '06:00', to: '18:00', breakFrom: '12:00', breakMin: 30, paidHours: 11.5 },
+                        N: { label: 'Noční', short: 'N', from: '18:00', to: '06:00', breakFrom: '00:00', breakMin: 30, paidHours: 11.5 }
+                    },
+                    cycle: ['R', 'R', 'R', '-', '-', '-', 'N', 'N', 'N', '-', '-', '-'],
+                    groups: [
+                        { id: 'A', name: 'A', start: '2025-01-04' },
+                        { id: 'B', name: 'B', start: '2025-01-07' },
+                        { id: 'C', name: 'C', start: '2025-01-13' },
+                        { id: 'D', name: 'D', start: '2025-01-10' }
+                    ]
+                };
+            }
+
+            // Pořadí jako dosud ve výběru zaměstnavatele: Bona (aktuální), Progres (dřívější).
+            // Obě firmy mají prázdný dataKey - přesčasy, klouzáky apod. zůstávají na původních klíčích.
+            function defaultFirms() {
+                return [
+                    { id: 'firma2', name: 'Bona', note: 'aktuální', dataKey: '', schedule: [legacyScheduleVersion()] },
+                    { id: 'firma1', name: 'Progres', note: 'dřívější', dataKey: '', schedule: [legacyScheduleVersion()] }
+                ];
+            }
+
+            function isDateKey(value) {
+                return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+            }
+
+            // Ověří a upraví jednu firmu z uložených dat; vrací null, když je nepoužitelná
+            function sanitizeFirm(raw) {
+                if (!raw || typeof raw !== 'object') return null;
+                if (typeof raw.id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(raw.id)) return null;
+                if (typeof raw.dataKey !== 'string' || !/^[A-Za-z0-9_-]*$/.test(raw.dataKey)) return null;
+                if (!Array.isArray(raw.schedule) || raw.schedule.length === 0) return null;
+
+                const schedule = [];
+                for (const version of raw.schedule) {
+                    if (!version || typeof version !== 'object') return null;
+                    if (version.from !== null && !isDateKey(version.from)) return null;
+                    if (!Array.isArray(version.cycle) || version.cycle.length === 0) return null;
+                    if (!version.cycle.every(code => typeof code === 'string' && code)) return null;
+                    if (!Array.isArray(version.groups) || version.groups.length === 0) return null;
+                    const groups = [];
+                    for (const group of version.groups) {
+                        if (!group || typeof group.id !== 'string' || !group.id || !isDateKey(group.start)) return null;
+                        groups.push({ id: group.id, name: typeof group.name === 'string' && group.name ? group.name : group.id, start: group.start });
+                    }
+                    schedule.push({
+                        from: version.from,
+                        types: (version.types && typeof version.types === 'object') ? version.types : {},
+                        cycle: version.cycle.slice(),
+                        groups
+                    });
+                }
+                // Nejstarší verze (bez data) první, ostatní podle data
+                schedule.sort((a, b) => {
+                    const ka = a.from === null ? '' : a.from;
+                    const kb = b.from === null ? '' : b.from;
+                    return ka < kb ? -1 : (ka > kb ? 1 : 0);
+                });
+
+                return {
+                    id: raw.id,
+                    name: typeof raw.name === 'string' && raw.name ? raw.name : raw.id,
+                    note: typeof raw.note === 'string' ? raw.note : '',
+                    dataKey: raw.dataKey,
+                    schedule
+                };
+            }
+
+            // Postupná migrace uloženého modelu firem na aktuální verzi (každá další verze
+            // modelu přidá svůj krok sem). Vrací { version, firms } nebo null, když jsou data nepoužitelná.
+            function migrateFirmsModel(stored) {
+                if (!stored || typeof stored !== 'object' || !Array.isArray(stored.firms)) return null;
+                const list = stored.firms.map(sanitizeFirm);
+                if (list.length === 0 || list.some(f => f === null)) return null;
+                if (new Set(list.map(f => f.id)).size !== list.length) return null;
+                return { version: FIRM_MODEL_VERSION, firms: list };
+            }
+
+            function saveFirms() {
+                try {
+                    localStorage.setItem(FIRMS_KEY, JSON.stringify({ version: FIRM_MODEL_VERSION, firms }));
+                } catch (e) {
+                    console.error('Chyba při ukládání firem:', e);
+                }
+            }
+
+            // Načte firmy; když ještě nejsou (první spuštění po aktualizaci), vytvoří Progres a Bonu
+            // z dnešních hodnot. Stará data v localStorage se nepřesouvají ani nemažou.
+            // Poškozený záznam se nahradí výchozími firmami, původní text zůstane pod 'firmsPoskozene'.
+            function loadFirms() {
+                const raw = localStorage.getItem(FIRMS_KEY);
+                if (raw !== null) {
+                    let migrated = null;
+                    try {
+                        migrated = migrateFirmsModel(JSON.parse(raw));
+                    } catch (e) {
+                        migrated = null;
+                    }
+                    if (migrated) {
+                        firms = migrated.firms;
+                        return;
+                    }
+                    console.warn('Záznam firem je poškozený, použijí se výchozí firmy.');
+                    try { localStorage.setItem('firmsPoskozene', raw); } catch (e) {}
+                }
+                firms = defaultFirms();
+                saveFirms();
+            }
+
+            function getFirm(id) {
+                return (firms || []).find(f => f.id === id) || null;
+            }
+
+            function getActiveFirm() {
+                return getFirm(employerProfile) || firms[0];
+            }
+
+            function firmLabel(firm) {
+                return firm.note ? `${firm.name} (${firm.note})` : firm.name;
+            }
+
+            // Verze rozvrhu platná pro den. Nejstarší verze platí i zpětně, když by měla datum "od".
+            function getScheduleVersion(firm, date) {
+                const key = toDateKey(date);
+                let chosen = firm.schedule[0];
+                for (const version of firm.schedule) {
+                    if (version.from === null || version.from <= key) chosen = version;
+                    else break;
+                }
+                return chosen;
+            }
+
+            // Čísla dnů přes UTC půlnoc - rozdíl dvou dnů je vždy celé číslo, letní čas ho nerozhodí
+            function dateKeyToDayNumber(key) {
+                const [y, m, d] = key.split('-').map(Number);
+                return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+            }
+
+            function dateToDayNumber(date) {
+                return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000);
+            }
+
+            // Kód směny, který cyklus dané verze dává skupině v daný den
+            function getCycleShift(version, groupId, date) {
+                const group = version.groups.find(g => g.id === groupId);
+                if (!group) return '-';
+                const length = version.cycle.length;
+                const diff = dateToDayNumber(date) - dateKeyToDayNumber(group.start);
+                return version.cycle[((diff % length) + length) % length];
+            }
+
+            // Skupiny aktivní firmy (ze všech verzí rozvrhu, v pořadí prvního výskytu)
+            function getGroupIds() {
+                if (!firms) return DEFAULT_GROUP_IDS.slice();
+                const ids = [];
+                getActiveFirm().schedule.forEach(version => {
+                    version.groups.forEach(group => {
+                        if (!ids.includes(group.id)) ids.push(group.id);
+                    });
+                });
+                return ids;
+            }
+
+            // Prázdné mapy dat po skupinách aktivní firmy
+            function newGroupMaps() {
+                const maps = {};
+                getGroupIds().forEach(id => { maps[id] = new Map(); });
+                return maps;
+            }
+
+            // Klíč v localStorage pro data aktivní firmy (přesčasy, klouzáky, ruční změny směn,
+            // dovolená, zvolená skupina). Firma s prázdným dataKey používá původní klíče.
+            function dataStorageKey(base) {
+                const dataKey = getActiveFirm().dataKey;
+                return dataKey ? `${base}__${dataKey}` : base;
+            }
+
             // ODSTRANĚNO: let darkMode = false;
             let notes = {};
             let yearlyNotes = [];   // každoroční záznamy (viz "Celoroční záznamy v aplikaci")
             let yearView = false;
-            let overtimeDays = {
-                'A': new Map(),
-                'B': new Map(),
-                'C': new Map(),
-                'D': new Map()
-            };
+            let overtimeDays = newGroupMaps();
 
             // Vícestrojová obsluha - značeno po dnech stejně jako přesčasy, ukládá se jen procento
             // (hodiny se vždy dopočítávají za běhu ze směny/přesčasu daného dne, aby se neodchýlily)
-            let multiMachineDays = {
-                'A': new Map(),
-                'B': new Map(),
-                'C': new Map(),
-                'D': new Map()
-            };
+            let multiMachineDays = newGroupMaps();
 
             // Klouzavá směna ("klouzák") - den, který už má naplánovanou běžnou směnu z rotace,
             // ale je brán jako den navíc a patří mu příplatek za přesčas navrch (bez navýšení
             // odpracovaných hodin, ty už pokrývá běžná směna). Na rozdíl od ad-hoc přesčasu
             // (saveOvertime) tady nevadí, že ten den už je naplánovaná R/N směna.
-            let slidingShiftDays = {
-                'A': new Map(),
-                'B': new Map(),
-                'C': new Map(),
-                'D': new Map()
-            };
+            let slidingShiftDays = newGroupMaps();
 
             // Ruční přehození směny (výměna s kolegou apod.) - přepíše, co by pro daný den
             // jinak vypočítal rotační cyklus. Hodnota 'R'/'N'/'-'/'D'/'NV' se aplikuje přímo v generateShifts,
             // takže se automaticky promítne úplně všude (kalendář, statistiky, mzda, roční přehled).
-            let shiftOverrides = {
-                'A': new Map(),
-                'B': new Map(),
-                'C': new Map(),
-                'D': new Map()
-            };
+            let shiftOverrides = newGroupMaps();
 
-            // Zaměstnavatelský profil mzdové kalkulačky - firma1 = Progres (dřívější), firma2 = Bona (aktuální).
-            // V ostatních komentářích níže se dřívější názvy "Firma 1" / "Firma 2" týkají právě těchto dvou.
+            // Aktivní firma (zaměstnavatel) - její id; zároveň profil mzdové kalkulačky.
+            // firma1 = Progres (dřívější), firma2 = Bona (aktuální). V ostatních komentářích níže
+            // se dřívější názvy "Firma 1" / "Firma 2" týkají právě těchto dvou.
             let employerProfile = 'firma2';
             const EMPLOYER_DEFAULTS = {
                 firma1: {
@@ -1649,19 +1833,7 @@
             // Seznam státních svátků bude generován dynamicky
             let HOLIDAYS = [];
 
-            // Referenční bod pro výpočet cyklu směn
-            const SHIFT_CYCLE_REFERENCE_DATE = new Date('2025-01-01'); // Středa
-            // 1.1.2025 je pro směnu A první noční (N1), což je 9. den cyklu (R1-3, V1-3, N1-3, V4-6)
-            // Cyklus: 0,1,2 = R; 3,4,5 = -; 6,7,8 = N; 9,10,11 = -
-            // Chyba v logice, 1.1.2025 je pro A=N, ale podle starého kódu (start 4.1. A=R)
-            // 4.1.2025 (So) -> A=R (day 0)
-            // 3.1.2025 (Pá) -> A=V (day 11)
-            // 2.1.2025 (Čt) -> A=V (day 10)
-            // 1.1.2025 (St) -> A=V (day 9)
-            // Upravíme referenci: 4.1.2025 je den 0 pro cyklus A
-            const SHIFT_CYCLE_REFERENCE_DATE_A = new Date('2025-01-04');
-            const SHIFT_CYCLE_A_OFFSET = 0; // 4.1.2025 je den 0 (R1)
-
+            // Rozvrh směn už není pevný v kódu - viz "Firmy (zaměstnavatelé)" výše (legacyScheduleVersion)
 
             // --- NOVÉ FUNKCE PRO VÝPOČET DATA ---
 
@@ -1813,7 +1985,7 @@
                 exportContent.push(
                     'MZDOVÝ PŘEHLED:',
                     '--------------',
-                    `Zaměstnavatel: ${employerProfile === 'firma2' ? 'Bona (aktuální)' : 'Progres (dřívější)'}`,
+                    `Zaměstnavatel: ${firmLabel(getActiveFirm())}`,
                     `Základní hodinová mzda: ${baseWage} Kč`,
                     employerProfile === 'firma2'
                         ? `Příplatek za noční: ${nightBonus} Kč/hod (celá směna 18:00-6:00)`
@@ -1996,7 +2168,7 @@
 
             function loadVacationSettings() {
                 try {
-                    const data = JSON.parse(localStorage.getItem('vacationSettings') || 'null');
+                    const data = JSON.parse(localStorage.getItem(dataStorageKey('vacationSettings')) || 'null');
                     if (!data || typeof data !== 'object') return;
                     const entitlement = parseFloat(data.entitlement);
                     vacationSettings = {
@@ -2010,7 +2182,7 @@
             }
 
             function saveVacationSettingsData() {
-                localStorage.setItem('vacationSettings', JSON.stringify(vacationSettings));
+                localStorage.setItem(dataStorageKey('vacationSettings'), JSON.stringify(vacationSettings));
             }
 
             function formatVacationAmount(value, unit) {
@@ -3432,28 +3604,9 @@
              * Dynamicky generuje směny pro celý zadaný rok
              */
             // Směna daného dne čistě podle rotace (bez ručních změn)
+            // Rozvrh bere z aktivní firmy: verze platná pro den + cyklus a první den cyklu skupiny
             function getRotationShift(date, shiftType) {
-                const cycleLength = 12;
-                const msPerDay = 1000 * 60 * 60 * 24;
-                const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                const diffInDays = Math.round((day - SHIFT_CYCLE_REFERENCE_DATE_A) / msPerDay);
-
-                // Vypočet dne v cyklu pro směnu A
-                const dayInCycleA = (((diffInDays % cycleLength) + cycleLength) + SHIFT_CYCLE_A_OFFSET) % cycleLength;
-
-                let dayInCycle;
-                switch(shiftType) {
-                    case 'A': dayInCycle = dayInCycleA; break;
-                    case 'B': dayInCycle = (dayInCycleA + 9) % cycleLength; break; // posun o -3 dny (resp. +9)
-                    case 'C': dayInCycle = (dayInCycleA + 3) % cycleLength; break; // posun o -9 dnů (resp. +3)
-                    case 'D': dayInCycle = (dayInCycleA + 6) % cycleLength; break; // posun o -6 dnů (resp. +6)
-                }
-
-                // Cyklus: 0,1,2 = R; 3,4,5 = -; 6,7,8 = N; 9,10,11 = -
-                if (dayInCycle < 3) return 'R';
-                if (dayInCycle < 6) return '-';
-                if (dayInCycle < 9) return 'N';
-                return '-';
+                return getCycleShift(getScheduleVersion(getActiveFirm(), date), shiftType, date);
             }
 
             // Skutečná směna dne - ruční změna má přednost před rotací
@@ -4146,7 +4299,7 @@
                 employerProfile = profile;
                 document.getElementById('employerProfile').value = profile;
 
-                const defaults = EMPLOYER_DEFAULTS[profile];
+                const defaults = EMPLOYER_DEFAULTS[profile] || EMPLOYER_DEFAULTS.firma1;
                 let saved = null;
                 try {
                     saved = JSON.parse(localStorage.getItem(`calculatorSettings_${profile}`) || 'null');
@@ -4196,28 +4349,20 @@
                 }
             }
 
-            // Upravit funkci initCalendar
-            function initCalendar() {
-                loadOvertimeData();
-                loadMultiMachineData();
-                loadSlidingShiftData();
-                loadShiftOverrides();
-                loadNotesData();
-                loadYearlyNotes();
-                loadVacationSettings();
+            // Naplní výběr zaměstnavatele v mzdové kalkulačce firmami
+            function renderEmployerSelect() {
+                const select = document.getElementById('employerProfile');
+                select.innerHTML = '';
+                firms.forEach(firm => {
+                    const option = document.createElement('option');
+                    option.value = firm.id;
+                    option.textContent = firmLabel(firm);
+                    select.appendChild(option);
+                });
+            }
 
-                migrateLegacyCalculatorSettings();
-                loadTaxSettings();
-                const savedProfile = localStorage.getItem('employerProfile');
-                applyEmployerProfile(savedProfile === 'firma1' ? 'firma1' : 'firma2');
-
-                // --- PŘIDANÝ KÓD PRO NAČTENÍ SMĚNY ---
-                const savedShift = localStorage.getItem('currentShift');
-                if (savedShift && ['A', 'B', 'C', 'D'].includes(savedShift)) {
-                    currentShift = savedShift;
-                }
-                
-                // Aktualizace aktivního tlačítka směny
+            // Zvýrazní tlačítko zvolené skupiny nahoře
+            function syncShiftButtons() {
                 document.querySelectorAll('.shift-btn').forEach(btn => {
                     if (btn.dataset.shift === currentShift) {
                         btn.classList.add('active');
@@ -4225,8 +4370,48 @@
                         btn.classList.remove('active');
                     }
                 });
-                // --- KONEC PŘIDANÉHO KÓDU ---
-                
+            }
+
+            // Načte data aktivní firmy (přesčasy, vícestroj, klouzáky, ruční změny směn, dovolená,
+            // zvolená skupina). Nejdřív vše vyprázdní - firma bez uložených dat nesmí zdědit data
+            // předchozí firmy. Poznámky ke dnům a každoroční záznamy jsou společné všem firmám.
+            function loadFirmData() {
+                overtimeDays = newGroupMaps();
+                multiMachineDays = newGroupMaps();
+                slidingShiftDays = newGroupMaps();
+                shiftOverrides = newGroupMaps();
+                vacationSettings = { unit: 'hours', entitlement: 187.5, carryOver: {} };
+
+                loadOvertimeData();
+                loadMultiMachineData();
+                loadSlidingShiftData();
+                loadShiftOverrides();
+                loadVacationSettings();
+
+                const groupIds = getGroupIds();
+                const savedShift = localStorage.getItem(dataStorageKey('currentShift'));
+                currentShift = groupIds.includes(savedShift) ? savedShift : groupIds[0];
+            }
+
+            // Upravit funkci initCalendar
+            function initCalendar() {
+                // Firmy a aktivní firma určují, odkud se čtou data a jaký platí rozvrh
+                loadFirms();
+                const savedProfile = localStorage.getItem('employerProfile');
+                employerProfile = getFirm(savedProfile) ? savedProfile : firms[0].id;
+                renderEmployerSelect();
+
+                loadFirmData();
+                loadNotesData();
+                loadYearlyNotes();
+
+                migrateLegacyCalculatorSettings();
+                loadTaxSettings();
+                applyEmployerProfile(employerProfile);
+
+                // Aktualizace aktivního tlačítka směny
+                syncShiftButtons();
+
                 // Nastavení aktuálního data
                 const today = new Date();
                 currentYear = today.getFullYear();
@@ -4269,7 +4454,7 @@
                     document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
                     currentShift = this.dataset.shift;
-                    localStorage.setItem('currentShift', currentShift); // <-- ULOŽENÍ SMĚNY
+                    localStorage.setItem(dataStorageKey('currentShift'), currentShift); // <-- ULOŽENÍ SMĚNY
                     renderCurrentView();
                 });
             });
@@ -4464,22 +4649,17 @@
                 for (let shift in overtimeDays) {
                     dataToSave[shift] = Array.from(overtimeDays[shift]);
                 }
-                localStorage.setItem('overtimeDays', JSON.stringify(dataToSave));
+                localStorage.setItem(dataStorageKey('overtimeDays'), JSON.stringify(dataToSave));
             }
 
                        // Opravená funkce pro načítání dat
             function loadOvertimeData() {
                 try {
-                    const saved = localStorage.getItem('overtimeDays');
+                    const saved = localStorage.getItem(dataStorageKey('overtimeDays'));
                     if (saved) {
                         const data = JSON.parse(saved);
                         // Resetovat všechny mapy
-                        overtimeDays = {
-                            'A': new Map(),
-                            'B': new Map(),
-                            'C': new Map(),
-                            'D': new Map()
-                        };
+                        overtimeDays = newGroupMaps();
 
                         // Pokud jsou stará data v nekompatibilním formátu, přeskočíme je
                         if (!data || typeof data !== 'object') {
@@ -4505,12 +4685,7 @@
                 } catch (e) {
                     console.error('Chyba při načítání dat přesčasů:', e);
                     // V případě chyby resetujeme do výchozího stavu
-                    overtimeDays = {
-                        'A': new Map(),
-                        'B': new Map(),
-                        'C': new Map(),
-                        'D': new Map()
-                    };
+                    overtimeDays = newGroupMaps();
                 }
             }
 
@@ -4520,20 +4695,15 @@
                 for (let shift in multiMachineDays) {
                     dataToSave[shift] = Array.from(multiMachineDays[shift]);
                 }
-                localStorage.setItem('multiMachineDays', JSON.stringify(dataToSave));
+                localStorage.setItem(dataStorageKey('multiMachineDays'), JSON.stringify(dataToSave));
             }
 
             function loadMultiMachineData() {
                 try {
-                    const saved = localStorage.getItem('multiMachineDays');
+                    const saved = localStorage.getItem(dataStorageKey('multiMachineDays'));
                     if (saved) {
                         const data = JSON.parse(saved);
-                        multiMachineDays = {
-                            'A': new Map(),
-                            'B': new Map(),
-                            'C': new Map(),
-                            'D': new Map()
-                        };
+                        multiMachineDays = newGroupMaps();
                         if (!data || typeof data !== 'object') return;
                         for (let shift in data) {
                             if (multiMachineDays.hasOwnProperty(shift) && Array.isArray(data[shift])) {
@@ -4547,12 +4717,7 @@
                     }
                 } catch (e) {
                     console.error('Chyba při načítání dat vícestrojové obsluhy:', e);
-                    multiMachineDays = {
-                        'A': new Map(),
-                        'B': new Map(),
-                        'C': new Map(),
-                        'D': new Map()
-                    };
+                    multiMachineDays = newGroupMaps();
                 }
             }
 
@@ -4562,20 +4727,15 @@
                 for (let shift in slidingShiftDays) {
                     dataToSave[shift] = Array.from(slidingShiftDays[shift]);
                 }
-                localStorage.setItem('slidingShiftDays', JSON.stringify(dataToSave));
+                localStorage.setItem(dataStorageKey('slidingShiftDays'), JSON.stringify(dataToSave));
             }
 
             function loadSlidingShiftData() {
                 try {
-                    const saved = localStorage.getItem('slidingShiftDays');
+                    const saved = localStorage.getItem(dataStorageKey('slidingShiftDays'));
                     if (saved) {
                         const data = JSON.parse(saved);
-                        slidingShiftDays = {
-                            'A': new Map(),
-                            'B': new Map(),
-                            'C': new Map(),
-                            'D': new Map()
-                        };
+                        slidingShiftDays = newGroupMaps();
                         if (!data || typeof data !== 'object') return;
                         for (let shift in data) {
                             if (slidingShiftDays.hasOwnProperty(shift) && Array.isArray(data[shift])) {
@@ -4589,12 +4749,7 @@
                     }
                 } catch (e) {
                     console.error('Chyba při načítání dat klouzavých směn:', e);
-                    slidingShiftDays = {
-                        'A': new Map(),
-                        'B': new Map(),
-                        'C': new Map(),
-                        'D': new Map()
-                    };
+                    slidingShiftDays = newGroupMaps();
                 }
             }
 
@@ -4604,20 +4759,15 @@
                 for (let shift in shiftOverrides) {
                     dataToSave[shift] = Array.from(shiftOverrides[shift]);
                 }
-                localStorage.setItem('shiftOverrides', JSON.stringify(dataToSave));
+                localStorage.setItem(dataStorageKey('shiftOverrides'), JSON.stringify(dataToSave));
             }
 
             function loadShiftOverrides() {
                 try {
-                    const saved = localStorage.getItem('shiftOverrides');
+                    const saved = localStorage.getItem(dataStorageKey('shiftOverrides'));
                     if (saved) {
                         const data = JSON.parse(saved);
-                        shiftOverrides = {
-                            'A': new Map(),
-                            'B': new Map(),
-                            'C': new Map(),
-                            'D': new Map()
-                        };
+                        shiftOverrides = newGroupMaps();
                         if (!data || typeof data !== 'object') return;
                         for (let shift in data) {
                             if (shiftOverrides.hasOwnProperty(shift) && Array.isArray(data[shift])) {
@@ -4631,12 +4781,7 @@
                     }
                 } catch (e) {
                     console.error('Chyba při načítání přehozených směn:', e);
-                    shiftOverrides = {
-                        'A': new Map(),
-                        'B': new Map(),
-                        'C': new Map(),
-                        'D': new Map()
-                    };
+                    shiftOverrides = newGroupMaps();
                 }
             }
 
@@ -5011,8 +5156,70 @@
             const BACKUP_KEYS = [
                 'overtimeDays', 'multiMachineDays', 'slidingShiftDays', 'shiftOverrides', 'notes', 'yearlyNotes',
                 'calculatorSettings_firma1', 'calculatorSettings_firma2',
-                'taxSettings', 'employerProfile', 'currentShift', 'vacationSettings'
+                'taxSettings', 'employerProfile', 'currentShift', 'vacationSettings',
+                FIRMS_KEY
             ];
+
+            // Klíče, které vznikají po firmách: data firmy s vlastním dataKey (základ + "__" + dataKey)
+            // a mzdové nastavení firem (calculatorSettings_<id firmy>)
+            const FIRM_DATA_KEY_PATTERN = /^(overtimeDays|multiMachineDays|slidingShiftDays|shiftOverrides|currentShift|vacationSettings)__[A-Za-z0-9_-]+$/;
+            const FIRM_WAGE_KEY_PATTERN = /^calculatorSettings_[A-Za-z0-9_-]+$/;
+            const LEGACY_WAGE_KEYS = ['calculatorSettings_firma1', 'calculatorSettings_firma2'];
+
+            function listStorageKeys() {
+                const keys = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key !== null) keys.push(key);
+                }
+                return keys;
+            }
+
+            function isFirmBackupKey(key) {
+                return FIRM_DATA_KEY_PATTERN.test(key) || FIRM_WAGE_KEY_PATTERN.test(key);
+            }
+
+            // Všechny klíče, které patří do zálohy: pevný seznam + klíče firem
+            function collectBackupKeys() {
+                const keys = BACKUP_KEYS.slice();
+                listStorageKeys().forEach(key => {
+                    if (isFirmBackupKey(key) && !keys.includes(key)) keys.push(key);
+                });
+                return keys;
+            }
+
+            // Obsah zálohy (verze 2 přidává firmy a jejich data; verzi 1 jde dál obnovit)
+            function buildBackup() {
+                const data = {};
+                collectBackupKeys().forEach(key => {
+                    const value = localStorage.getItem(key);
+                    if (value !== null) data[key] = value;
+                });
+                return {
+                    app: 'progres-smeny',
+                    version: 2,
+                    exportedAt: new Date().toISOString(),
+                    data
+                };
+            }
+
+            // Obnoví data ze zálohy (bez dotazů a bez znovunačtení stránky).
+            // Nejdřív odstraní firmy a jejich data (kromě původních klíčů Progresu a Bony), ať po
+            // obnově nezůstanou sirotčí záznamy. Záloha bez firem (verze 1) tak vrátí výchozí firmy.
+            function applyBackup(backup) {
+                listStorageKeys().forEach(key => {
+                    const isFirmKey = FIRM_DATA_KEY_PATTERN.test(key)
+                        || (FIRM_WAGE_KEY_PATTERN.test(key) && !LEGACY_WAGE_KEYS.includes(key));
+                    if (isFirmKey || key === FIRMS_KEY) localStorage.removeItem(key);
+                });
+                const keys = BACKUP_KEYS.concat(Object.keys(backup.data).filter(isFirmBackupKey));
+                keys.forEach(key => {
+                    // localStorage drží jen texty - cokoliv jiného by se uložilo jako "[object Object]"
+                    if (typeof backup.data[key] === 'string') {
+                        localStorage.setItem(key, backup.data[key]);
+                    }
+                });
+            }
 
             function showBackupModal() {
                 document.getElementById('backupModal').style.display = 'flex';
@@ -5024,18 +5231,7 @@
             }
 
             function exportBackup() {
-                const data = {};
-                BACKUP_KEYS.forEach(key => {
-                    const value = localStorage.getItem(key);
-                    if (value !== null) data[key] = value;
-                });
-
-                const backup = {
-                    app: 'progres-smeny',
-                    version: 1,
-                    exportedAt: new Date().toISOString(),
-                    data
-                };
+                const backup = buildBackup();
 
                 const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
                 const url = window.URL.createObjectURL(blob);
@@ -5069,16 +5265,11 @@
                     }
 
                     showConfirm(
-                        'Opravdu chcete obnovit data ze zálohy? Přepíše to aktuální přesčasy, vícestrojovou ' +
+                        'Opravdu chcete obnovit data ze zálohy? Přepíše to aktuální firmy, přesčasy, vícestrojovou ' +
                         'obsluhu, klouzáky, přehozené směny, poznámky u dnů a nastavení mzdové ' +
-                        'kalkulačky pro obě firmy v tomto prohlížeči.',
+                        'kalkulačky pro všechny firmy v tomto prohlížeči.',
                         () => {
-                            BACKUP_KEYS.forEach(key => {
-                                // localStorage drží jen texty - cokoliv jiného by se uložilo jako "[object Object]"
-                                if (typeof backup.data[key] === 'string') {
-                                    localStorage.setItem(key, backup.data[key]);
-                                }
-                            });
+                            applyBackup(backup);
                             closeBackupModal();
                             showNotification('Data byla obnovena, stránka se znovu načte...');
                             setTimeout(() => location.reload(), 1000);
@@ -5129,7 +5320,7 @@
 
                 document.getElementById('yearlyWageYear').textContent = currentYear;
                 document.getElementById('yearlyWageShift').textContent = currentShift;
-                document.getElementById('yearlyWageProfileName').textContent = settings.profile === 'firma2' ? 'Bona' : 'Progres';
+                document.getElementById('yearlyWageProfileName').textContent = (getFirm(settings.profile) || getActiveFirm()).name;
 
                 let rowsHtml = '';
                 rows.forEach(({ month, w }) => {
@@ -5189,6 +5380,9 @@
                 // Přepínač zaměstnavatele - přepne profil a přepočítá mzdu
                 document.getElementById('employerProfile').addEventListener('change', function() {
                     applyEmployerProfile(this.value);
+                    // Firma může mít vlastní data a skupiny (Progres a Bona sdílejí původní klíče)
+                    loadFirmData();
+                    syncShiftButtons();
                     renderCurrentView();
                     if (document.getElementById('wageCalculatorModal').style.display === 'flex') {
                         calculateWages();
