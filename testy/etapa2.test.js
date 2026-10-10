@@ -112,8 +112,6 @@ test('přidání firmy: vlastní klíč dat, obecná pravidla, kopie převezme p
     assert.equal(app.storage.getItem(`calculatorSettings_${copy}`), app.storage.getItem('calculatorSettings_firma2'));
     assert.equal(app.run(`createFirm('   ', null)`), null);
 });
-    assert.ok(again.run(`!!getFirm('${id}')`) || true);
-});
 
 test('smazání firmy odstraní její data a nastavení, Progres a Bonu nejde smazat', () => {
     const app = createApp();
