@@ -181,7 +181,19 @@
             margin-bottom: 10px;
         }
 
-        .sched-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Okna Firmy a Rozvrh: výška podle skutečně viditelné plochy (dvh), ať je dole vidět poslední tlačítko
+           i s lištou prohlížeče na telefonu; okno Firmy má dole rezervu a jde v něm rolovat */
+        #firmsModal .modal-content, #scheduleModal .modal-content {
+            max-height: calc(100vh - 24px) !important;
+            max-height: calc(100dvh - 24px) !important;
+            box-sizing: border-box;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+        #firmsModal .modal-content { overflow-y: auto; padding-bottom: 80px; }
+        #firmsModal, #scheduleModal { align-items: flex-start; padding-top: 12px; box-sizing: border-box; }
+
+                .sched-chips { display: flex; flex-wrap: wrap; gap: 6px; }
         .sched-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
         .sched-row select { flex: 1 1 auto; min-width: 0; }
         .sched-row input[type=number] { width: 64px; text-align: center; }
