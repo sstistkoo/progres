@@ -104,7 +104,7 @@ test('mzdy Progres i Bona jsou shodné s původním kódem (120 měsíců)', () 
 test('první spuštění vytvoří Bonu a Progres a nic nepřesune', () => {
     const app = createApp();
     const stored = JSON.parse(app.storage.getItem('firms'));
-    assert.equal(stored.version, 1);
+    assert.equal(stored.version, 2);
     assert.deepEqual(stored.firms.map(f => [f.id, f.name, f.note, f.dataKey]), [
         ['firma2', 'Bona', 'aktuální', ''],
         ['firma1', 'Progres', 'dřívější', '']

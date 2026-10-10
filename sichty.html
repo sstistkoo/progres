@@ -157,6 +157,34 @@
             gap: 10px;
         }
 
+        .top-firm-select {
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--card-background);
+            color: var(--text-color);
+            font-size: 0.95em;
+            max-width: 100%;
+        }
+
+        .firm-row {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .firm-row .input-field {
+            margin-bottom: 8px;
+        }
+
+        .firm-row label.check {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0;
+        }
+
         .shift-btn {
             padding: 8px 16px;
             border: none;
@@ -775,7 +803,8 @@
             }
         }
 
-        .firma2-only.hidden {
+        .rules-extras.hidden,
+        .rules-multi.hidden {
             display: none;
         }
 
@@ -968,12 +997,8 @@
     <div class="top-controls">
         <!-- ODSTRANĚNO: Tlačítko pro přepínání motivu -->
         <!-- Volba směny PŘESUNUTA SEM -->
-        <div class="shift-select">
-            <button class="shift-btn active" data-shift="A">Směna A</button>
-            <button class="shift-btn" data-shift="B">Směna B</button>
-            <button class="shift-btn" data-shift="C">Směna C</button>
-            <button class="shift-btn" data-shift="D">Směna D</button>
-        </div>
+        <select id="topFirmSelect" class="top-firm-select" aria-label="Firma"></select>
+        <div class="shift-select" id="shiftSelect"></div>
     </div>
 
     <div class="main-content">
@@ -1029,6 +1054,7 @@
                 <div class="settings-menu" id="settingsMenu">
                     <button onclick="closeSettingsMenu(); exportCalendar()"><i class="fas fa-download"></i> Export měsíce</button>
                     <button onclick="closeSettingsMenu(); window.print()"><i class="fas fa-print"></i> Tisk</button>
+                    <button onclick="closeSettingsMenu(); showFirmsModal()"><i class="fas fa-building"></i> Firmy</button>
                     <button onclick="closeSettingsMenu(); showVacationModal()"><i class="fas fa-umbrella-beach"></i> Dovolená</button>
                     <button onclick="closeSettingsMenu(); showBackupModal()"><i class="fas fa-database"></i> Záloha dat</button>
                     <button onclick="closeSettingsMenu(); showGcalImportModal()"><i class="fas fa-calendar-check"></i> Import z Google Kalendáře</button>
@@ -1224,6 +1250,32 @@
         </div>
 
         <!-- Modální okno pro zálohu / obnovu dat -->
+        <!-- Firmy (zaměstnavatelé): přidání, kopie, název, mzdová pravidla -->
+        <div id="firmsModal" class="modal">
+            <div class="modal-content" style="max-width: 440px; max-height: 90vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2>Firmy</h2>
+                    <button class="action-btn secondary" onclick="closeFirmsModal()" style="padding: 5px 10px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="firmsList"></div>
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid var(--border-color);">
+                <h3 style="margin-bottom: 8px;">Přidat firmu</h3>
+                <div class="input-field">
+                    <label for="newFirmName">Název</label>
+                    <input type="text" id="newFirmName" maxlength="40" placeholder="např. Škoda">
+                </div>
+                <div class="input-field">
+                    <label for="newFirmCopy">Převzít nastavení z</label>
+                    <select id="newFirmCopy"></select>
+                </div>
+                <button class="action-btn" onclick="addFirmFromForm()" style="width: 100%;">
+                    <i class="fas fa-plus"></i> Přidat firmu
+                </button>
+            </div>
+        </div>
+
         <div id="backupModal" class="modal">
             <div class="modal-content" style="max-width: 400px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -1323,7 +1375,7 @@
                             <label>Tarifní / hodinová mzda (Kč/hod)</label>
                             <input type="number" id="baseWage" value="150" min="0" step="0.01">
                         </div>
-                        <div class="input-field firma2-only">
+                        <div class="input-field rules-extras">
                             <label>Osobní ohodnocení (Kč/hod)</label>
                             <input type="number" id="personalRating" value="5" min="0" step="0.01">
                         </div>
@@ -1343,11 +1395,11 @@
                             <label>Příplatek za přesčas (%)</label>
                             <input type="number" id="overtimeBonus" value="25" min="0" step="1">
                         </div>
-                        <div class="input-field firma2-only">
+                        <div class="input-field rules-extras">
                             <label>Měsíční prémie (Kč)</label>
                             <input type="number" id="monthlyBonus" value="2900" min="0" step="1">
                         </div>
-                        <div class="input-field firma2-only">
+                        <div class="input-field rules-extras">
                             <label>Motivační bonus (Kč)</label>
                             <input type="number" id="motivationBonus" value="3000" min="0" step="1">
                         </div>
@@ -1401,7 +1453,7 @@
                                 <strong>Přesčasové noční:</strong>
                                 <span id="overtimeNCount">0</span>
                             </div>
-                            <div class="firma2-only">
+                            <div class="rules-extras">
                                 <strong>Vícestrojová obsluha:</strong>
                                 <span id="multiMachineCount">0</span> dní (<span id="multiMachineHoursSummary">0</span> h)
                                 <button class="action-btn secondary" onclick="clearMultiMachine()" style="padding: 2px 8px; font-size: 0.8em; margin-left: 5px;">Vymazat</button>
@@ -1519,7 +1571,7 @@
                     </div>
                 </details>
 
-                <details id="multiMachineSection" class="firma2-only" style="margin-bottom: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                <details id="multiMachineSection" class="rules-multi" style="margin-bottom: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
                     <summary class="collapsible-summary">Vícestrojová obsluha</summary>
                     <div class="time-row">
                         <label>Příplatek (20–50 %)<input type="number" id="multiMachinePercent" value="30" min="20" max="50" step="5"></label>
@@ -1598,10 +1650,12 @@
             //     schedule: [ { from: null | 'RRRR-MM-DD',
             //                   types:  { R: { label, short, from, to, breakFrom, breakMin, paidHours }, ... },
             //                   cycle:  [ 'R', 'R', 'R', '-', ... ],
-            //                   groups: [ { id: 'A', name: 'A', start: 'RRRR-MM-DD' }, ... ] } ] }
+            //                   groups: [ { id: 'A', name: 'A', start: 'RRRR-MM-DD' }, ... ] } ],
+            //     wage:     [ { from: null | 'RRRR-MM-DD', rules: { ... viz defaultWageRules } } ] }
             // dataKey: prázdný = původní klíče localStorage (Progres a Bona sdílejí stávající data),
             // jinak se k názvům klíčů dat přidá "__" + dataKey (viz dataStorageKey).
-            const FIRM_MODEL_VERSION = 1;
+            // Verze modelu: 1 = rozvrh, 2 = přibyla mzdová pravidla (wage) převedená z calculatorSettings_*.
+            const FIRM_MODEL_VERSION = 2;
             const FIRMS_KEY = 'firms';
             const DEFAULT_GROUP_IDS = ['A', 'B', 'C', 'D'];
             let firms = null;
@@ -1626,12 +1680,103 @@
                 };
             }
 
+            // --- Mzdová pravidla firmy ---
+            // Rozdíly mezi firmami (dřív pevně "firma2") jsou pravidla uložená u firmy. Čísla (tarif,
+            // procenta, Kč) zůstávají v nastavení kalkulačky calculatorSettings_<id>; tady je to, JAK se počítá:
+            //   nightMode   'percent' = příplatek v % z tarifu, 'flat' = paušál Kč/hod
+            //   nightFrom, nightTo  noční okno, za které se příplatek platí (22:00-06:00, 18:00-06:00)
+            //   holidayBase 'base' = příplatek za svátek z tarifu, 'average' = z průměrného výdělku
+            //   holidayShiftOvertime  směna ve svátek je navíc nad měsíční fond (platí se i příplatek za přesčas)
+            //   multiMachine  zapíná vícestrojovou obsluhu
+            //   extras      osobní ohodnocení a pevné měsíční prémie
+            const WAGE_NIGHT_MODES = ['percent', 'flat'];
+            const WAGE_HOLIDAY_BASES = ['base', 'average'];
+
+            // Obecná firma: procentní příplatky z tarifu, jako Progres
+            function defaultWageRules() {
+                return {
+                    nightMode: 'percent', nightFrom: '22:00', nightTo: '06:00',
+                    holidayBase: 'base', holidayShiftOvertime: false, multiMachine: false, extras: false
+                };
+            }
+
+            // Ověří pravidla; neplatná pole nahradí hodnotami z base (výchozí = obecná firma)
+            function normalizeWageRules(raw, base) {
+                const rules = Object.assign({}, base || defaultWageRules());
+                if (!raw || typeof raw !== 'object') return rules;
+                if (WAGE_NIGHT_MODES.includes(raw.nightMode)) rules.nightMode = raw.nightMode;
+                if (WAGE_HOLIDAY_BASES.includes(raw.holidayBase)) rules.holidayBase = raw.holidayBase;
+                if (/^([01]\d|2[0-3]):[0-5]\d$/.test(raw.nightFrom)) rules.nightFrom = raw.nightFrom;
+                if (/^([01]\d|2[0-3]):[0-5]\d$/.test(raw.nightTo)) rules.nightTo = raw.nightTo;
+                ['holidayShiftOvertime', 'multiMachine', 'extras'].forEach(key => {
+                    if (typeof raw[key] === 'boolean') rules[key] = raw[key];
+                });
+                return rules;
+            }
+
+            // Pravidla dnešního Progresu a Bony (přesně to, co bylo dřív zadrátované podle profilu)
+            function legacyWageRules(id) {
+                if (id === 'firma2') {
+                    return normalizeWageRules({
+                        nightMode: 'flat', nightFrom: '18:00', nightTo: '06:00',
+                        holidayBase: 'average', holidayShiftOvertime: true, multiMachine: true, extras: true
+                    });
+                }
+                return defaultWageRules();
+            }
+
+            function legacyWageVersion(id) {
+                return { from: null, rules: legacyWageRules(id) };
+            }
+
+            // Verze mzdových pravidel platná pro den (nejstarší platí i zpětně)
+            function getWageVersion(firm, date) {
+                const key = toDateKey(date);
+                let chosen = firm.wage[0];
+                for (const version of firm.wage) {
+                    if (version.from === null || version.from <= key) chosen = version;
+                    else break;
+                }
+                return chosen;
+            }
+
+            // Pravidla pro výpočet: z nastavení (settings.profile = id firmy) a data
+            function getWageRules(profile, date) {
+                const firm = getFirm(profile);
+                if (!firm) return legacyWageRules(profile);
+                return getWageVersion(firm, date).rules;
+            }
+
+            // Pravidla aktivní firmy pro zobrazený měsíc (nastavení, zobrazení)
+            function activeWageRules() {
+                return getWageRules(employerProfile, new Date(currentYear, currentMonth, 1));
+            }
+
+            // Text nočního okna: "22:00-6:00"
+            function nightWindowText(rules) {
+                return rules.nightFrom.replace(/^0/, '') + '-' + rules.nightTo.replace(/^0/, '');
+            }
+
+            // Minuty od půlnoci z "HH:MM"
+            function timeToMinutes(text) {
+                const [h, m] = text.split(':').map(Number);
+                return h * 60 + m;
+            }
+
+            // Noční okno pravidel: začátek a konec v minutách od půlnoci dne začátku (konec je až další den)
+            function nightWindowMinutes(rules) {
+                const start = timeToMinutes(rules.nightFrom);
+                let end = timeToMinutes(rules.nightTo);
+                if (end <= start) end += 1440;
+                return { start, end };
+            }
+
             // Pořadí jako dosud ve výběru zaměstnavatele: Bona (aktuální), Progres (dřívější).
             // Obě firmy mají prázdný dataKey - přesčasy, klouzáky apod. zůstávají na původních klíčích.
             function defaultFirms() {
                 return [
-                    { id: 'firma2', name: 'Bona', note: 'aktuální', dataKey: '', schedule: [legacyScheduleVersion()] },
-                    { id: 'firma1', name: 'Progres', note: 'dřívější', dataKey: '', schedule: [legacyScheduleVersion()] }
+                    { id: 'firma2', name: 'Bona', note: 'aktuální', dataKey: '', schedule: [legacyScheduleVersion()], wage: [legacyWageVersion('firma2')] },
+                    { id: 'firma1', name: 'Progres', note: 'dřívější', dataKey: '', schedule: [legacyScheduleVersion()], wage: [legacyWageVersion('firma1')] }
                 ];
             }
 
@@ -1666,18 +1811,32 @@
                     });
                 }
                 // Nejstarší verze (bez data) první, ostatní podle data
-                schedule.sort((a, b) => {
+                const byFrom = (a, b) => {
                     const ka = a.from === null ? '' : a.from;
                     const kb = b.from === null ? '' : b.from;
                     return ka < kb ? -1 : (ka > kb ? 1 : 0);
-                });
+                };
+                schedule.sort(byFrom);
+
+                // Mzdová pravidla (od modelu verze 2); chybějící nebo prázdná = podle id firmy
+                let wage = [];
+                if (Array.isArray(raw.wage)) {
+                    for (const version of raw.wage) {
+                        if (!version || typeof version !== 'object') return null;
+                        if (version.from !== null && !isDateKey(version.from)) return null;
+                        wage.push({ from: version.from, rules: normalizeWageRules(version.rules) });
+                    }
+                }
+                if (wage.length === 0) wage = [legacyWageVersion(raw.id)];
+                wage.sort(byFrom);
 
                 return {
                     id: raw.id,
                     name: typeof raw.name === 'string' && raw.name ? raw.name : raw.id,
                     note: typeof raw.note === 'string' ? raw.note : '',
                     dataKey: raw.dataKey,
-                    schedule
+                    schedule,
+                    wage
                 };
             }
 
@@ -1987,8 +2146,8 @@
                     '--------------',
                     `Zaměstnavatel: ${firmLabel(getActiveFirm())}`,
                     `Základní hodinová mzda: ${baseWage} Kč`,
-                    employerProfile === 'firma2'
-                        ? `Příplatek za noční: ${nightBonus} Kč/hod (celá směna 18:00-6:00)`
+                    activeWageRules().nightMode === 'flat'
+                        ? `Příplatek za noční: ${nightBonus} Kč/hod (noční okno ${nightWindowText(activeWageRules())})`
                         : `Příplatek za noční: ${nightBonus}%`,
                     `Příplatek za víkend: ${weekendBonus}%`,
                     `Příplatek za svátek: ${holidayBonus}%`,
@@ -2116,13 +2275,15 @@
 
             // Hodiny přesčasu v nočním okně (22:00-6:00 pro Firmu 1, 18:00-6:00 pro Firmu 2).
             // Staré záznamy bez času: noční přesčas = celé hodiny, u okna 22-6 poměrem 7,5/11,5.
-            function getOvertimeNightHours(entry, windowStart) {
+            function getOvertimeNightHours(entry, windowStart, windowEnd = 1800) {
                 const hours = parseFloat(entry.hours) || 0;
                 if (typeof entry.start === 'number' && typeof entry.end === 'number' && entry.end > entry.start) {
-                    return hours * overlapMinutes([entry.start, entry.end], windowStart, 1800) / (entry.end - entry.start);
+                    return hours * overlapMinutes([entry.start, entry.end], windowStart, windowEnd) / (entry.end - entry.start);
                 }
                 if (entry.type !== 'N') return 0;
-                return windowStart === 1320 ? hours * (7.5 / 11.5) : hours;
+                // Okno 18-6 = celá noční směna (poměr 1), kratší okno poměrem placených hodin (22-6: 7,5/11,5)
+                const ratio = paidHoursFromMinutes(windowEnd - windowStart) / 11.5;
+                return hours * Math.min(1, ratio);
             }
 
             function describeOvertime(entry) {
@@ -2291,6 +2452,7 @@
             // Načte aktuální hodnoty z formuláře kalkulačky + aktivního zaměstnavatelského profilu
             function getWageSettings() {
                 const nightBonusRaw = parseFloat(document.getElementById('nightBonus').value) || 0;
+                const extras = activeWageRules().extras;
                 return {
                     profile: employerProfile,
                     baseWage: parseFloat(document.getElementById('baseWage').value) || 0,
@@ -2299,9 +2461,9 @@
                     weekendBonus: (parseFloat(document.getElementById('weekendBonus').value) || 0) / 100,
                     holidayBonus: (parseFloat(document.getElementById('holidayBonus').value) || 0) / 100,
                     overtimeBonus: (parseFloat(document.getElementById('overtimeBonus').value) || 0) / 100,
-                    personalRating: employerProfile === 'firma2' ? (parseFloat(document.getElementById('personalRating').value) || 0) : 0,
-                    monthlyBonus: employerProfile === 'firma2' ? (parseFloat(document.getElementById('monthlyBonus').value) || 0) : 0,
-                    motivationBonus: employerProfile === 'firma2' ? (parseFloat(document.getElementById('motivationBonus').value) || 0) : 0,
+                    personalRating: extras ? (parseFloat(document.getElementById('personalRating').value) || 0) : 0,
+                    monthlyBonus: extras ? (parseFloat(document.getElementById('monthlyBonus').value) || 0) : 0,
+                    motivationBonus: extras ? (parseFloat(document.getElementById('motivationBonus').value) || 0) : 0,
                     childCount: parseInt(document.getElementById('childCount').value) || 0,
                     disability: parseInt(document.getElementById('disability').value) || 0,
                     hasTaxDeclaration: document.getElementById('hasTaxDeclaration').checked,
@@ -2311,7 +2473,11 @@
 
             function computeWageBreakdown(settings, monthShifts, overtimeEntries, multiMachineEntries, slidingShiftEntries, holidaysList) {
                 const SHIFT_HOURS = 11.5;
-                const NIGHT_BONUS_HOURS = 7.5; // Firma 1: noční příplatek pouze za hodiny 22:00-6:00 mínus přestávka
+                // Pravidla firmy (noční okno, základ příplatku za svátek, vícestroj…) pro měsíc výpočtu
+                const rules = settings.rules || getWageRules(settings.profile, monthShifts.length ? monthShifts[0].date : new Date());
+                const nightWindow = nightWindowMinutes(rules);
+                // Placené hodiny jedné noční směny v nočním okně (22-6: 7,5 h, 18-6: 11,5 h)
+                const NIGHT_BONUS_HOURS = paidHoursFromMinutes(nightWindow.end - nightWindow.start);
 
                 const regularShifts = monthShifts.filter(s => s.shift === 'R');
                 const nightShifts = monthShifts.filter(s => s.shift === 'N');
@@ -2361,18 +2527,17 @@
                 // Noční hodiny přesčasu se berou podle skutečného času od-do (viz getOvertimeNightHours)
                 let nightWageWithOvertime;
                 let overtimeNightBonusHours;
-                if (settings.profile === 'firma2') {
-                    // Firma 2: paušál Kč/hod za CELOU noční dobu 18:00-6:00 (bez škálování na 7.5h okno)
-                    overtimeNightBonusHours = overtimeEntries.reduce((sum, [, data]) => sum + getOvertimeNightHours(data, 1080), 0);
-                    nightWageWithOvertime = settings.nightBonusFlat * (nightShifts.length * SHIFT_HOURS + overtimeNightBonusHours);
+                overtimeNightBonusHours = overtimeEntries.reduce((sum, [, data]) => sum + getOvertimeNightHours(data, nightWindow.start, nightWindow.end), 0);
+                if (rules.nightMode === 'flat') {
+                    // Paušál Kč/hod za hodiny v nočním okně (Bona: celá noční doba 18:00-6:00)
+                    nightWageWithOvertime = settings.nightBonusFlat * (nightShifts.length * NIGHT_BONUS_HOURS + overtimeNightBonusHours);
                 } else {
-                    // Firma 1: příplatek jen za hodiny 22:00-6:00
-                    overtimeNightBonusHours = overtimeEntries.reduce((sum, [, data]) => sum + getOvertimeNightHours(data, 1320), 0);
+                    // Příplatek v % z tarifu jen za hodiny v nočním okně (Progres: 22:00-6:00)
                     nightWageWithOvertime = baseWage * settings.nightBonus * (
                         nightShifts.length * NIGHT_BONUS_HOURS + overtimeNightBonusHours
                     );
                 }
-                const nightBonusHours = (settings.profile === 'firma2' ? SHIFT_HOURS : NIGHT_BONUS_HOURS) * nightShifts.length + overtimeNightBonusHours;
+                const nightBonusHours = NIGHT_BONUS_HOURS * nightShifts.length + overtimeNightBonusHours;
 
                 const weekendWageWithOvertime = baseWage * settings.weekendBonus * (weekendHours + weekendOvertimeHours);
 
@@ -2380,11 +2545,11 @@
                 // Platí se jím dovolená, nemoc a u Firmy 2 i příplatek za svátek.
                 const vacationRate = settings.vacationRate > 0 ? settings.vacationRate : baseWage + settings.personalRating;
                 // Firma 2: příplatek za svátek je % průměrného výdělku (§116 ZP), Firma 1 % z tarifu
-                const holidayRate = settings.profile === 'firma2' ? vacationRate : baseWage;
+                const holidayRate = rules.holidayBase === 'average' ? vacationRate : baseWage;
                 const holidayWageWithOvertime = holidayRate * settings.holidayBonus * (holidayHours + holidayOvertimeHours);
                 // Firma 2: směna ve svátek je navíc nad měsíční fond (svátek ho snižuje), takže se platí
                 // i příplatek za přesčas (výplatnice 9/2026: 161 h odpracováno + 11,5 h přesčas za 28. 9.)
-                const holidayShiftOvertimeHours = settings.profile === 'firma2' ? holidayHours : 0;
+                const holidayShiftOvertimeHours = rules.holidayShiftOvertime ? holidayHours : 0;
 
                 // Klouzavá směna ("klouzák") - den s už naplánovanou běžnou směnou, ale počítaný
                 // jako den navíc: hodiny se NEPŘIČÍTAJÍ do odpracovaných hodin (ty už dala běžná
@@ -2527,7 +2692,8 @@
                     }
                 }
 
-                if (settings.profile === 'firma2') {
+                const exportRules = settings.rules || getWageRules(settings.profile, new Date(currentYear, currentMonth, 1));
+                if (exportRules.extras) {
                     lines.push(
                         `Osobní ohodnocení: ${w.personalRatingWage.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč`,
                         `Měsíční prémie + motivační bonus: ${w.fixedBonusesWage.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč`,
@@ -4022,7 +4188,7 @@
                     ['dot', 'override', 'Změna směny']
                 ];
                 legendItems.forEach(([type, value, label]) => {
-                    if (value === 'multi' && employerProfile !== 'firma2') return;
+                    if (value === 'multi' && !activeWageRules().multiMachine) return;
                     const item = document.createElement('span');
                     const mark = document.createElement('span');
                     if (type === 'swatch') {
@@ -4238,7 +4404,7 @@
                     overtimeBonus: document.getElementById('overtimeBonus').value,
                     vacationRate: document.getElementById('vacationRate').value
                 };
-                if (employerProfile === 'firma2') {
+                if (activeWageRules().extras) {
                     profileSettings.personalRating = document.getElementById('personalRating').value;
                     profileSettings.monthlyBonus = document.getElementById('monthlyBonus').value;
                     profileSettings.motivationBonus = document.getElementById('motivationBonus').value;
@@ -4298,8 +4464,10 @@
             function applyEmployerProfile(profile) {
                 employerProfile = profile;
                 document.getElementById('employerProfile').value = profile;
+                document.getElementById('topFirmSelect').value = profile;
 
                 const defaults = EMPLOYER_DEFAULTS[profile] || EMPLOYER_DEFAULTS.firma1;
+                const rules = activeWageRules();
                 let saved = null;
                 try {
                     saved = JSON.parse(localStorage.getItem(`calculatorSettings_${profile}`) || 'null');
@@ -4323,14 +4491,17 @@
                 document.getElementById('overtimeBonus').value = settings.overtimeBonus;
                 document.getElementById('vacationRate').value = settings.vacationRate || '';
 
-                document.querySelectorAll('.firma2-only').forEach(el => {
-                    el.classList.toggle('hidden', profile !== 'firma2');
+                document.querySelectorAll('.rules-extras').forEach(el => {
+                    el.classList.toggle('hidden', !rules.extras);
+                });
+                document.querySelectorAll('.rules-multi').forEach(el => {
+                    el.classList.toggle('hidden', !rules.multiMachine);
                 });
 
-                if (profile === 'firma2') {
-                    document.getElementById('personalRating').value = settings.personalRating;
-                    document.getElementById('monthlyBonus').value = settings.monthlyBonus;
-                    document.getElementById('motivationBonus').value = settings.motivationBonus;
+                if (rules.extras) {
+                    document.getElementById('personalRating').value = settings.personalRating ?? 0;
+                    document.getElementById('monthlyBonus').value = settings.monthlyBonus ?? 0;
+                    document.getElementById('motivationBonus').value = settings.motivationBonus ?? 0;
                 }
 
                 updateNightBonusUI();
@@ -4340,24 +4511,293 @@
             function updateNightBonusUI() {
                 const label = document.getElementById('nightBonusLabel');
                 const info = document.getElementById('nightBonusWindowInfo');
-                if (employerProfile === 'firma2') {
+                const rules = activeWageRules();
+                const window = nightWindowMinutes(rules);
+                const hours = paidHoursFromMinutes(window.end - window.start);
+                if (rules.nightMode === 'flat') {
                     label.textContent = 'Příplatek za noční (Kč/hod)';
-                    info.textContent = 'Noční příplatek: celá směna 18:00-6:00, paušál Kč/hod';
+                    info.textContent = `Noční příplatek: ${hours === 11.5 ? 'celá směna ' : ''}${nightWindowText(rules)}, paušál Kč/hod`;
                 } else {
                     label.textContent = 'Příplatek za noční (%)';
-                    info.textContent = 'Noční příplatek: 7.5h (22:00-6:00)';
+                    info.textContent = `Noční příplatek: ${String(hours).replace(',', '.')}h (${nightWindowText(rules)})`;
                 }
             }
 
-            // Naplní výběr zaměstnavatele v mzdové kalkulačce firmami
+            // Naplní výběr zaměstnavatele (nahoře i v mzdové kalkulačce) firmami
             function renderEmployerSelect() {
-                const select = document.getElementById('employerProfile');
-                select.innerHTML = '';
+                ['employerProfile', 'topFirmSelect'].forEach(id => {
+                    const select = document.getElementById(id);
+                    select.innerHTML = '';
+                    firms.forEach(firm => {
+                        const option = document.createElement('option');
+                        option.value = firm.id;
+                        option.textContent = firmLabel(firm);
+                        select.appendChild(option);
+                    });
+                    select.value = employerProfile;
+                });
+            }
+
+            // Název skupiny podle rozvrhu aktivní firmy
+            function getGroupName(id) {
+                for (const version of getActiveFirm().schedule) {
+                    const group = version.groups.find(g => g.id === id);
+                    if (group) return group.name;
+                }
+                return id;
+            }
+
+            // Tlačítka skupin nahoře podle rozvrhu aktivní firmy
+            function renderGroupButtons() {
+                const box = document.getElementById('shiftSelect');
+                box.innerHTML = '';
+                getGroupIds().forEach(id => {
+                    const btn = document.createElement('button');
+                    btn.className = 'shift-btn' + (id === currentShift ? ' active' : '');
+                    btn.dataset.shift = id;
+                    btn.textContent = 'Směna ' + getGroupName(id);
+                    btn.addEventListener('click', function() {
+                        currentShift = id;
+                        localStorage.setItem(dataStorageKey('currentShift'), currentShift);
+                        syncShiftButtons();
+                        renderCurrentView();
+                    });
+                    box.appendChild(btn);
+                });
+            }
+
+            // Přepne aktivní firmu: kalendář, skupiny, data i mzdy jsou pak vždy jen její
+            function switchFirm(id) {
+                if (!getFirm(id)) return;
+                applyEmployerProfile(id);
+                loadFirmData();
+                renderGroupButtons();
+                renderCurrentView();
+                if (document.getElementById('wageCalculatorModal').style.display === 'flex') {
+                    calculateWages();
+                }
+            }
+
+            // --- Správa firem ---
+            function newFirmId() {
+                let id;
+                do {
+                    id = 'f_' + Math.random().toString(36).slice(2, 8);
+                } while (getFirm(id) || !/^f_[a-z0-9]{1,6}$/.test(id));
+                return id;
+            }
+
+            // Vytvoří firmu. copyFromId = převzít rozvrh, mzdová pravidla a čísla kalkulačky z jiné firmy
+            // (data - přesčasy, klouzáky... - se nekopírují, nová firma má vlastní).
+            function createFirm(name, copyFromId) {
+                const cleanName = String(name || '').trim().slice(0, 40);
+                if (!cleanName) return null;
+                const source = copyFromId ? getFirm(copyFromId) : null;
+                const base = source || getFirm('firma2') || firms[0];
+                const id = newFirmId();
+                const firm = sanitizeFirm({
+                    id, name: cleanName, note: '', dataKey: id,
+                    schedule: JSON.parse(JSON.stringify(base.schedule)),
+                    wage: source ? JSON.parse(JSON.stringify(source.wage)) : [{ from: null, rules: defaultWageRules() }]
+                });
+                if (!firm) return null;
+                firms.push(firm);
+                saveFirms();
+                if (source) {
+                    const numbers = localStorage.getItem(`calculatorSettings_${source.id}`);
+                    if (numbers !== null) {
+                        try { localStorage.setItem(`calculatorSettings_${id}`, numbers); } catch (e) {}
+                    }
+                }
+                return firm;
+            }
+
+            // Firmy s původními klíči dat (Progres, Bona) se nemažou - sdílejí stará data
+            function canDeleteFirm(firm) {
+                return firm.dataKey !== '' && firms.length > 1;
+            }
+
+            // Smaže firmu i její data a nastavení kalkulačky
+            function removeFirm(id) {
+                const firm = getFirm(id);
+                if (!firm || !canDeleteFirm(firm)) return false;
+                listStorageKeys().forEach(key => {
+                    if (key === `calculatorSettings_${id}` || key.endsWith(`__${firm.dataKey}`) && FIRM_DATA_KEY_PATTERN.test(key)) {
+                        localStorage.removeItem(key);
+                    }
+                });
+                firms = firms.filter(f => f.id !== id);
+                saveFirms();
+                return true;
+            }
+
+            // Změní název, poznámku nebo mzdová pravidla firmy (pravidla = nejnovější verze)
+            function updateFirm(id, patch) {
+                const firm = getFirm(id);
+                if (!firm) return false;
+                if (typeof patch.name === 'string' && patch.name.trim()) firm.name = patch.name.trim().slice(0, 40);
+                if (typeof patch.note === 'string') firm.note = patch.note.trim().slice(0, 40);
+                if (patch.rules) {
+                    const last = firm.wage[firm.wage.length - 1];
+                    last.rules = normalizeWageRules(Object.assign({}, last.rules, patch.rules), last.rules);
+                }
+                saveFirms();
+                return true;
+            }
+
+            function showFirmsModal() {
+                renderFirmsList();
+                document.getElementById('firmsModal').style.display = 'flex';
+            }
+
+            function closeFirmsModal() {
+                document.getElementById('firmsModal').style.display = 'none';
+            }
+
+            // Po úpravě firmy obnoví výběry, nastavení kalkulačky i kalendář
+            function afterFirmChange() {
+                renderEmployerSelect();
+                applyEmployerProfile(employerProfile);
+                renderGroupButtons();
+                renderCurrentView();
+            }
+
+            function addFirmFromForm() {
+                const nameInput = document.getElementById('newFirmName');
+                const copyId = document.getElementById('newFirmCopy').value;
+                const firm = createFirm(nameInput.value, copyId || null);
+                if (!firm) {
+                    showNotification('Napiš název firmy.');
+                    return;
+                }
+                nameInput.value = '';
+                renderEmployerSelect();
+                renderFirmsList();
+                showNotification('Firma ' + firm.name + ' přidána. Přepni na ni nahoře.');
+            }
+
+            function makeFirmField(labelText, control) {
+                const wrap = document.createElement('div');
+                wrap.className = 'input-field';
+                const label = document.createElement('label');
+                label.textContent = labelText;
+                wrap.appendChild(label);
+                wrap.appendChild(control);
+                return wrap;
+            }
+
+            function makeSelect(options, value, onChange) {
+                const select = document.createElement('select');
+                options.forEach(([val, text]) => {
+                    const option = document.createElement('option');
+                    option.value = val;
+                    option.textContent = text;
+                    select.appendChild(option);
+                });
+                select.value = value;
+                select.addEventListener('change', () => onChange(select.value));
+                return select;
+            }
+
+            function makeCheck(text, checked, onChange) {
+                const label = document.createElement('label');
+                label.className = 'check';
+                const box = document.createElement('input');
+                box.type = 'checkbox';
+                box.checked = checked;
+                box.addEventListener('change', () => onChange(box.checked));
+                label.appendChild(box);
+                label.appendChild(document.createTextNode(text));
+                return label;
+            }
+
+            function makeTextInput(value, maxLength, onChange) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = value;
+                input.maxLength = maxLength;
+                input.addEventListener('change', () => onChange(input.value));
+                return input;
+            }
+
+            function makeTimeInput(value, onChange) {
+                const input = document.createElement('input');
+                input.type = 'time';
+                input.value = value;
+                input.addEventListener('change', () => { if (input.value) onChange(input.value); });
+                return input;
+            }
+
+            function renderFirmsList() {
+                const list = document.getElementById('firmsList');
+                list.innerHTML = '';
+                firms.forEach(firm => {
+                    const rules = firm.wage[firm.wage.length - 1].rules;
+                    const row = document.createElement('div');
+                    row.className = 'firm-row';
+                    const changed = () => updateFirm(firm.id, {});
+                    row.appendChild(makeFirmField('Název', makeTextInput(firm.name, 40, value => {
+                        updateFirm(firm.id, { name: value });
+                        renderEmployerSelect();
+                    })));
+                    row.appendChild(makeFirmField('Poznámka (např. aktuální)', makeTextInput(firm.note, 40, value => {
+                        updateFirm(firm.id, { note: value });
+                        renderEmployerSelect();
+                    })));
+
+                    const details = document.createElement('details');
+                    const summary = document.createElement('summary');
+                    summary.textContent = 'Mzdová pravidla';
+                    details.appendChild(summary);
+                    const setRules = (patch) => {
+                        updateFirm(firm.id, { rules: patch });
+                        if (firm.id === employerProfile) afterFirmChange();
+                    };
+                    details.appendChild(makeFirmField('Noční příplatek', makeSelect(
+                        [['percent', '% z tarifu'], ['flat', 'paušál Kč/hod']], rules.nightMode, v => setRules({ nightMode: v }))));
+                    details.appendChild(makeFirmField('Noční okno od', makeTimeInput(rules.nightFrom, v => setRules({ nightFrom: v }))));
+                    details.appendChild(makeFirmField('Noční okno do', makeTimeInput(rules.nightTo, v => setRules({ nightTo: v }))));
+                    details.appendChild(makeFirmField('Příplatek za svátek se počítá z', makeSelect(
+                        [['base', 'tarifu'], ['average', 'průměrného výdělku']], rules.holidayBase, v => setRules({ holidayBase: v }))));
+                    details.appendChild(makeCheck('Směna ve svátek je přesčas (navíc nad fond)', rules.holidayShiftOvertime, v => setRules({ holidayShiftOvertime: v })));
+                    details.appendChild(makeCheck('Vícestrojová obsluha', rules.multiMachine, v => setRules({ multiMachine: v })));
+                    details.appendChild(makeCheck('Osobní ohodnocení a pevné měsíční prémie', rules.extras, v => setRules({ extras: v })));
+                    const hint = document.createElement('div');
+                    hint.className = 'hint';
+                    hint.textContent = 'Změna pravidel platí i pro starší měsíce. Platnost od data přibude později.';
+                    details.appendChild(hint);
+                    row.appendChild(details);
+
+                    if (canDeleteFirm(firm)) {
+                        const del = document.createElement('button');
+                        del.className = 'action-btn secondary';
+                        del.style.marginTop = '8px';
+                        del.textContent = 'Smazat firmu i její data';
+                        del.addEventListener('click', () => {
+                            showConfirm('Opravdu smazat firmu ' + firm.name + ' včetně jejích přesčasů, klouzáků a nastavení?', () => {
+                                const wasActive = firm.id === employerProfile;
+                                removeFirm(firm.id);
+                                renderEmployerSelect();
+                                if (wasActive) switchFirm(firms[0].id);
+                                renderFirmsList();
+                            });
+                        });
+                        row.appendChild(del);
+                    }
+                    list.appendChild(row);
+                });
+
+                const copySelect = document.getElementById('newFirmCopy');
+                copySelect.innerHTML = '';
+                const none = document.createElement('option');
+                none.value = '';
+                none.textContent = 'obecná firma (hodinová mzda + % příplatky)';
+                copySelect.appendChild(none);
                 firms.forEach(firm => {
                     const option = document.createElement('option');
                     option.value = firm.id;
-                    option.textContent = firmLabel(firm);
-                    select.appendChild(option);
+                    option.textContent = firm.name;
+                    copySelect.appendChild(option);
                 });
             }
 
@@ -4409,8 +4849,8 @@
                 loadTaxSettings();
                 applyEmployerProfile(employerProfile);
 
-                // Aktualizace aktivního tlačítka směny
-                syncShiftButtons();
+                // Tlačítka skupin podle rozvrhu aktivní firmy
+                renderGroupButtons();
 
                 // Nastavení aktuálního data
                 const today = new Date();
@@ -4448,16 +4888,6 @@
             // Event listeners
             document.getElementById('monthSelect').addEventListener('change', changeMonth);
             document.getElementById('yearSelect').addEventListener('change', changeYear);
-
-            document.querySelectorAll('.shift-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    currentShift = this.dataset.shift;
-                    localStorage.setItem(dataStorageKey('currentShift'), currentShift); // <-- ULOŽENÍ SMĚNY
-                    renderCurrentView();
-                });
-            });
 
             // Event listener pro klávesnici (šipky) byl ODSTRANĚN
 
@@ -4543,6 +4973,7 @@
 
             function calculateWages() {
                 const settings = getWageSettings();
+                const resultRules = activeWageRules();
                 const shifts = generateShifts(currentYear, currentShift);
                 const monthShifts = shifts.filter(s => s.date.getMonth() === currentMonth);
                 const overtimeEntries = Array.from(overtimeDays[currentShift].entries())
@@ -4556,7 +4987,7 @@
 
                 const nightWageDisplay = `
                     <div class="wage-result-item">
-                        <strong>Příplatek za noční (${w.nightBonusHours.toFixed(1)} hod, ${settings.profile === 'firma2' ? '18:00-6:00' : '22:00-6:00'}):</strong>
+                        <strong>Příplatek za noční (${w.nightBonusHours.toFixed(1)} hod, ${nightWindowText(resultRules)}):</strong>
                         <span>${w.nightWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč</span>
                         ${w.overtimeNightBonusHours > 0 ? `<small>(včetně ${w.overtimeNightBonusHours.toFixed(1)} hod přesčas)</small>` : ''}
                     </div>
@@ -4579,7 +5010,7 @@
                     </div>
                 ` : '';
 
-                const firma2ExtrasDisplay = settings.profile === 'firma2' ? `
+                const extrasDisplay = resultRules.extras ? `
                     <div class="wage-result-item">
                         <strong>Osobní ohodnocení (${w.totalHoursWithOvertime.toFixed(1)} hod):</strong>
                         <span>${w.personalRatingWage.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč</span>
@@ -4614,7 +5045,7 @@
                         <strong>Příplatek za svátky (${(w.holidayHours + w.holidayOvertimeHours).toFixed(1)} hod):</strong>
                         <span>${w.holidayWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč</span>
                         ${w.holidayOvertimeHours > 0 ? `<small>(včetně ${w.holidayOvertimeHours.toFixed(1)} hod přesčas)</small>` : ''}
-                        ${settings.profile === 'firma2' && w.holidayWageWithOvertime > 0 ? `<small>(${(settings.holidayBonus * 100).toFixed(0)} % průměrného výdělku ${w.holidayRate.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč/hod${settings.vacationRate > 0 ? '' : ' - odhad, zadej průměr z výplatnice'})</small>` : ''}
+                        ${resultRules.holidayBase === 'average' && w.holidayWageWithOvertime > 0 ? `<small>(${(settings.holidayBonus * 100).toFixed(0)} % průměrného výdělku ${w.holidayRate.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč/hod${settings.vacationRate > 0 ? '' : ' - odhad, zadej průměr z výplatnice'})</small>` : ''}
                     </div>
                     <div class="wage-result-item">
                         <strong>Příplatek za přesčas (${(w.bonusOvertimeHours + w.slidingShiftHours + w.holidayShiftOvertimeHours).toFixed(1)} hod):</strong>
@@ -4625,7 +5056,7 @@
                     </div>
                     ${vacationDisplay}
                     ${sickDisplay}
-                    ${firma2ExtrasDisplay}
+                    ${extrasDisplay}
                     <div class="wage-result-item" style="font-weight: bold; font-size: 1.2em; border-top: 1px solid var(--border-color); margin-top: 10px; padding-top: 10px;">
                         <strong>Celková hrubá mzda:</strong>
                         <span>${w.totalWage.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč</span>
@@ -5378,16 +5809,9 @@
                 });
 
                 // Přepínač zaměstnavatele - přepne profil a přepočítá mzdu
-                document.getElementById('employerProfile').addEventListener('change', function() {
-                    applyEmployerProfile(this.value);
-                    // Firma může mít vlastní data a skupiny (Progres a Bona sdílejí původní klíče)
-                    loadFirmData();
-                    syncShiftButtons();
-                    renderCurrentView();
-                    if (document.getElementById('wageCalculatorModal').style.display === 'flex') {
-                        calculateWages();
-                    }
-                });
+                // (nahoře i v kalkulačce; firma může mít vlastní data a skupiny)
+                document.getElementById('employerProfile').addEventListener('change', function() { switchFirm(this.value); });
+                document.getElementById('topFirmSelect').addEventListener('change', function() { switchFirm(this.value); });
 
                 // Přesčas - při změně času od/do se dopočítají hodiny
                 ['overtimeFrom', 'overtimeTo'].forEach(id => {
