@@ -4930,7 +4930,7 @@
 
             function renderAgenda() {
                 const firm = getActiveFirm();
-                document.getElementById('agendaInfo').textContent = `${firmLabel(firm)}, skupina ${currentShift}. Klepnutím na záznam otevřeš ten den.`;
+                document.getElementById('agendaInfo').textContent = `${firmLabel(firm)}, skupina ${currentShift}. Klepnutím na záznam otevřeš ten den v kalendáři směn, tlačítkem Google ho otevřeš v Google Kalendáři.`;
 
                 const filters = document.getElementById('agendaFilters');
                 filters.innerHTML = '';
@@ -4999,6 +4999,14 @@
                         items.appendChild(line);
                     });
                     row.appendChild(items);
+                    const googleBtn = document.createElement('button');
+                    googleBtn.type = 'button';
+                    googleBtn.className = 'action-btn secondary';
+                    googleBtn.style.cssText = 'padding:3px 8px;font-size:0.8em;align-self:center;flex-shrink:0;';
+                    googleBtn.innerHTML = '<i class="fab fa-google"></i> Google';
+                    googleBtn.title = 'Otevřít tento den v Google Kalendáři';
+                    googleBtn.addEventListener('click', (e) => { e.stopPropagation(); gcalOpenDay(date); });
+                    row.appendChild(googleBtn);
                     list.appendChild(row);
                 });
             }
