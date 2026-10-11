@@ -1476,7 +1476,7 @@
                     <button type="button" id="agendaTabGoogle" class="action-btn secondary" onclick="agendaSetTab('google')"><i class="fab fa-google"></i> Google Kalendář</button>
                 </div>
                 <div id="agendaGooglePane" style="display: none;">
-                    <p class="hint">Vypíše všechny události z Google Kalendáře podle data, bez zadávání období. Opakované události (třeba narozeniny) jsou u nejbližšího výskytu. Klepnutím na událost se otevře Google Kalendář na tom dni, tlačítko „Směny“ otevře den v kalendáři směn.</p>
+                    <p class="hint">Vypíše všechny události z Google Kalendáře podle data, bez zadávání období. Opakované události (třeba narozeniny) jsou u nejbližšího výskytu. Klepnutím na událost se otevře Google Kalendář na tom dni.</p>
                     <div class="input-field" id="agendaGcalCalendarWrap" style="display: none; margin: 8px 0;">
                         <label for="agendaGcalCalendar">Kalendář</label>
                         <select id="agendaGcalCalendar" style="width: 100%;" onchange="agendaLoadGoogle()"></select>
@@ -4877,14 +4877,6 @@
                         body.appendChild(small);
                     }
                     row.appendChild(body);
-                    const shiftBtn = document.createElement('button');
-                    shiftBtn.type = 'button';
-                    shiftBtn.className = 'action-btn secondary';
-                    shiftBtn.style.cssText = 'padding:3px 8px;font-size:0.8em;align-self:center;flex-shrink:0;';
-                    shiftBtn.textContent = 'Směny';
-                    shiftBtn.title = 'Otevřít tento den v kalendáři směn';
-                    shiftBtn.addEventListener('click', (e) => { e.stopPropagation(); agendaGoTo(item.date); });
-                    row.appendChild(shiftBtn);
                     list.appendChild(row);
                 });
             }
@@ -4910,27 +4902,9 @@
                 document.getElementById('agendaModal').style.display = 'none';
             }
 
-            // Klepnutí na řádek přejde na ten měsíc v kalendáři a otevře nastavení dne
-            function agendaGoTo(date) {
-                closeAgendaModal();
-                if (yearView) toggleYearView();
-                const yearSelect = document.getElementById('yearSelect');
-                const hasYear = Array.from(yearSelect.options).some(o => parseInt(o.value) === date.getFullYear());
-                if (hasYear) {
-                    const yearChanged = date.getFullYear() !== currentYear;
-                    currentYear = date.getFullYear();
-                    currentMonth = date.getMonth();
-                    yearSelect.value = currentYear;
-                    document.getElementById('monthSelect').value = currentMonth;
-                    if (yearChanged) HOLIDAYS = getHolidays(currentYear);
-                    renderCurrentView();
-                }
-                showOvertimeTypeModal(date);
-            }
-
             function renderAgenda() {
                 const firm = getActiveFirm();
-                document.getElementById('agendaInfo').textContent = `${firmLabel(firm)}, skupina ${currentShift}. Klepnutím na záznam otevřeš ten den v kalendáři směn, tlačítkem Google ho otevřeš v Google Kalendáři.`;
+                document.getElementById('agendaInfo').textContent = `${firmLabel(firm)}, skupina ${currentShift}. Klepnutím na záznam otevřeš ten den v Google Kalendáři.`;
 
                 const filters = document.getElementById('agendaFilters');
                 filters.innerHTML = '';
@@ -4979,7 +4953,7 @@
                         nextMarked = true;
                         row.classList.add('agenda-next');
                     }
-                    row.addEventListener('click', () => agendaGoTo(date));
+                    row.addEventListener('click', () => gcalOpenDay(date));
 
                     const dateDiv = document.createElement('div');
                     dateDiv.className = 'detail-date';
@@ -4999,14 +4973,6 @@
                         items.appendChild(line);
                     });
                     row.appendChild(items);
-                    const googleBtn = document.createElement('button');
-                    googleBtn.type = 'button';
-                    googleBtn.className = 'action-btn secondary';
-                    googleBtn.style.cssText = 'padding:3px 8px;font-size:0.8em;align-self:center;flex-shrink:0;';
-                    googleBtn.innerHTML = '<i class="fab fa-google"></i> Google';
-                    googleBtn.title = 'Otevřít tento den v Google Kalendáři';
-                    googleBtn.addEventListener('click', (e) => { e.stopPropagation(); gcalOpenDay(date); });
-                    row.appendChild(googleBtn);
                     list.appendChild(row);
                 });
             }
