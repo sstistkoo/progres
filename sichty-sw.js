@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sichty-cache-v31';
+const CACHE_NAME = 'sichty-cache-v32';
 const CACHE_FILES = [
     'sichty.html',
     'sichty-manifest.json',
