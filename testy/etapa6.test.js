@@ -61,3 +61,8 @@ test('Google přehled: řazení, celodenní rozsah, opakování a zrušené', ()
     assert.deepEqual(rows[3].slice(1, 3), ['2027-05-14', '2027-05-14']);
     assert.equal(rows[3][4], 'každý rok');
 });
+
+test('Google přehled: odkaz na den v Google Kalendáři', () => {
+    const app = createApp();
+    assert.equal(app.run(`gcalDayUrl(new Date(2026, 9, 5))`), 'https://calendar.google.com/calendar/u/0/r/day/2026/10/5');
+});
