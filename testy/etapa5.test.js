@@ -55,3 +55,14 @@ test('smazání verze a roční souhrn po měsících', () => {
     assert.equal(app.json(`wageVersions('firma1').length`), 1);
     assert.ok(Array.isArray(rows));
 });
+
+test('nová firma bez kopie: přepne se na ni a otevře editor rozvrhu', () => {
+    const app = createApp();
+    app.el('newFirmName').value = 'Nova';
+    app.el('newFirmCopy').value = '';
+    app.run(`addFirmFromForm()`);
+    const id = app.run(`employerProfile`);
+    assert.equal(app.run(`getFirm('${id}').name`), 'Nova');
+    assert.equal(app.run(`scheduleFirmId`), id);
+    assert.equal(app.el('scheduleModal').style.display, 'flex');
+});

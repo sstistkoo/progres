@@ -5868,7 +5868,15 @@
                 nameInput.value = '';
                 renderEmployerSelect();
                 renderFirmsList();
-                showNotification('Firma ' + firm.name + ' přidána. Přepni na ni nahoře.');
+                if (!copyId) {
+                    // Nová firma bez kopie: rovnou nastavit její rozvrh (jinak by měla rozvrh Bony)
+                    switchFirm(firm.id);
+                    renderEmployerSelect();
+                    showNotification('Firma ' + firm.name + ' přidána. Nastav její rozvrh.');
+                    openScheduleEditor(firm.id);
+                    return;
+                }
+                showNotification('Firma ' + firm.name + ' přidána. Přepni na ni v nastavení.');
             }
 
             function makeFirmField(labelText, control) {
