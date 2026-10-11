@@ -1482,7 +1482,7 @@
                         <select id="agendaGcalCalendar" style="width: 100%;" onchange="agendaLoadGoogle()"></select>
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0;">
-                        <button type="button" class="action-btn" onclick="agendaLoadGoogle()"><i class="fas fa-download"></i> Načíst vše z Google Kalendáře</button>
+                        <button type="button" class="action-btn" id="agendaGcalLoadBtn" onclick="agendaLoadGoogle()"><i class="fas fa-download"></i> <span id="agendaGcalLoadText">Načíst vše z Google Kalendáře</span></button>
                         <button type="button" class="action-btn secondary" onclick="showGcalSetupModal()"><i class="fas fa-key"></i> Vlastní propojení</button>
                     </div>
                     <input type="text" id="agendaGcalSearch" placeholder="Hledat v názvech" oninput="renderAgendaGoogle()" style="width: 100%; box-sizing: border-box; margin-bottom: 6px;">
@@ -4686,6 +4686,7 @@
 
             // --- Přehled: všechny události z Google Kalendáře podle data ---
             let agendaGoogleItems = [];
+            let agendaGcalLoadedAt = '';
 
             function gcalRecurrenceInfo(ev) {
                 const rule = (ev.recurrence || []).find(r => /^RRULE:/i.test(r));
@@ -4766,7 +4767,11 @@
                 document.getElementById('agendaAppPane').style.display = google ? 'none' : '';
                 document.getElementById('agendaTabApp').className = 'action-btn' + (google ? ' secondary' : '');
                 document.getElementById('agendaTabGoogle').className = 'action-btn' + (google ? '' : ' secondary');
-                if (google) gcalLoadScript().catch(() => {});
+                if (google) {
+                    gcalLoadScript().catch(() => {});
+                    // Přihlášený uživatel: seznam se při otevření záložky rovnou obnoví
+                    if (gcalToken && Date.now() < gcalTokenExpires) agendaLoadGoogle();
+                }
             }
 
             async function agendaLoadGoogle() {
@@ -4813,6 +4818,9 @@
                     }
                     items.sort((a, b) => (a.date - b.date) || a.time.localeCompare(b.time) || a.title.localeCompare(b.title, 'cs'));
                     agendaGoogleItems = items;
+                    document.getElementById('agendaGcalLoadText').textContent = 'Aktualizovat';
+                    const now = new Date();
+                    agendaGcalLoadedAt = gcalPad(now.getHours()) + ':' + gcalPad(now.getMinutes());
                     renderAgendaGoogle(truncated ? 'Načteno jen prvních ' + (GCAL_MAX_PAGES * 250) + ' událostí z kalendáře.' : '');
                     const next = document.querySelector('#agendaGcalList .agenda-next');
                     if (next && next.scrollIntoView) next.scrollIntoView({ block: 'center' });
@@ -4831,7 +4839,7 @@
                     if (extraNote !== undefined) status.textContent = 'V kalendáři nejsou žádné události.';
                     return;
                 }
-                status.textContent = `Událostí: ${items.length}${query ? ' z ' + agendaGoogleItems.length : ''}.` + (extraNote ? ' ' + extraNote : '');
+                status.textContent = `Událostí: ${items.length}${query ? ' z ' + agendaGoogleItems.length : ''}` + (agendaGcalLoadedAt ? `, načteno v ${agendaGcalLoadedAt}` : '') + '.' + (extraNote ? ' ' + extraNote : '');
                 const monthNames = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
                 const dayNamesShort = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
                 const today = new Date();
