@@ -79,3 +79,20 @@ test('Google přehled: opakování nezkreslí neexistující dny a týdenní BYD
     // skončené opakování zůstane u prvního data (2015)
     assert.equal(run({ id: 'd', summary: 'x', start: { date: '2015-03-06' }, end: { date: '2015-03-07' }, recurrence: ['RRULE:FREQ=YEARLY;UNTIL=20180101'] }, '2026, 9, 11'), '2015-03-06');
 });
+
+test('záloha: firma s vlastním rozvrhem, historií sazeb a Google Client ID přežije obnovu', () => {
+    const app = createApp();
+    const id = app.run(`createFirm('Nová 12h', null).id`);
+    app.run(`applyScheduleVersion('${id}', versionFromDraft(presetDraft('days12', new Date(2026, 9, 10))))`);
+    app.run(`switchFirm('${id}'); document.getElementById('baseWage').value = '210'; saveCalculatorSettings();`);
+    app.run(`document.getElementById('wageNewFrom').value = '2027-01'; addWageVersion();`);
+    app.run(`localStorage.setItem('gcalClientId', '123-abc.apps.googleusercontent.com')`);
+    const before = app.json(`getFirm('${id}')`);
+    const backup = app.json(`buildBackup()`);
+    const restored = createApp();
+    restored.run(`applyBackup(${JSON.stringify(backup)})`);
+    const again = restored.reboot();
+    assert.deepEqual(again.json(`getFirm('${id}')`), before);
+    assert.equal(again.json(`wageVersions('${id}').length`), 2);
+    assert.equal(again.run(`localStorage.getItem('gcalClientId')`), '123-abc.apps.googleusercontent.com');
+});
