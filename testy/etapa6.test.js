@@ -66,3 +66,16 @@ test('Google přehled: odkaz na den v Google Kalendáři', () => {
     const app = createApp();
     assert.equal(app.run(`gcalDayUrl(new Date(2026, 9, 5))`), 'https://calendar.google.com/calendar/u/0/r/day/2026/10/5');
 });
+
+test('Google přehled: opakování nezkreslí neexistující dny a týdenní BYDAY', () => {
+    const app = createApp();
+    const run = (ev, today) => app.json(`gcalAgendaItems([${JSON.stringify(ev)}], new Date(${today})).map(i => toDateKey(i.date))[0]`);
+    // 31. v měsíci: duben nemá 31 dní, další výskyt je 31. 5.
+    assert.equal(run({ id: 'a', summary: 'x', start: { date: '2026-01-31' }, end: { date: '2026-02-01' }, recurrence: ['RRULE:FREQ=MONTHLY'] }, '2026, 3, 10'), '2026-05-31');
+    // 29. 2.: v nepřestupném roce 28. 2.
+    assert.equal(run({ id: 'b', summary: 'x', start: { date: '2020-02-29' }, end: { date: '2020-03-01' }, recurrence: ['RRULE:FREQ=YEARLY'] }, '2026, 5, 1'), '2027-02-28');
+    // týdně v pátek (BYDAY=FR), dnes neděle 11. 10. 2026
+    assert.equal(run({ id: 'c', summary: 'x', start: { date: '2015-03-06' }, end: { date: '2015-03-07' }, recurrence: ['RRULE:FREQ=WEEKLY;BYDAY=FR'] }, '2026, 9, 11'), '2026-10-16');
+    // skončené opakování zůstane u prvního data (2015)
+    assert.equal(run({ id: 'd', summary: 'x', start: { date: '2015-03-06' }, end: { date: '2015-03-07' }, recurrence: ['RRULE:FREQ=YEARLY;UNTIL=20180101'] }, '2026, 9, 11'), '2015-03-06');
+});

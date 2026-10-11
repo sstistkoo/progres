@@ -4735,15 +4735,30 @@
                     if (u && new Date(+u[1], +u[2] - 1, +u[3]) < today) return start;
                 }
                 if (start >= today) return start;
+                // Datum v daném měsíci; neexistující den (31. v dubnu, 29. 2.) se vynechá, resp. posune na poslední den února
+                const inMonth = (year, month, day) => {
+                    const d = new Date(year, month, day);
+                    return d.getMonth() === ((month % 12) + 12) % 12 ? d : null;
+                };
                 let d = null;
                 if (info.freq === 'YEARLY') {
-                    d = new Date(today.getFullYear(), start.getMonth(), start.getDate());
-                    if (d < today) d = new Date(today.getFullYear() + 1, start.getMonth(), start.getDate());
+                    for (let y = today.getFullYear(); y <= today.getFullYear() + 8 && !d; y++) {
+                        let c = inMonth(y, start.getMonth(), start.getDate());
+                        if (!c && start.getMonth() === 1) c = new Date(y, 1, 28);
+                        if (c && c >= today) d = c;
+                    }
                 } else if (info.freq === 'MONTHLY') {
-                    d = new Date(today.getFullYear(), today.getMonth(), start.getDate());
-                    if (d < today) d = new Date(today.getFullYear(), today.getMonth() + 1, start.getDate());
-                } else if (info.freq === 'WEEKLY' && !info.byday) {
-                    d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + ((start.getDay() - today.getDay() + 7) % 7));
+                    for (let m = 0; m < 24 && !d; m++) {
+                        const c = inMonth(today.getFullYear(), today.getMonth() + m, start.getDate());
+                        if (c && c >= today) d = c;
+                    }
+                } else if (info.freq === 'WEEKLY') {
+                    const codes = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+                    const days = info.byday ? info.byday.split(',').map(x => codes.indexOf(x.replace(/[^A-Z]/g, ''))).filter(x => x >= 0) : [start.getDay()];
+                    for (let k = 0; k < 7 && !d; k++) {
+                        const c = new Date(today.getFullYear(), today.getMonth(), today.getDate() + k);
+                        if (days.includes(c.getDay())) d = c;
+                    }
                 } else if (info.freq === 'DAILY') {
                     d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
                 }
@@ -4777,7 +4792,7 @@
                         const span = Math.round((end - start) / 86400000);
                         end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + span);
                     }
-                    items.push({ id: ev.id, title, time, date, endDate: end, recur: gcalRecurrenceLabel(info), calendar: calendarName || '' });
+                    items.push({ id: ev.id, title, time, date, endDate: end, first: start, recur: gcalRecurrenceLabel(info), calendar: calendarName || '' });
                 });
                 items.sort((a, b) => (a.date - b.date) || a.time.localeCompare(b.time) || a.title.localeCompare(b.title, 'cs'));
                 return items;
@@ -4796,10 +4811,15 @@
                 if (google) {
                     gcalLoadScript().catch(() => {});
                     if (userClick || (gcalToken && Date.now() < gcalTokenExpires)) agendaLoadGoogle();
+                    else if (!agendaGoogleItems.length) document.getElementById('agendaGcalStatus').textContent = 'Klepni na „Načíst vše z Google Kalendáře“.';
                 }
             }
 
+            const AGENDA_GCAL_MAX_PAGES = 20;     // 20 x 2500 událostí z jednoho kalendáře
+            let agendaGcalRequest = 0;
+
             async function agendaLoadGoogle() {
+                const requestId = ++agendaGcalRequest;   // pozdě dorazená starší odpověď nepřepíše novější
                 const status = document.getElementById('agendaGcalStatus');
                 const select = document.getElementById('agendaGcalCalendar');
                 status.textContent = 'Čekám na Google...';
@@ -4829,10 +4849,10 @@
                         status.textContent = 'Načítám události' + (chosen.length > 1 ? ' (' + (cal.summary || cal.id) + ')' : '') + '...';
                         const events = [];
                         let pageToken = '';
-                        for (let page = 0; page < GCAL_MAX_PAGES; page++) {
+                        for (let page = 0; page < AGENDA_GCAL_MAX_PAGES; page++) {
                             const params = {
                                 singleEvents: 'false',   // opakované události zůstanou jedním záznamem
-                                maxResults: '250',
+                                maxResults: '2500',
                                 fields: 'nextPageToken,items(id,status,summary,start,end,recurrence)'
                             };
                             if (pageToken) params.pageToken = pageToken;
@@ -4840,20 +4860,23 @@
                             (data.items || []).forEach(ev => events.push(ev));
                             pageToken = data.nextPageToken || '';
                             if (!pageToken) break;
-                            if (page === GCAL_MAX_PAGES - 1) truncated = true;
+                            if (page === AGENDA_GCAL_MAX_PAGES - 1) truncated = true;
+                            if (requestId !== agendaGcalRequest) return;
+                            status.textContent = 'Načítám události... (' + events.length + ')';
                         }
                         items = items.concat(gcalAgendaItems(events, today, chosen.length > 1 ? (cal.summary || cal.id) : ''));
                     }
                     items.sort((a, b) => (a.date - b.date) || a.time.localeCompare(b.time) || a.title.localeCompare(b.title, 'cs'));
+                    if (requestId !== agendaGcalRequest) return;
                     agendaGoogleItems = items;
                     document.getElementById('agendaGcalLoadText').textContent = 'Aktualizovat';
                     const now = new Date();
                     agendaGcalLoadedAt = gcalPad(now.getHours()) + ':' + gcalPad(now.getMinutes());
-                    renderAgendaGoogle(truncated ? 'Načteno jen prvních ' + (GCAL_MAX_PAGES * 250) + ' událostí z kalendáře.' : '');
+                    renderAgendaGoogle(truncated ? 'Načteno jen prvních ' + (AGENDA_GCAL_MAX_PAGES * 2500) + ' událostí z kalendáře.' : '');
                     const next = document.querySelector('#agendaGcalList .agenda-next');
                     if (next && next.scrollIntoView) next.scrollIntoView({ block: 'center' });
                 } catch (err) {
-                    status.textContent = err.message || 'Načtení se nepodařilo.';
+                    if (requestId === agendaGcalRequest) status.textContent = err.message || 'Načtení se nepodařilo.';
                 }
             }
 
@@ -4867,7 +4890,8 @@
                     if (extraNote !== undefined) status.textContent = 'V kalendáři nejsou žádné události.';
                     return;
                 }
-                status.textContent = `Událostí: ${items.length}${query ? ' z ' + agendaGoogleItems.length : ''}` + (agendaGcalLoadedAt ? `, načteno v ${agendaGcalLoadedAt}` : '') + '.' + (extraNote ? ' ' + extraNote : '');
+                const oldest = agendaGoogleItems.reduce((min, i) => (!min || i.first < min ? i.first : min), null);
+                status.textContent = `Událostí: ${items.length}${query ? ' z ' + agendaGoogleItems.length : ''}` + (oldest ? `, nejstarší z roku ${oldest.getFullYear()}` : '') + (agendaGcalLoadedAt ? `, načteno v ${agendaGcalLoadedAt}` : '') + '.' + (extraNote ? ' ' + extraNote : '');
                 const monthNames = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
                 const dayNamesShort = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
                 const today = new Date();
@@ -4905,7 +4929,7 @@
                     line.appendChild(dot);
                     line.appendChild(document.createTextNode((item.time ? item.time + ' ' : '') + item.title));
                     body.appendChild(line);
-                    const meta = [item.recur, item.calendar].filter(Boolean).join(', ');
+                    const meta = [item.recur ? `${item.recur}, od roku ${item.first.getFullYear()}` : '', item.calendar].filter(Boolean).join(', ');
                     if (meta) {
                         const small = document.createElement('div');
                         small.className = 'hint';
