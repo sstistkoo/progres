@@ -1472,8 +1472,8 @@
                     </button>
                 </div>
                 <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                    <button type="button" id="agendaTabApp" class="action-btn" onclick="agendaSetTab('app')">V aplikaci</button>
-                    <button type="button" id="agendaTabGoogle" class="action-btn secondary" onclick="agendaSetTab('google')"><i class="fab fa-google"></i> Google Kalendář</button>
+                    <button type="button" id="agendaTabApp" class="action-btn" onclick="agendaSetTab('app', true)">V aplikaci</button>
+                    <button type="button" id="agendaTabGoogle" class="action-btn secondary" onclick="agendaSetTab('google', true)"><i class="fab fa-google"></i> Google Kalendář</button>
                 </div>
                 <div id="agendaGooglePane" style="display: none;">
                     <p class="hint">Vypíše všechny události z Google Kalendáře podle data, bez zadávání období. Opakované události (třeba narozeniny) jsou u nejbližšího výskytu. Klepnutím na událost se otevře Google Kalendář na tom dni.</p>
@@ -1493,7 +1493,7 @@
                 <div class="hint" id="agendaInfo"></div>
                 <div class="input-field" style="max-width: 260px; margin: 8px 0;">
                     <label for="agendaScope">Období</label>
-                    <select id="agendaScope" onchange="agendaState.scope = this.value; renderAgenda()">
+                    <select id="agendaScope" onchange="agendaState.scope = this.value; saveAgendaPrefs(); renderAgenda()">
                         <option value="year">Zobrazený rok</option>
                         <option value="upcoming">Od dneška dál</option>
                         <option value="all">Všechno</option>
@@ -4596,7 +4596,28 @@
                 ['other', 'Klouzák, vícestroj'],
                 ['holiday', 'Svátky']
             ];
-            const agendaState = { scope: 'year', cats: { leave: true, override: true, ot: true, note: true, yearly: true, other: true, holiday: false } };
+            const AGENDA_PREFS_KEY = 'agendaPrefs';
+            const agendaState = { scope: 'year', tab: 'app', cats: { leave: true, override: true, ot: true, note: true, yearly: true, other: true, holiday: false } };
+
+            // Zvolené období, filtry a záložka se pamatují i po obnovení stránky
+            function loadAgendaPrefs() {
+                try {
+                    const saved = JSON.parse(localStorage.getItem(AGENDA_PREFS_KEY) || 'null');
+                    if (!saved || typeof saved !== 'object') return;
+                    if (['year', 'upcoming', 'all'].includes(saved.scope)) agendaState.scope = saved.scope;
+                    if (saved.tab === 'app' || saved.tab === 'google') agendaState.tab = saved.tab;
+                    if (saved.cats && typeof saved.cats === 'object') {
+                        AGENDA_CATEGORIES.forEach(([cat]) => {
+                            if (typeof saved.cats[cat] === 'boolean') agendaState.cats[cat] = saved.cats[cat];
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            function saveAgendaPrefs() {
+                try { localStorage.setItem(AGENDA_PREFS_KEY, JSON.stringify(agendaState)); } catch (e) {}
+            }
+            loadAgendaPrefs();
 
             function dateFromKey(key) {
                 const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
@@ -4685,6 +4706,7 @@
             }
 
             // --- Přehled: všechny události z Google Kalendáře podle data ---
+            const GCAL_AGENDA_CALENDAR_KEY = 'gcalAgendaCalendar';
             let agendaGoogleItems = [];
             let agendaGcalLoadedAt = '';
 
@@ -4761,16 +4783,19 @@
                 return items;
             }
 
-            function agendaSetTab(tab) {
+            // userClick: přepnutí klepnutím na záložku (smí otevřít přihlášení Googlem);
+            // při otevření okna se Google obnoví jen když už je přihlášeno
+            function agendaSetTab(tab, userClick) {
                 const google = tab === 'google';
+                agendaState.tab = google ? 'google' : 'app';
+                saveAgendaPrefs();
                 document.getElementById('agendaGooglePane').style.display = google ? '' : 'none';
                 document.getElementById('agendaAppPane').style.display = google ? 'none' : '';
                 document.getElementById('agendaTabApp').className = 'action-btn' + (google ? ' secondary' : '');
                 document.getElementById('agendaTabGoogle').className = 'action-btn' + (google ? '' : ' secondary');
                 if (google) {
                     gcalLoadScript().catch(() => {});
-                    // Přihlášený uživatel: seznam se při otevření záložky rovnou obnoví
-                    if (gcalToken && Date.now() < gcalTokenExpires) agendaLoadGoogle();
+                    if (userClick || (gcalToken && Date.now() < gcalTokenExpires)) agendaLoadGoogle();
                 }
             }
 
@@ -4786,13 +4811,16 @@
                             const all = document.createElement('option');
                             all.value = '__all__';
                             all.textContent = 'Všechny kalendáře';
-                            select.appendChild(all);
+                            select.insertBefore(all, select.firstChild);
+                            let last = null;
+                            try { last = localStorage.getItem(GCAL_AGENDA_CALENDAR_KEY); } catch (e) {}
+                            select.value = last && Array.from(select.options).some(o => o.value === last) ? last : '__all__';
                         }
                         document.getElementById('agendaGcalCalendarWrap').style.display = '';
                     }
                     const calendars = await gcalFetchCalendars('reader');
                     const chosen = select.value === '__all__' ? calendars : calendars.filter(c => c.id === select.value);
-                    if (select.value !== '__all__') { try { localStorage.setItem(GCAL_CALENDAR_KEY, select.value); } catch (e) {} }
+                    try { localStorage.setItem(GCAL_AGENDA_CALENDAR_KEY, select.value); } catch (e) {}
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
                     let items = [];
@@ -4902,6 +4930,7 @@
                 document.getElementById('agendaScope').value = agendaState.scope;
                 renderAgenda();
                 document.getElementById('agendaModal').style.display = 'flex';
+                agendaSetTab(agendaState.tab);
                 const upcoming = document.querySelector('#agendaList .agenda-next');
                 if (upcoming && upcoming.scrollIntoView) upcoming.scrollIntoView({ block: 'center' });
             }
@@ -4922,7 +4951,7 @@
                     const box = document.createElement('input');
                     box.type = 'checkbox';
                     box.checked = !!agendaState.cats[cat];
-                    box.onchange = () => { agendaState.cats[cat] = box.checked; renderAgenda(); };
+                    box.onchange = () => { agendaState.cats[cat] = box.checked; saveAgendaPrefs(); renderAgenda(); };
                     wrap.appendChild(box);
                     wrap.appendChild(document.createTextNode(label));
                     filters.appendChild(wrap);
