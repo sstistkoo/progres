@@ -1132,6 +1132,7 @@
                     </div>
                     <button onclick="closeSettingsMenu(); exportCalendar()"><i class="fas fa-download"></i> Export měsíce</button>
                     <button onclick="closeSettingsMenu(); window.print()"><i class="fas fa-print"></i> Tisk</button>
+                    <button onclick="closeSettingsMenu(); showAgendaModal()"><i class="fas fa-list-ul"></i> Přehled záznamů</button>
                     <button onclick="closeSettingsMenu(); showFirmsModal()"><i class="fas fa-building"></i> Firmy</button>
                     <button onclick="closeSettingsMenu(); showVacationModal()"><i class="fas fa-umbrella-beach"></i> Dovolená</button>
                     <button onclick="closeSettingsMenu(); showBackupModal()"><i class="fas fa-database"></i> Záloha dat</button>
@@ -1461,6 +1462,29 @@
         </div>
 
         <!-- Nastavení dovolené - roční nárok a jednotka (hodiny / dny) -->
+        <!-- Přehled všech záznamů v kalendáři seřazených podle data -->
+        <div id="agendaModal" class="modal" style="align-items: flex-start; padding-top: 12px; box-sizing: border-box;">
+            <div class="modal-content" style="max-width: 520px; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; padding-bottom: 60px; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h2 style="margin: 0;">Přehled záznamů</h2>
+                    <button class="action-btn secondary" onclick="closeAgendaModal()" style="padding: 5px 10px;" aria-label="Zavřít">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="hint" id="agendaInfo"></div>
+                <div class="input-field" style="max-width: 260px; margin: 8px 0;">
+                    <label for="agendaScope">Období</label>
+                    <select id="agendaScope" onchange="agendaState.scope = this.value; renderAgenda()">
+                        <option value="year">Zobrazený rok</option>
+                        <option value="upcoming">Od dneška dál</option>
+                        <option value="all">Všechno</option>
+                    </select>
+                </div>
+                <div id="agendaFilters" style="display: flex; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 10px;"></div>
+                <div id="agendaList"></div>
+            </div>
+        </div>
+
         <div id="vacationModal" class="modal">
             <div class="modal-content" style="max-width: 360px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
@@ -4542,6 +4566,209 @@
             }
 
             // Legenda + seznam dní měsíce, které mají nějakou značku
+            // --- Přehled záznamů: vše, co je v kalendáři zapsané, podle data za sebou ---
+            const AGENDA_CATEGORIES = [
+                ['leave', 'Dovolená, nemoc, volno'],
+                ['override', 'Změny směn'],
+                ['ot', 'Přesčasy'],
+                ['note', 'Poznámky'],
+                ['yearly', 'Každoročně'],
+                ['other', 'Klouzák, vícestroj'],
+                ['holiday', 'Svátky']
+            ];
+            const agendaState = { scope: 'year', cats: { leave: true, override: true, ot: true, note: true, yearly: true, other: true, holiday: false } };
+
+            function dateFromKey(key) {
+                const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+                return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+            }
+
+            function dateFromNoteKey(key) {
+                const m = /^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/.exec(String(key).replace(/[\u00a0\u202f]/g, ' ').trim());
+                return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null;
+            }
+
+            // Řádky přehledu (aktivní firma a skupina): [{ date, endDate, markers: [{ kind, cat, text }] }]
+            function collectAgendaRows(scope, cats) {
+                const g = currentShift;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const days = new Map();
+                const add = (date, cat, kind, text) => {
+                    if (!date || !cats[cat]) return;
+                    const key = toDateKey(date);
+                    if (!days.has(key)) days.set(key, { date, markers: [] });
+                    days.get(key).markers.push({ kind, cat, text });
+                };
+
+                overtimeDays[g].forEach((ot, key) => add(dateFromKey(key), 'ot', 'ot', `Přesčas ${describeOvertime(ot)}`));
+                multiMachineDays[g].forEach((mm, key) => {
+                    const hoursText = parseFloat(mm.hours) > 0 ? `, ${mm.hours} h` : '';
+                    add(dateFromKey(key), 'other', 'multi', `Vícestrojová obsluha ${mm.percent} %${hoursText}`);
+                });
+                slidingShiftDays[g].forEach((v, key) => add(dateFromKey(key), 'other', 'sliding', 'Klouzák'));
+                shiftOverrides[g].forEach((value, key) => {
+                    const date = dateFromKey(key);
+                    if (!date) return;
+                    const leave = value === 'D' || value === 'NV' || value === 'NEM';
+                    add(date, leave ? 'leave' : 'override', value === 'NEM' ? 'sick' : 'override',
+                        leave ? shiftLabel(value, date) : `Směna změněna: ${shiftLabel(value, date)}`);
+                });
+                Object.keys(notes).forEach(key => {
+                    if (notes[key]) add(dateFromNoteKey(key), 'note', 'note', `Poznámka: ${notes[key]}`);
+                });
+
+                // Roky, ve kterých se rozbalí opakující se záznamy (svátky, každoroční)
+                const dataYears = Array.from(days.values()).map(d => d.date.getFullYear());
+                let years;
+                if (scope === 'year') years = [currentYear];
+                else if (scope === 'upcoming') years = [today.getFullYear(), today.getFullYear() + 1];
+                else {
+                    const lo = Math.min(today.getFullYear(), ...dataYears);
+                    const hi = Math.max(today.getFullYear(), ...dataYears);
+                    years = [];
+                    for (let y = lo; y <= Math.min(hi, lo + 10); y++) years.push(y);
+                }
+                years.forEach(year => {
+                    if (cats.holiday) {
+                        getHolidays(year).forEach(h => add(dateFromKey(h.date), 'holiday', 'holiday', `Svátek: ${h.name}`));
+                    }
+                    if (cats.yearly) {
+                        yearlyNotes.forEach(r => {
+                            const leap = new Date(year, 1, 29).getMonth() === 1;
+                            const day = (r.day === 29 && r.month === 2 && !leap) ? 28 : r.day;
+                            add(new Date(year, r.month - 1, day), 'yearly', 'yearly', `Každoročně: ${r.text}`);
+                        });
+                    }
+                });
+
+                const inScope = (date) => {
+                    if (scope === 'year') return date.getFullYear() === currentYear;
+                    if (scope === 'upcoming') return date >= today;
+                    return true;
+                };
+                const sorted = Array.from(days.values()).filter(d => inScope(d.date)).sort((a, b) => a.date - b.date);
+
+                // Souvislé dny se stejným jediným záznamem (dovolená, nemoc) sloučit do rozsahu
+                const rows = [];
+                sorted.forEach(day => {
+                    const prev = rows[rows.length - 1];
+                    const single = day.markers.length === 1 && day.markers[0].cat === 'leave';
+                    if (single && prev && prev.single && prev.markers[0].text === day.markers[0].text
+                        && Math.round((day.date - prev.endDate) / 86400000) === 1) {
+                        prev.endDate = day.date;
+                    } else {
+                        rows.push({ date: day.date, endDate: day.date, markers: day.markers, single });
+                    }
+                });
+                return rows;
+            }
+
+            function showAgendaModal() {
+                document.getElementById('agendaScope').value = agendaState.scope;
+                renderAgenda();
+                document.getElementById('agendaModal').style.display = 'flex';
+                const upcoming = document.querySelector('#agendaList .agenda-next');
+                if (upcoming && upcoming.scrollIntoView) upcoming.scrollIntoView({ block: 'center' });
+            }
+
+            function closeAgendaModal() {
+                document.getElementById('agendaModal').style.display = 'none';
+            }
+
+            // Klepnutí na řádek přejde na ten měsíc v kalendáři a otevře nastavení dne
+            function agendaGoTo(date) {
+                closeAgendaModal();
+                if (yearView) toggleYearView();
+                const yearSelect = document.getElementById('yearSelect');
+                const hasYear = Array.from(yearSelect.options).some(o => parseInt(o.value) === date.getFullYear());
+                if (hasYear) {
+                    const yearChanged = date.getFullYear() !== currentYear;
+                    currentYear = date.getFullYear();
+                    currentMonth = date.getMonth();
+                    yearSelect.value = currentYear;
+                    document.getElementById('monthSelect').value = currentMonth;
+                    if (yearChanged) HOLIDAYS = getHolidays(currentYear);
+                    renderCurrentView();
+                }
+                showOvertimeTypeModal(date);
+            }
+
+            function renderAgenda() {
+                const firm = getActiveFirm();
+                document.getElementById('agendaInfo').textContent = `${firmLabel(firm)}, skupina ${currentShift}. Klepnutím na záznam otevřeš ten den.`;
+
+                const filters = document.getElementById('agendaFilters');
+                filters.innerHTML = '';
+                AGENDA_CATEGORIES.forEach(([cat, label]) => {
+                    const wrap = document.createElement('label');
+                    wrap.style.cssText = 'display:inline-flex;align-items:center;gap:5px;font-size:0.9em;';
+                    const box = document.createElement('input');
+                    box.type = 'checkbox';
+                    box.checked = !!agendaState.cats[cat];
+                    box.onchange = () => { agendaState.cats[cat] = box.checked; renderAgenda(); };
+                    wrap.appendChild(box);
+                    wrap.appendChild(document.createTextNode(label));
+                    filters.appendChild(wrap);
+                });
+
+                const list = document.getElementById('agendaList');
+                list.innerHTML = '';
+                const rows = collectAgendaRows(agendaState.scope, agendaState.cats);
+                if (!rows.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'hint';
+                    empty.textContent = 'V tomto období nic není zapsané.';
+                    list.appendChild(empty);
+                    return;
+                }
+                const monthNames = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
+                const dayNamesShort = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                let lastMonth = '';
+                let nextMarked = false;
+                rows.forEach(rowData => {
+                    const { date, endDate, markers } = rowData;
+                    const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+                    if (monthKey !== lastMonth) {
+                        lastMonth = monthKey;
+                        const head = document.createElement('div');
+                        head.style.cssText = 'font-weight:600;margin:14px 0 4px;';
+                        head.textContent = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+                        list.appendChild(head);
+                    }
+                    const row = document.createElement('div');
+                    row.className = 'detail-row';
+                    if (endDate < today) row.style.opacity = '0.6';
+                    if (!nextMarked && endDate >= today) {
+                        nextMarked = true;
+                        row.classList.add('agenda-next');
+                    }
+                    row.addEventListener('click', () => agendaGoTo(date));
+
+                    const dateDiv = document.createElement('div');
+                    dateDiv.className = 'detail-date';
+                    dateDiv.textContent = endDate > date
+                        ? `${date.getDate()}.–${endDate.getDate()}. ${endDate.getMonth() + 1}.`
+                        : `${date.getDate()}. ${date.getMonth() + 1}. ${dayNamesShort[date.getDay()]}`;
+                    row.appendChild(dateDiv);
+
+                    const items = document.createElement('div');
+                    items.className = 'detail-items';
+                    markers.forEach(m => {
+                        const line = document.createElement('div');
+                        const dot = document.createElement('span');
+                        dot.className = `dot dot-${m.kind}`;
+                        line.appendChild(dot);
+                        line.appendChild(document.createTextNode(m.text));
+                        items.appendChild(line);
+                    });
+                    row.appendChild(items);
+                    list.appendChild(row);
+                });
+            }
+
             function renderMonthDetails(detailRows) {
                 const el = document.getElementById('monthDetails');
                 el.innerHTML = '';
