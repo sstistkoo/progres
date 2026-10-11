@@ -1476,7 +1476,7 @@
                     <button type="button" id="agendaTabGoogle" class="action-btn secondary" onclick="agendaSetTab('google')"><i class="fab fa-google"></i> Google Kalendář</button>
                 </div>
                 <div id="agendaGooglePane" style="display: none;">
-                    <p class="hint">Vypíše všechny události z Google Kalendáře podle data, bez zadávání období. Opakované události (třeba narozeniny) jsou u nejbližšího výskytu.</p>
+                    <p class="hint">Vypíše všechny události z Google Kalendáře podle data, bez zadávání období. Opakované události (třeba narozeniny) jsou u nejbližšího výskytu. Klepnutím na událost se otevře Google Kalendář na tom dni, tlačítko „Směny“ otevře den v kalendáři směn.</p>
                     <div class="input-field" id="agendaGcalCalendarWrap" style="display: none; margin: 8px 0;">
                         <label for="agendaGcalCalendar">Kalendář</label>
                         <select id="agendaGcalCalendar" style="width: 100%;" onchange="agendaLoadGoogle()"></select>
@@ -4854,7 +4854,7 @@
                         nextMarked = true;
                         row.classList.add('agenda-next');
                     }
-                    row.addEventListener('click', () => agendaGoTo(item.date));
+                    row.addEventListener('click', () => gcalOpenDay(item.date));
                     const dateDiv = document.createElement('div');
                     dateDiv.className = 'detail-date';
                     dateDiv.textContent = item.endDate > item.date
@@ -4877,8 +4877,25 @@
                         body.appendChild(small);
                     }
                     row.appendChild(body);
+                    const shiftBtn = document.createElement('button');
+                    shiftBtn.type = 'button';
+                    shiftBtn.className = 'action-btn secondary';
+                    shiftBtn.style.cssText = 'padding:3px 8px;font-size:0.8em;align-self:center;flex-shrink:0;';
+                    shiftBtn.textContent = 'Směny';
+                    shiftBtn.title = 'Otevřít tento den v kalendáři směn';
+                    shiftBtn.addEventListener('click', (e) => { e.stopPropagation(); agendaGoTo(item.date); });
+                    row.appendChild(shiftBtn);
                     list.appendChild(row);
                 });
+            }
+
+            // Otevře Google Kalendář (web, na telefonu případně aplikaci) na zvoleném dni
+            function gcalDayUrl(date) {
+                return `https://calendar.google.com/calendar/u/0/r/day/${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+            }
+
+            function gcalOpenDay(date) {
+                window.open(gcalDayUrl(date), '_blank', 'noopener');
             }
 
             function showAgendaModal() {
