@@ -44,3 +44,20 @@ test('přehled: rozsah všechno a vykreslení', () => {
     assert.equal(app.json(`collectAgendaRows('all', ${ALL}).some(r => toDateKey(r.date) === '2025-05-05')`), true);
     app.run(`renderAgenda()`);
 });
+
+test('Google přehled: řazení, celodenní rozsah, opakování a zrušené', () => {
+    const app = createApp();
+    const events = [
+        { id: '1', summary: 'Zubař', start: { dateTime: '2026-11-03T08:30:00+01:00' } },
+        { id: '2', summary: 'Dovolená', start: { date: '2026-10-20' }, end: { date: '2026-10-23' } },
+        { id: '3', summary: 'Narozeniny', start: { date: '1990-05-14' }, end: { date: '1990-05-15' }, recurrence: ['RRULE:FREQ=YEARLY'] },
+        { id: '4', summary: 'Zrušeno', status: 'cancelled', start: { date: '2026-10-21' } },
+        { id: '5', summary: 'Minulost', start: { date: '2025-01-02' }, end: { date: '2025-01-03' } }
+    ];
+    const rows = app.json(`gcalAgendaItems(${JSON.stringify(events)}, new Date(2026, 9, 11)).map(i => [i.title, toDateKey(i.date), toDateKey(i.endDate), i.time, i.recur])`);
+    assert.deepEqual(rows.map(r => r[0]), ['Minulost', 'Dovolená', 'Zubař', 'Narozeniny']);
+    assert.deepEqual(rows[1].slice(1), ['2026-10-20', '2026-10-22', '', '']);
+    assert.equal(rows[2][3], '08:30');
+    assert.deepEqual(rows[3].slice(1, 3), ['2027-05-14', '2027-05-14']);
+    assert.equal(rows[3][4], 'každý rok');
+});
