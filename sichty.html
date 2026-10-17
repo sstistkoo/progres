@@ -1584,6 +1584,17 @@
                     </div>
                     <div class="input-group" style="display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                         <div class="input-field">
+                            <label>Způsob odměňování</label>
+                            <select id="payType">
+                                <option value="hourly">Hodinová mzda</option>
+                                <option value="monthly">Měsíční mzda</option>
+                            </select>
+                        </div>
+                        <div class="input-field">
+                            <label>Tarifní stupeň</label>
+                            <select id="tariffGrade"></select>
+                        </div>
+                        <div class="input-field">
                             <label id="baseWageLabel">Tarifní / hodinová mzda (Kč/hod)</label>
                             <input type="number" id="baseWage" value="150" min="0" step="0.01">
                         </div>
@@ -1950,6 +1961,24 @@
             // Pravidla aktivní firmy pro zobrazený měsíc (nastavení, zobrazení)
             function activeWageRules() {
                 return getWageRules(employerProfile, new Date(currentYear, currentMonth, 1));
+            }
+
+            // Tarifní stupně (sborník, čl. D.6): [Kč/hod, Kč/měs.] - stupně 10-13 mají jen měsíční tarif
+            const TARIFF_TABLE = {
+                1: [144.30, 23400], 2: [148.80, 24200], 3: [149.70, 24600], 4: [151.90, 24900],
+                5: [157.90, 25800], 6: [169.00, 27500], 7: [181.20, 29800], 8: [196.60, 32300],
+                9: [211.30, 34600], 10: [null, 37600], 11: [null, 40700], 12: [null, 44500],
+                13: [null, 49200]
+            };
+            // Měsíční fond pro dopočet hodinové sazby u stupňů bez hodinového tarifu (37,5 h týdně = 1950 h / 12)
+            const TARIFF_MONTHLY_FUND = 162.5;
+
+            // Počítá se pevná měsíční mzda? Výslovná volba v kalkulačce (settings.payType) má přednost,
+            // jinak platí pravidlo firmy "pevná měsíční mzda".
+            function isFixedPay(payType, rules) {
+                if (payType === 'monthly') return true;
+                if (payType === 'hourly') return false;
+                return !!rules.fixedSalary;
             }
 
             // Text nočního okna: "22:00-6:00"
@@ -2794,8 +2823,12 @@
                     ? (id) => parseFloat(document.getElementById(id).value) || 0
                     : (() => { const v = wageValuesFor(employerProfile, ymKey(y, m)); return (id) => parseFloat(v[id]) || 0; })();
                 const nightBonusRaw = num('nightBonus');
+                const payType = isShown ? document.getElementById('payType').value : wageValuesFor(employerProfile, ymKey(y, m)).payType;
+                const fixedPay = isFixedPay(payType, rules);
                 return {
-                    ...(rules.fixedSalary ? { fixedSalary: num('fixedSalary') } : {}),
+                    ...(fixedPay ? { fixedSalary: num('fixedSalary') } : {}),
+                    // výslovná volba v kalkulačce se předává jen když se liší od pravidla firmy
+                    ...(fixedPay !== !!rules.fixedSalary ? { payType: fixedPay ? 'monthly' : 'hourly' } : {}),
                     profile: employerProfile,
                     baseWage: num('baseWage'),
                     nightBonus: nightBonusRaw / 100,
@@ -2864,9 +2897,10 @@
                 const baseWage = settings.baseWage;
                 // Pevná měsíční mzda: místo hodin x sazba; nemoc ji snižuje poměrem zameškaných směn,
                 // přesčasové hodiny se platí sazbou navíc
+                const fixedPay = isFixedPay(settings.payType, rules);
                 let fixedSalaryReduction = 0;
                 let normalWageWithOvertime;
-                if (rules.fixedSalary) {
+                if (fixedPay) {
                     const scheduledWork = monthShifts.filter(s => isWorkShift(s.scheduled)).length;
                     const sickScheduled = monthShifts.filter(s => s.shift === 'NEM' && isWorkShift(s.scheduled)).length;
                     const salary = settings.fixedSalary || 0;
@@ -2922,7 +2956,7 @@
 
                 // Dovolená - náhrada mzdy průměrným výdělkem (vacationRate výše)
                 const vacationHours = vacationShifts.reduce((sum, s) => sum + shiftPaidHours(s.scheduled, s.date), 0);
-                const vacationWage = rules.fixedSalary ? 0 : vacationRate * vacationHours; // v pevné mzdě je dovolená už zahrnutá
+                const vacationWage = fixedPay ? 0 : vacationRate * vacationHours; // v pevné mzdě je dovolená už zahrnutá
 
                 // Nemoc - náhrada mzdy jen za směny, které by podle rozvrhu byly, v prvních 14 dnech
                 const sickPaidShifts = sickDays.filter(s => s.sickDay <= SICK_PAY_DAYS && isWorkShift(s.scheduled));
@@ -2993,7 +3027,7 @@
                 const netWage = totalWage - healthInsurance - socialInsurance - tax + taxBonus;
 
                 return {
-                    ...(rules.fixedSalary ? { fixedSalaryReduction } : {}),
+                    ...(fixedPay ? { fixedSalaryReduction } : {}),
                     totalHoursWithOvertime, totalOvertimeHours,
                     weekendHours, weekendOvertimeHours, holidayHours, holidayOvertimeHours,
                     overtimeNHours, slidingShiftHours, holidayShiftOvertimeHours, holidayRate, nightBonusHours, overtimeNightBonusHours,
@@ -3027,7 +3061,7 @@
                     'VÝSLEDNÝ VÝPOČET MZDY:',
                     '---------------------',
                     `Celkem odpracováno: ${w.totalHoursWithOvertime.toFixed(1)} hodin`,
-                    `${exportBaseRules.fixedSalary ? 'Pevná mzda + hodiny přesčasu' : 'Základní mzda'}: ${w.normalWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč`,
+                    `${isFixedPay(settings.payType, exportBaseRules) ? 'Pevná mzda + hodiny přesčasu' : 'Základní mzda'}: ${w.normalWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč`,
                     `Příplatek za noční: ${w.nightWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč`,
                     `Příplatek za víkendy: ${w.weekendWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč`,
                     `Příplatek za svátky: ${w.holidayWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč`,
@@ -5403,11 +5437,12 @@
                     weekendBonus: document.getElementById('weekendBonus').value,
                     holidayBonus: document.getElementById('holidayBonus').value,
                     overtimeBonus: document.getElementById('overtimeBonus').value,
-                    vacationRate: document.getElementById('vacationRate').value
+                    vacationRate: document.getElementById('vacationRate').value,
+                    payType: document.getElementById('payType').value,
+                    tariffGrade: document.getElementById('tariffGrade').value
                 };
-                if (activeWageRules().fixedSalary) {
-                    profileSettings.fixedSalary = document.getElementById('fixedSalary').value;
-                }
+                // Pevná mzda se ukládá vždy (při přepnutí na hodinovou nepřijde o zadanou částku)
+                profileSettings.fixedSalary = document.getElementById('fixedSalary').value;
                 if (activeWageRules().extras) {
                     profileSettings.personalRating = document.getElementById('personalRating').value;
                     profileSettings.monthlyBonus = document.getElementById('monthlyBonus').value;
@@ -5508,12 +5543,18 @@
                 document.querySelectorAll('.rules-multi').forEach(el => {
                     el.classList.toggle('hidden', !rules.multiMachine);
                 });
-                document.querySelectorAll('.rules-fixed').forEach(el => {
-                    el.classList.toggle('hidden', !rules.fixedSalary);
-                });
                 document.getElementById('fixedSalary').value = settings.fixedSalary || '';
-                document.getElementById('baseWageLabel').textContent = rules.fixedSalary
-                    ? 'Hodinová sazba pro přesčas a příplatky (Kč/hod)' : 'Tarifní / hodinová mzda (Kč/hod)';
+                document.getElementById('payType').value = isFixedPay(settings.payType, rules) ? 'monthly' : 'hourly';
+                // Starší uložená nastavení stupeň neznají - pozná se podle shody se sazbou
+                let grade = settings.tariffGrade;
+                if (grade !== 'custom' && !TARIFF_TABLE[grade]) {
+                    grade = Object.keys(TARIFF_TABLE).find(g => document.getElementById('payType').value === 'monthly'
+                        ? TARIFF_TABLE[g][1] === Number(settings.fixedSalary)
+                        : TARIFF_TABLE[g][0] === Number(settings.baseWage)) || 'custom';
+                }
+                buildTariffOptions();
+                document.getElementById('tariffGrade').value = grade;
+                updatePayTypeUI();
 
                 if (rules.extras) {
                     document.getElementById('personalRating').value = settings.personalRating ?? 0;
@@ -5524,6 +5565,71 @@
                 updateNightBonusUI();
                 renderWageVersions();
                 localStorage.setItem('employerProfile', profile);
+            }
+
+            // --- Způsob odměňování a tarifní stupně ---
+            function formatCz(n, digits) {
+                return n.toLocaleString('cs-CZ', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+            }
+
+            // Seznam stupňů - v hodinovém režimu jsou stupně 10-13 nedostupné (mají jen měsíční tarif)
+            function buildTariffOptions() {
+                const select = document.getElementById('tariffGrade');
+                const monthly = document.getElementById('payType').value === 'monthly';
+                const current = select.value || 'custom';
+                let html = '<option value="custom">Vlastní (zadat ručně)</option>';
+                Object.entries(TARIFF_TABLE).forEach(([grade, [hourly, perMonth]]) => {
+                    const disabled = !monthly && hourly === null;
+                    const label = `${grade}. – ` + (hourly !== null ? `${formatCz(hourly, 2)} Kč/h · ` : '') + `${formatCz(perMonth, 0)} Kč/m.`;
+                    html += `<option value="${grade}"${disabled ? ' disabled' : ''}>${label}</option>`;
+                });
+                select.innerHTML = html;
+                select.value = current;
+                if (select.value !== current) select.value = 'custom';
+            }
+
+            // Pole měsíční mzdy se ukazuje jen u měsíční mzdy; popisek sazby se přizpůsobí
+            function updatePayTypeUI() {
+                const monthly = document.getElementById('payType').value === 'monthly';
+                buildTariffOptions();
+                document.querySelectorAll('.rules-fixed').forEach(el => {
+                    el.classList.toggle('hidden', !monthly);
+                });
+                document.getElementById('baseWageLabel').textContent = monthly
+                    ? 'Hodinová sazba pro přesčas a příplatky (Kč/hod)' : 'Tarifní / hodinová mzda (Kč/hod)';
+            }
+
+            // Vybraný stupeň přepíše sazby: hodinová mzda = Kč/h; měsíční mzda = Kč/měs. + hodinová sazba
+            // pro přesčas a příplatky (u stupňů 10-13 bez hodinového tarifu dopočtená z měsíčního)
+            function applyTariffGrade() {
+                const entry = TARIFF_TABLE[document.getElementById('tariffGrade').value];
+                if (!entry) return;
+                const [hourly, perMonth] = entry;
+                if (document.getElementById('payType').value === 'monthly') {
+                    document.getElementById('fixedSalary').value = perMonth;
+                    document.getElementById('baseWage').value = hourly !== null
+                        ? hourly : Math.round(perMonth / TARIFF_MONTHLY_FUND * 100) / 100;
+                } else if (hourly !== null) {
+                    document.getElementById('baseWage').value = hourly;
+                }
+            }
+
+            // Ruční úprava sazby - pokud už nesedí na vybraný stupeň, přepne se na "Vlastní"
+            function syncTariffGradeWithWage() {
+                const select = document.getElementById('tariffGrade');
+                const entry = TARIFF_TABLE[select.value];
+                if (!entry) return;
+                const monthly = document.getElementById('payType').value === 'monthly';
+                const current = parseFloat(document.getElementById(monthly ? 'fixedSalary' : 'baseWage').value);
+                if (current !== entry[monthly ? 1 : 0]) select.value = 'custom';
+            }
+
+            function onWageSettingsChanged() {
+                updatePayTypeUI();
+                saveCalculatorSettings();
+                if (document.getElementById('wageCalculatorModal').style.display === 'flex') {
+                    calculateWages();
+                }
             }
 
             function updateNightBonusUI() {
@@ -6793,7 +6899,7 @@
                         <small>(${Math.floor(w.totalHoursWithOvertime)} hod ${Math.round((w.totalHoursWithOvertime % 1) * 60)} min)</small>
                     </div>
                     <div class="wage-result-item">
-                        <strong>${resultRules.fixedSalary ? 'Pevná mzda + hodiny přesčasu' : `Základní mzda (${w.totalHoursWithOvertime.toFixed(1)} hod)`}:</strong>
+                        <strong>${isFixedPay(settings.payType, resultRules) ? 'Pevná mzda + hodiny přesčasu' : `Základní mzda (${w.totalHoursWithOvertime.toFixed(1)} hod)`}:</strong>
                         <span>${w.normalWageWithOvertime.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč</span>
                     </div>
                     ${nightWageDisplay}
@@ -7611,6 +7717,25 @@
                     if (element) {
                         element.addEventListener('change', saveCalculatorSettings);
                     }
+                });
+
+                // Způsob odměňování / tarifní stupeň / sazby
+                document.getElementById('payType').addEventListener('change', function() {
+                    // Stupně 10-13 nemají hodinovou sazbu - při přepnutí na hodinovou mzdu zůstane ruční zadání
+                    const entry = TARIFF_TABLE[document.getElementById('tariffGrade').value];
+                    if (this.value === 'hourly' && entry && entry[0] === null) {
+                        document.getElementById('tariffGrade').value = 'custom';
+                    }
+                    applyTariffGrade();
+                    onWageSettingsChanged();
+                });
+                document.getElementById('tariffGrade').addEventListener('change', function() {
+                    applyTariffGrade();
+                    onWageSettingsChanged();
+                });
+                ['baseWage', 'fixedSalary'].forEach(id => {
+                    document.getElementById(id).addEventListener('input', syncTariffGradeWithWage);
+                    document.getElementById(id).addEventListener('change', onWageSettingsChanged);
                 });
 
                 // Přepínač zaměstnavatele - přepne profil a přepočítá mzdu
