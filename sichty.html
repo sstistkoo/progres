@@ -1963,13 +1963,34 @@
                 return getWageRules(employerProfile, new Date(currentYear, currentMonth, 1));
             }
 
-            // Tarifní stupně (sborník, čl. D.6): [Kč/hod, Kč/měs.] - stupně 10-13 mají jen měsíční tarif
-            const TARIFF_TABLE = {
-                1: [144.30, 23400], 2: [148.80, 24200], 3: [149.70, 24600], 4: [151.90, 24900],
-                5: [157.90, 25800], 6: [169.00, 27500], 7: [181.20, 29800], 8: [196.60, 32300],
-                9: [211.30, 34600], 10: [null, 37600], 11: [null, 40700], 12: [null, 44500],
-                13: [null, 49200]
-            };
+            // Tarifní stupně (sborník, čl. D.6): [Kč/hod, Kč/měs.] - stupně 10-13 mají jen měsíční tarif.
+            // Verze "platí od" (měsíc 'RRRR-MM', null = od začátku): při změně tarifů se přidá nová verze
+            // na konec seznamu a starší měsíce se nabízejí podle původní tabulky.
+            const TARIFF_VERSIONS = [
+                {
+                    from: null,
+                    table: {
+                        1: [144.30, 23400], 2: [148.80, 24200], 3: [149.70, 24600], 4: [151.90, 24900],
+                        5: [157.90, 25800], 6: [169.00, 27500], 7: [181.20, 29800], 8: [196.60, 32300],
+                        9: [211.30, 34600], 10: [null, 37600], 11: [null, 40700], 12: [null, 44500],
+                        13: [null, 49200]
+                    }
+                }
+            ];
+
+            // Tabulka tarifů platná pro měsíc 'RRRR-MM' (nejstarší verze platí i zpětně)
+            function tariffTableFor(ym) {
+                let chosen = TARIFF_VERSIONS[0];
+                for (const version of TARIFF_VERSIONS) {
+                    if (version.from === null || version.from <= ym) chosen = version;
+                }
+                return chosen.table;
+            }
+
+            // Tabulka pro zobrazený měsíc kalkulačky
+            function shownTariffTable() {
+                return tariffTableFor(ymKey(currentYear, currentMonth));
+            }
             // Měsíční fond pro dopočet hodinové sazby u stupňů bez hodinového tarifu (37,5 h týdně = 1950 h / 12)
             const TARIFF_MONTHLY_FUND = 162.5;
 
@@ -5365,7 +5386,7 @@
             function syncWageFormToMonth() {
                 const version = pickWageVersion(wageVersions(employerProfile, false), ymKey(currentYear, currentMonth));
                 if (version.from !== formWageVersionFrom) applyEmployerProfile(employerProfile);
-                else renderWageVersions();
+                else { renderWageVersions(); buildTariffOptions(); }
             }
 
             function wageFromLabel(from) {
@@ -5547,10 +5568,11 @@
                 document.getElementById('payType').value = isFixedPay(settings.payType, rules) ? 'monthly' : 'hourly';
                 // Starší uložená nastavení stupeň neznají - pozná se podle shody se sazbou
                 let grade = settings.tariffGrade;
-                if (grade !== 'custom' && !TARIFF_TABLE[grade]) {
-                    grade = Object.keys(TARIFF_TABLE).find(g => document.getElementById('payType').value === 'monthly'
-                        ? TARIFF_TABLE[g][1] === Number(settings.fixedSalary)
-                        : TARIFF_TABLE[g][0] === Number(settings.baseWage)) || 'custom';
+                const tariffTable = shownTariffTable();
+                if (grade !== 'custom' && !tariffTable[grade]) {
+                    grade = Object.keys(tariffTable).find(g => document.getElementById('payType').value === 'monthly'
+                        ? tariffTable[g][1] === Number(settings.fixedSalary)
+                        : tariffTable[g][0] === Number(settings.baseWage)) || 'custom';
                 }
                 buildTariffOptions();
                 document.getElementById('tariffGrade').value = grade;
@@ -5578,7 +5600,7 @@
                 const monthly = document.getElementById('payType').value === 'monthly';
                 const current = select.value || 'custom';
                 let html = '<option value="custom">Vlastní (zadat ručně)</option>';
-                Object.entries(TARIFF_TABLE).forEach(([grade, [hourly, perMonth]]) => {
+                Object.entries(shownTariffTable()).forEach(([grade, [hourly, perMonth]]) => {
                     const disabled = !monthly && hourly === null;
                     const label = `${grade}. – ` + (hourly !== null ? `${formatCz(hourly, 2)} Kč/h · ` : '') + `${formatCz(perMonth, 0)} Kč/m.`;
                     html += `<option value="${grade}"${disabled ? ' disabled' : ''}>${label}</option>`;
@@ -5602,7 +5624,7 @@
             // Vybraný stupeň přepíše sazby: hodinová mzda = Kč/h; měsíční mzda = Kč/měs. + hodinová sazba
             // pro přesčas a příplatky (u stupňů 10-13 bez hodinového tarifu dopočtená z měsíčního)
             function applyTariffGrade() {
-                const entry = TARIFF_TABLE[document.getElementById('tariffGrade').value];
+                const entry = shownTariffTable()[document.getElementById('tariffGrade').value];
                 if (!entry) return;
                 const [hourly, perMonth] = entry;
                 if (document.getElementById('payType').value === 'monthly') {
@@ -5617,7 +5639,7 @@
             // Ruční úprava sazby - pokud už nesedí na vybraný stupeň, přepne se na "Vlastní"
             function syncTariffGradeWithWage() {
                 const select = document.getElementById('tariffGrade');
-                const entry = TARIFF_TABLE[select.value];
+                const entry = shownTariffTable()[select.value];
                 if (!entry) return;
                 const monthly = document.getElementById('payType').value === 'monthly';
                 const current = parseFloat(document.getElementById(monthly ? 'fixedSalary' : 'baseWage').value);
@@ -7722,7 +7744,7 @@
                 // Způsob odměňování / tarifní stupeň / sazby
                 document.getElementById('payType').addEventListener('change', function() {
                     // Stupně 10-13 nemají hodinovou sazbu - při přepnutí na hodinovou mzdu zůstane ruční zadání
-                    const entry = TARIFF_TABLE[document.getElementById('tariffGrade').value];
+                    const entry = shownTariffTable()[document.getElementById('tariffGrade').value];
                     if (this.value === 'hourly' && entry && entry[0] === null) {
                         document.getElementById('tariffGrade').value = 'custom';
                     }
