@@ -418,6 +418,12 @@
             color: var(--text-color);
         }
 
+        /* Klouzák volno - neodpracovaná směna navíc nad fond (šrafované) */
+        .shift-KV {
+            background: repeating-linear-gradient(45deg, var(--shift-nv-bg) 0 6px, transparent 6px 12px);
+            color: var(--text-color);
+        }
+
         /* Svátek - červený pruh nahoře a červené číslo dne (pozadí zůstává podle směny) */
         .day.holiday {
             box-shadow: inset 0 4px 0 #e53935;
@@ -907,6 +913,10 @@
 
         .year-table .shift-NEM {
             background-color: var(--shift-nem-bg);
+        }
+
+        .year-table .shift-KV {
+            background: repeating-linear-gradient(45deg, var(--shift-nv-bg) 0 4px, transparent 4px 8px);
         }
 
         @media (max-width: 600px) {
@@ -1797,12 +1807,14 @@
                     <summary class="collapsible-summary">Klouzák</summary>
                     <p class="hint">
                         Den navíc k běžné směně - platí se za něj příplatek za přesčas, i když je ten den
-                        už naplánovaná směna.
+                        už naplánovaná směna. Když se klouzák výjimečně neodpracuje, dej „Nešel jsem“:
+                        den se nezaplatí a ubere se i přesčas za směnu ve svátku (nad fond).
                     </p>
                     <div id="slidingShiftStatus" style="font-size: 0.85em; margin-bottom: 10px;"></div>
                     <div style="display: flex; gap: 10px; justify-content: center;">
                         <button class="action-btn" onclick="setSlidingShift()">Označit</button>
                         <button class="action-btn secondary" onclick="removeSlidingShift()">Odznačit</button>
+                        <button class="action-btn" onclick="setShiftOverride('KV')">Nešel jsem (klouzák volno)</button>
                     </div>
                 </details>
 
@@ -2009,8 +2021,8 @@
 
             // --- Typy směn firmy ---
             // Kód směny v cyklu ('R', 'O', 'N', vlastní 'C1'...) určuje typ s časy a placenými hodinami.
-            // Kódy '-', 'D' (dovolená), 'NV' (náhradní volno), 'NEM' (nemoc) nejsou práce.
-            const NON_WORK_CODES = ['-', 'D', 'NV', 'NEM'];
+            // Kódy '-', 'D' (dovolená), 'NV' (náhradní volno), 'NEM' (nemoc), 'KV' (klouzák volno) nejsou práce.
+            const NON_WORK_CODES = ['-', 'D', 'NV', 'NEM', 'KV'];
             const BUILTIN_TYPES = {
                 R: { label: 'Ranní', short: 'R', from: '06:00', to: '18:00', breakFrom: '12:00', breakMin: 30, paidHours: 11.5 },
                 O: { label: 'Odpolední', short: 'O', from: '14:00', to: '22:00', breakFrom: '18:00', breakMin: 30, paidHours: 7.5 },
@@ -2573,8 +2585,8 @@
 
             // Hodnoty směny dne: 'R' ranní, 'N' noční, '-' volno, 'D' dovolená, 'NV' náhradní volno.
             // Odpracovaná (placená jako práce) je jen R/N - dovolená a náhradní volno se počítají zvlášť.
-            const SHIFT_LABELS = { R: 'Ranní', N: 'Noční', '-': 'Volno', D: 'Dovolená', NV: 'Náhradní volno', NEM: 'Nemoc' };
-            const SHIFT_SHORT = { R: 'R', N: 'N', D: 'D', NV: 'NV', NEM: 'Nem' };
+            const SHIFT_LABELS = { R: 'Ranní', N: 'Noční', '-': 'Volno', D: 'Dovolená', NV: 'Náhradní volno', NEM: 'Nemoc', KV: 'Klouzák volno' };
+            const SHIFT_SHORT = { R: 'R', N: 'N', D: 'D', NV: 'NV', NEM: 'Nem', KV: 'KV' };
 
             // --- Nemoc (dočasná pracovní neschopnost) podle zákoníku práce (§192) ---
             // Prvních 14 kalendářních dní platí zaměstnavatel náhradu mzdy za zameškané směny:
@@ -2956,7 +2968,12 @@
                 const holidayWageWithOvertime = holidayRate * settings.holidayBonus * (holidayHours + holidayOvertimeHours);
                 // Firma 2: směna ve svátek je navíc nad měsíční fond (svátek ho snižuje), takže se platí
                 // i příplatek za přesčas (výplatnice 9/2026: 161 h odpracováno + 11,5 h přesčas za 28. 9.)
-                const holidayShiftOvertimeHours = rules.holidayShiftOvertime ? holidayHours : 0;
+                // Klouzák volno: směna navíc nad fond se výjimečně neodpracovala (výplatnice 10/2026: 14 dní, 161 h,
+                // svátek odpracován, žádný přesčas) - o její hodiny se přesčas za směnu navíc snižuje
+                const slidingOffHours = monthShifts
+                    .filter(s => s.shift === 'KV' && isWorkShift(s.scheduled))
+                    .reduce((sum, s) => sum + shiftPaidHours(s.scheduled, s.date), 0);
+                const holidayShiftOvertimeHours = rules.holidayShiftOvertime ? Math.max(0, holidayHours - slidingOffHours) : 0;
 
                 // Klouzavá směna ("klouzák") - den s už naplánovanou běžnou směnou, ale počítaný
                 // jako den navíc: hodiny se NEPŘIČÍTAJÍ do odpracovaných hodin (ty už dala běžná
@@ -3049,6 +3066,7 @@
 
                 return {
                     ...(fixedPay ? { fixedSalaryReduction } : {}),
+                    ...(slidingOffHours > 0 ? { slidingOffHours } : {}),
                     totalHoursWithOvertime, totalOvertimeHours,
                     weekendHours, weekendOvertimeHours, holidayHours, holidayOvertimeHours,
                     overtimeNHours, slidingShiftHours, holidayShiftOvertimeHours, holidayRate, nightBonusHours, overtimeNightBonusHours,
@@ -4489,7 +4507,7 @@
                     const sickDay = getSickDayNumber(date, currentShift);
                     markers.push({ kind: 'sick', sickDay, text: `Nemoc – ${sickDay}. den` });
                 } else if (shiftOverrides[currentShift].has(dateStr)) {
-                    markers.push({ kind: 'override', text: `Směna změněna: ${shiftLabel(shiftValue, selectedDate || undefined)}` });
+                    markers.push({ kind: 'override', text: `Směna změněna: ${shiftLabel(shiftValue, date)}` });
                 }
                 const ot = overtimeDays[currentShift].get(dateStr);
                 if (ot) {
@@ -4708,7 +4726,7 @@
                 shiftOverrides[g].forEach((value, key) => {
                     const date = dateFromKey(key);
                     if (!date) return;
-                    const leave = value === 'D' || value === 'NV' || value === 'NEM';
+                    const leave = value === 'D' || value === 'NV' || value === 'NEM' || value === 'KV';
                     add(date, leave ? 'leave' : 'override', value === 'NEM' ? 'sick' : 'override',
                         leave ? shiftLabel(value, date) : `Směna změněna: ${shiftLabel(value, date)}`);
                 });
@@ -6941,6 +6959,7 @@
                         <span>${w.overtimeBonusWage.toLocaleString('cs-CZ', MONEY_FORMAT)} Kč</span>
                         ${w.slidingShiftHours > 0 ? `<small>(z toho ${w.slidingShiftHours.toFixed(1)} hod klouzák)</small>` : ''}
                         ${w.holidayShiftOvertimeHours > 0 ? `<small>(z toho ${w.holidayShiftOvertimeHours.toFixed(1)} hod směna ve svátek - nad měsíční fond)</small>` : ''}
+                        ${w.slidingOffHours > 0 ? `<small>(klouzák volno ${w.slidingOffHours.toFixed(1)} hod - směna navíc neodpracována, neplatí se)</small>` : ''}
                         ${w.compensatoryOvertimeHours > 0 ? `<small>(${w.compensatoryOvertimeHours.toFixed(1)} hod přesčasu jde na náhradní volno - bez příplatku)</small>` : ''}
                     </div>
                     ${vacationDisplay}
@@ -7380,8 +7399,8 @@
                 if (selectedDate) {
                     const dateStr = toDateKey(selectedDate);
                     // Dovolená / náhradní volno se berou jen za směnu podle rozvrhu
-                    if ((type === 'D' || type === 'NV') && !isWorkShift(getRotationShift(selectedDate, currentShift))) {
-                        showNotification(`Tento den nemáš podle rozvrhu směnu - ${type === 'D' ? 'dovolená' : 'náhradní volno'} se tu nečerpá.`);
+                    if ((type === 'D' || type === 'NV' || type === 'KV') && !isWorkShift(getRotationShift(selectedDate, currentShift))) {
+                        showNotification(`Tento den nemáš podle rozvrhu směnu - ${type === 'D' ? 'dovolená' : type === 'NV' ? 'náhradní volno' : 'klouzák volno'} se tu nečerpá.`);
                         return;
                     }
                     shiftOverrides[currentShift].set(dateStr, type);

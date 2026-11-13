@@ -10,3 +10,4 @@ Potřebují jen node (bez instalace balíčků).
 - `make-baseline.js` – vyrobí baseline z původního kódu. Pouštět jen když se chování mění úmyslně.
 - `harness.js` – spuštění aplikace v node, `fixture-storage.js` – obsah localStorage pro testy.
 - `etapa1.test.js` – model firem, migrace, rozpis z cyklu, data po firmách, záloha.
+- `klouzak-volno.test.js` – klouzák volno (KV): neodpracovaný klouzák, výpočet podle výplatnice 10/2026.
